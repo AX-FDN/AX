@@ -171,6 +171,33 @@ fn main() -> i32 {
 }
 
 #[test]
+fn mir_dump_matches_snapshot() {
+    let temp = TempDir::new("mir");
+    let input = temp.write(
+        "for_loop.ax",
+        "\
+fn main() -> i32 {
+    let mut total: i32 = 0;
+
+    for (let mut i: i32 = 0; i < 5; i = i + 1) {
+        total = total + i;
+    }
+
+    println(total);
+    return total;
+}
+",
+    );
+
+    let output = run_axc([OsStr::new("mir"), input.as_os_str()]);
+    assert_eq!(output.status.code(), Some(0));
+    assert_clean_stderr(&output);
+
+    let stdout = normalize_text(&string_output(&output.stdout));
+    assert_eq!(stdout, snapshot("mir_for_loop.json"));
+}
+
+#[test]
 fn build_manifest_matches_snapshot() {
     let temp = TempDir::new("build");
     let input = temp.write(
@@ -197,11 +224,13 @@ fn main() -> i32 {
 
     let manifest_path = out_dir.join("build-manifest.json");
     let hir_path = out_dir.join("program.hir.json");
+    let mir_path = out_dir.join("program.mir.json");
     let source_copy_path = out_dir.join("source.ax");
     let planned_binary_dir = out_dir.join("bin");
 
     assert!(manifest_path.exists(), "build manifest should exist");
     assert!(hir_path.exists(), "build HIR should exist");
+    assert!(mir_path.exists(), "build MIR should exist");
     assert!(source_copy_path.exists(), "build source copy should exist");
     assert!(
         planned_binary_dir.exists(),

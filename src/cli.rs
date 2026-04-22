@@ -22,6 +22,7 @@ pub fn run_cli(args: Vec<String>) -> i32 {
         "check" => run_check(rest),
         "ast" => run_ast(rest),
         "hir" => run_hir(rest),
+        "mir" => run_mir(rest),
         "build" => run_build(rest),
         "run" => run_run(rest),
         "fmt" => run_fmt(rest),
@@ -175,10 +176,15 @@ fn run_build(args: Vec<String>) -> i32 {
         eprintln!("internal error: HIR should be available after a successful analysis");
         return 1;
     };
+    let Some(mir) = output.mir.as_ref() else {
+        eprintln!("internal error: MIR should be available after a successful analysis");
+        return 1;
+    };
 
     let result = match build_program(
         &source,
         hir,
+        mir,
         &BuildOptions {
             out_dir: options.out_dir,
         },
@@ -191,6 +197,39 @@ fn run_build(args: Vec<String>) -> i32 {
     };
 
     println!("build succeeded: {}", result.manifest_path.display());
+    0
+}
+
+fn run_mir(args: Vec<String>) -> i32 {
+    if args.len() != 1 {
+        eprintln!("usage: axc mir <file>");
+        return 2;
+    }
+
+    let path = PathBuf::from(&args[0]);
+    let source = match SourceFile::from_path(&path) {
+        Ok(source) => source,
+        Err(error) => {
+            eprintln!("failed to read {}: {error}", path.display());
+            return 1;
+        }
+    };
+
+    let output = analyze(&source);
+    if !output.diagnostics.is_empty() {
+        eprintln!("{}", render_diagnostics(&source, &output.diagnostics));
+        return 1;
+    }
+
+    let Some(mir) = output.mir else {
+        eprintln!("internal error: MIR should be available after a successful analysis");
+        return 1;
+    };
+
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&mir).expect("mir json should serialize")
+    );
     0
 }
 
@@ -279,6 +318,7 @@ Commands:
   check <file> [--json] [--ai] [--ai-session <path>]   Run lexer, parser, and base semantic checks
   ast <file>              Print stable AST JSON
   hir <file>              Print stable HIR JSON
+  mir <file>              Print stable MIR JSON
   build <file> [--out-dir <path>]   Emit the build skeleton artifacts for the native backend stage
   run <file>              Execute the minimal interpreter
   fmt <file>              Rewrite the file to the canonical AX format

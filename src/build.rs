@@ -4,11 +4,13 @@ use std::path::{Path, PathBuf};
 use serde::Serialize;
 
 use crate::hir::Program as HirProgram;
+use crate::mir::Program as MirProgram;
 use crate::source::SourceFile;
 
 const BUILD_MANIFEST_FILE: &str = "build-manifest.json";
 const SOURCE_COPY_FILE: &str = "source.ax";
 const HIR_FILE: &str = "program.hir.json";
+const MIR_FILE: &str = "program.mir.json";
 
 #[derive(Debug, Clone)]
 pub struct BuildOptions {
@@ -43,6 +45,7 @@ pub struct BuildBackend {
 pub struct BuildArtifacts {
     pub source_copy: String,
     pub hir_json: String,
+    pub mir_json: String,
     pub planned_executable: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub executable: Option<String>,
@@ -75,6 +78,7 @@ pub fn target_name(input_file: &Path) -> Result<String, String> {
 pub fn build_program(
     source: &SourceFile,
     hir: &HirProgram,
+    mir: &MirProgram,
     options: &BuildOptions,
 ) -> Result<BuildResult, String> {
     fs::create_dir_all(&options.out_dir).map_err(|error| {
@@ -106,9 +110,15 @@ pub fn build_program(
     fs::write(&hir_path, format!("{hir_text}\n"))
         .map_err(|error| format!("failed to write build HIR {}: {error}", hir_path.display()))?;
 
+    let mir_path = options.out_dir.join(MIR_FILE);
+    let mir_text = serde_json::to_string_pretty(mir)
+        .map_err(|error| format!("failed to serialize MIR for build output: {error}"))?;
+    fs::write(&mir_path, format!("{mir_text}\n"))
+        .map_err(|error| format!("failed to write build MIR {}: {error}", mir_path.display()))?;
+
     let target_name = target_name(source.path())?;
     let manifest = BuildManifest {
-        schema_version: 1,
+        schema_version: 2,
         target_name: target_name.clone(),
         entry_file: source.display_path(),
         output_dir: options.out_dir.display().to_string(),
@@ -120,11 +130,12 @@ pub fn build_program(
         artifacts: BuildArtifacts {
             source_copy: SOURCE_COPY_FILE.to_string(),
             hir_json: HIR_FILE.to_string(),
+            mir_json: MIR_FILE.to_string(),
             planned_executable: format!("bin/{}{}", target_name, executable_suffix()),
             executable: None,
         },
         notes: vec![
-            "This build currently emits frontend-stable artifacts only.".to_string(),
+            "This build currently emits frontend and midend stable artifacts only.".to_string(),
             "Native executable emission will be added in the future backend stage.".to_string(),
         ],
     };

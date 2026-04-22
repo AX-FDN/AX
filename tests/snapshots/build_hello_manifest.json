@@ -1,6 +1,7 @@
 {
   "artifacts": {
     "hir_json": "program.hir.json",
+    "mir_json": "program.mir.json",
     "planned_executable": "bin/hello.exe",
     "source_copy": "source.ax"
   },
@@ -11,10 +12,10 @@
   },
   "entry_file": "<input>/hello.ax",
   "notes": [
-    "This build currently emits frontend-stable artifacts only.",
+    "This build currently emits frontend and midend stable artifacts only.",
     "Native executable emission will be added in the future backend stage."
   ],
   "output_dir": "<build-out>",
-  "schema_version": 1,
+  "schema_version": 2,
   "target_name": "hello"
 }

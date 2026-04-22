@@ -1,0 +1,314 @@
+{
+  "items": [
+    {
+      "kind": "function",
+      "name": "main",
+      "params": [],
+      "return_type": {
+        "kind": "i32"
+      },
+      "locals": [
+        {
+          "id": 0,
+          "kind": "local",
+          "name": "total",
+          "ty": {
+            "kind": "i32"
+          },
+          "mutable": true,
+          "span": {
+            "start": 23,
+            "end": 46
+          }
+        },
+        {
+          "id": 1,
+          "kind": "local",
+          "name": "i",
+          "ty": {
+            "kind": "i32"
+          },
+          "mutable": true,
+          "span": {
+            "start": 57,
+            "end": 76
+          }
+        }
+      ],
+      "entry_block": 0,
+      "blocks": [
+        {
+          "id": 0,
+          "span": {
+            "start": 17,
+            "end": 170
+          },
+          "statements": [
+            {
+              "kind": "let",
+              "local": 0,
+              "name": "total",
+              "mutable": true,
+              "ty": {
+                "kind": "i32"
+              },
+              "initializer": {
+                "kind": "int",
+                "value": 0,
+                "span": {
+                  "start": 44,
+                  "end": 45
+                }
+              },
+              "span": {
+                "start": 23,
+                "end": 46
+              }
+            },
+            {
+              "kind": "let",
+              "local": 1,
+              "name": "i",
+              "mutable": true,
+              "ty": {
+                "kind": "i32"
+              },
+              "initializer": {
+                "kind": "int",
+                "value": 0,
+                "span": {
+                  "start": 74,
+                  "end": 75
+                }
+              },
+              "span": {
+                "start": 57,
+                "end": 76
+              }
+            }
+          ],
+          "terminator": {
+            "kind": "goto",
+            "target": 1,
+            "span": {
+              "start": 52,
+              "end": 129
+            }
+          }
+        },
+        {
+          "id": 1,
+          "span": {
+            "start": 77,
+            "end": 82
+          },
+          "statements": [],
+          "terminator": {
+            "kind": "branch",
+            "condition": {
+              "kind": "binary",
+              "op": "less",
+              "left": {
+                "kind": "local",
+                "local": 1,
+                "name": "i",
+                "span": {
+                  "start": 77,
+                  "end": 78
+                }
+              },
+              "right": {
+                "kind": "int",
+                "value": 5,
+                "span": {
+                  "start": 81,
+                  "end": 82
+                }
+              },
+              "span": {
+                "start": 77,
+                "end": 82
+              }
+            },
+            "then_block": 2,
+            "else_block": 3,
+            "span": {
+              "start": 77,
+              "end": 82
+            }
+          }
+        },
+        {
+          "id": 2,
+          "span": {
+            "start": 52,
+            "end": 129
+          },
+          "statements": [
+            {
+              "kind": "assign",
+              "target": {
+                "kind": "local",
+                "local": 0,
+                "name": "total",
+                "span": {
+                  "start": 105,
+                  "end": 110
+                }
+              },
+              "value": {
+                "kind": "binary",
+                "op": "add",
+                "left": {
+                  "kind": "local",
+                  "local": 0,
+                  "name": "total",
+                  "span": {
+                    "start": 113,
+                    "end": 118
+                  }
+                },
+                "right": {
+                  "kind": "local",
+                  "local": 1,
+                  "name": "i",
+                  "span": {
+                    "start": 121,
+                    "end": 122
+                  }
+                },
+                "span": {
+                  "start": 113,
+                  "end": 122
+                }
+              },
+              "span": {
+                "start": 105,
+                "end": 123
+              }
+            },
+            {
+              "kind": "assign",
+              "target": {
+                "kind": "local",
+                "local": 1,
+                "name": "i",
+                "span": {
+                  "start": 84,
+                  "end": 85
+                }
+              },
+              "value": {
+                "kind": "binary",
+                "op": "add",
+                "left": {
+                  "kind": "local",
+                  "local": 1,
+                  "name": "i",
+                  "span": {
+                    "start": 88,
+                    "end": 89
+                  }
+                },
+                "right": {
+                  "kind": "int",
+                  "value": 1,
+                  "span": {
+                    "start": 92,
+                    "end": 93
+                  }
+                },
+                "span": {
+                  "start": 88,
+                  "end": 93
+                }
+              },
+              "span": {
+                "start": 84,
+                "end": 93
+              }
+            }
+          ],
+          "terminator": {
+            "kind": "goto",
+            "target": 1,
+            "span": {
+              "start": 52,
+              "end": 129
+            }
+          }
+        },
+        {
+          "id": 3,
+          "span": {
+            "start": 52,
+            "end": 129
+          },
+          "statements": [
+            {
+              "kind": "eval",
+              "expr": {
+                "kind": "call",
+                "function": "println",
+                "arguments": [
+                  {
+                    "kind": "local",
+                    "local": 0,
+                    "name": "total",
+                    "span": {
+                      "start": 143,
+                      "end": 148
+                    }
+                  }
+                ],
+                "span": {
+                  "start": 135,
+                  "end": 149
+                }
+              },
+              "span": {
+                "start": 135,
+                "end": 150
+              }
+            }
+          ],
+          "terminator": {
+            "kind": "return",
+            "value": {
+              "kind": "local",
+              "local": 0,
+              "name": "total",
+              "span": {
+                "start": 162,
+                "end": 167
+              }
+            },
+            "span": {
+              "start": 155,
+              "end": 168
+            }
+          }
+        },
+        {
+          "id": 4,
+          "span": {
+            "start": 155,
+            "end": 168
+          },
+          "statements": [],
+          "terminator": {
+            "kind": "unreachable",
+            "span": {
+              "start": 17,
+              "end": 170
+            }
+          }
+        }
+      ],
+      "span": {
+        "start": 0,
+        "end": 170
+      }
+    }
+  ]
+}
