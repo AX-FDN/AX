@@ -27,8 +27,10 @@
   - 目标：把 `AST -> 语义 -> 后端` 之间的中间表示真正落到代码里。
   - 完成于：2026-04-22
   - 备注：新增 `src/hir.rs` 与 `axc hir <file>`；`for` 已 lowering 为更核心的 HIR 控制流，解释器已改为直接执行 HIR，并通过测试与真实命令 smoke test。
-- [ ] `P0-4` 补 CI 与外部接口快照。
+- [x] `P0-4` 补 CI 与外部接口快照。
   - 目标：至少覆盖 `fmt` 幂等、diagnostics JSON、AST/HIR dump、repair benchmark smoke run。
+  - 完成于：2026-04-22
+  - 备注：新增 `tests/interface_snapshots.rs`、`tests/snapshots/`、`scripts/smoke-repair-benchmark.ps1` 与 `.github/workflows/ci.yml`；已通过 `cargo-gnu.ps1 test` 和 replay smoke benchmark 验证。
 
 ## P1
 

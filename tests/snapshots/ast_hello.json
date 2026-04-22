@@ -1,0 +1,138 @@
+{
+  "items": [
+    {
+      "kind": "function",
+      "name": "main",
+      "params": [],
+      "return_type": {
+        "name": "i32",
+        "span": {
+          "start": 13,
+          "end": 16
+        }
+      },
+      "body": {
+        "statements": [
+          {
+            "kind": "let",
+            "mutable": true,
+            "name": "value",
+            "ty": {
+              "name": "i32",
+              "span": {
+                "start": 38,
+                "end": 41
+              }
+            },
+            "initializer": {
+              "kind": "int",
+              "value": 1,
+              "span": {
+                "start": 44,
+                "end": 45
+              }
+            },
+            "span": {
+              "start": 23,
+              "end": 46
+            }
+          },
+          {
+            "kind": "assign",
+            "target": {
+              "kind": "name",
+              "value": "value",
+              "span": {
+                "start": 51,
+                "end": 56
+              }
+            },
+            "value": {
+              "kind": "binary",
+              "op": "add",
+              "left": {
+                "kind": "name",
+                "value": "value",
+                "span": {
+                  "start": 59,
+                  "end": 64
+                }
+              },
+              "right": {
+                "kind": "int",
+                "value": 2,
+                "span": {
+                  "start": 67,
+                  "end": 68
+                }
+              },
+              "span": {
+                "start": 59,
+                "end": 68
+              }
+            },
+            "span": {
+              "start": 51,
+              "end": 69
+            }
+          },
+          {
+            "kind": "expr",
+            "expr": {
+              "kind": "call",
+              "callee": {
+                "kind": "name",
+                "value": "println",
+                "span": {
+                  "start": 74,
+                  "end": 81
+                }
+              },
+              "arguments": [
+                {
+                  "kind": "name",
+                  "value": "value",
+                  "span": {
+                    "start": 82,
+                    "end": 87
+                  }
+                }
+              ],
+              "span": {
+                "start": 74,
+                "end": 88
+              }
+            },
+            "span": {
+              "start": 74,
+              "end": 89
+            }
+          },
+          {
+            "kind": "return",
+            "value": {
+              "kind": "int",
+              "value": 0,
+              "span": {
+                "start": 101,
+                "end": 102
+              }
+            },
+            "span": {
+              "start": 94,
+              "end": 103
+            }
+          }
+        ],
+        "span": {
+          "start": 17,
+          "end": 105
+        }
+      },
+      "span": {
+        "start": 0,
+        "end": 105
+      }
+    }
+  ]
+}

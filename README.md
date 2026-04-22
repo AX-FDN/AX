@@ -176,6 +176,13 @@ cargo run -- check examples\missing_semicolon.ax --json --ai --ai-session .ax-ai
 - `-Profile <name>`：复用 `~/.codex/config.toml` 里的 profile
 - `-ConfigOverride @('key=value', ...)`：透传额外 `codex -c` 配置覆盖
 
+仓库现在也带了一套稳定接口快照和 CI 烟雾验证：
+
+- [`tests/interface_snapshots.rs`](./tests/interface_snapshots.rs) 会覆盖 `fmt` 幂等、`check --json`、`ast`、`hir`
+- [`tests/snapshots`](./tests/snapshots) 保存当前 CLI 外部接口快照
+- [`scripts/smoke-repair-benchmark.ps1`](./scripts/smoke-repair-benchmark.ps1) 会用仓库内的 replay candidates 跑最小 repair benchmark 闭环
+- [`.github/workflows/ci.yml`](./.github/workflows/ci.yml) 会在 GitHub Actions 上执行 `cargo fmt --check`、Rust tests 和 repair benchmark smoke run
+
 ## 推荐阅读顺序
 
 - 想了解项目边界与阶段路线：看 [`PLAN.md`](./PLAN.md)
