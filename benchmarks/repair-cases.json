@@ -73,6 +73,87 @@
       "expected_ai_rule_ids": ["all_paths_must_return"],
       "repair_goal": "Add a return on the control-flow path that currently falls through.",
       "notes": "Exercises function-context slicing for AI repair."
+    },
+    {
+      "id": "unknown_type_missing",
+      "file": "examples/unknown_type.ax",
+      "category": "semantic",
+      "expected_codes": ["S0006"],
+      "expected_ai_rule_ids": ["type_must_be_declared"],
+      "repair_goal": "Replace the missing type with a declared AX type or add the missing declaration.",
+      "notes": "Covers type-name resolution and the new type declaration rule card."
+    },
+    {
+      "id": "missing_struct_literal_field",
+      "file": "examples/missing_struct_field.ax",
+      "category": "semantic",
+      "expected_codes": ["S0026"],
+      "expected_ai_rule_ids": ["struct_literal_fields_must_be_complete"],
+      "repair_goal": "Add the missing field initializer so the struct literal is complete.",
+      "notes": "Exercises struct-shape repair instead of scalar-only fixes."
+    },
+    {
+      "id": "unknown_enum_variant_flag",
+      "file": "examples/unknown_enum_variant.ax",
+      "category": "semantic",
+      "expected_codes": ["S0029"],
+      "expected_ai_rule_ids": ["enum_variant_must_exist"],
+      "repair_goal": "Replace the enum variant with one declared on the enum.",
+      "notes": "Covers enum-surface repairs and symbol-aware guidance."
+    },
+    {
+      "id": "immutable_struct_field_point",
+      "file": "examples/immutable_struct_field.ax",
+      "category": "semantic",
+      "expected_codes": ["S0030"],
+      "expected_ai_rule_ids": ["mutable_struct_field_assignment_required"],
+      "repair_goal": "Make the struct binding mutable before assigning to its field.",
+      "notes": "Extends mutability repairs from scalar locals to struct field writes."
+    },
+    {
+      "id": "type_name_as_value_flag",
+      "file": "examples/type_name_as_value.ax",
+      "category": "semantic",
+      "expected_codes": ["S0028"],
+      "expected_ai_rule_ids": ["type_name_not_runtime_value"],
+      "repair_goal": "Replace the type name with a real runtime value, such as an enum variant.",
+      "notes": "Covers a common model mistake where a type name is used like a value."
+    },
+    {
+      "id": "duplicate_local_definition_value",
+      "file": "examples/duplicate_definition.ax",
+      "category": "semantic",
+      "expected_codes": ["S0001"],
+      "expected_ai_rule_ids": ["unique_definition_required"],
+      "repair_goal": "Remove or rename the duplicate local definition.",
+      "notes": "Provides a stable duplicate-definition repair target."
+    },
+    {
+      "id": "import_declaration_unsupported",
+      "file": "examples/import_unsupported.ax",
+      "category": "unsupported",
+      "expected_codes": ["P0001"],
+      "expected_ai_rule_ids": ["import_declarations_not_supported"],
+      "repair_goal": "Remove the import and keep the runnable prototype in a single file.",
+      "notes": "First unsupported-feature benchmark case for module-system syntax."
+    },
+    {
+      "id": "module_declaration_unsupported",
+      "file": "examples/module_unsupported.ax",
+      "category": "unsupported",
+      "expected_codes": ["P0001"],
+      "expected_ai_rule_ids": ["module_declarations_not_supported"],
+      "repair_goal": "Remove the module declaration and keep the prototype program flat.",
+      "notes": "Covers unsupported namespace syntax with a stable parse diagnostic."
+    },
+    {
+      "id": "array_literal_unsupported",
+      "file": "examples/array_literal_unsupported.ax",
+      "category": "unsupported",
+      "expected_codes": ["L0001", "L0001"],
+      "expected_ai_rule_ids": ["array_syntax_not_supported", "array_syntax_not_supported"],
+      "repair_goal": "Rewrite the bracket-based literal into currently supported AX constructs.",
+      "notes": "Covers unsupported array or slice syntax without relying on parser recovery."
     }
   ]
 }

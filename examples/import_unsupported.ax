@@ -1,0 +1,4 @@
+import math
+fn main() -> i32 {
+    return 0;
+}

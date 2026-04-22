@@ -19,6 +19,33 @@
       "expected_ai_rule_ids": ["type_match_required"],
       "repair_goal": "Make the declared type and initializer use the same AX type.",
       "notes": "CI smoke semantic case."
+    },
+    {
+      "id": "unknown_type_missing",
+      "file": "examples/unknown_type.ax",
+      "category": "semantic",
+      "expected_codes": ["S0006"],
+      "expected_ai_rule_ids": ["type_must_be_declared"],
+      "repair_goal": "Replace the missing type with a declared AX type or add the missing declaration.",
+      "notes": "CI smoke unknown-type case."
+    },
+    {
+      "id": "missing_struct_literal_field",
+      "file": "examples/missing_struct_field.ax",
+      "category": "semantic",
+      "expected_codes": ["S0026"],
+      "expected_ai_rule_ids": ["struct_literal_fields_must_be_complete"],
+      "repair_goal": "Add the missing field initializer so the struct literal is complete.",
+      "notes": "CI smoke struct-literal completeness case."
+    },
+    {
+      "id": "import_declaration_unsupported",
+      "file": "examples/import_unsupported.ax",
+      "category": "unsupported",
+      "expected_codes": ["P0001"],
+      "expected_ai_rule_ids": ["import_declarations_not_supported"],
+      "repair_goal": "Remove the unsupported import and keep the program runnable as a single file.",
+      "notes": "CI smoke unsupported-feature case."
     }
   ]
 }

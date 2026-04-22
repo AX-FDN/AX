@@ -38,8 +38,10 @@
   - 目标：加入 unsupported feature guidance、更多类型错误、更多语法恢复规则。
   - 完成于：2026-04-22
   - 备注：已补齐首批 lexer/parser/semantic 规则卡扩展，并接入 `import` / `module` / `match` / 数组语法的第一批 unsupported feature guidance。
-- [ ] `P1-2` 扩大 repair benchmark 数据集。
+- [x] `P1-2` 扩大 repair benchmark 数据集。
   - 目标：从当前高频坏例子扩展到更多真实小任务和多轮样例。
+  - 完成于：2026-04-22
+  - 备注：已把完整 repair case 扩到 17 个，并把 CI smoke replay 扩到 5 个稳定 case，覆盖 unknown type、missing struct field 和 unsupported import。
 - [ ] `P1-3` 做正式的模型对照实验。
   - 目标：跑出 `base diagnostics` vs `ai diagnostics` 的真实 repair lift。
 - [ ] `P1-4` 稳定文档出口。

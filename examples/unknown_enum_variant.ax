@@ -1,0 +1,6 @@
+enum Flag { On, Off }
+
+fn main() -> i32 {
+    let flag: Flag = Flag.Unknown;
+    return 0;
+}
