@@ -34,8 +34,10 @@
 
 ## P1
 
-- [ ] `P1-1` 扩大 AI 规则卡覆盖范围。
+- [x] `P1-1` 扩大 AI 规则卡覆盖范围。
   - 目标：加入 unsupported feature guidance、更多类型错误、更多语法恢复规则。
+  - 完成于：2026-04-22
+  - 备注：已补齐首批 lexer/parser/semantic 规则卡扩展，并接入 `import` / `module` / `match` / 数组语法的第一批 unsupported feature guidance。
 - [ ] `P1-2` 扩大 repair benchmark 数据集。
   - 目标：从当前高频坏例子扩展到更多真实小任务和多轮样例。
 - [ ] `P1-3` 做正式的模型对照实验。

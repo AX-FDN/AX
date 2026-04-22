@@ -119,7 +119,7 @@ pub fn enhance_diagnostics(
     };
 
     for diagnostic in diagnostics.iter_mut() {
-        let Some(rule) = match_rule(diagnostic) else {
+        let Some(rule) = match_rule(source, diagnostic) else {
             continue;
         };
 
@@ -157,9 +157,30 @@ struct RuleTemplate {
     default_fixit: &'static str,
 }
 
-fn match_rule(diagnostic: &Diagnostic) -> Option<RuleTemplate> {
+fn match_rule(source: &SourceFile, diagnostic: &Diagnostic) -> Option<RuleTemplate> {
     let expects = diagnostic.expected.join(" ");
     match diagnostic.code.as_str() {
+        "L0001" if diagnostic.message.contains("`[`") || diagnostic.message.contains("`]`") => {
+            Some(RULE_ARRAY_SYNTAX_NOT_SUPPORTED)
+        }
+        "L0001" => Some(RULE_UNEXPECTED_CHARACTER),
+        "L0002" => Some(RULE_UNTERMINATED_STRING_LITERAL),
+        "L0003" => Some(RULE_INTEGER_LITERAL_SYNTAX),
+        "L0004" => Some(RULE_FLOAT_LITERAL_SYNTAX),
+        "L0005" => Some(RULE_SUPPORTED_STRING_ESCAPE_REQUIRED),
+        "P0001"
+            if diagnostic.message == "expected a top-level declaration"
+                && note_contains(diagnostic, "identifier `import`") =>
+        {
+            Some(RULE_IMPORT_NOT_SUPPORTED)
+        }
+        "P0001"
+            if diagnostic.message == "expected a top-level declaration"
+                && note_contains(diagnostic, "identifier `module`") =>
+        {
+            Some(RULE_MODULE_NOT_SUPPORTED)
+        }
+        "P0001" if looks_like_match_attempt(source, diagnostic) => Some(RULE_MATCH_NOT_SUPPORTED),
         "P0001" if diagnostic.message.contains("expected `;`") || expects.contains("`;`") => {
             Some(RULE_MISSING_SEMICOLON)
         }
@@ -169,15 +190,393 @@ fn match_rule(diagnostic: &Diagnostic) -> Option<RuleTemplate> {
         "P0001" if diagnostic.message.contains("expected `}`") || expects.contains("`}`") => {
             Some(RULE_MISSING_RBRACE)
         }
+        "P0001" if diagnostic.message == "expected a top-level declaration" => {
+            Some(RULE_TOP_LEVEL_DECLARATION_REQUIRED)
+        }
+        "P0002" => Some(RULE_TYPE_NAME_REQUIRED),
+        "P0003" => Some(RULE_EXPRESSION_REQUIRED),
+        "S0001" => Some(RULE_UNIQUE_DEFINITION_REQUIRED),
         "S0002" => Some(RULE_UNDEFINED_VARIABLE),
         "S0003" => Some(RULE_IMMUTABLE_ASSIGNMENT),
         "S0004" => Some(RULE_MAIN_REQUIRED),
         "S0005" => Some(RULE_MAIN_SIGNATURE),
+        "S0006" => Some(RULE_TYPE_MUST_BE_DECLARED),
+        "S0007" => Some(RULE_FUNCTION_MUST_BE_DECLARED),
+        "S0008" => Some(RULE_ASSIGNMENT_TARGET_REQUIRED),
+        "S0011" => Some(RULE_FUNCTION_NAME_NOT_RUNTIME_VALUE),
+        "S0017" => Some(RULE_FUNCTION_ARGUMENT_COUNT_MATCH),
+        "S0018" | "S0019" => Some(RULE_CALL_TARGET_MUST_BE_FUNCTION_NAME),
+        "S0020" | "S0027" => Some(RULE_STRUCT_FIELD_MUST_EXIST),
+        "S0021" => Some(RULE_FIELD_ACCESS_REQUIRES_STRUCT_VALUE),
         "S0022" => Some(RULE_TYPE_MISMATCH),
         "S0023" => Some(RULE_MISSING_RETURN),
+        "S0024" => Some(RULE_STRUCT_LITERAL_REQUIRES_STRUCT_TYPE),
+        "S0025" => Some(RULE_STRUCT_LITERAL_FIELDS_UNIQUE),
+        "S0026" => Some(RULE_STRUCT_LITERAL_FIELDS_COMPLETE),
+        "S0028" => Some(RULE_TYPE_NAME_NOT_RUNTIME_VALUE),
+        "S0029" => Some(RULE_ENUM_VARIANT_MUST_EXIST),
+        "S0030" => Some(RULE_MUTABLE_STRUCT_FIELD_ASSIGNMENT_REQUIRED),
+        "S0031" => Some(RULE_FOR_HEADER_CLAUSE_SUPPORTED),
         _ => None,
     }
 }
+
+fn note_contains(diagnostic: &Diagnostic, needle: &str) -> bool {
+    diagnostic.notes.iter().any(|note| note.contains(needle))
+}
+
+fn looks_like_match_attempt(source: &SourceFile, diagnostic: &Diagnostic) -> bool {
+    if !diagnostic
+        .message
+        .contains("expected `;` after expression statement")
+    {
+        return false;
+    }
+
+    let window = diagnostic_window(source, diagnostic.span, 48);
+    has_keyword_followed_by(window, "match", '(') && window.contains('{')
+}
+
+fn diagnostic_window(source: &SourceFile, span: Span, radius: usize) -> &str {
+    let start = span.start.saturating_sub(radius);
+    let end = span.end.saturating_add(radius).min(source.text().len());
+    source.slice(Span::new(start, end))
+}
+
+fn has_keyword_followed_by(text: &str, keyword: &str, next: char) -> bool {
+    text.match_indices(keyword).any(|(index, _)| {
+        if text[..index]
+            .chars()
+            .next_back()
+            .is_some_and(is_identifier_char)
+        {
+            return false;
+        }
+
+        let tail = &text[index + keyword.len()..];
+        let mut tail_chars = tail.chars();
+        while let Some(ch) = tail_chars.next() {
+            if ch.is_whitespace() {
+                continue;
+            }
+            return ch == next;
+        }
+
+        false
+    })
+}
+
+fn is_identifier_char(ch: char) -> bool {
+    ch.is_ascii_alphanumeric() || ch == '_'
+}
+
+const RULE_UNEXPECTED_CHARACTER: RuleTemplate = RuleTemplate {
+    rule_id: "unexpected_character_in_source",
+    normalized_pattern: "unexpected_character_in_source",
+    repair_goal: "Remove or replace the unexpected character with valid AX syntax.",
+    summary: "The current AX prototype only accepts its defined punctuation, operators, keywords, and literals.",
+    pattern: "fn main() -> i32 { return 0; }",
+    minimal_example: "let value: i32 = 1;",
+    anti_pattern: Some("fn main() -> i32 [ return 0; }"),
+    default_fixit: "delete the unsupported character or rewrite the surrounding syntax with supported AX tokens",
+};
+
+const RULE_UNTERMINATED_STRING_LITERAL: RuleTemplate = RuleTemplate {
+    rule_id: "string_literal_must_terminate",
+    normalized_pattern: "string_literal_must_terminate",
+    repair_goal: "Close the current string literal with a matching `\"`.",
+    summary: "AX string literals must start and end with `\"` on the same literal.",
+    pattern: "let message: string = \"hello\";",
+    minimal_example: "println(\"hello\");",
+    anti_pattern: Some("println(\"hello);"),
+    default_fixit: "insert the missing closing `\"` for this string literal",
+};
+
+const RULE_INTEGER_LITERAL_SYNTAX: RuleTemplate = RuleTemplate {
+    rule_id: "integer_literal_must_be_valid",
+    normalized_pattern: "integer_literal_must_be_valid",
+    repair_goal: "Rewrite the integer literal using a valid AX integer form.",
+    summary: "AX integer literals must use valid decimal digits before semantic range checks run.",
+    pattern: "let value: i32 = 42;",
+    minimal_example: "return 123;",
+    anti_pattern: Some("let value: i32 = 12abc;"),
+    default_fixit: "rewrite the literal as a valid AX integer",
+};
+
+const RULE_FLOAT_LITERAL_SYNTAX: RuleTemplate = RuleTemplate {
+    rule_id: "float_literal_must_be_valid",
+    normalized_pattern: "float_literal_must_be_valid",
+    repair_goal: "Rewrite the float literal using a valid AX floating-point form.",
+    summary: "AX float literals must use supported decimal syntax before semantic range checks run.",
+    pattern: "let ratio: f32 = 1.5;",
+    minimal_example: "return 3.25;",
+    anti_pattern: Some("let ratio: f32 = 1.2.3;"),
+    default_fixit: "rewrite the literal as a valid AX float",
+};
+
+const RULE_SUPPORTED_STRING_ESCAPE_REQUIRED: RuleTemplate = RuleTemplate {
+    rule_id: "string_escape_must_be_supported",
+    normalized_pattern: "string_escape_must_be_supported",
+    repair_goal: "Replace the unsupported escape sequence with one the AX lexer accepts.",
+    summary: "AX currently supports `\\\\`, `\\\"`, `\\n`, and `\\t` inside string literals.",
+    pattern: "println(\"line 1\\nline 2\");",
+    minimal_example: "let path: string = \"C:\\\\temp\";",
+    anti_pattern: Some("println(\"\\r\");"),
+    default_fixit: "replace this escape with `\\\\`, `\\\"`, `\\n`, or `\\t`",
+};
+
+const RULE_IMPORT_NOT_SUPPORTED: RuleTemplate = RuleTemplate {
+    rule_id: "import_declarations_not_supported",
+    normalized_pattern: "import_declarations_not_supported",
+    repair_goal: "Keep the needed declarations in the current file because `import` is not implemented yet.",
+    summary: "The current AX prototype does not support `import` declarations or multi-file symbol loading.",
+    pattern: "fn helper() -> i32 { return 1; }\nfn main() -> i32 { return helper(); }",
+    minimal_example: "fn helper() -> i32 { return 1; }\nfn main() -> i32 { return helper(); }",
+    anti_pattern: Some("import math"),
+    default_fixit: "move the needed declarations into the same file for now",
+};
+
+const RULE_MODULE_NOT_SUPPORTED: RuleTemplate = RuleTemplate {
+    rule_id: "module_declarations_not_supported",
+    normalized_pattern: "module_declarations_not_supported",
+    repair_goal: "Keep the program in a single file because module declarations are not implemented yet.",
+    summary: "The current AX prototype does not support `module` declarations or namespace files yet.",
+    pattern: "struct Point { x: i32, y: i32 }\nfn main() -> i32 { return 0; }",
+    minimal_example: "fn helper() -> i32 { return 1; }\nfn main() -> i32 { return helper(); }",
+    anti_pattern: Some("module math"),
+    default_fixit: "remove the module declaration and keep the code in one file",
+};
+
+const RULE_MATCH_NOT_SUPPORTED: RuleTemplate = RuleTemplate {
+    rule_id: "match_expressions_not_supported",
+    normalized_pattern: "match_expressions_not_supported",
+    repair_goal: "Rewrite this control flow with `if / else` because `match` is not in the current prototype.",
+    summary: "The current AX prototype supports `if / else`, but it does not support `match` yet.",
+    pattern: "if (flag) { return 1; } else { return 0; }",
+    minimal_example: "if (value == 0) { return 1; } else { return 2; }",
+    anti_pattern: Some("match (value) { ... }"),
+    default_fixit: "rewrite this branch with `if / else`",
+};
+
+const RULE_ARRAY_SYNTAX_NOT_SUPPORTED: RuleTemplate = RuleTemplate {
+    rule_id: "array_syntax_not_supported",
+    normalized_pattern: "array_syntax_not_supported",
+    repair_goal: "Replace bracket-based collection syntax with currently supported AX constructs.",
+    summary: "The current AX prototype does not support arrays, slices, or bracket-based collection literals.",
+    pattern: "struct Pair { left: i32, right: i32 }",
+    minimal_example: "let first: i32 = 1;\nlet second: i32 = 2;",
+    anti_pattern: Some("let items: i32 = [1, 2];"),
+    default_fixit: "rewrite this using scalar locals or structs because `[` and `]` are not supported yet",
+};
+
+const RULE_TOP_LEVEL_DECLARATION_REQUIRED: RuleTemplate = RuleTemplate {
+    rule_id: "top_level_item_required",
+    normalized_pattern: "top_level_item_required",
+    repair_goal: "Rewrite this top-level code as a `fn`, `struct`, or `enum` declaration.",
+    summary: "Top-level AX source currently only allows `fn`, `struct`, and `enum` declarations.",
+    pattern: "fn helper() -> i32 { return 0; }",
+    minimal_example: "struct Point { x: i32, y: i32 }",
+    anti_pattern: Some("let value: i32 = 1;"),
+    default_fixit: "start this top-level item with `fn`, `struct`, or `enum`",
+};
+
+const RULE_TYPE_NAME_REQUIRED: RuleTemplate = RuleTemplate {
+    rule_id: "type_name_required",
+    normalized_pattern: "type_name_required",
+    repair_goal: "Insert a valid AX type name in the current type position.",
+    summary: "AX type positions require `bool`, `i32`, `f32`, `string`, or a previously declared type.",
+    pattern: "let value: i32 = 1;",
+    minimal_example: "fn helper(value: i32) -> bool { return true; }",
+    anti_pattern: Some("let value: = 1;"),
+    default_fixit: "insert a builtin type or a previously declared type name",
+};
+
+const RULE_EXPRESSION_REQUIRED: RuleTemplate = RuleTemplate {
+    rule_id: "expression_required",
+    normalized_pattern: "expression_required",
+    repair_goal: "Insert a runtime expression that produces the needed value.",
+    summary: "AX expression positions require a literal, name, call, field access, unary expression, binary expression, or grouped expression.",
+    pattern: "return helper(value);",
+    minimal_example: "let total: i32 = left + right;",
+    anti_pattern: Some("return ;"),
+    default_fixit: "insert a valid AX expression",
+};
+
+const RULE_UNIQUE_DEFINITION_REQUIRED: RuleTemplate = RuleTemplate {
+    rule_id: "unique_definition_required",
+    normalized_pattern: "unique_definition_required",
+    repair_goal: "Rename one definition or remove the duplicate so each name is declared once.",
+    summary: "Each AX name may only be defined once in the same scope or top-level namespace.",
+    pattern: "let total: i32 = 1;",
+    minimal_example: "fn helper() -> i32 { return 0; }",
+    anti_pattern: Some("let total: i32 = 1; let total: i32 = 2;"),
+    default_fixit: "rename or remove the duplicate definition",
+};
+
+const RULE_TYPE_MUST_BE_DECLARED: RuleTemplate = RuleTemplate {
+    rule_id: "type_must_be_declared",
+    normalized_pattern: "type_must_be_declared",
+    repair_goal: "Use a builtin type or declare the referenced type before using it.",
+    summary: "AX type references must resolve to a builtin type or a previously declared `struct` or `enum`.",
+    pattern: "struct Point { x: i32, y: i32 }",
+    minimal_example: "let point: Point = Point { x: 1, y: 2 };",
+    anti_pattern: Some("let point: Missing = 1;"),
+    default_fixit: "declare the missing type or replace it with an existing AX type",
+};
+
+const RULE_FUNCTION_MUST_BE_DECLARED: RuleTemplate = RuleTemplate {
+    rule_id: "function_must_be_declared",
+    normalized_pattern: "function_must_be_declared",
+    repair_goal: "Declare the function first or change the call to a function that exists.",
+    summary: "AX function calls must target a declared function or builtin.",
+    pattern: "fn helper() -> i32 { return 0; }",
+    minimal_example: "fn main() -> i32 { return helper(); }",
+    anti_pattern: Some("fn main() -> i32 { return missing(); }"),
+    default_fixit: "declare the missing function or fix the call name",
+};
+
+const RULE_ASSIGNMENT_TARGET_REQUIRED: RuleTemplate = RuleTemplate {
+    rule_id: "writable_assignment_target_required",
+    normalized_pattern: "writable_assignment_target_required",
+    repair_goal: "Assign only to a mutable variable or a direct mutable struct field.",
+    summary: "AX assignments can only write to `name = expr;` or `struct_value.field = expr;` targets that are writable.",
+    pattern: "value = 1;",
+    minimal_example: "point.x = 1;",
+    anti_pattern: Some("(left + right) = 1;"),
+    default_fixit: "rewrite the assignment to target a writable variable or direct field",
+};
+
+const RULE_FUNCTION_NAME_NOT_RUNTIME_VALUE: RuleTemplate = RuleTemplate {
+    rule_id: "function_name_not_runtime_value",
+    normalized_pattern: "function_name_not_runtime_value",
+    repair_goal: "Call the function with parentheses or replace it with a real runtime value.",
+    summary: "Function names are not first-class runtime values in the current AX prototype.",
+    pattern: "let total: i32 = helper();",
+    minimal_example: "println(helper());",
+    anti_pattern: Some("let total: i32 = helper;"),
+    default_fixit: "add parentheses to call the function or use a different value",
+};
+
+const RULE_FUNCTION_ARGUMENT_COUNT_MATCH: RuleTemplate = RuleTemplate {
+    rule_id: "function_argument_count_must_match",
+    normalized_pattern: "function_argument_count_must_match",
+    repair_goal: "Pass exactly the number of arguments declared by the function signature.",
+    summary: "AX does not support optional or implicit arguments; function calls must match arity exactly.",
+    pattern: "add(left, right)",
+    minimal_example: "fn add(left: i32, right: i32) -> i32 { return left + right; }",
+    anti_pattern: Some("add(left)"),
+    default_fixit: "add or remove arguments so the call arity matches the function signature",
+};
+
+const RULE_CALL_TARGET_MUST_BE_FUNCTION_NAME: RuleTemplate = RuleTemplate {
+    rule_id: "call_target_must_be_function_name",
+    normalized_pattern: "call_target_must_be_function_name",
+    repair_goal: "Change this call so its target is a declared function name or builtin.",
+    summary: "The current AX prototype only supports direct calls to function names and builtins.",
+    pattern: "helper(value)",
+    minimal_example: "println(value);",
+    anti_pattern: Some("value(arg)"),
+    default_fixit: "replace the call target with a declared function name",
+};
+
+const RULE_STRUCT_FIELD_MUST_EXIST: RuleTemplate = RuleTemplate {
+    rule_id: "struct_field_must_exist",
+    normalized_pattern: "struct_field_must_exist",
+    repair_goal: "Use a field name that exists in the referenced struct declaration.",
+    summary: "Struct field access and struct literal fields must match the declared field names exactly.",
+    pattern: "Point { x: 1, y: 2 }",
+    minimal_example: "return point.x;",
+    anti_pattern: Some("Point { x: 1, z: 2 }"),
+    default_fixit: "change this field name to one declared on the struct",
+};
+
+const RULE_FIELD_ACCESS_REQUIRES_STRUCT_VALUE: RuleTemplate = RuleTemplate {
+    rule_id: "field_access_requires_struct_value",
+    normalized_pattern: "field_access_requires_struct_value",
+    repair_goal: "Change the base expression so it evaluates to a struct value before using `.`.",
+    summary: "AX field access with `.` only works on struct values.",
+    pattern: "point.x",
+    minimal_example: "let point: Point = Point { x: 1, y: 2 };",
+    anti_pattern: Some("1.x"),
+    default_fixit: "replace the base expression with a struct value or remove the field access",
+};
+
+const RULE_STRUCT_LITERAL_REQUIRES_STRUCT_TYPE: RuleTemplate = RuleTemplate {
+    rule_id: "struct_literal_requires_struct_type",
+    normalized_pattern: "struct_literal_requires_struct_type",
+    repair_goal: "Use a declared struct name with `Name { field: value }` syntax.",
+    summary: "Struct literal syntax is only valid for declared `struct` types in AX.",
+    pattern: "Point { x: 1, y: 2 }",
+    minimal_example: "struct Point { x: i32, y: i32 }",
+    anti_pattern: Some("bool { value: true }"),
+    default_fixit: "replace this with a declared struct type or another expression form",
+};
+
+const RULE_STRUCT_LITERAL_FIELDS_UNIQUE: RuleTemplate = RuleTemplate {
+    rule_id: "struct_literal_fields_must_be_unique",
+    normalized_pattern: "struct_literal_fields_must_be_unique",
+    repair_goal: "Keep only one initializer for each field in this struct literal.",
+    summary: "Each field may appear at most once inside an AX struct literal.",
+    pattern: "Point { x: 1, y: 2 }",
+    minimal_example: "Pair { left: 1, right: 2 }",
+    anti_pattern: Some("Point { x: 1, x: 2 }"),
+    default_fixit: "remove or rename the duplicate field initializer",
+};
+
+const RULE_STRUCT_LITERAL_FIELDS_COMPLETE: RuleTemplate = RuleTemplate {
+    rule_id: "struct_literal_fields_must_be_complete",
+    normalized_pattern: "struct_literal_fields_must_be_complete",
+    repair_goal: "Add the missing field initializer(s) so the struct literal is complete.",
+    summary: "AX struct literals must initialize every declared field.",
+    pattern: "Point { x: 1, y: 2 }",
+    minimal_example: "Pair { left: 1, right: 2 }",
+    anti_pattern: Some("Point { x: 1 }"),
+    default_fixit: "add the missing field initializer(s)",
+};
+
+const RULE_TYPE_NAME_NOT_RUNTIME_VALUE: RuleTemplate = RuleTemplate {
+    rule_id: "type_name_not_runtime_value",
+    normalized_pattern: "type_name_not_runtime_value",
+    repair_goal: "Replace the type name with a constructed value or enum variant.",
+    summary: "Type names only belong in type positions, not as runtime expressions.",
+    pattern: "let point: Point = Point { x: 1, y: 2 };",
+    minimal_example: "let color: Color = Color.Red;",
+    anti_pattern: Some("let value: i32 = Point;"),
+    default_fixit: "replace the type name with a runtime value expression",
+};
+
+const RULE_ENUM_VARIANT_MUST_EXIST: RuleTemplate = RuleTemplate {
+    rule_id: "enum_variant_must_exist",
+    normalized_pattern: "enum_variant_must_exist",
+    repair_goal: "Use a variant name that is declared on the enum.",
+    summary: "Enum value syntax in AX must use an existing variant from the enum declaration.",
+    pattern: "Color.Red",
+    minimal_example: "enum Color { Red, Blue }",
+    anti_pattern: Some("Color.Green"),
+    default_fixit: "replace this with an existing enum variant",
+};
+
+const RULE_MUTABLE_STRUCT_FIELD_ASSIGNMENT_REQUIRED: RuleTemplate = RuleTemplate {
+    rule_id: "mutable_struct_field_assignment_required",
+    normalized_pattern: "mutable_struct_field_assignment_required",
+    repair_goal: "Assign only through a mutable struct variable and only to declared fields.",
+    summary: "Field assignment requires a mutable struct variable, a real field name, and a compatible value type.",
+    pattern: "let mut point: Point = Point { x: 1, y: 2 }; point.x = 3;",
+    minimal_example: "let mut pair: Pair = Pair { left: 1, right: 2 }; pair.left = 3;",
+    anti_pattern: Some("let point: Point = Point { x: 1, y: 2 }; point.x = 3;"),
+    default_fixit: "use `let mut` on the struct variable and assign only to declared fields",
+};
+
+const RULE_FOR_HEADER_CLAUSE_SUPPORTED: RuleTemplate = RuleTemplate {
+    rule_id: "for_header_clause_supported",
+    normalized_pattern: "for_header_clause_supported",
+    repair_goal: "Rewrite the `for` header so each clause is a `let`, assignment, or expression.",
+    summary: "The current AX `for` prototype only supports `let`, assignment, or expression clauses.",
+    pattern: "for (let i: i32 = 0; i < 3; i = i + 1) { println(i); }",
+    minimal_example: "for (let i: i32 = 0; i < 3; i = i + 1) { return i; }",
+    anti_pattern: Some("for (return 0; true; step()) { }"),
+    default_fixit: "rewrite the header using only `let`, assignment, or expression clauses",
+};
 
 const RULE_MISSING_SEMICOLON: RuleTemplate = RuleTemplate {
     rule_id: "statement_terminator_required",
@@ -789,6 +1188,72 @@ mod tests {
             ai.relevant_spans
                 .iter()
                 .any(|span| span.start == diagnostic.span.start)
+        );
+    }
+
+    #[test]
+    fn enhances_unknown_type_with_specific_rule_card() {
+        let source =
+            SourceFile::anonymous("fn main() -> i32 { let value: Missing = 1; return 0; }");
+        let mut analysis = analyze(&source);
+        enhance_diagnostics(&source, &analysis.program, &mut analysis.diagnostics, None)
+            .expect("ai enhancement should succeed");
+
+        let diagnostic = analysis
+            .diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.code == "S0006")
+            .expect("unknown type diagnostic should exist");
+        let ai = diagnostic.ai.as_ref().expect("ai payload should exist");
+        assert_eq!(ai.rule_id, "type_must_be_declared");
+        assert_eq!(
+            ai.repair_goal,
+            "Use a builtin type or declare the referenced type before using it."
+        );
+    }
+
+    #[test]
+    fn adds_import_guidance_for_unsupported_feature_attempts() {
+        let source = SourceFile::anonymous("import math\nfn main() -> i32 { return 0; }");
+        let mut analysis = analyze(&source);
+        enhance_diagnostics(&source, &analysis.program, &mut analysis.diagnostics, None)
+            .expect("ai enhancement should succeed");
+
+        let diagnostic = analysis
+            .diagnostics
+            .iter()
+            .find(|diagnostic| {
+                diagnostic.code == "P0001"
+                    && diagnostic.message == "expected a top-level declaration"
+            })
+            .expect("import parse diagnostic should exist");
+        let ai = diagnostic.ai.as_ref().expect("ai payload should exist");
+        assert_eq!(ai.rule_id, "import_declarations_not_supported");
+        assert_eq!(ai.teaching_level, TeachingLevel::L1);
+    }
+
+    #[test]
+    fn adds_match_guidance_for_unsupported_feature_attempts() {
+        let source = SourceFile::anonymous("fn main() -> i32 { match (true) { } return 0; }");
+        let mut analysis = analyze(&source);
+        enhance_diagnostics(&source, &analysis.program, &mut analysis.diagnostics, None)
+            .expect("ai enhancement should succeed");
+
+        let diagnostic = analysis
+            .diagnostics
+            .iter()
+            .find(|diagnostic| {
+                diagnostic.code == "P0001"
+                    && diagnostic
+                        .message
+                        .contains("expected `;` after expression statement")
+            })
+            .expect("match parse diagnostic should exist");
+        let ai = diagnostic.ai.as_ref().expect("ai payload should exist");
+        assert_eq!(ai.rule_id, "match_expressions_not_supported");
+        assert_eq!(
+            ai.fixits,
+            vec!["insert `;` before the next statement or closing `}`".to_string()]
         );
     }
 
