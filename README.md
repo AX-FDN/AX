@@ -99,7 +99,43 @@ cargo run -- check examples\missing_semicolon.ax --json --ai --ai-session .ax-ai
 .\scripts\export-repair-benchmark.ps1
 ```
 
-默认输出会写到 `.ax-ai\repair-benchmark\<timestamp>\`，里面会包含每个 case 的源码副本、两份诊断结果，以及一个总索引 `index.json`，方便后续喂给 Codex、Claude Code 或你自己的 benchmark 自动化。
+默认输出会写到 `.ax-ai\repair-benchmark\<timestamp>\`，里面会包含每个 case 的源码副本、两份诊断结果、两份 provider-neutral repair prompt、两份结构化 bundle，以及一个总索引 `index.json`，方便后续喂给 Codex、Claude Code 或你自己的 benchmark 自动化。
+
+如果你已经拿到一批修复结果，想批量验证它们是否真正通过 AX 检查，可以运行：
+
+```powershell
+.\scripts\score-repair-benchmark.ps1 -CandidatesDir .ax-ai\repair-candidates\demo
+```
+
+评分脚本默认会读取最近一次导出的 repair benchmark；候选修复文件可以放成两种形式之一：
+
+- `.ax-ai\repair-candidates\demo\<case-id>.ax`
+- `.ax-ai\repair-candidates\demo\<case-id>\repaired.ax`
+
+评分结果会写到 `.ax-ai\repair-results\<timestamp>\`，并生成总汇总 `summary.json`。
+
+如果你想把“导出 prompt -> 调用修复器 -> 评分”串成一次运行，可以直接用：
+
+```powershell
+.\scripts\run-repair-benchmark.ps1 -RunnerScript .\scripts\replay-repair-adapter.ps1 -RunnerExtraArgs @('-SourceDir', '.ax-ai\repair-candidates\smoke')
+```
+
+这个命令会：
+
+- 读取最近一次 repair benchmark 导出，或在没有导出时自动先导出一份
+- 逐个 case 调用你提供的 runner script
+- 把候选修复写到新的 run 目录下
+- 自动调用 `score-repair-benchmark.ps1` 生成评分结果
+
+当前 runner script 的最小契约是接收这些参数：
+
+- `-PromptPath`
+- `-BundlePath`
+- `-OutputPath`
+- `-CaseId`
+- `-FeedbackMode`
+
+仓库里自带的 [`replay-repair-adapter.ps1`](./scripts/replay-repair-adapter.ps1) 只是一个回放适配器，适合 smoke test 或重放已有候选结果；后面如果你要接 `Codex`、`Claude Code` 或别的模型 CLI，直接按同样参数签名写一个新的 adapter 就行。
 
 ## 推荐阅读顺序
 

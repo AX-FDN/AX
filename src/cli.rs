@@ -50,7 +50,10 @@ fn run_check(args: Vec<String>) -> i32 {
 
     let mut output = analyze(&source);
     if output.diagnostics.is_empty() {
-        println!("check succeeded: {}", source.display_path());
+        println!(
+            "{}",
+            render_check_success(options.json, &source.display_path())
+        );
         return 0;
     }
 
@@ -166,6 +169,14 @@ Commands:
 "
 }
 
+fn render_check_success(json: bool, display_path: &str) -> String {
+    if json {
+        "[]".to_string()
+    } else {
+        format!("check succeeded: {display_path}")
+    }
+}
+
 #[derive(Debug, PartialEq, Eq)]
 struct CheckOptions {
     file: PathBuf,
@@ -239,7 +250,7 @@ fn parse_check_args(args: Vec<String>) -> Result<CheckOptions, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{CheckOptions, parse_check_args};
+    use super::{CheckOptions, parse_check_args, render_check_success};
     use std::path::PathBuf;
 
     #[test]
@@ -269,5 +280,18 @@ mod tests {
         let error = parse_check_args(vec!["examples/hello.ax".to_string(), "--ai".to_string()])
             .expect_err("arguments should be rejected");
         assert!(error.contains("`--ai` requires `--json`"));
+    }
+
+    #[test]
+    fn renders_json_success_as_empty_array() {
+        assert_eq!(render_check_success(true, "examples/hello.ax"), "[]");
+    }
+
+    #[test]
+    fn renders_text_success_with_path() {
+        assert_eq!(
+            render_check_success(false, "examples/hello.ax"),
+            "check succeeded: examples/hello.ax"
+        );
     }
 }

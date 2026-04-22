@@ -55,6 +55,59 @@ function Write-Utf8File {
     [System.IO.File]::WriteAllText($Path, $Text, $encoding)
 }
 
+function Format-JsonText {
+    param([object] $Value)
+
+    return (($Value | ConvertTo-Json -Depth 100).TrimEnd() + "`n")
+}
+
+function New-RepairPrompt {
+    param(
+        [string] $CaseId,
+        [string] $FeedbackMode,
+        [string] $RepairGoal,
+        [string] $Notes,
+        [string] $SourceText,
+        [string] $DiagnosticsJson
+    )
+
+    $notesBlock = ""
+    if (-not [string]::IsNullOrWhiteSpace($Notes)) {
+        $notesBlock = "Case notes: $Notes`n"
+    }
+
+    @"
+You are repairing a broken AX program.
+
+Output rules:
+- Return only the full repaired AX source code.
+- Do not explain the change.
+- Stay within the currently implemented AX prototype syntax.
+
+AX constraints:
+- All function parameters, return types, and local variables must keep explicit type annotations.
+- main must be fn main() -> i32.
+- Enum values use EnumName.Variant.
+- Struct literals use TypeName { field: expr, ... }.
+- let, assignment, expression, and return statements must end with ;.
+- Do not introduce unsupported features such as match, arrays or slices, modules or imports, generics, exceptions, or async.
+
+Case id: $CaseId
+Feedback mode: $FeedbackMode
+Repair goal: $RepairGoal
+$notesBlock
+Broken AX source:
+~~~ax
+$SourceText
+~~~
+
+Compiler diagnostics:
+~~~json
+$DiagnosticsJson
+~~~
+"@
+}
+
 function Invoke-Axc {
     param(
         [string] $BinaryPath,
@@ -216,11 +269,50 @@ foreach ($case in @($manifest.cases)) {
     $sourceArtifact = Join-Path $caseDir "source.ax"
     $baseArtifact = Join-Path $caseDir "diagnostics.base.json"
     $aiArtifact = Join-Path $caseDir "diagnostics.ai.json"
+    $baseBundleArtifact = Join-Path $caseDir "bundle.base.json"
+    $aiBundleArtifact = Join-Path $caseDir "bundle.ai.json"
+    $basePromptArtifact = Join-Path $caseDir "prompt.base.md"
+    $aiPromptArtifact = Join-Path $caseDir "prompt.ai.md"
     $caseArtifact = Join-Path $caseDir "case.json"
 
+    $baseDiagnosticsText = Format-JsonText -Value (@($baseDiagnostics))
+    $aiDiagnosticsText = Format-JsonText -Value (@($aiDiagnostics))
+
+    $baseBundle = [ordered]@{
+        schema_version       = 1
+        case_id              = $caseId
+        feedback_mode        = "base_json"
+        file                 = $relativeFile
+        category             = [string] $case.category
+        repair_goal          = [string] $case.repair_goal
+        notes                = [string] $case.notes
+        expected_codes       = $expectedCodes
+        expected_ai_rule_ids = $expectedAiRuleIds
+        source_file          = "$caseId/source.ax"
+        diagnostics          = @($baseDiagnostics)
+    }
+
+    $aiBundle = [ordered]@{
+        schema_version       = 1
+        case_id              = $caseId
+        feedback_mode        = "ai_json"
+        file                 = $relativeFile
+        category             = [string] $case.category
+        repair_goal          = [string] $case.repair_goal
+        notes                = [string] $case.notes
+        expected_codes       = $expectedCodes
+        expected_ai_rule_ids = $expectedAiRuleIds
+        source_file          = "$caseId/source.ax"
+        diagnostics          = @($aiDiagnostics)
+    }
+
     Write-Utf8File -Path $sourceArtifact -Text $sourceText
-    Write-Utf8File -Path $baseArtifact -Text ($baseResult.StdOut.TrimEnd() + "`n")
-    Write-Utf8File -Path $aiArtifact -Text ($aiResult.StdOut.TrimEnd() + "`n")
+    Write-Utf8File -Path $baseArtifact -Text $baseDiagnosticsText
+    Write-Utf8File -Path $aiArtifact -Text $aiDiagnosticsText
+    Write-Utf8File -Path $baseBundleArtifact -Text (Format-JsonText -Value $baseBundle)
+    Write-Utf8File -Path $aiBundleArtifact -Text (Format-JsonText -Value $aiBundle)
+    Write-Utf8File -Path $basePromptArtifact -Text (New-RepairPrompt -CaseId $caseId -FeedbackMode "base_json" -RepairGoal ([string] $case.repair_goal) -Notes ([string] $case.notes) -SourceText $sourceText -DiagnosticsJson $baseDiagnosticsText)
+    Write-Utf8File -Path $aiPromptArtifact -Text (New-RepairPrompt -CaseId $caseId -FeedbackMode "ai_json" -RepairGoal ([string] $case.repair_goal) -Notes ([string] $case.notes) -SourceText $sourceText -DiagnosticsJson $aiDiagnosticsText)
 
     $caseSummary = [ordered]@{
         id                   = $caseId
@@ -234,6 +326,10 @@ foreach ($case in @($manifest.cases)) {
             source           = "$caseId/source.ax"
             base_diagnostics = "$caseId/diagnostics.base.json"
             ai_diagnostics   = "$caseId/diagnostics.ai.json"
+            base_bundle      = "$caseId/bundle.base.json"
+            ai_bundle        = "$caseId/bundle.ai.json"
+            base_prompt      = "$caseId/prompt.base.md"
+            ai_prompt        = "$caseId/prompt.ai.md"
         }
         observed             = [ordered]@{
             base_exit_code = $baseResult.ExitCode
