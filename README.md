@@ -30,7 +30,7 @@
 - 结构体字段写入当前只支持直接形式：`point.x = expr;`
 - `let`、赋值、表达式语句、`return` 都必须带分号
 
-完整语法说明请看 [`SYNTAX.md`](/C:/Users/xiaoy/Desktop/A语言/AX/SYNTAX.md)。
+完整语法说明请看 [`SYNTAX.md`](./SYNTAX.md)。
 
 ## 快速开始
 
@@ -55,11 +55,27 @@ cargo run -- run examples\factorial.ax
 cargo run -- run examples\syntax_overview.ax
 ```
 
+如果当前 Windows 环境没有可用的 MSVC `link.exe`，请直接使用仓库内的 GNU 启动脚本：
+
+```powershell
+.\scripts\cargo-gnu.ps1 test
+.\scripts\cargo-gnu.ps1 run -- check examples\syntax_overview.ax
+.\scripts\cargo-gnu.ps1 run -- run examples\syntax_overview.ax
+```
+
+这个脚本会自动切到 `stable-x86_64-pc-windows-gnu`，并接好 Rust 自带的 GNU linker。若本机还没装该工具链，先执行：
+
+```powershell
+rustup toolchain install stable-x86_64-pc-windows-gnu --profile minimal -c rustfmt
+```
+
+如果你想把 Cargo 构建产物放到别的盘位，比如 `D:`，可以把 [`.cargo/config.example.toml`](./.cargo/config.example.toml) 复制为本机自己的 `.cargo/config.toml`。这个本地文件已经加入 `.gitignore`，不会被提交到 GitHub。
+
 ## 推荐阅读顺序
 
-- 想了解项目边界与阶段路线：看 [`PLAN.md`](/C:/Users/xiaoy/Desktop/A语言/AX/PLAN.md)
-- 想按当前仓库真实语法写代码：看 [`SYNTAX.md`](/C:/Users/xiaoy/Desktop/A语言/AX/SYNTAX.md)
-- 想直接照着例子练：看 [`examples/hello.ax`](/C:/Users/xiaoy/Desktop/A语言/AX/examples/hello.ax)、[`examples/factorial.ax`](/C:/Users/xiaoy/Desktop/A语言/AX/examples/factorial.ax)、[`examples/syntax_overview.ax`](/C:/Users/xiaoy/Desktop/A语言/AX/examples/syntax_overview.ax)
+- 想了解项目边界与阶段路线：看 [`PLAN.md`](./PLAN.md)
+- 想按当前仓库真实语法写代码：看 [`SYNTAX.md`](./SYNTAX.md)
+- 想直接照着例子练：看 [`examples/hello.ax`](./examples/hello.ax)、[`examples/factorial.ax`](./examples/factorial.ax)、[`examples/syntax_overview.ax`](./examples/syntax_overview.ax)
 
 ## 给 AI 的最小规则
 

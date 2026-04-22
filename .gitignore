@@ -21,6 +21,9 @@ temp/
 .env
 .env.*
 !.env.example
+.cargo/config.toml
+.cargo/credentials.toml
+!.cargo/config.example.toml
 
 # Build outputs
 build/

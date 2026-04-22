@@ -1,0 +1,5 @@
+# Optional local Cargo config for this repository.
+# Copy to `.cargo/config.toml` on your own machine if you want a custom target directory.
+
+[build]
+target-dir = "D:/CargoTarget/AX"
