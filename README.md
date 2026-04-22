@@ -85,6 +85,14 @@ cargo run -- check examples\missing_semicolon.ax --json --ai --ai-session .ax-ai
 
 默认的 `axc check` 仍然走基础快路径，不会自动做 AI 上下文拼装；只有显式传入 `--json --ai` 时才会启用增强诊断。
 
+如果你想快速比较基础诊断和 AI 增强诊断的开销，可以直接运行：
+
+```powershell
+.\scripts\benchmark-diagnostics.ps1 -Iterations 10
+```
+
+这个脚本会先构建 `axc`，然后对一组稳定的错误样例分别测量 `check`、`check --json`、`check --json --ai` 三种模式。
+
 ## 推荐阅读顺序
 
 - 想了解项目边界与阶段路线：看 [`PLAN.md`](./PLAN.md)

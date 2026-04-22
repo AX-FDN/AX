@@ -18,6 +18,7 @@ pub fn check_program(source: &SourceFile, program: &Program) -> Vec<Diagnostic> 
                 source,
                 Span::new(0, 0),
             )
+            .with_note("runnable AX programs currently require a zero-argument `main` entrypoint")
             .with_suggestion("add `fn main() -> i32 { return 0; }`"),
         );
     }
@@ -43,13 +44,14 @@ pub fn check_program(source: &SourceFile, program: &Program) -> Vec<Diagnostic> 
 
             checker.check_block(body);
             let missing_return_type = if !block_guarantees_return(body) {
-                Some(checker.return_type.describe())
+                Some(checker.return_type.clone())
             } else {
                 None
             };
             drop(checker);
 
-            if let Some(return_type_name) = missing_return_type {
+            if let Some(return_type) = missing_return_type {
+                let return_type_name = return_type.describe();
                 diagnostics.push(
                     Diagnostic::new(
                         "S0023",
@@ -60,7 +62,11 @@ pub fn check_program(source: &SourceFile, program: &Program) -> Vec<Diagnostic> 
                         source,
                         body.span,
                     )
-                    .with_suggestion("ensure every control-flow path ends with `return ...;`"),
+                    .with_note(format!(
+                        "`{name}` is declared to return `{return_type_name}` on every control-flow path"
+                    ))
+                    .with_note(missing_return_note(body))
+                    .with_suggestion(missing_return_suggestion(&return_type)),
                 );
             }
         }
@@ -194,6 +200,9 @@ impl<'a> ProgramInfo<'a> {
                                 "`main` must have the signature `fn main() -> i32`",
                                 source,
                                 return_type.span,
+                            )
+                            .with_note(
+                                "the current AX prototype does not allow parameters on `main`",
                             )
                             .with_suggestion("change main to `fn main() -> i32 { ... }`"),
                         );
@@ -506,15 +515,11 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     Type::Error
                 }
                 None => {
-                    self.diagnostics.push(
-                        Diagnostic::new(
-                            "S0002",
-                            format!("use of undefined variable `{value}`"),
-                            self.info.source,
-                            expr.span,
-                        )
-                        .with_suggestion(format!("declare `{value}` before using it")),
-                    );
+                    self.diagnostics.push(self.undefined_variable_diagnostic(
+                        value,
+                        expr.span,
+                        format!("declare `{value}` before using it"),
+                    ));
                     Type::Error
                 }
             },
@@ -1019,19 +1024,16 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     .with_note(format!(
                         "`{name}` was declared immutable at {line}:{column}"
                     ))
+                    .with_note("AX fixes local mutability at the declaration site; later assignments require `let mut`")
                     .with_suggestion(format!("declare `{name}` with `let mut`")),
                 );
             }
             None => {
-                self.diagnostics.push(
-                    Diagnostic::new(
-                        "S0002",
-                        format!("use of undefined variable `{name}`"),
-                        self.info.source,
-                        target_span,
-                    )
-                    .with_suggestion(format!("declare `{name}` before assigning to it")),
-                );
+                self.diagnostics.push(self.undefined_variable_diagnostic(
+                    name,
+                    target_span,
+                    format!("declare `{name}` before assigning to it"),
+                ));
             }
         }
     }
@@ -1133,17 +1135,11 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 }
             },
             None => {
-                self.diagnostics.push(
-                    Diagnostic::new(
-                        "S0002",
-                        format!("use of undefined variable `{base_name}`"),
-                        self.info.source,
-                        base.span,
-                    )
-                    .with_suggestion(format!(
-                        "declare `{base_name}` before assigning to its field"
-                    )),
-                );
+                self.diagnostics.push(self.undefined_variable_diagnostic(
+                    base_name,
+                    base.span,
+                    format!("declare `{base_name}` before assigning to its field"),
+                ));
             }
         }
     }
@@ -1173,13 +1169,61 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             .find_map(|scope| scope.get(name).cloned())
     }
 
+    fn visible_binding_names(&self) -> Vec<String> {
+        let mut seen = HashSet::new();
+        let mut names = Vec::new();
+
+        for scope in self.scopes.iter().rev() {
+            let mut scope_names = scope.keys().cloned().collect::<Vec<_>>();
+            scope_names.sort();
+            for name in scope_names {
+                if seen.insert(name.clone()) {
+                    names.push(name);
+                }
+            }
+        }
+
+        names
+    }
+
+    fn undefined_variable_diagnostic(
+        &self,
+        name: &str,
+        span: Span,
+        suggestion: String,
+    ) -> Diagnostic {
+        let mut diagnostic = Diagnostic::new(
+            "S0002",
+            format!("use of undefined variable `{name}`"),
+            self.info.source,
+            span,
+        )
+        .with_note("AX variables are block-scoped and must be declared before use")
+        .with_suggestion(suggestion);
+
+        let visible = self.visible_binding_names();
+        if !visible.is_empty() {
+            diagnostic =
+                diagnostic.with_note(format!("visible variables here: {}", visible.join(", ")));
+        }
+
+        diagnostic
+    }
+
     fn expect_type_match(&mut self, expected: &Type, actual: &Type, span: Span, message: String) {
         if expected.is_error() || actual.is_error() || expected == actual {
             return;
         }
 
-        self.diagnostics
-            .push(Diagnostic::new("S0022", message, self.info.source, span));
+        self.diagnostics.push(
+            Diagnostic::new("S0022", message, self.info.source, span)
+                .with_note(format!(
+                    "AX does not implicitly convert `{}` to `{}`",
+                    actual.describe(),
+                    expected.describe()
+                ))
+                .with_suggestion(type_mismatch_suggestion(expected, actual)),
+        );
     }
 }
 
@@ -1234,6 +1278,68 @@ fn return_type_message(expected: &Type, actual: &Type) -> String {
     }
 }
 
+fn missing_return_note(body: &Block) -> String {
+    match body.statements.last().map(|statement| &statement.kind) {
+        None => "the function body is empty, so no control-flow path returns a value".to_string(),
+        Some(StmtKind::If { else_branch: None, .. }) => {
+            "the final `if` has no `else`, so the function can still fall through when the condition is false"
+                .to_string()
+        }
+        Some(StmtKind::While { .. }) => {
+            "a `while` loop may not run, so the function still needs a fallback `return` after the loop"
+                .to_string()
+        }
+        Some(StmtKind::For { .. }) => {
+            "a `for` loop may not run, so the function still needs a fallback `return` after the loop"
+                .to_string()
+        }
+        _ => "add a final `return ...;` before the function body closes, or make every branch return".to_string(),
+    }
+}
+
+fn missing_return_suggestion(return_type: &Type) -> String {
+    match return_type {
+        Type::Bool => {
+            "add a fallback like `return false;`, or make every branch return `bool`".to_string()
+        }
+        Type::I32 => {
+            "add a fallback like `return 0;`, or make every branch return `i32`".to_string()
+        }
+        Type::F32 => {
+            "add a fallback like `return 0.0;`, or make every branch return `f32`".to_string()
+        }
+        Type::String => {
+            "add a fallback like `return \"\";`, or make every branch return `string`".to_string()
+        }
+        _ => "ensure every control-flow path ends with `return ...;`".to_string(),
+    }
+}
+
+fn type_mismatch_suggestion(expected: &Type, actual: &Type) -> String {
+    match expected {
+        Type::Bool => format!(
+            "make the expression produce `bool`; AX does not coerce `{}` into a condition",
+            actual.describe()
+        ),
+        Type::I32 => format!(
+            "make the expression produce `i32`, or change the declared type if `{}` is intended",
+            actual.describe()
+        ),
+        Type::F32 => format!(
+            "make the expression produce `f32`, or change the declared type if `{}` is intended",
+            actual.describe()
+        ),
+        Type::String => format!(
+            "make the expression produce `string`, or change the declared type if `{}` is intended",
+            actual.describe()
+        ),
+        other => format!(
+            "make the expression produce `{}`, or change the surrounding declaration so both sides agree",
+            other.describe()
+        ),
+    }
+}
+
 fn binary_op_name(op: BinaryOp) -> &'static str {
     match op {
         BinaryOp::Add => "+",
@@ -1277,18 +1383,23 @@ fn statement_guarantees_return(statement: &Stmt) -> bool {
 #[cfg(test)]
 mod tests {
     use super::check_program;
+    use crate::diagnostics::Diagnostic;
     use crate::lexer::tokenize;
     use crate::parser::parse;
     use crate::source::SourceFile;
 
     fn check(source_text: &str) -> Vec<String> {
+        diagnostics(source_text)
+            .into_iter()
+            .map(|diagnostic| diagnostic.code)
+            .collect()
+    }
+
+    fn diagnostics(source_text: &str) -> Vec<Diagnostic> {
         let source = SourceFile::anonymous(source_text);
         let tokens = tokenize(&source).tokens;
         let parsed = parse(&source, tokens);
         check_program(&source, &parsed.program)
-            .into_iter()
-            .map(|diagnostic| diagnostic.code)
-            .collect()
     }
 
     #[test]
@@ -1422,5 +1533,72 @@ fn main() -> i32 {
 ",
         );
         assert!(codes.iter().any(|code| code == "S0002"));
+    }
+
+    #[test]
+    fn enriches_undefined_variable_diagnostic_with_scope_notes() {
+        let diagnostics =
+            diagnostics("fn main() -> i32 { let count: i32 = 1; return missing + count; }");
+        let diagnostic = diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.code == "S0002")
+            .expect("undefined variable diagnostic should exist");
+
+        assert!(
+            diagnostic
+                .notes
+                .iter()
+                .any(|note| note.contains("block-scoped"))
+        );
+        assert!(
+            diagnostic
+                .notes
+                .iter()
+                .any(|note| note.contains("visible variables here: count"))
+        );
+    }
+
+    #[test]
+    fn enriches_type_mismatch_diagnostic_with_conversion_note() {
+        let diagnostics = diagnostics("fn main() -> i32 { let value: bool = 1; return 0; }");
+        let diagnostic = diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.code == "S0022")
+            .expect("type mismatch diagnostic should exist");
+
+        assert!(
+            diagnostic
+                .notes
+                .iter()
+                .any(|note| note.contains("does not implicitly convert"))
+        );
+        assert!(
+            diagnostic
+                .suggestion
+                .as_deref()
+                .is_some_and(|suggestion| suggestion.contains("produce `bool`"))
+        );
+    }
+
+    #[test]
+    fn enriches_missing_return_diagnostic_with_fallback_hint() {
+        let diagnostics = diagnostics(
+            "fn helper(flag: bool) -> i32 { if (flag) { return 1; } } fn main() -> i32 { return helper(true); }",
+        );
+        let diagnostic = diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.code == "S0023")
+            .expect("missing return diagnostic should exist");
+
+        assert!(
+            diagnostic
+                .notes
+                .iter()
+                .any(|note| note.contains("no `else`"))
+        );
+        assert_eq!(
+            diagnostic.suggestion.as_deref(),
+            Some("add a fallback like `return 0;`, or make every branch return `i32`")
+        );
     }
 }

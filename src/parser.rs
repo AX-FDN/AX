@@ -731,11 +731,13 @@ impl<'a> Parser<'a> {
     }
 
     fn error_at_current(&mut self, code: &str, message: &str, expected: &[&str]) {
-        let span = self.peek().span;
+        let token = self.peek().clone();
+        let span = token.span;
         let mut diagnostic = Diagnostic::new(code, message, self.source, span);
         for entry in expected {
             diagnostic = diagnostic.with_expected(*entry);
         }
+        diagnostic = enrich_parse_error(diagnostic, &token, message);
         self.diagnostics.push(diagnostic);
     }
 
@@ -773,6 +775,63 @@ impl<'a> Parser<'a> {
 
     fn is_at_end(&self) -> bool {
         self.peek().kind == TokenKind::Eof
+    }
+}
+
+fn enrich_parse_error(mut diagnostic: Diagnostic, token: &Token, message: &str) -> Diagnostic {
+    diagnostic = diagnostic.with_note(format!("found {} instead", describe_token(token)));
+
+    if message.contains("expected `;`") {
+        return diagnostic
+            .with_note("AX uses explicit semicolons after `let`, assignments, expression statements, and `return`.")
+            .with_suggestion("insert `;` before the next statement or closing `}`");
+    }
+
+    if message.contains("expected `)`") {
+        return diagnostic
+            .with_note("this usually means a condition, grouped expression, call, or `for` header was left open")
+            .with_suggestion("insert `)` to close the current parenthesized construct");
+    }
+
+    if message.contains("expected `}`") {
+        return diagnostic
+            .with_note("AX closes blocks and struct literals with `}`")
+            .with_suggestion("insert `}` to close the current block or literal");
+    }
+
+    if message == "expected a top-level declaration" {
+        return diagnostic.with_suggestion("start a top-level item with `fn`, `struct`, or `enum`");
+    }
+
+    if message == "expected a type name" {
+        return diagnostic.with_suggestion(
+            "use `bool`, `i32`, `f32`, `string`, or a previously declared type name",
+        );
+    }
+
+    if message == "expected an expression" {
+        return diagnostic.with_suggestion(
+            "insert a runtime expression such as a literal, name, call, or parenthesized expression",
+        );
+    }
+
+    diagnostic
+}
+
+fn describe_token(token: &Token) -> String {
+    match token.kind {
+        TokenKind::Eof => "the end of file".to_string(),
+        TokenKind::Semicolon => "`;`".to_string(),
+        TokenKind::RParen => "`)`".to_string(),
+        TokenKind::RBrace => "`}`".to_string(),
+        TokenKind::LParen => "`(`".to_string(),
+        TokenKind::LBrace => "`{`".to_string(),
+        TokenKind::Identifier => format!("identifier `{}`", token.lexeme),
+        TokenKind::IntLiteral => format!("integer literal `{}`", token.lexeme),
+        TokenKind::FloatLiteral => format!("float literal `{}`", token.lexeme),
+        TokenKind::StringLiteral => format!("string literal \"{}\"", token.lexeme),
+        _ if token.lexeme.is_empty() => format!("token `{:?}`", token.kind),
+        _ => format!("token `{}`", token.lexeme),
     }
 }
 
@@ -874,5 +933,59 @@ fn main() -> i32 {
             },
             _ => panic!("expected function"),
         }
+    }
+
+    #[test]
+    fn enriches_missing_semicolon_diagnostic() {
+        let source = SourceFile::anonymous("fn main() -> i32 { let value: i32 = 1 return value; }");
+        let tokens = tokenize(&source).tokens;
+        let output = parse(&source, tokens);
+        let diagnostic = output
+            .diagnostics
+            .iter()
+            .find(|diagnostic| {
+                diagnostic
+                    .message
+                    .contains("expected `;` after variable declaration")
+            })
+            .expect("missing semicolon diagnostic should exist");
+
+        assert!(
+            diagnostic
+                .notes
+                .iter()
+                .any(|note| note.contains("explicit semicolons"))
+        );
+        assert_eq!(
+            diagnostic.suggestion.as_deref(),
+            Some("insert `;` before the next statement or closing `}`")
+        );
+    }
+
+    #[test]
+    fn enriches_missing_right_paren_diagnostic() {
+        let source = SourceFile::anonymous("fn main() -> i32 { if (true { return 1; } return 0; }");
+        let tokens = tokenize(&source).tokens;
+        let output = parse(&source, tokens);
+        let diagnostic = output
+            .diagnostics
+            .iter()
+            .find(|diagnostic| {
+                diagnostic
+                    .message
+                    .contains("expected `)` after if condition")
+            })
+            .expect("missing right paren diagnostic should exist");
+
+        assert!(
+            diagnostic
+                .notes
+                .iter()
+                .any(|note| note.contains("left open"))
+        );
+        assert_eq!(
+            diagnostic.suggestion.as_deref(),
+            Some("insert `)` to close the current parenthesized construct")
+        );
     }
 }
