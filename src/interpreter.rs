@@ -292,7 +292,95 @@ impl<'a> Interpreter<'a> {
                 }
                 Ok(ControlFlow::Continue)
             }
+            StmtKind::For {
+                initializer,
+                condition,
+                step,
+                body,
+            } => self.exec_for_statement(
+                initializer.as_deref(),
+                condition.as_ref(),
+                step.as_deref(),
+                body,
+                frame,
+            ),
             StmtKind::Block { block } => self.exec_block(block, frame),
+        }
+    }
+
+    fn exec_for_statement(
+        &mut self,
+        initializer: Option<&Stmt>,
+        condition: Option<&Expr>,
+        step: Option<&Stmt>,
+        body: &Block,
+        frame: &mut Frame,
+    ) -> Result<ControlFlow, Diagnostic> {
+        frame.scopes.push(HashMap::new());
+
+        if let Some(statement) = initializer {
+            self.exec_for_header_statement(statement, frame)?;
+        }
+
+        loop {
+            if let Some(condition) = condition
+                && !self.eval_condition(condition, frame)?
+            {
+                break;
+            }
+
+            match self.exec_block(body, frame)? {
+                ControlFlow::Continue => {}
+                ControlFlow::Return(value) => {
+                    frame.scopes.pop();
+                    return Ok(ControlFlow::Return(value));
+                }
+            }
+
+            if let Some(statement) = step {
+                self.exec_for_header_statement(statement, frame)?;
+            }
+        }
+
+        frame.scopes.pop();
+        Ok(ControlFlow::Continue)
+    }
+
+    fn exec_for_header_statement(
+        &mut self,
+        statement: &Stmt,
+        frame: &mut Frame,
+    ) -> Result<(), Diagnostic> {
+        match &statement.kind {
+            StmtKind::Let {
+                mutable,
+                name,
+                initializer,
+                ..
+            } => {
+                let value = self.eval_expr(initializer, frame)?;
+                frame.scopes.last_mut().expect("scope should exist").insert(
+                    name.clone(),
+                    Slot {
+                        mutable: *mutable,
+                        value,
+                    },
+                );
+                Ok(())
+            }
+            StmtKind::Assign { target, value } => {
+                let next_value = self.eval_expr(value, frame)?;
+                self.assign_target(frame, target, next_value)
+            }
+            StmtKind::Expr { expr } => {
+                self.eval_expr(expr, frame)?;
+                Ok(())
+            }
+            _ => Err(self.runtime_error(
+                "R0028",
+                "`for` headers only support `let`, assignment, or expression clauses",
+                statement.span,
+            )),
         }
     }
 
@@ -753,5 +841,35 @@ fn main() -> i32 {
         let output = run_program(&source, &analysis.program).expect("program should run");
         assert_eq!(output.exit_code, 0);
         assert_eq!(output.stdout, vec!["Flag.On", "3", "6"]);
+    }
+
+    #[test]
+    fn runs_for_loops() {
+        let source = SourceFile::anonymous(
+            "\
+fn main() -> i32 {
+    let mut total: i32 = 0;
+    for (let mut i: i32 = 0; i < 4; i = i + 1) {
+        total = total + i;
+    }
+    println(total);
+    return total;
+}
+",
+        );
+
+        let analysis = analyze(&source);
+        assert!(
+            analysis.diagnostics.is_empty(),
+            "unexpected diagnostics: {:?}",
+            analysis
+                .diagnostics
+                .iter()
+                .map(|diagnostic| diagnostic.code.as_str())
+                .collect::<Vec<_>>()
+        );
+        let output = run_program(&source, &analysis.program).expect("program should run");
+        assert_eq!(output.exit_code, 6);
+        assert_eq!(output.stdout, vec!["6"]);
     }
 }

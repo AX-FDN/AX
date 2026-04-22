@@ -18,7 +18,7 @@
 当前最小可运行子集已经支持：
 
 - 顶层：`fn`、`struct`、`enum`
-- 语句：`let`、`let mut`、变量赋值、结构体字段赋值、表达式语句、`return`、`if / else`、`while`
+- 语句：`let`、`let mut`、变量赋值、结构体字段赋值、表达式语句、`return`、`if / else`、`while`、`for`
 - 表达式：整数、浮点、布尔、字符串、变量引用、一元运算、二元运算、函数调用、结构体字面量、字段访问、枚举值引用
 - 解释器：`main`、局部变量、函数调用、递归、算术/比较、条件、循环、内置 `println`、结构体、枚举值
 
@@ -28,6 +28,7 @@
 - `main` 的返回值就是进程退出码；成功时建议返回 `0`
 - 枚举值写法固定为 `EnumName.Variant`
 - 结构体字段写入当前只支持直接形式：`point.x = expr;`
+- `for` 当前使用 C 风格表头：`for (init; condition; step) { ... }`
 - `let`、赋值、表达式语句、`return` 都必须带分号
 
 完整语法说明请看 [`SYNTAX.md`](./SYNTAX.md)。
@@ -52,6 +53,7 @@ cargo run -- ast examples\syntax_overview.ax
 ```powershell
 cargo run -- run examples\hello.ax
 cargo run -- run examples\factorial.ax
+cargo run -- run examples\for_loop.ax
 cargo run -- run examples\syntax_overview.ax
 ```
 
@@ -60,6 +62,7 @@ cargo run -- run examples\syntax_overview.ax
 ```powershell
 .\scripts\cargo-gnu.ps1 test
 .\scripts\cargo-gnu.ps1 run -- check examples\syntax_overview.ax
+.\scripts\cargo-gnu.ps1 run -- run examples\for_loop.ax
 .\scripts\cargo-gnu.ps1 run -- run examples\syntax_overview.ax
 ```
 
@@ -75,20 +78,21 @@ rustup toolchain install stable-x86_64-pc-windows-gnu --profile minimal -c rustf
 
 - 想了解项目边界与阶段路线：看 [`PLAN.md`](./PLAN.md)
 - 想按当前仓库真实语法写代码：看 [`SYNTAX.md`](./SYNTAX.md)
-- 想直接照着例子练：看 [`examples/hello.ax`](./examples/hello.ax)、[`examples/factorial.ax`](./examples/factorial.ax)、[`examples/syntax_overview.ax`](./examples/syntax_overview.ax)
+- 想直接照着例子练：看 [`examples/hello.ax`](./examples/hello.ax)、[`examples/factorial.ax`](./examples/factorial.ax)、[`examples/for_loop.ax`](./examples/for_loop.ax)、[`examples/syntax_overview.ax`](./examples/syntax_overview.ax)
 
 ## 给 AI 的最小规则
 
 如果你把 README 直接喂给模型，请让它严格遵守下面这些规则：
 
-1. 只使用当前仓库已实现的原型语法，不要发明 `for`、`match`、数组、模块、泛型、异常、async。
+1. 只使用当前仓库已实现的原型语法，不要发明 `match`、数组、模块、泛型、异常、async。
 2. 所有函数参数、返回类型、局部变量都必须显式标注类型。
 3. `main` 必须写成 `fn main() -> i32 { ... }`。
 4. 枚举值必须写成 `EnumName.Variant`。
 5. 构造结构体必须写成 `TypeName { field: expr, ... }`。
 6. 结构体字段写入只生成直接形式：`point.x = expr;`，其中 `point` 必须是 `let mut` 声明的结构体变量。
-7. `println` 是当前唯一内置函数。
-8. 若不确定某个语法是否支持，就不要使用；优先生成更朴素、更显式的代码。
+7. `for` 使用 `for (init; condition; step) { ... }`；推荐 `for (let mut i: i32 = 0; i < n; i = i + 1) { ... }`。
+8. `println` 是当前唯一内置函数。
+9. 若不确定某个语法是否支持，就不要使用；优先生成更朴素、更显式的代码。
 
 ## 最小示例
 

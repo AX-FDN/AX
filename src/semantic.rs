@@ -426,6 +426,19 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 );
                 self.check_block(body);
             }
+            StmtKind::For {
+                initializer,
+                condition,
+                step,
+                body,
+            } => {
+                self.check_for_statement(
+                    initializer.as_deref(),
+                    condition.as_ref(),
+                    step.as_deref(),
+                    body,
+                );
+            }
             StmtKind::Block { block } => self.check_block(block),
         }
     }
@@ -918,6 +931,62 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
         }
     }
 
+    fn check_for_statement(
+        &mut self,
+        initializer: Option<&Stmt>,
+        condition: Option<&Expr>,
+        step: Option<&Stmt>,
+        body: &Block,
+    ) {
+        self.scopes.push(HashMap::new());
+
+        if let Some(statement) = initializer {
+            self.check_for_header_statement(statement);
+        }
+
+        if let Some(condition) = condition {
+            let condition_type = self.check_expr(condition);
+            self.expect_type_match(
+                &Type::Bool,
+                &condition_type,
+                condition.span,
+                format!(
+                    "`for` condition must be `bool`, found `{}`",
+                    condition_type.describe()
+                ),
+            );
+        }
+
+        self.check_block(body);
+
+        if let Some(statement) = step {
+            self.check_for_header_statement(statement);
+        }
+
+        self.scopes.pop();
+    }
+
+    fn check_for_header_statement(&mut self, statement: &Stmt) {
+        match &statement.kind {
+            StmtKind::Let { .. } | StmtKind::Assign { .. } | StmtKind::Expr { .. } => {
+                self.check_statement(statement);
+            }
+            _ => {
+                self.diagnostics.push(
+                    Diagnostic::new(
+                        "S0031",
+                        "`for` headers only support `let`, assignment, or expression clauses",
+                        self.info.source,
+                        statement.span,
+                    )
+                    .with_suggestion(
+                        "use a header like `for (let i: i32 = 0; i < 3; i = i + 1) { ... }`",
+                    ),
+                );
+            }
+        }
+    }
+
     fn check_variable_assignment(
         &mut self,
         name: &str,
@@ -1322,5 +1391,36 @@ fn main() -> i32 {
             "struct Point { x: i32 } fn main() -> i32 { let point: Point = Point { x: 1 }; point.x = 2; return 0; }",
         );
         assert!(codes.iter().any(|code| code == "S0030"));
+    }
+
+    #[test]
+    fn accepts_for_loop_with_local_initializer() {
+        let codes = check(
+            "\
+fn main() -> i32 {
+    let mut total: i32 = 0;
+    for (let mut i: i32 = 0; i < 4; i = i + 1) {
+        total = total + i;
+    }
+    return total;
+}
+",
+        );
+        assert!(codes.is_empty(), "unexpected diagnostics: {codes:?}");
+    }
+
+    #[test]
+    fn reports_for_initializer_variable_used_outside_loop() {
+        let codes = check(
+            "\
+fn main() -> i32 {
+    for (let mut i: i32 = 0; i < 1; i = i + 1) {
+        println(i);
+    }
+    return i;
+}
+",
+        );
+        assert!(codes.iter().any(|code| code == "S0002"));
     }
 }

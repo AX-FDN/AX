@@ -77,7 +77,9 @@ impl SourceFile {
     }
 
     pub fn line_text(&self, line_number: usize) -> &str {
-        let index = line_number.saturating_sub(1).min(self.line_starts.len().saturating_sub(1));
+        let index = line_number
+            .saturating_sub(1)
+            .min(self.line_starts.len().saturating_sub(1));
         let start = self.line_starts[index];
         let end = self
             .line_starts

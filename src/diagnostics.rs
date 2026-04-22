@@ -16,7 +16,12 @@ pub struct Diagnostic {
 }
 
 impl Diagnostic {
-    pub fn new(code: impl Into<String>, message: impl Into<String>, source: &SourceFile, span: Span) -> Self {
+    pub fn new(
+        code: impl Into<String>,
+        message: impl Into<String>,
+        source: &SourceFile,
+        span: Span,
+    ) -> Self {
         Self {
             code: code.into(),
             message: message.into(),
@@ -60,7 +65,12 @@ fn render_diagnostic(source: &SourceFile, diagnostic: &Diagnostic) -> String {
         .end
         .saturating_sub(diagnostic.span.start)
         .max(1)
-        .min(line_text.len().saturating_sub(column.saturating_sub(1)).max(1));
+        .min(
+            line_text
+                .len()
+                .saturating_sub(column.saturating_sub(1))
+                .max(1),
+        );
 
     let mut out = String::new();
     let _ = writeln!(out, "{}: {}", diagnostic.code, diagnostic.message);
@@ -97,8 +107,8 @@ mod tests {
     #[test]
     fn renders_span_and_message() {
         let source = SourceFile::anonymous("let value: i32 = 1;\n");
-        let diagnostic = Diagnostic::new("P0001", "expected `;`", &source, Span::new(4, 9))
-            .with_expected("`;`");
+        let diagnostic =
+            Diagnostic::new("P0001", "expected `;`", &source, Span::new(4, 9)).with_expected("`;`");
         let rendered = render_diagnostics(&source, &[diagnostic]);
         assert!(rendered.contains("P0001"));
         assert!(rendered.contains("--> <memory>:1:5"));

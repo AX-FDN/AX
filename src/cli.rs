@@ -67,7 +67,8 @@ fn run_check(args: Vec<String>) -> i32 {
     if json {
         println!(
             "{}",
-            serde_json::to_string_pretty(&output.diagnostics).expect("diagnostics json should serialize")
+            serde_json::to_string_pretty(&output.diagnostics)
+                .expect("diagnostics json should serialize")
         );
     } else {
         eprintln!("{}", render_diagnostics(&source, &output.diagnostics));

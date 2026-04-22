@@ -30,6 +30,10 @@ fn main() -> i32 {
         current = current + 1;
     }
 
+    for (let mut step: i32 = 0; step < 2; step = step + 1) {
+        current = current + 1;
+    }
+
     println(current);
     return 0;
 }

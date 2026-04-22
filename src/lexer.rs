@@ -111,7 +111,8 @@ impl<'a> Lexer<'a> {
     }
 
     fn push_token(&mut self, kind: TokenKind, span: Span) {
-        self.tokens.push(Token::new(kind, span, self.source.slice(span)));
+        self.tokens
+            .push(Token::new(kind, span, self.source.slice(span)));
     }
 
     fn lex_identifier(&mut self, start: usize) {
@@ -136,6 +137,7 @@ impl<'a> Lexer<'a> {
             "if" => TokenKind::IfKw,
             "else" => TokenKind::ElseKw,
             "while" => TokenKind::WhileKw,
+            "for" => TokenKind::ForKw,
             "true" => TokenKind::TrueKw,
             "false" => TokenKind::FalseKw,
             _ => TokenKind::Identifier,
@@ -150,7 +152,9 @@ impl<'a> Lexer<'a> {
         }
 
         let mut kind = TokenKind::IntLiteral;
-        if self.peek_char() == Some('.') && matches!(self.peek_next_char(), Some(ch) if ch.is_ascii_digit()) {
+        if self.peek_char() == Some('.')
+            && matches!(self.peek_next_char(), Some(ch) if ch.is_ascii_digit())
+        {
             kind = TokenKind::FloatLiteral;
             self.advance_char();
             while matches!(self.peek_char(), Some(ch) if ch.is_ascii_digit()) {
@@ -184,7 +188,8 @@ impl<'a> Lexer<'a> {
             if ch == '"' {
                 self.advance_char();
                 let span = Span::new(start, self.cursor);
-                self.tokens.push(Token::new(TokenKind::StringLiteral, span, value));
+                self.tokens
+                    .push(Token::new(TokenKind::StringLiteral, span, value));
                 return;
             }
 
@@ -281,12 +286,31 @@ mod tests {
     fn tokenizes_basic_items() {
         let source = SourceFile::anonymous("fn main() -> i32 { let mut value: i32 = 1; }");
         let output = tokenize(&source);
-        let kinds = output.tokens.iter().map(|token| token.kind).collect::<Vec<_>>();
+        let kinds = output
+            .tokens
+            .iter()
+            .map(|token| token.kind)
+            .collect::<Vec<_>>();
         assert!(output.diagnostics.is_empty());
         assert!(kinds.contains(&TokenKind::FnKw));
         assert!(kinds.contains(&TokenKind::LetKw));
         assert!(kinds.contains(&TokenKind::MutKw));
         assert!(kinds.contains(&TokenKind::Arrow));
+    }
+
+    #[test]
+    fn tokenizes_for_keyword() {
+        let source = SourceFile::anonymous(
+            "fn main() -> i32 { for (let i: i32 = 0; i < 1; i = i + 1) { } return 0; }",
+        );
+        let output = tokenize(&source);
+        let kinds = output
+            .tokens
+            .iter()
+            .map(|token| token.kind)
+            .collect::<Vec<_>>();
+        assert!(output.diagnostics.is_empty());
+        assert!(kinds.contains(&TokenKind::ForKw));
     }
 
     #[test]
