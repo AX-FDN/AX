@@ -4,6 +4,7 @@ pub mod cli;
 pub mod diagnostics;
 pub mod formatter;
 pub mod frontend;
+pub mod hir;
 pub mod interpreter;
 pub mod lexer;
 pub mod parser;

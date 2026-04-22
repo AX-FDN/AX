@@ -20,6 +20,7 @@ pub fn run_cli(args: Vec<String>) -> i32 {
     match command.as_str() {
         "check" => run_check(rest),
         "ast" => run_ast(rest),
+        "hir" => run_hir(rest),
         "run" => run_run(rest),
         "fmt" => run_fmt(rest),
         "--help" | "-h" | "help" => {
@@ -112,6 +113,39 @@ fn run_ast(args: Vec<String>) -> i32 {
     0
 }
 
+fn run_hir(args: Vec<String>) -> i32 {
+    if args.len() != 1 {
+        eprintln!("usage: axc hir <file>");
+        return 2;
+    }
+
+    let path = PathBuf::from(&args[0]);
+    let source = match SourceFile::from_path(&path) {
+        Ok(source) => source,
+        Err(error) => {
+            eprintln!("failed to read {}: {error}", path.display());
+            return 1;
+        }
+    };
+
+    let output = analyze(&source);
+    if !output.diagnostics.is_empty() {
+        eprintln!("{}", render_diagnostics(&source, &output.diagnostics));
+        return 1;
+    }
+
+    let Some(hir) = output.hir else {
+        eprintln!("internal error: HIR should be available after a successful analysis");
+        return 1;
+    };
+
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&hir).expect("hir json should serialize")
+    );
+    0
+}
+
 fn run_run(args: Vec<String>) -> i32 {
     if args.len() != 1 {
         eprintln!("usage: axc run <file>");
@@ -133,7 +167,12 @@ fn run_run(args: Vec<String>) -> i32 {
         return 1;
     }
 
-    match run_program(&source, &output.program) {
+    let Some(hir) = output.hir.as_ref() else {
+        eprintln!("internal error: HIR should be available after a successful analysis");
+        return 1;
+    };
+
+    match run_program(&source, hir) {
         Ok(result) => {
             for line in result.stdout {
                 println!("{line}");
@@ -184,18 +223,6 @@ fn run_fmt(args: Vec<String>) -> i32 {
     0
 }
 
-fn run_placeholder(command: &str, args: Vec<String>) -> i32 {
-    if args.len() != 1 {
-        eprintln!("usage: axc {command} <file>");
-        return 2;
-    }
-
-    eprintln!(
-        "`axc {command}` is reserved but not implemented yet; the current prototype only guarantees `check` and `ast`."
-    );
-    2
-}
-
 fn usage() -> &'static str {
     "\
 axc <command> [options]
@@ -203,6 +230,7 @@ axc <command> [options]
 Commands:
   check <file> [--json] [--ai] [--ai-session <path>]   Run lexer, parser, and base semantic checks
   ast <file>              Print stable AST JSON
+  hir <file>              Print stable HIR JSON
   run <file>              Execute the minimal interpreter
   fmt <file>              Rewrite the file to the canonical AX format
 "

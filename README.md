@@ -13,6 +13,7 @@
 - `axc check <file>`：执行词法、语法、基础语义与类型检查
 - `axc check <file> --json --ai`：输出带规则卡、修复目标与上下文切片的 AI 增强诊断
 - `axc ast <file>`：输出稳定 AST JSON
+- `axc hir <file>`：输出稳定 HIR JSON
 - `axc run <file>`：通过最小解释器执行 AX 程序
 - `axc fmt <file>`：按唯一官方风格原地格式化当前 AX 原型代码
 
@@ -50,6 +51,11 @@ cargo run -- check examples\missing_semicolon.ax --json --ai
 cargo run -- ast examples\syntax_overview.ax
 ```
 
+查看 HIR：
+```powershell
+cargo run -- hir examples\syntax_overview.ax
+```
+
 格式化文件：
 
 ```powershell
@@ -71,6 +77,7 @@ cargo run -- run examples\syntax_overview.ax
 .\scripts\cargo-gnu.ps1 test
 .\scripts\cargo-gnu.ps1 run -- check examples\syntax_overview.ax
 .\scripts\cargo-gnu.ps1 run -- check examples\missing_semicolon.ax --json --ai
+.\scripts\cargo-gnu.ps1 run -- hir examples\syntax_overview.ax
 .\scripts\cargo-gnu.ps1 run -- run examples\for_loop.ax
 .\scripts\cargo-gnu.ps1 run -- run examples\syntax_overview.ax
 ```
@@ -142,6 +149,32 @@ cargo run -- check examples\missing_semicolon.ax --json --ai --ai-session .ax-ai
 - `-FeedbackMode`
 
 仓库里自带的 [`replay-repair-adapter.ps1`](./scripts/replay-repair-adapter.ps1) 只是一个回放适配器，适合 smoke test 或重放已有候选结果；后面如果你要接 `Codex`、`Claude Code` 或别的模型 CLI，直接按同样参数签名写一个新的 adapter 就行。
+
+仓库现在也自带了一个真实可调用的 [`codex-repair-adapter.ps1`](./scripts/codex-repair-adapter.ps1)。它会用 `codex exec` 的非交互模式读取 benchmark prompt，并通过 JSON schema 把最终输出约束成稳定的 `repaired_source` 字段。
+
+如果本机已经能直接运行 `codex exec`，可以这样跑一轮真实修复：
+
+```powershell
+.\scripts\run-repair-benchmark.ps1 `
+  -RunnerScript .\scripts\codex-repair-adapter.ps1 `
+  -RunnerExtraArgs @('-Model', 'gpt-5.4') `
+  -FeedbackMode ai
+```
+
+如果你想沿用本机 `codex` 默认模型，也可以不传 `-Model`：
+
+```powershell
+.\scripts\run-repair-benchmark.ps1 `
+  -RunnerScript .\scripts\codex-repair-adapter.ps1 `
+  -FeedbackMode ai
+```
+
+这个 adapter 额外支持这些可选参数：
+
+- `-CodexCommand <name>`：指定 `codex` 可执行文件名或路径
+- `-Model <name>`：显式指定模型，例如 `gpt-5.4`
+- `-Profile <name>`：复用 `~/.codex/config.toml` 里的 profile
+- `-ConfigOverride @('key=value', ...)`：透传额外 `codex -c` 配置覆盖
 
 ## 推荐阅读顺序
 

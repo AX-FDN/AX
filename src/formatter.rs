@@ -445,31 +445,32 @@ mod tests {
         let formatted = format_source(&source).expect("source should format");
         assert_eq!(
             formatted,
-            "\
-struct Point {\n\
-    x: i32,\n\
-    y: i32,\n\
-}\n\
-\n\
-enum Flag {\n\
-    On,\n\
-    Off,\n\
-}\n\
-\n\
-fn main() -> i32 {\n\
-    let mut point: Point = Point { x: 1, y: 2 };\n\
-    if (point.x == 1) {\n\
-        println(\"ready\");\n\
-    } else if (point.x == 2) {\n\
-        println(\"fallback\");\n\
-    } else {\n\
-        println(\"other\");\n\
-    }\n\
-    for (let mut i: i32 = 0; i < 2; i = i + 1) {\n\
-        point.x = point.x + i;\n\
-    }\n\
-    return 0;\n\
-}\n"
+            concat!(
+                "struct Point {\n",
+                "    x: i32,\n",
+                "    y: i32,\n",
+                "}\n",
+                "\n",
+                "enum Flag {\n",
+                "    On,\n",
+                "    Off,\n",
+                "}\n",
+                "\n",
+                "fn main() -> i32 {\n",
+                "    let mut point: Point = Point { x: 1, y: 2 };\n",
+                "    if (point.x == 1) {\n",
+                "        println(\"ready\");\n",
+                "    } else if (point.x == 2) {\n",
+                "        println(\"fallback\");\n",
+                "    } else {\n",
+                "        println(\"other\");\n",
+                "    }\n",
+                "    for (let mut i: i32 = 0; i < 2; i = i + 1) {\n",
+                "        point.x = point.x + i;\n",
+                "    }\n",
+                "    return 0;\n",
+                "}\n"
+            )
         );
     }
 

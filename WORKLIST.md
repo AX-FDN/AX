@@ -18,11 +18,15 @@
 
 - [x] `P0-1` 实现 `axc fmt`，给当前原型语法提供唯一官方格式，并保证对已格式化输入幂等。
   - 完成于：2026-04-22
-  - 备注：`axc fmt <file>` 已实现为原地格式化；当前覆盖已落地语法子集。
-- [ ] `P0-2` 写一个真实可用的模型 adapter。
+  - 备注：`axc fmt <file>` 已实现为原地格式化；当前覆盖已落地语法子集，并已通过 Rust 测试与真实命令 smoke test。
+- [x] `P0-2` 写一个真实可用的模型 adapter。
   - 目标：不再只靠 replay adapter，至少能接一个真实 `Codex` 或 `Claude Code` CLI。
-- [ ] `P0-3` 引入 HIR 层，并提供稳定 HIR dump。
+  - 完成于：2026-04-22
+  - 备注：新增 `scripts/codex-repair-adapter.ps1`；已完成单 case 真机修复 smoke test，并通过 `run-repair-benchmark.ps1` + `score-repair-benchmark.ps1` 的单 case 闭环验证。
+- [x] `P0-3` 引入 HIR 层，并提供稳定 HIR dump。
   - 目标：把 `AST -> 语义 -> 后端` 之间的中间表示真正落到代码里。
+  - 完成于：2026-04-22
+  - 备注：新增 `src/hir.rs` 与 `axc hir <file>`；`for` 已 lowering 为更核心的 HIR 控制流，解释器已改为直接执行 HIR，并通过测试与真实命令 smoke test。
 - [ ] `P0-4` 补 CI 与外部接口快照。
   - 目标：至少覆盖 `fmt` 幂等、diagnostics JSON、AST/HIR dump、repair benchmark smoke run。
 
