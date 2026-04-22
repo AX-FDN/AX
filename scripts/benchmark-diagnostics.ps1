@@ -1,13 +1,7 @@
 param(
     [int] $Iterations = 10,
-    [string[]] $Files = @(
-        "examples\missing_semicolon.ax",
-        "examples\missing_paren.ax",
-        "examples\type_mismatch.ax",
-        "examples\undefined_variable.ax",
-        "examples\immutable_assignment.ax",
-        "examples\missing_return.ax"
-    )
+    [string] $ManifestPath = "benchmarks\\repair-cases.json",
+    [string[]] $Files
 )
 
 $ErrorActionPreference = "Stop"
@@ -24,6 +18,10 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 $cargoScript = Join-Path $PSScriptRoot "cargo-gnu.ps1"
 $repoCargoConfig = Join-Path $repoRoot ".cargo\config.toml"
 
+if (-not [System.IO.Path]::IsPathRooted($ManifestPath)) {
+    $ManifestPath = Join-Path $repoRoot $ManifestPath
+}
+
 function Resolve-TargetDir {
     if ($env:CARGO_TARGET_DIR) {
         return $env:CARGO_TARGET_DIR
@@ -37,6 +35,22 @@ function Resolve-TargetDir {
     }
 
     return Join-Path $repoRoot "target"
+}
+
+function Get-ManifestFiles {
+    param([string] $Path)
+
+    if (-not (Test-Path $Path)) {
+        Write-Error "Benchmark manifest not found: $Path"
+    }
+
+    $manifest = Get-Content $Path -Raw -Encoding utf8 | ConvertFrom-Json
+    $files = @($manifest.cases | ForEach-Object { [string] $_.file })
+    if ($files.Count -eq 0) {
+        Write-Error "Benchmark manifest contains no case files: $Path"
+    }
+
+    return $files
 }
 
 function Invoke-Axc {
@@ -64,6 +78,10 @@ function Invoke-Axc {
     $null = $process.StandardError.ReadToEnd()
     $process.WaitForExit()
     return $process.ExitCode
+}
+
+if (-not $Files -or $Files.Count -eq 0) {
+    $Files = Get-ManifestFiles -Path $ManifestPath
 }
 
 & $cargoScript build | Out-Null

@@ -91,7 +91,15 @@ cargo run -- check examples\missing_semicolon.ax --json --ai --ai-session .ax-ai
 .\scripts\benchmark-diagnostics.ps1 -Iterations 10
 ```
 
-这个脚本会先构建 `axc`，然后对一组稳定的错误样例分别测量 `check`、`check --json`、`check --json --ai` 三种模式。
+这个脚本会先构建 `axc`，然后按 [`benchmarks/repair-cases.json`](./benchmarks/repair-cases.json) 里的稳定坏例子，分别测量 `check`、`check --json`、`check --json --ai` 三种模式。
+
+如果你想把这些坏例子一次性导出成“源码 + 基础 JSON diagnostics + AI 增强 JSON diagnostics”的成对工件，直接运行：
+
+```powershell
+.\scripts\export-repair-benchmark.ps1
+```
+
+默认输出会写到 `.ax-ai\repair-benchmark\<timestamp>\`，里面会包含每个 case 的源码副本、两份诊断结果，以及一个总索引 `index.json`，方便后续喂给 Codex、Claude Code 或你自己的 benchmark 自动化。
 
 ## 推荐阅读顺序
 

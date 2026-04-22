@@ -1,0 +1,78 @@
+{
+  "version": 1,
+  "description": "Stable broken AX programs for single-round repair experiments.",
+  "cases": [
+    {
+      "id": "missing_semicolon_basic",
+      "file": "examples/missing_semicolon.ax",
+      "category": "syntax",
+      "expected_codes": ["P0001"],
+      "expected_ai_rule_ids": ["statement_terminator_required"],
+      "repair_goal": "Insert the missing semicolon after the let binding.",
+      "notes": "Baseline parser recovery case."
+    },
+    {
+      "id": "missing_paren_condition",
+      "file": "examples/missing_paren.ax",
+      "category": "syntax",
+      "expected_codes": ["P0001", "P0001"],
+      "expected_ai_rule_ids": ["close_parenthesized_construct"],
+      "repair_goal": "Close the if-condition with the missing right parenthesis.",
+      "notes": "Exercises balanced-parenthesis guidance and parser recovery into the following block."
+    },
+    {
+      "id": "missing_main_entrypoint",
+      "file": "examples/missing_main.ax",
+      "category": "semantic",
+      "expected_codes": ["S0004"],
+      "expected_ai_rule_ids": ["main_function_required"],
+      "repair_goal": "Add a valid AX entrypoint with the required main signature.",
+      "notes": "Covers the runnable-program contract."
+    },
+    {
+      "id": "bad_main_signature_params",
+      "file": "examples/bad_main_signature.ax",
+      "category": "semantic",
+      "expected_codes": ["S0005"],
+      "expected_ai_rule_ids": ["main_signature_fixed"],
+      "repair_goal": "Rewrite main so it takes no parameters and returns i32.",
+      "notes": "Current AX prototype disallows main parameters."
+    },
+    {
+      "id": "type_mismatch_bool_from_int",
+      "file": "examples/type_mismatch.ax",
+      "category": "semantic",
+      "expected_codes": ["S0022"],
+      "expected_ai_rule_ids": ["type_match_required"],
+      "repair_goal": "Make the declared type and initializer use the same AX type.",
+      "notes": "Validates exact-type diagnostics."
+    },
+    {
+      "id": "undefined_variable_total",
+      "file": "examples/undefined_variable.ax",
+      "category": "semantic",
+      "expected_codes": ["S0002"],
+      "expected_ai_rule_ids": ["variable_must_be_declared_in_scope"],
+      "repair_goal": "Declare total before using it in the return expression.",
+      "notes": "Exercises scope-aware feedback."
+    },
+    {
+      "id": "immutable_assignment_value",
+      "file": "examples/immutable_assignment.ax",
+      "category": "semantic",
+      "expected_codes": ["S0003"],
+      "expected_ai_rule_ids": ["mutable_binding_required"],
+      "repair_goal": "Use let mut or stop assigning to the immutable binding.",
+      "notes": "Covers the mutability contract."
+    },
+    {
+      "id": "missing_return_helper",
+      "file": "examples/missing_return.ax",
+      "category": "semantic",
+      "expected_codes": ["S0023"],
+      "expected_ai_rule_ids": ["all_paths_must_return"],
+      "repair_goal": "Add a return on the control-flow path that currently falls through.",
+      "notes": "Exercises function-context slicing for AI repair."
+    }
+  ]
+}
