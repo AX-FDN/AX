@@ -1,7 +1,9 @@
+use std::fs;
 use std::path::PathBuf;
 
 use crate::ai::enhance_diagnostics;
 use crate::diagnostics::render_diagnostics;
+use crate::formatter::format_source;
 use crate::frontend::analyze;
 use crate::interpreter::run_program;
 use crate::source::SourceFile;
@@ -19,7 +21,7 @@ pub fn run_cli(args: Vec<String>) -> i32 {
         "check" => run_check(rest),
         "ast" => run_ast(rest),
         "run" => run_run(rest),
-        "fmt" => run_placeholder("fmt", rest),
+        "fmt" => run_fmt(rest),
         "--help" | "-h" | "help" => {
             println!("{}", usage());
             0
@@ -145,6 +147,43 @@ fn run_run(args: Vec<String>) -> i32 {
     }
 }
 
+fn run_fmt(args: Vec<String>) -> i32 {
+    if args.len() != 1 {
+        eprintln!("usage: axc fmt <file>");
+        return 2;
+    }
+
+    let path = PathBuf::from(&args[0]);
+    let source = match SourceFile::from_path(&path) {
+        Ok(source) => source,
+        Err(error) => {
+            eprintln!("failed to read {}: {error}", path.display());
+            return 1;
+        }
+    };
+
+    let formatted = match format_source(&source) {
+        Ok(formatted) => formatted,
+        Err(diagnostics) => {
+            eprintln!("{}", render_diagnostics(&source, &diagnostics));
+            return 1;
+        }
+    };
+
+    if source.text() == formatted {
+        println!("already formatted: {}", path.display());
+        return 0;
+    }
+
+    if let Err(error) = fs::write(&path, formatted) {
+        eprintln!("failed to write {}: {error}", path.display());
+        return 1;
+    }
+
+    println!("formatted: {}", path.display());
+    0
+}
+
 fn run_placeholder(command: &str, args: Vec<String>) -> i32 {
     if args.len() != 1 {
         eprintln!("usage: axc {command} <file>");
@@ -165,7 +204,7 @@ Commands:
   check <file> [--json] [--ai] [--ai-session <path>]   Run lexer, parser, and base semantic checks
   ast <file>              Print stable AST JSON
   run <file>              Execute the minimal interpreter
-  fmt <file>              Reserved for the upcoming formatter
+  fmt <file>              Rewrite the file to the canonical AX format
 "
 }
 

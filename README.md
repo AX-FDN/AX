@@ -14,7 +14,7 @@
 - `axc check <file> --json --ai`：输出带规则卡、修复目标与上下文切片的 AI 增强诊断
 - `axc ast <file>`：输出稳定 AST JSON
 - `axc run <file>`：通过最小解释器执行 AX 程序
-- `axc fmt <file>`：命令入口已保留，格式化器尚未实现
+- `axc fmt <file>`：按唯一官方风格原地格式化当前 AX 原型代码
 
 当前最小可运行子集已经支持：
 
@@ -48,6 +48,12 @@ cargo run -- check examples\missing_semicolon.ax --json --ai
 
 ```powershell
 cargo run -- ast examples\syntax_overview.ax
+```
+
+格式化文件：
+
+```powershell
+cargo run -- fmt examples\syntax_overview.ax
 ```
 
 执行示例：

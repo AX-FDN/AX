@@ -2,6 +2,7 @@ pub mod ai;
 pub mod ast;
 pub mod cli;
 pub mod diagnostics;
+pub mod formatter;
 pub mod frontend;
 pub mod interpreter;
 pub mod lexer;
