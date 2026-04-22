@@ -1,0 +1,77 @@
+# Operating system files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Editor and IDE settings
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Logs and temp files
+*.log
+*.tmp
+*.temp
+tmp/
+temp/
+
+# Environment and local config
+.env
+.env.*
+!.env.example
+
+# Build outputs
+build/
+dist/
+out/
+bin/
+lib/
+target/
+release/
+debug/
+
+# C / C++ / LLVM / CMake artifacts
+CMakeCache.txt
+CMakeFiles/
+cmake-build-*/
+compile_commands.json
+*.o
+*.obj
+*.so
+*.dll
+*.dylib
+*.a
+*.lib
+*.exe
+*.pdb
+
+# Rust artifacts
+# Track Cargo.lock for the axc binary crate.
+
+# Node.js artifacts
+node_modules/
+.pnpm-store/
+.npm/
+.yarn/
+
+# Python artifacts
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.venv/
+venv/
+
+# Coverage and reports
+coverage/
+.coverage
+htmlcov/
+
+
+
+# Added by cargo
+
+/target

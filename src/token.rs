@@ -1,0 +1,106 @@
+use serde::Serialize;
+
+use crate::source::Span;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TokenKind {
+    FnKw,
+    StructKw,
+    EnumKw,
+    LetKw,
+    MutKw,
+    ReturnKw,
+    IfKw,
+    ElseKw,
+    WhileKw,
+    TrueKw,
+    FalseKw,
+    Identifier,
+    IntLiteral,
+    FloatLiteral,
+    StringLiteral,
+    LParen,
+    RParen,
+    LBrace,
+    RBrace,
+    Comma,
+    Dot,
+    Colon,
+    Semicolon,
+    Arrow,
+    Plus,
+    Minus,
+    Star,
+    Slash,
+    Bang,
+    Equal,
+    EqualEqual,
+    BangEqual,
+    Less,
+    LessEqual,
+    Greater,
+    GreaterEqual,
+    Eof,
+}
+
+impl TokenKind {
+    pub fn display(self) -> &'static str {
+        match self {
+            Self::FnKw => "`fn`",
+            Self::StructKw => "`struct`",
+            Self::EnumKw => "`enum`",
+            Self::LetKw => "`let`",
+            Self::MutKw => "`mut`",
+            Self::ReturnKw => "`return`",
+            Self::IfKw => "`if`",
+            Self::ElseKw => "`else`",
+            Self::WhileKw => "`while`",
+            Self::TrueKw => "`true`",
+            Self::FalseKw => "`false`",
+            Self::Identifier => "identifier",
+            Self::IntLiteral => "integer literal",
+            Self::FloatLiteral => "float literal",
+            Self::StringLiteral => "string literal",
+            Self::LParen => "`(`",
+            Self::RParen => "`)`",
+            Self::LBrace => "`{`",
+            Self::RBrace => "`}`",
+            Self::Comma => "`,`",
+            Self::Dot => "`.`",
+            Self::Colon => "`:`",
+            Self::Semicolon => "`;`",
+            Self::Arrow => "`->`",
+            Self::Plus => "`+`",
+            Self::Minus => "`-`",
+            Self::Star => "`*`",
+            Self::Slash => "`/`",
+            Self::Bang => "`!`",
+            Self::Equal => "`=`",
+            Self::EqualEqual => "`==`",
+            Self::BangEqual => "`!=`",
+            Self::Less => "`<`",
+            Self::LessEqual => "`<=`",
+            Self::Greater => "`>`",
+            Self::GreaterEqual => "`>=`",
+            Self::Eof => "end of file",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Token {
+    pub kind: TokenKind,
+    pub span: Span,
+    pub lexeme: String,
+}
+
+impl Token {
+    pub fn new(kind: TokenKind, span: Span, lexeme: impl Into<String>) -> Self {
+        Self {
+            kind,
+            span,
+            lexeme: lexeme.into(),
+        }
+    }
+}
