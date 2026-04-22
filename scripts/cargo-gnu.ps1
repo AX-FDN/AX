@@ -11,6 +11,7 @@ if (-not $CargoArgs -or $CargoArgs.Count -eq 0) {
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $manifestPath = Join-Path $repoRoot "Cargo.toml"
+$repoCargoConfig = Join-Path $repoRoot ".cargo\config.toml"
 
 $rustupHome = if ($env:RUSTUP_HOME) {
     $env:RUSTUP_HOME
@@ -34,6 +35,13 @@ Install it with:
 
 $env:PATH = "$gnuSelf;$gnuBin;$env:PATH"
 $env:CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER = $gnuLinker
+
+if (-not $env:CARGO_TARGET_DIR -and (Test-Path $repoCargoConfig)) {
+    $configText = Get-Content $repoCargoConfig -Raw -Encoding utf8
+    if ($configText -match 'target-dir\s*=\s*"([^"]+)"') {
+        $env:CARGO_TARGET_DIR = $matches[1]
+    }
+}
 
 $cargoCommand = $CargoArgs[0]
 $cargoRest = if ($CargoArgs.Count -gt 1) {
