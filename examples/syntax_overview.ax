@@ -1,0 +1,32 @@
+struct Point {
+    x: i32,
+    y: i32,
+}
+
+enum Flag {
+    On,
+    Off,
+}
+
+fn total(point: Point) -> i32 {
+    return point.x + point.y;
+}
+
+fn main() -> i32 {
+    let point: Point = Point { x: 2, y: 3 };
+    let mut current: i32 = total(point);
+    let enabled: bool = true;
+
+    if (enabled) {
+        println("enabled");
+    } else {
+        println("disabled");
+    }
+
+    while (current < 7) {
+        current = current + 1;
+    }
+
+    println(current);
+    return 0;
+}

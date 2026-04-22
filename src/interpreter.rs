@@ -1,6 +1,8 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
-use crate::ast::{BinaryOp, Block, Expr, ExprKind, ItemKind, Param, Program, Stmt, StmtKind, UnaryOp};
+use crate::ast::{
+    BinaryOp, Block, Expr, ExprKind, ItemKind, Param, Program, Stmt, StmtKind, UnaryOp,
+};
 use crate::diagnostics::Diagnostic;
 use crate::source::{SourceFile, Span};
 
@@ -46,6 +48,10 @@ enum Value {
     F32(f32),
     Bool(bool),
     String(String),
+    Struct {
+        name: String,
+        fields: BTreeMap<String, Value>,
+    },
     Void,
 }
 
@@ -67,6 +73,14 @@ impl Value {
             }
             Self::Bool(value) => value.to_string(),
             Self::String(value) => value.clone(),
+            Self::Struct { name, fields } => {
+                let fields = fields
+                    .iter()
+                    .map(|(field, value)| format!("{field}: {}", value.display()))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                format!("{name} {{ {fields} }}")
+            }
             Self::Void => "<void>".to_string(),
         }
     }
@@ -384,13 +398,35 @@ impl<'a> Interpreter<'a> {
                     callee.span,
                 )),
             },
-            ExprKind::Field { .. } => Err(self.runtime_error(
-                "R0015",
-                "field access is not executable in the minimal interpreter yet",
-                expr.span,
-            )),
+            ExprKind::StructLiteral { name, fields } => {
+                let mut values = BTreeMap::new();
+                for field in fields {
+                    values.insert(field.name.clone(), self.eval_expr(&field.value, frame)?);
+                }
+                Ok(Value::Struct {
+                    name: name.clone(),
+                    fields: values,
+                })
+            }
+            ExprKind::Field { base, field } => match self.eval_expr(base, frame)? {
+                Value::Struct { fields, .. } => fields.get(field).cloned().ok_or_else(|| {
+                    self.runtime_error(
+                        "R0015",
+                        format!("struct value does not contain field `{field}`"),
+                        expr.span,
+                    )
+                }),
+                other => Err(self.runtime_error(
+                    "R0016",
+                    format!(
+                        "field access requires a struct value, got `{}`",
+                        other.display()
+                    ),
+                    expr.span,
+                )),
+            },
             ExprKind::Error => Err(self.runtime_error(
-                "R0016",
+                "R0017",
                 "cannot execute an invalid expression",
                 expr.span,
             )),
@@ -408,26 +444,26 @@ impl<'a> Interpreter<'a> {
             (BinaryOp::Add, Value::I32(left), Value::I32(right)) => left
                 .checked_add(right)
                 .map(Value::I32)
-                .ok_or_else(|| self.runtime_error("R0017", "integer addition overflowed", span)),
+                .ok_or_else(|| self.runtime_error("R0018", "integer addition overflowed", span)),
             (BinaryOp::Subtract, Value::I32(left), Value::I32(right)) => left
                 .checked_sub(right)
                 .map(Value::I32)
                 .ok_or_else(|| {
-                    self.runtime_error("R0018", "integer subtraction overflowed", span)
+                    self.runtime_error("R0019", "integer subtraction overflowed", span)
                 }),
             (BinaryOp::Multiply, Value::I32(left), Value::I32(right)) => left
                 .checked_mul(right)
                 .map(Value::I32)
                 .ok_or_else(|| {
-                    self.runtime_error("R0019", "integer multiplication overflowed", span)
+                    self.runtime_error("R0020", "integer multiplication overflowed", span)
                 }),
             (BinaryOp::Divide, Value::I32(_), Value::I32(0)) => {
-                Err(self.runtime_error("R0020", "division by zero", span))
+                Err(self.runtime_error("R0021", "division by zero", span))
             }
             (BinaryOp::Divide, Value::I32(left), Value::I32(right)) => left
                 .checked_div(right)
                 .map(Value::I32)
-                .ok_or_else(|| self.runtime_error("R0021", "integer division overflowed", span)),
+                .ok_or_else(|| self.runtime_error("R0022", "integer division overflowed", span)),
             (BinaryOp::Add, Value::F32(left), Value::F32(right)) => Ok(Value::F32(left + right)),
             (BinaryOp::Subtract, Value::F32(left), Value::F32(right)) => {
                 Ok(Value::F32(left - right))
@@ -436,7 +472,7 @@ impl<'a> Interpreter<'a> {
                 Ok(Value::F32(left * right))
             }
             (BinaryOp::Divide, Value::F32(_), Value::F32(0.0)) => {
-                Err(self.runtime_error("R0020", "division by zero", span))
+                Err(self.runtime_error("R0021", "division by zero", span))
             }
             (BinaryOp::Divide, Value::F32(left), Value::F32(right)) => {
                 Ok(Value::F32(left / right))
@@ -468,7 +504,7 @@ impl<'a> Interpreter<'a> {
                 Ok(Value::Bool(left >= right))
             }
             (_, left, right) => Err(self.runtime_error(
-                "R0022",
+                "R0023",
                 format!(
                     "invalid binary operation for runtime values `{}` and `{}`",
                     left.display(),
@@ -593,5 +629,34 @@ fn main() -> i32 {
         let output = run_program(&source, &analysis.program).expect("program should run");
         assert_eq!(output.exit_code, 0);
         assert_eq!(output.stdout, vec!["120"]);
+    }
+
+    #[test]
+    fn runs_struct_literals_and_field_access() {
+        let source = SourceFile::anonymous(
+            "\
+struct Point {
+    x: i32,
+    y: i32,
+}
+
+fn total(point: Point) -> i32 {
+    return point.x + point.y;
+}
+
+fn main() -> i32 {
+    let point: Point = Point { x: 2, y: 3 };
+    println(point.x);
+    println(total(point));
+    return 0;
+}
+",
+        );
+
+        let analysis = analyze(&source);
+        assert!(analysis.diagnostics.is_empty());
+        let output = run_program(&source, &analysis.program).expect("program should run");
+        assert_eq!(output.exit_code, 0);
+        assert_eq!(output.stdout, vec!["2", "5"]);
     }
 }

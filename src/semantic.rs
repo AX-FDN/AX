@@ -759,6 +759,123 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     Type::Error
                 }
             },
+            ExprKind::StructLiteral { name, fields } => {
+                let struct_info = match self.info.named_types.get(name).cloned() {
+                    Some(Type::Struct(struct_name)) => {
+                        self.info.structs.get(&struct_name).cloned().map(|info| (struct_name, info))
+                    }
+                    Some(other) => {
+                        self.diagnostics.push(
+                            Diagnostic::new(
+                                "S0024",
+                                format!(
+                                    "`{name}` cannot be used as a struct literal because it is `{}`",
+                                    other.describe()
+                                ),
+                                self.info.source,
+                                expr.span,
+                            )
+                            .with_suggestion(
+                                "use the name of a declared `struct` for struct literal construction",
+                            ),
+                        );
+                        None
+                    }
+                    None => {
+                        self.diagnostics.push(
+                            Diagnostic::new(
+                                "S0006",
+                                format!("unknown type `{name}`"),
+                                self.info.source,
+                                expr.span,
+                            )
+                            .with_suggestion(
+                                "declare the struct before constructing it",
+                            ),
+                        );
+                        None
+                    }
+                };
+
+                let Some((struct_name, struct_info)) = struct_info else {
+                    for field in fields {
+                        self.check_expr(&field.value);
+                    }
+                    return Type::Error;
+                };
+
+                let mut seen_fields = HashSet::new();
+                for field in fields {
+                    let value_type = self.check_expr(&field.value);
+                    if !seen_fields.insert(field.name.clone()) {
+                        self.diagnostics.push(
+                            Diagnostic::new(
+                                "S0025",
+                                format!(
+                                    "duplicate field `{}` in struct literal `{struct_name}`",
+                                    field.name
+                                ),
+                                self.info.source,
+                                field.span,
+                            )
+                            .with_suggestion("keep only one initializer for each field"),
+                        );
+                        continue;
+                    }
+
+                    match struct_info.fields.get(&field.name) {
+                        Some(expected_field) => {
+                            self.expect_type_match(
+                                &expected_field.ty,
+                                &value_type,
+                                field.value.span,
+                                format!(
+                                    "field `{}` of `{struct_name}` expects `{}`, found `{}`",
+                                    field.name,
+                                    expected_field.ty.describe(),
+                                    value_type.describe()
+                                ),
+                            );
+                        }
+                        None => {
+                            self.diagnostics.push(
+                                Diagnostic::new(
+                                    "S0027",
+                                    format!(
+                                        "struct `{struct_name}` does not have a field `{}`",
+                                        field.name
+                                    ),
+                                    self.info.source,
+                                    field.span,
+                                )
+                                .with_suggestion(
+                                    "use an existing field name from the struct declaration",
+                                ),
+                            );
+                        }
+                    }
+                }
+
+                for field_name in struct_info.fields.keys() {
+                    if !seen_fields.contains(field_name) {
+                        self.diagnostics.push(
+                            Diagnostic::new(
+                                "S0026",
+                                format!(
+                                    "struct literal `{struct_name}` is missing field `{field_name}`",
+                                ),
+                                self.info.source,
+                                expr.span,
+                            )
+                            .with_suggestion(format!(
+                                "provide `{field_name}: ...` in the struct literal",
+                            )),
+                        );
+                    }
+                }
+
+                Type::Struct(struct_name)
+            }
             ExprKind::Field { base, field } => {
                 let base_type = self.check_expr(base);
                 match base_type {
@@ -980,5 +1097,22 @@ mod tests {
         let codes =
             check("fn helper(flag: bool) -> i32 { if (flag) { return 1; } } fn main() -> i32 { return helper(true); }");
         assert!(codes.iter().any(|code| code == "S0023"));
+    }
+
+    #[test]
+    fn checks_struct_literal_fields() {
+        let codes = check(
+            "struct Point { x: i32, y: i32 } fn main() -> i32 { let point: Point = Point { x: 1, y: 2 }; return point.x; }",
+        );
+        assert!(!codes.iter().any(|code| code == "S0022"));
+        assert!(!codes.iter().any(|code| code == "S0026"));
+    }
+
+    #[test]
+    fn reports_missing_struct_literal_field() {
+        let codes = check(
+            "struct Point { x: i32, y: i32 } fn main() -> i32 { let point: Point = Point { x: 1 }; return 0; }",
+        );
+        assert!(codes.iter().any(|code| code == "S0026"));
     }
 }

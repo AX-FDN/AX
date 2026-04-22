@@ -48,6 +48,13 @@ pub struct StructField {
 }
 
 #[derive(Debug, Clone, Serialize)]
+pub struct StructLiteralField {
+    pub name: String,
+    pub value: Expr,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Serialize)]
 pub struct EnumVariant {
     pub name: String,
     pub span: Span,
@@ -142,6 +149,10 @@ pub enum ExprKind {
     Call {
         callee: Box<Expr>,
         arguments: Vec<Expr>,
+    },
+    StructLiteral {
+        name: String,
+        fields: Vec<StructLiteralField>,
     },
     Field {
         base: Box<Expr>,

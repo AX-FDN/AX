@@ -1,6 +1,6 @@
 use crate::ast::{
-    BinaryOp, Block, EnumVariant, Expr, ExprKind, Item, ItemKind, Param, Program, Stmt, StmtKind,
-    StructField, TypeRef, UnaryOp,
+    BinaryOp, Block, EnumVariant, Expr, ExprKind, Item, ItemKind, Param, Program,
+    StructField, StructLiteralField, Stmt, StmtKind, TypeRef, UnaryOp,
 };
 use crate::diagnostics::Diagnostic;
 use crate::source::{SourceFile, Span};
@@ -443,12 +443,7 @@ impl<'a> Parser<'a> {
     fn parse_primary_expression(&mut self) -> Expr {
         let token = self.advance();
         match token.kind {
-            TokenKind::Identifier => Expr {
-                span: token.span,
-                kind: ExprKind::Name {
-                    value: token.lexeme,
-                },
-            },
+            TokenKind::Identifier => self.parse_name_or_struct_literal(token),
             TokenKind::IntLiteral => Expr {
                 span: token.span,
                 kind: ExprKind::Int {
@@ -489,6 +484,57 @@ impl<'a> Parser<'a> {
                     kind: ExprKind::Error,
                 }
             }
+        }
+    }
+
+    fn parse_name_or_struct_literal(&mut self, name: Token) -> Expr {
+        if !self.check(TokenKind::LBrace) {
+            return Expr {
+                span: name.span,
+                kind: ExprKind::Name {
+                    value: name.lexeme,
+                },
+            };
+        }
+
+        self.advance();
+        let mut fields = Vec::new();
+        if !self.check(TokenKind::RBrace) {
+            loop {
+                let field_name = self.expect_identifier("expected a field name in struct literal");
+                self.expect(
+                    TokenKind::Colon,
+                    "expected `:` after struct literal field name",
+                    &["`:`"],
+                );
+                let value = self.parse_expression();
+                let span = Span::new(field_name.span.start, value.span.end);
+                fields.push(StructLiteralField {
+                    name: field_name.lexeme,
+                    value,
+                    span,
+                });
+
+                if !self.matches(&[TokenKind::Comma]) {
+                    break;
+                }
+                if self.check(TokenKind::RBrace) {
+                    break;
+                }
+            }
+        }
+
+        let close = self.expect(
+            TokenKind::RBrace,
+            "expected `}` after struct literal",
+            &["`}`"],
+        );
+        Expr {
+            span: Span::new(name.span.start, close.span.end),
+            kind: ExprKind::StructLiteral {
+                name: name.lexeme,
+                fields,
+            },
         }
     }
 
@@ -637,6 +683,25 @@ mod tests {
                     _ => panic!("expected binary expr"),
                 },
                 _ => panic!("expected return"),
+            },
+            _ => panic!("expected function"),
+        }
+    }
+
+    #[test]
+    fn parses_struct_literal_and_field_access() {
+        let source = SourceFile::anonymous(
+            "fn main() -> i32 { let point: Point = Point { x: 1, y: 2 }; return point.x; }",
+        );
+        let tokens = tokenize(&source).tokens;
+        let output = parse(&source, tokens);
+        assert!(output.diagnostics.is_empty());
+        match &output.program.items[0].kind {
+            ItemKind::Function { body, .. } => match &body.statements[0].kind {
+                StmtKind::Let { initializer, .. } => {
+                    assert!(matches!(initializer.kind, ExprKind::StructLiteral { .. }));
+                }
+                _ => panic!("expected let statement"),
             },
             _ => panic!("expected function"),
         }
