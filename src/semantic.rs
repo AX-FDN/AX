@@ -31,8 +31,7 @@ pub fn check_program(source: &SourceFile, program: &Program) -> Vec<Diagnostic> 
             ..
         } = &item.kind
         {
-            let resolved_return_type =
-                program_info.resolve_type_ref(return_type, &mut diagnostics);
+            let resolved_return_type = program_info.resolve_type_ref(return_type, &mut diagnostics);
             let mut checker =
                 TypeChecker::new(&program_info, resolved_return_type, &mut diagnostics);
 
@@ -106,6 +105,10 @@ impl Type {
     fn is_comparable_primitive(&self) -> bool {
         matches!(self, Self::Bool | Self::I32 | Self::F32 | Self::String)
     }
+
+    fn is_equality_comparable(&self) -> bool {
+        self.is_comparable_primitive() || matches!(self, Self::Enum(_))
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -126,6 +129,11 @@ struct StructInfo {
 }
 
 #[derive(Debug, Clone)]
+struct EnumInfo {
+    variants: HashSet<String>,
+}
+
+#[derive(Debug, Clone)]
 struct StructFieldInfo {
     ty: Type,
     start: usize,
@@ -136,6 +144,7 @@ struct ProgramInfo<'a> {
     named_types: HashMap<String, Type>,
     functions: HashMap<String, FunctionSignature>,
     structs: HashMap<String, StructInfo>,
+    enums: HashMap<String, EnumInfo>,
     has_main: bool,
 }
 
@@ -199,6 +208,7 @@ impl<'a> ProgramInfo<'a> {
             named_types,
             functions: HashMap::new(),
             structs: HashMap::new(),
+            enums: HashMap::new(),
             has_main,
         };
 
@@ -219,18 +229,18 @@ impl<'a> ProgramInfo<'a> {
                             diagnostics.push(
                                 Diagnostic::new(
                                     "S0001",
-                                    format!(
-                                        "duplicate field `{}` in struct `{name}`",
-                                        field.name
-                                    ),
+                                    format!("duplicate field `{}` in struct `{name}`", field.name),
                                     source,
                                     field.span,
                                 )
-                                .with_note(format!("previous field was declared at {line}:{column}")),
+                                .with_note(format!(
+                                    "previous field was declared at {line}:{column}"
+                                )),
                             );
                         }
                     }
-                    info.structs.insert(name.clone(), StructInfo { fields: field_map });
+                    info.structs
+                        .insert(name.clone(), StructInfo { fields: field_map });
                 }
                 ItemKind::Enum { name, variants } => {
                     let mut variant_names = HashSet::new();
@@ -250,6 +260,12 @@ impl<'a> ProgramInfo<'a> {
                             );
                         }
                     }
+                    info.enums.insert(
+                        name.clone(),
+                        EnumInfo {
+                            variants: variant_names,
+                        },
+                    );
                 }
                 ItemKind::Function {
                     name,
@@ -279,11 +295,7 @@ impl<'a> ProgramInfo<'a> {
         info
     }
 
-    fn resolve_type_ref(
-        &self,
-        ty: &TypeRef,
-        diagnostics: &mut Vec<Diagnostic>,
-    ) -> Type {
+    fn resolve_type_ref(&self, ty: &TypeRef, diagnostics: &mut Vec<Diagnostic>) -> Type {
         match self.named_types.get(&ty.name) {
             Some(found) => found.clone(),
             None => {
@@ -364,64 +376,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             }
             StmtKind::Assign { target, value } => {
                 let value_type = self.check_expr(value);
-                match &target.kind {
-                    ExprKind::Name { value: name } => match self.lookup(name) {
-                        Some(binding) if binding.mutable => {
-                            self.expect_type_match(
-                                &binding.ty,
-                                &value_type,
-                                value.span,
-                                format!(
-                                    "cannot assign `{}` to `{name}` of type `{}`",
-                                    value_type.describe(),
-                                    binding.ty.describe()
-                                ),
-                            );
-                        }
-                        Some(binding) => {
-                            let (line, column) = self.info.source.line_col(binding.start);
-                            self.diagnostics.push(
-                                Diagnostic::new(
-                                    "S0003",
-                                    format!("cannot assign to immutable variable `{name}`"),
-                                    self.info.source,
-                                    target.span,
-                                )
-                                .with_note(format!(
-                                    "`{name}` was declared immutable at {line}:{column}"
-                                ))
-                                .with_suggestion(format!("declare `{name}` with `let mut`")),
-                            );
-                        }
-                        None => {
-                            self.diagnostics.push(
-                                Diagnostic::new(
-                                    "S0002",
-                                    format!("use of undefined variable `{name}`"),
-                                    self.info.source,
-                                    target.span,
-                                )
-                                .with_suggestion(format!(
-                                    "declare `{name}` before assigning to it"
-                                )),
-                            );
-                        }
-                    },
-                    _ => {
-                        self.diagnostics.push(
-                            Diagnostic::new(
-                                "S0008",
-                                "assignment target must be a previously declared mutable variable",
-                                self.info.source,
-                                target.span,
-                            )
-                            .with_suggestion(
-                                "assign directly to a variable name like `value = expr;`",
-                            ),
-                        );
-                        self.check_expr(target);
-                    }
-                }
+                self.check_assignment_target(target, &value_type, value.span);
             }
             StmtKind::Expr { expr } => {
                 self.check_expr(expr);
@@ -486,9 +441,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                             self.info.source,
                             expr.span,
                         )
-                        .with_suggestion(
-                            "use a value that fits in the AX `i32` range",
-                        ),
+                        .with_suggestion("use a value that fits in the AX `i32` range"),
                     );
                     Type::Error
                 } else {
@@ -505,9 +458,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                             self.info.source,
                             expr.span,
                         )
-                        .with_suggestion(
-                            "use a smaller floating-point value that fits in `f32`",
-                        ),
+                        .with_suggestion("use a smaller floating-point value that fits in `f32`"),
                     );
                     Type::Error
                 } else {
@@ -532,6 +483,15 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     );
                     Type::Error
                 }
+                None if self.info.named_types.contains_key(value) => {
+                    self.diagnostics.push(type_name_as_value_diagnostic(
+                        self.info.source,
+                        expr.span,
+                        value,
+                        self.info.named_types.get(value).expect("type must exist"),
+                    ));
+                    Type::Error
+                }
                 None => {
                     self.diagnostics.push(
                         Diagnostic::new(
@@ -554,32 +514,28 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 match op {
                     UnaryOp::Negate if inner_type.is_numeric() => inner_type,
                     UnaryOp::Negate => {
-                        self.diagnostics.push(
-                            Diagnostic::new(
-                                "S0012",
-                                format!(
-                                    "unary `-` expects `i32` or `f32`, found `{}`",
-                                    inner_type.describe()
-                                ),
-                                self.info.source,
-                                expr.span,
+                        self.diagnostics.push(Diagnostic::new(
+                            "S0012",
+                            format!(
+                                "unary `-` expects `i32` or `f32`, found `{}`",
+                                inner_type.describe()
                             ),
-                        );
+                            self.info.source,
+                            expr.span,
+                        ));
                         Type::Error
                     }
                     UnaryOp::Not if inner_type == Type::Bool => Type::Bool,
                     UnaryOp::Not => {
-                        self.diagnostics.push(
-                            Diagnostic::new(
-                                "S0013",
-                                format!(
-                                    "unary `!` expects `bool`, found `{}`",
-                                    inner_type.describe()
-                                ),
-                                self.info.source,
-                                expr.span,
+                        self.diagnostics.push(Diagnostic::new(
+                            "S0013",
+                            format!(
+                                "unary `!` expects `bool`, found `{}`",
+                                inner_type.describe()
                             ),
-                        );
+                            self.info.source,
+                            expr.span,
+                        ));
                         Type::Error
                     }
                 }
@@ -592,10 +548,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 }
 
                 match op {
-                    BinaryOp::Add
-                    | BinaryOp::Subtract
-                    | BinaryOp::Multiply
-                    | BinaryOp::Divide => {
+                    BinaryOp::Add | BinaryOp::Subtract | BinaryOp::Multiply | BinaryOp::Divide => {
                         if left_type.is_numeric() && left_type == right_type {
                             left_type
                         } else {
@@ -616,14 +569,14 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                         }
                     }
                     BinaryOp::Equal | BinaryOp::NotEqual => {
-                        if left_type == right_type && left_type.is_comparable_primitive() {
+                        if left_type == right_type && left_type.is_equality_comparable() {
                             Type::Bool
                         } else {
                             self.diagnostics.push(
                                 Diagnostic::new(
                                     "S0015",
                                     format!(
-                                        "operator `{}` expects matching primitive operands, found `{}` and `{}`",
+                                        "operator `{}` expects matching comparable operands, found `{}` and `{}`",
                                         binary_op_name(*op),
                                         left_type.describe(),
                                         right_type.describe()
@@ -677,23 +630,20 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     match signature {
                         Some(signature) => {
                             if signature.params.len() != argument_types.len() {
-                                self.diagnostics.push(
-                                    Diagnostic::new(
-                                        "S0017",
-                                        format!(
-                                            "function `{value}` expects {} argument(s), found {}",
-                                            signature.params.len(),
-                                            argument_types.len()
-                                        ),
-                                        self.info.source,
-                                        expr.span,
+                                self.diagnostics.push(Diagnostic::new(
+                                    "S0017",
+                                    format!(
+                                        "function `{value}` expects {} argument(s), found {}",
+                                        signature.params.len(),
+                                        argument_types.len()
                                     ),
-                                );
+                                    self.info.source,
+                                    expr.span,
+                                ));
                             }
 
-                            for (argument, parameter) in argument_types
-                                .iter()
-                                .zip(signature.params.iter())
+                            for (argument, parameter) in
+                                argument_types.iter().zip(signature.params.iter())
                             {
                                 self.expect_type_match(
                                     &parameter.ty,
@@ -752,18 +702,19 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                             self.info.source,
                             callee.span,
                         )
-                        .with_suggestion(
-                            "use a direct function call like `name(arg1, arg2)`",
-                        ),
+                        .with_suggestion("use a direct function call like `name(arg1, arg2)`"),
                     );
                     Type::Error
                 }
             },
             ExprKind::StructLiteral { name, fields } => {
                 let struct_info = match self.info.named_types.get(name).cloned() {
-                    Some(Type::Struct(struct_name)) => {
-                        self.info.structs.get(&struct_name).cloned().map(|info| (struct_name, info))
-                    }
+                    Some(Type::Struct(struct_name)) => self
+                        .info
+                        .structs
+                        .get(&struct_name)
+                        .cloned()
+                        .map(|info| (struct_name, info)),
                     Some(other) => {
                         self.diagnostics.push(
                             Diagnostic::new(
@@ -789,9 +740,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                                 self.info.source,
                                 expr.span,
                             )
-                            .with_suggestion(
-                                "declare the struct before constructing it",
-                            ),
+                            .with_suggestion("declare the struct before constructing it"),
                         );
                         None
                     }
@@ -877,6 +826,27 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 Type::Struct(struct_name)
             }
             ExprKind::Field { base, field } => {
+                if let ExprKind::Name { value: enum_name } = &base.kind {
+                    if let Some(enum_info) = self.info.enums.get(enum_name) {
+                        if enum_info.variants.contains(field) {
+                            return Type::Enum(enum_name.clone());
+                        }
+
+                        self.diagnostics.push(
+                            Diagnostic::new(
+                                "S0029",
+                                format!("enum `{enum_name}` does not have a variant `{field}`"),
+                                self.info.source,
+                                expr.span,
+                            )
+                            .with_suggestion(
+                                "use an existing variant name from the enum declaration",
+                            ),
+                        );
+                        return Type::Error;
+                    }
+                }
+
                 let base_type = self.check_expr(base);
                 match base_type {
                     Type::Struct(struct_name) => {
@@ -906,17 +876,15 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     }
                     Type::Error => Type::Error,
                     other => {
-                        self.diagnostics.push(
-                            Diagnostic::new(
-                                "S0021",
-                                format!(
-                                    "field access expects a struct value, found `{}`",
-                                    other.describe()
-                                ),
-                                self.info.source,
-                                expr.span,
+                        self.diagnostics.push(Diagnostic::new(
+                            "S0021",
+                            format!(
+                                "field access expects a struct value, found `{}`",
+                                other.describe()
                             ),
-                        );
+                            self.info.source,
+                            expr.span,
+                        ));
                         Type::Error
                     }
                 }
@@ -925,16 +893,197 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
         }
     }
 
+    fn check_assignment_target(&mut self, target: &Expr, value_type: &Type, value_span: Span) {
+        match &target.kind {
+            ExprKind::Name { value: name } => {
+                self.check_variable_assignment(name, target.span, value_span, value_type);
+            }
+            ExprKind::Field { base, field } => {
+                self.check_field_assignment(base, field, target.span, value_span, value_type);
+            }
+            _ => {
+                self.diagnostics.push(
+                    Diagnostic::new(
+                        "S0008",
+                        "assignment target must be a mutable variable or direct mutable struct field",
+                        self.info.source,
+                        target.span,
+                    )
+                    .with_suggestion(
+                        "assign to `value = expr;` or `point.x = expr;`",
+                    ),
+                );
+                self.check_expr(target);
+            }
+        }
+    }
+
+    fn check_variable_assignment(
+        &mut self,
+        name: &str,
+        target_span: Span,
+        value_span: Span,
+        value_type: &Type,
+    ) {
+        match self.lookup(name) {
+            Some(binding) if binding.mutable => {
+                self.expect_type_match(
+                    &binding.ty,
+                    value_type,
+                    value_span,
+                    format!(
+                        "cannot assign `{}` to `{name}` of type `{}`",
+                        value_type.describe(),
+                        binding.ty.describe()
+                    ),
+                );
+            }
+            Some(binding) => {
+                let (line, column) = self.info.source.line_col(binding.start);
+                self.diagnostics.push(
+                    Diagnostic::new(
+                        "S0003",
+                        format!("cannot assign to immutable variable `{name}`"),
+                        self.info.source,
+                        target_span,
+                    )
+                    .with_note(format!(
+                        "`{name}` was declared immutable at {line}:{column}"
+                    ))
+                    .with_suggestion(format!("declare `{name}` with `let mut`")),
+                );
+            }
+            None => {
+                self.diagnostics.push(
+                    Diagnostic::new(
+                        "S0002",
+                        format!("use of undefined variable `{name}`"),
+                        self.info.source,
+                        target_span,
+                    )
+                    .with_suggestion(format!("declare `{name}` before assigning to it")),
+                );
+            }
+        }
+    }
+
+    fn check_field_assignment(
+        &mut self,
+        base: &Expr,
+        field: &str,
+        target_span: Span,
+        value_span: Span,
+        value_type: &Type,
+    ) {
+        let ExprKind::Name { value: base_name } = &base.kind else {
+            self.diagnostics.push(
+                Diagnostic::new(
+                    "S0008",
+                    "assignment target must be a mutable variable or direct mutable struct field",
+                    self.info.source,
+                    target_span,
+                )
+                .with_suggestion("use a direct field write like `point.x = expr;`"),
+            );
+            self.check_expr(base);
+            return;
+        };
+
+        match self.lookup(base_name) {
+            Some(binding) if !binding.mutable => {
+                let (line, column) = self.info.source.line_col(binding.start);
+                self.diagnostics.push(
+                    Diagnostic::new(
+                        "S0030",
+                        format!(
+                            "cannot assign to field `{field}` on immutable variable `{base_name}`"
+                        ),
+                        self.info.source,
+                        target_span,
+                    )
+                    .with_note(format!(
+                        "`{base_name}` was declared immutable at {line}:{column}"
+                    ))
+                    .with_suggestion(format!(
+                        "declare `{base_name}` with `let mut` before assigning to `{base_name}.{field}`"
+                    )),
+                );
+            }
+            Some(binding) => match binding.ty {
+                Type::Struct(struct_name) => {
+                    let struct_info = self.info.structs.get(&struct_name).cloned();
+                    match struct_info {
+                        Some(struct_info) => match struct_info.fields.get(field) {
+                            Some(field_info) => {
+                                self.expect_type_match(
+                                    &field_info.ty,
+                                    value_type,
+                                    value_span,
+                                    format!(
+                                        "cannot assign `{}` to field `{field}` of `{struct_name}` because the field has type `{}`",
+                                        value_type.describe(),
+                                        field_info.ty.describe()
+                                    ),
+                                );
+                            }
+                            None => {
+                                self.diagnostics.push(
+                                    Diagnostic::new(
+                                        "S0020",
+                                        format!(
+                                            "struct `{struct_name}` does not have a field `{field}`",
+                                        ),
+                                        self.info.source,
+                                        target_span,
+                                    )
+                                    .with_suggestion(
+                                        "use an existing field name from the struct declaration",
+                                    ),
+                                );
+                            }
+                        },
+                        None => {}
+                    }
+                }
+                Type::Error => {}
+                other => {
+                    self.diagnostics.push(
+                        Diagnostic::new(
+                            "S0030",
+                            format!(
+                                "field assignment requires a mutable struct variable, found `{}`",
+                                other.describe()
+                            ),
+                            self.info.source,
+                            target_span,
+                        )
+                        .with_suggestion(
+                            "assign to a field on a mutable struct variable like `point.x = expr;`",
+                        ),
+                    );
+                }
+            },
+            None => {
+                self.diagnostics.push(
+                    Diagnostic::new(
+                        "S0002",
+                        format!("use of undefined variable `{base_name}`"),
+                        self.info.source,
+                        base.span,
+                    )
+                    .with_suggestion(format!(
+                        "declare `{base_name}` before assigning to its field"
+                    )),
+                );
+            }
+        }
+    }
+
     fn declare(&mut self, name: &str, ty: Type, mutable: bool, start: usize) {
         let current_scope = self.scopes.last_mut().expect("scope must exist");
-        if let Some(previous) = current_scope.insert(
-            name.to_string(),
-            Binding {
-                mutable,
-                ty,
-                start,
-            },
-        ) {
+        if let Some(previous) =
+            current_scope.insert(name.to_string(), Binding { mutable, ty, start })
+        {
             let (line, column) = self.info.source.line_col(previous.start);
             self.diagnostics.push(
                 Diagnostic::new(
@@ -955,19 +1104,37 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             .find_map(|scope| scope.get(name).cloned())
     }
 
-    fn expect_type_match(
-        &mut self,
-        expected: &Type,
-        actual: &Type,
-        span: Span,
-        message: String,
-    ) {
+    fn expect_type_match(&mut self, expected: &Type, actual: &Type, span: Span, message: String) {
         if expected.is_error() || actual.is_error() || expected == actual {
             return;
         }
 
         self.diagnostics
             .push(Diagnostic::new("S0022", message, self.info.source, span));
+    }
+}
+
+fn type_name_as_value_diagnostic(
+    source: &SourceFile,
+    span: Span,
+    name: &str,
+    ty: &Type,
+) -> Diagnostic {
+    let diagnostic = Diagnostic::new(
+        "S0028",
+        format!("type name `{name}` cannot be used as a runtime value"),
+        source,
+        span,
+    );
+
+    match ty {
+        Type::Enum(enum_name) => diagnostic.with_suggestion(format!(
+            "use an enum variant like `{enum_name}.VariantName`",
+        )),
+        Type::Struct(struct_name) => diagnostic.with_suggestion(format!(
+            "construct `{struct_name}` with `{struct_name} {{ field: ... }}`",
+        )),
+        _ => diagnostic.with_suggestion("use the type name only in type positions"),
     }
 }
 
@@ -1022,10 +1189,7 @@ fn item_name(kind: &ItemKind) -> &str {
 }
 
 fn block_guarantees_return(block: &Block) -> bool {
-    block
-        .statements
-        .iter()
-        .any(statement_guarantees_return)
+    block.statements.iter().any(statement_guarantees_return)
 }
 
 fn statement_guarantees_return(statement: &Stmt) -> bool {
@@ -1094,8 +1258,9 @@ mod tests {
 
     #[test]
     fn reports_function_that_can_fall_through() {
-        let codes =
-            check("fn helper(flag: bool) -> i32 { if (flag) { return 1; } } fn main() -> i32 { return helper(true); }");
+        let codes = check(
+            "fn helper(flag: bool) -> i32 { if (flag) { return 1; } } fn main() -> i32 { return helper(true); }",
+        );
         assert!(codes.iter().any(|code| code == "S0023"));
     }
 
@@ -1114,5 +1279,48 @@ mod tests {
             "struct Point { x: i32, y: i32 } fn main() -> i32 { let point: Point = Point { x: 1 }; return 0; }",
         );
         assert!(codes.iter().any(|code| code == "S0026"));
+    }
+
+    #[test]
+    fn accepts_enum_variants_and_mutable_struct_field_assignment() {
+        let codes = check(
+            "\
+enum Flag { On, Off }
+struct Point { x: i32, y: i32 }
+fn main() -> i32 {
+    let flag: Flag = Flag.On;
+    let mut point: Point = Point { x: 1, y: 2 };
+    point.x = point.x + 1;
+    if (flag == Flag.On) {
+        return point.x;
+    }
+    return 0;
+}
+",
+        );
+        assert!(codes.is_empty(), "unexpected diagnostics: {codes:?}");
+    }
+
+    #[test]
+    fn reports_type_name_used_as_value() {
+        let codes =
+            check("enum Flag { On, Off } fn main() -> i32 { let flag: Flag = Flag; return 0; }");
+        assert!(codes.iter().any(|code| code == "S0028"));
+    }
+
+    #[test]
+    fn reports_unknown_enum_variant() {
+        let codes = check(
+            "enum Flag { On, Off } fn main() -> i32 { let flag: Flag = Flag.Unknown; return 0; }",
+        );
+        assert!(codes.iter().any(|code| code == "S0029"));
+    }
+
+    #[test]
+    fn reports_immutable_struct_field_assignment() {
+        let codes = check(
+            "struct Point { x: i32 } fn main() -> i32 { let point: Point = Point { x: 1 }; point.x = 2; return 0; }",
+        );
+        assert!(codes.iter().any(|code| code == "S0030"));
     }
 }

@@ -13,17 +13,20 @@ fn total(point: Point) -> i32 {
 }
 
 fn main() -> i32 {
-    let point: Point = Point { x: 2, y: 3 };
-    let mut current: i32 = total(point);
-    let enabled: bool = true;
+    let mut point: Point = Point { x: 2, y: 3 };
+    point.x = point.x + 1;
 
-    if (enabled) {
+    let flag: Flag = Flag.On;
+    if (flag == Flag.On) {
         println("enabled");
     } else {
         println("disabled");
     }
 
-    while (current < 7) {
+    println(flag);
+
+    let mut current: i32 = total(point);
+    while (current < 8) {
         current = current + 1;
     }
 

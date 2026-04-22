@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use crate::ast::{
     BinaryOp, Block, Expr, ExprKind, ItemKind, Param, Program, Stmt, StmtKind, UnaryOp,
@@ -11,16 +11,14 @@ pub struct RunOutput {
     pub stdout: Vec<String>,
 }
 
-pub fn run_program(
-    source: &SourceFile,
-    program: &Program,
-) -> Result<RunOutput, Diagnostic> {
+pub fn run_program(source: &SourceFile, program: &Program) -> Result<RunOutput, Diagnostic> {
     Interpreter::new(source, program)?.run_main()
 }
 
 struct Interpreter<'a> {
     source: &'a SourceFile,
     functions: HashMap<String, FunctionDef<'a>>,
+    enums: HashMap<String, HashSet<String>>,
     stdout: Vec<String>,
 }
 
@@ -48,6 +46,10 @@ enum Value {
     F32(f32),
     Bool(bool),
     String(String),
+    Enum {
+        name: String,
+        variant: String,
+    },
     Struct {
         name: String,
         fields: BTreeMap<String, Value>,
@@ -73,6 +75,7 @@ impl Value {
             }
             Self::Bool(value) => value.to_string(),
             Self::String(value) => value.clone(),
+            Self::Enum { name, variant } => format!("{name}.{variant}"),
             Self::Struct { name, fields } => {
                 let fields = fields
                     .iter()
@@ -89,23 +92,32 @@ impl Value {
 impl<'a> Interpreter<'a> {
     fn new(source: &'a SourceFile, program: &'a Program) -> Result<Self, Diagnostic> {
         let mut functions = HashMap::new();
+        let mut enums = HashMap::new();
         for item in &program.items {
-            if let ItemKind::Function {
-                name,
-                params,
-                body,
-                ..
-            } = &item.kind
-            {
-                functions.insert(
-                    name.clone(),
-                    FunctionDef {
-                        name,
-                        params,
-                        body,
-                        span: item.span,
-                    },
-                );
+            match &item.kind {
+                ItemKind::Function {
+                    name, params, body, ..
+                } => {
+                    functions.insert(
+                        name.clone(),
+                        FunctionDef {
+                            name,
+                            params,
+                            body,
+                            span: item.span,
+                        },
+                    );
+                }
+                ItemKind::Enum { name, variants } => {
+                    enums.insert(
+                        name.clone(),
+                        variants
+                            .iter()
+                            .map(|variant| variant.name.clone())
+                            .collect(),
+                    );
+                }
+                ItemKind::Struct { .. } => {}
             }
         }
 
@@ -121,6 +133,7 @@ impl<'a> Interpreter<'a> {
         Ok(Self {
             source,
             functions,
+            enums,
             stdout: Vec::new(),
         })
     }
@@ -157,11 +170,7 @@ impl<'a> Interpreter<'a> {
         }
 
         let function = self.functions.get(name).copied().ok_or_else(|| {
-            self.runtime_error(
-                "R0003",
-                format!("call to unknown function `{name}`"),
-                span,
-            )
+            self.runtime_error("R0003", format!("call to unknown function `{name}`"), span)
         })?;
 
         if function.params.len() != arguments.len() {
@@ -197,17 +206,16 @@ impl<'a> Interpreter<'a> {
             ControlFlow::Return(value) => Ok(value),
             ControlFlow::Continue => Err(self.runtime_error(
                 "R0005",
-                format!("function `{}` completed without returning a value", function.name),
+                format!(
+                    "function `{}` completed without returning a value",
+                    function.name
+                ),
                 function.span,
             )),
         }
     }
 
-    fn exec_block(
-        &mut self,
-        block: &Block,
-        frame: &mut Frame,
-    ) -> Result<ControlFlow, Diagnostic> {
+    fn exec_block(&mut self, block: &Block, frame: &mut Frame) -> Result<ControlFlow, Diagnostic> {
         frame.scopes.push(HashMap::new());
         for statement in &block.statements {
             match self.exec_statement(statement, frame)? {
@@ -235,46 +243,19 @@ impl<'a> Interpreter<'a> {
                 ..
             } => {
                 let value = self.eval_expr(initializer, frame)?;
-                frame
-                    .scopes
-                    .last_mut()
-                    .expect("scope should exist")
-                    .insert(
-                        name.clone(),
-                        Slot {
-                            mutable: *mutable,
-                            value,
-                        },
-                    );
+                frame.scopes.last_mut().expect("scope should exist").insert(
+                    name.clone(),
+                    Slot {
+                        mutable: *mutable,
+                        value,
+                    },
+                );
                 Ok(ControlFlow::Continue)
             }
             StmtKind::Assign { target, value } => {
                 let next_value = self.eval_expr(value, frame)?;
-                match &target.kind {
-                    ExprKind::Name { value: name } => {
-                        let slot = lookup_slot_mut(frame, name).ok_or_else(|| {
-                            self.runtime_error(
-                                "R0006",
-                                format!("assignment to unknown variable `{name}`"),
-                                target.span,
-                            )
-                        })?;
-                        if !slot.mutable {
-                            return Err(self.runtime_error(
-                                "R0007",
-                                format!("cannot assign to immutable variable `{name}`"),
-                                target.span,
-                            ));
-                        }
-                        slot.value = next_value;
-                        Ok(ControlFlow::Continue)
-                    }
-                    _ => Err(self.runtime_error(
-                        "R0008",
-                        "assignment target must be a variable name",
-                        target.span,
-                    )),
-                }
+                self.assign_target(frame, target, next_value)?;
+                Ok(ControlFlow::Continue)
             }
             StmtKind::Expr { expr } => {
                 self.eval_expr(expr, frame)?;
@@ -315,36 +296,110 @@ impl<'a> Interpreter<'a> {
         }
     }
 
-    fn eval_condition(
-        &mut self,
-        expr: &Expr,
+    fn assign_target(
+        &self,
         frame: &mut Frame,
-    ) -> Result<bool, Diagnostic> {
+        target: &Expr,
+        next_value: Value,
+    ) -> Result<(), Diagnostic> {
+        match &target.kind {
+            ExprKind::Name { value: name } => {
+                let slot = lookup_slot_mut(frame, name).ok_or_else(|| {
+                    self.runtime_error(
+                        "R0006",
+                        format!("assignment to unknown variable `{name}`"),
+                        target.span,
+                    )
+                })?;
+                if !slot.mutable {
+                    return Err(self.runtime_error(
+                        "R0007",
+                        format!("cannot assign to immutable variable `{name}`"),
+                        target.span,
+                    ));
+                }
+                slot.value = next_value;
+                Ok(())
+            }
+            ExprKind::Field { base, field } => {
+                let ExprKind::Name { value: base_name } = &base.kind else {
+                    return Err(self.runtime_error(
+                        "R0008",
+                        "assignment target must be a variable name or direct struct field",
+                        target.span,
+                    ));
+                };
+
+                let slot = lookup_slot_mut(frame, base_name).ok_or_else(|| {
+                    self.runtime_error(
+                        "R0006",
+                        format!("assignment to unknown variable `{base_name}`"),
+                        base.span,
+                    )
+                })?;
+                if !slot.mutable {
+                    return Err(self.runtime_error(
+                        "R0025",
+                        format!(
+                            "cannot assign to field `{field}` on immutable variable `{base_name}`"
+                        ),
+                        target.span,
+                    ));
+                }
+
+                match &mut slot.value {
+                    Value::Struct { fields, .. } => {
+                        let existing = fields.get_mut(field).ok_or_else(|| {
+                            self.runtime_error(
+                                "R0026",
+                                format!("struct value does not contain field `{field}`"),
+                                target.span,
+                            )
+                        })?;
+                        *existing = next_value;
+                        Ok(())
+                    }
+                    other => Err(self.runtime_error(
+                        "R0027",
+                        format!(
+                            "field assignment requires a struct value, got `{}`",
+                            other.display()
+                        ),
+                        target.span,
+                    )),
+                }
+            }
+            _ => Err(self.runtime_error(
+                "R0008",
+                "assignment target must be a variable name or direct struct field",
+                target.span,
+            )),
+        }
+    }
+
+    fn eval_condition(&mut self, expr: &Expr, frame: &mut Frame) -> Result<bool, Diagnostic> {
         match self.eval_expr(expr, frame)? {
             Value::Bool(value) => Ok(value),
             other => Err(self.runtime_error(
                 "R0009",
-                format!("condition must evaluate to `bool`, got `{}`", other.display()),
+                format!(
+                    "condition must evaluate to `bool`, got `{}`",
+                    other.display()
+                ),
                 expr.span,
             )),
         }
     }
 
-    fn eval_expr(
-        &mut self,
-        expr: &Expr,
-        frame: &mut Frame,
-    ) -> Result<Value, Diagnostic> {
+    fn eval_expr(&mut self, expr: &Expr, frame: &mut Frame) -> Result<Value, Diagnostic> {
         match &expr.kind {
-            ExprKind::Int { value } => i32::try_from(*value)
-                .map(Value::I32)
-                .map_err(|_| {
-                    self.runtime_error(
-                        "R0010",
-                        "integer literal is out of range for runtime `i32`",
-                        expr.span,
-                    )
-                }),
+            ExprKind::Int { value } => i32::try_from(*value).map(Value::I32).map_err(|_| {
+                self.runtime_error(
+                    "R0010",
+                    "integer literal is out of range for runtime `i32`",
+                    expr.span,
+                )
+            }),
             ExprKind::Float { value } => Ok(Value::F32(*value as f32)),
             ExprKind::Bool { value } => Ok(Value::Bool(*value)),
             ExprKind::String { value } => Ok(Value::String(value.clone())),
@@ -360,16 +415,11 @@ impl<'a> Interpreter<'a> {
             ExprKind::Unary { op, expr: inner } => {
                 let inner = self.eval_expr(inner, frame)?;
                 match (op, inner) {
-                    (UnaryOp::Negate, Value::I32(value)) => value
-                        .checked_neg()
-                        .map(Value::I32)
-                        .ok_or_else(|| {
-                            self.runtime_error(
-                                "R0012",
-                                "integer negation overflowed",
-                                expr.span,
-                            )
-                        }),
+                    (UnaryOp::Negate, Value::I32(value)) => {
+                        value.checked_neg().map(Value::I32).ok_or_else(|| {
+                            self.runtime_error("R0012", "integer negation overflowed", expr.span)
+                        })
+                    }
                     (UnaryOp::Negate, Value::F32(value)) => Ok(Value::F32(-value)),
                     (UnaryOp::Not, Value::Bool(value)) => Ok(Value::Bool(!value)),
                     (_, other) => Err(self.runtime_error(
@@ -408,28 +458,45 @@ impl<'a> Interpreter<'a> {
                     fields: values,
                 })
             }
-            ExprKind::Field { base, field } => match self.eval_expr(base, frame)? {
-                Value::Struct { fields, .. } => fields.get(field).cloned().ok_or_else(|| {
-                    self.runtime_error(
-                        "R0015",
-                        format!("struct value does not contain field `{field}`"),
+            ExprKind::Field { base, field } => {
+                if let ExprKind::Name { value: enum_name } = &base.kind {
+                    if let Some(variants) = self.enums.get(enum_name) {
+                        return if variants.contains(field) {
+                            Ok(Value::Enum {
+                                name: enum_name.clone(),
+                                variant: field.clone(),
+                            })
+                        } else {
+                            Err(self.runtime_error(
+                                "R0024",
+                                format!("enum `{enum_name}` does not contain variant `{field}`"),
+                                expr.span,
+                            ))
+                        };
+                    }
+                }
+
+                match self.eval_expr(base, frame)? {
+                    Value::Struct { fields, .. } => fields.get(field).cloned().ok_or_else(|| {
+                        self.runtime_error(
+                            "R0015",
+                            format!("struct value does not contain field `{field}`"),
+                            expr.span,
+                        )
+                    }),
+                    other => Err(self.runtime_error(
+                        "R0016",
+                        format!(
+                            "field access requires a struct value, got `{}`",
+                            other.display()
+                        ),
                         expr.span,
-                    )
-                }),
-                other => Err(self.runtime_error(
-                    "R0016",
-                    format!(
-                        "field access requires a struct value, got `{}`",
-                        other.display()
-                    ),
-                    expr.span,
-                )),
-            },
-            ExprKind::Error => Err(self.runtime_error(
-                "R0017",
-                "cannot execute an invalid expression",
-                expr.span,
-            )),
+                    )),
+                }
+            }
+            ExprKind::Error => {
+                Err(self.runtime_error("R0017", "cannot execute an invalid expression", expr.span))
+            }
         }
     }
 
@@ -448,15 +515,12 @@ impl<'a> Interpreter<'a> {
             (BinaryOp::Subtract, Value::I32(left), Value::I32(right)) => left
                 .checked_sub(right)
                 .map(Value::I32)
-                .ok_or_else(|| {
-                    self.runtime_error("R0019", "integer subtraction overflowed", span)
-                }),
-            (BinaryOp::Multiply, Value::I32(left), Value::I32(right)) => left
-                .checked_mul(right)
-                .map(Value::I32)
-                .ok_or_else(|| {
+                .ok_or_else(|| self.runtime_error("R0019", "integer subtraction overflowed", span)),
+            (BinaryOp::Multiply, Value::I32(left), Value::I32(right)) => {
+                left.checked_mul(right).map(Value::I32).ok_or_else(|| {
                     self.runtime_error("R0020", "integer multiplication overflowed", span)
-                }),
+                })
+            }
             (BinaryOp::Divide, Value::I32(_), Value::I32(0)) => {
                 Err(self.runtime_error("R0021", "division by zero", span))
             }
@@ -474,14 +538,10 @@ impl<'a> Interpreter<'a> {
             (BinaryOp::Divide, Value::F32(_), Value::F32(0.0)) => {
                 Err(self.runtime_error("R0021", "division by zero", span))
             }
-            (BinaryOp::Divide, Value::F32(left), Value::F32(right)) => {
-                Ok(Value::F32(left / right))
-            }
+            (BinaryOp::Divide, Value::F32(left), Value::F32(right)) => Ok(Value::F32(left / right)),
             (BinaryOp::Equal, left, right) => Ok(Value::Bool(left == right)),
             (BinaryOp::NotEqual, left, right) => Ok(Value::Bool(left != right)),
-            (BinaryOp::Less, Value::I32(left), Value::I32(right)) => {
-                Ok(Value::Bool(left < right))
-            }
+            (BinaryOp::Less, Value::I32(left), Value::I32(right)) => Ok(Value::Bool(left < right)),
             (BinaryOp::LessEqual, Value::I32(left), Value::I32(right)) => {
                 Ok(Value::Bool(left <= right))
             }
@@ -491,9 +551,7 @@ impl<'a> Interpreter<'a> {
             (BinaryOp::GreaterEqual, Value::I32(left), Value::I32(right)) => {
                 Ok(Value::Bool(left >= right))
             }
-            (BinaryOp::Less, Value::F32(left), Value::F32(right)) => {
-                Ok(Value::Bool(left < right))
-            }
+            (BinaryOp::Less, Value::F32(left), Value::F32(right)) => Ok(Value::Bool(left < right)),
             (BinaryOp::LessEqual, Value::F32(left), Value::F32(right)) => {
                 Ok(Value::Bool(left <= right))
             }
@@ -515,22 +573,13 @@ impl<'a> Interpreter<'a> {
         }
     }
 
-    fn runtime_error(
-        &self,
-        code: &str,
-        message: impl Into<String>,
-        span: Span,
-    ) -> Diagnostic {
+    fn runtime_error(&self, code: &str, message: impl Into<String>, span: Span) -> Diagnostic {
         Diagnostic::new(code, message.into(), self.source, span)
     }
 }
 
 fn lookup_slot<'a>(frame: &'a Frame, name: &str) -> Option<&'a Slot> {
-    frame
-        .scopes
-        .iter()
-        .rev()
-        .find_map(|scope| scope.get(name))
+    frame.scopes.iter().rev().find_map(|scope| scope.get(name))
 }
 
 fn lookup_slot_mut<'a>(frame: &'a mut Frame, name: &str) -> Option<&'a mut Slot> {
@@ -658,5 +707,51 @@ fn main() -> i32 {
         let output = run_program(&source, &analysis.program).expect("program should run");
         assert_eq!(output.exit_code, 0);
         assert_eq!(output.stdout, vec!["2", "5"]);
+    }
+
+    #[test]
+    fn runs_enum_values_and_mutable_field_assignment() {
+        let source = SourceFile::anonymous(
+            "\
+struct Point {
+    x: i32,
+    y: i32,
+}
+
+enum Flag {
+    On,
+    Off,
+}
+
+fn total(point: Point) -> i32 {
+    return point.x + point.y;
+}
+
+fn main() -> i32 {
+    let mut point: Point = Point { x: 2, y: 3 };
+    point.x = point.x + 1;
+
+    let flag: Flag = Flag.On;
+    println(flag);
+    println(point.x);
+    println(total(point));
+    return 0;
+}
+",
+        );
+
+        let analysis = analyze(&source);
+        assert!(
+            analysis.diagnostics.is_empty(),
+            "unexpected diagnostics: {:?}",
+            analysis
+                .diagnostics
+                .iter()
+                .map(|diagnostic| diagnostic.code.as_str())
+                .collect::<Vec<_>>()
+        );
+        let output = run_program(&source, &analysis.program).expect("program should run");
+        assert_eq!(output.exit_code, 0);
+        assert_eq!(output.stdout, vec!["Flag.On", "3", "6"]);
     }
 }
