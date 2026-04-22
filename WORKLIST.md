@@ -61,7 +61,8 @@
   - 完成于：2026-04-22
   - 备注：新增 `src/mir.rs` 与 `axc mir <file>`；当前已打通 `HIR -> MIR` lowering，MIR 会输出基本块 CFG 与 resolved locals，`axc build` 也开始产出 `program.mir.json` 并纳入接口快照。
   - 目标：按计划进入 `HIR -> MIR(or lower IR) -> Native Backend`。
-- [ ] `P2-3` 推进模块 / manifest 设计。
-  - 目标：让 AX 从单文件原型走向最小工程化。
+- [x] `P2-3` 推进模块 / manifest 设计。
+  - 完成于：2026-04-22
+  - 备注：已接入最小项目 manifest `AX.toml`，当前支持单包单入口工程目录；`axc check/run/build/fmt/ast/hir/mir` 都可直接接受项目目录或 manifest 路径，`build` 也会复制项目 manifest 并固定接口快照。
 - [ ] `P2-4` 扩展更丰富的类型与语法能力。
   - 目标：在 benchmark 证据支持下，再讨论 `match`、数组/切片、更多类型表面。

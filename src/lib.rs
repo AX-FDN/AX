@@ -10,6 +10,7 @@ pub mod interpreter;
 pub mod lexer;
 pub mod mir;
 pub mod parser;
+pub mod project;
 pub mod semantic;
 pub mod source;
 pub mod token;

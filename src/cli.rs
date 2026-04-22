@@ -1,13 +1,16 @@
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::ai::enhance_diagnostics;
-use crate::build::{BuildOptions, build_program, default_output_dir};
+use crate::build::{
+    BuildOptions, build_input_from_project, build_input_from_source, build_program,
+    default_output_dir,
+};
 use crate::diagnostics::render_diagnostics;
 use crate::formatter::format_source;
 use crate::frontend::analyze;
 use crate::interpreter::run_program;
-use crate::source::SourceFile;
+use crate::project::{ResolvedInput, resolve_input};
 
 pub fn run_cli(args: Vec<String>) -> i32 {
     let mut args = args.into_iter();
@@ -41,20 +44,21 @@ fn run_check(args: Vec<String>) -> i32 {
     let options = match parse_check_args(args) {
         Ok(options) => options,
         Err(error) => {
-            eprintln!("{error}\nusage: axc check <file> [--json] [--ai] [--ai-session <path>]");
+            eprintln!("{error}\nusage: axc check <path> [--json] [--ai] [--ai-session <path>]");
             return 2;
         }
     };
 
-    let source = match SourceFile::from_path(&options.file) {
-        Ok(source) => source,
+    let input = match load_input(&options.file) {
+        Ok(input) => input,
         Err(error) => {
-            eprintln!("failed to read {}: {error}", options.file.display());
+            eprintln!("{error}");
             return 1;
         }
     };
+    let source = &input.source;
 
-    let mut output = analyze(&source);
+    let mut output = analyze(source);
     if output.diagnostics.is_empty() {
         println!(
             "{}",
@@ -65,7 +69,7 @@ fn run_check(args: Vec<String>) -> i32 {
 
     if options.ai {
         if let Err(error) = enhance_diagnostics(
-            &source,
+            source,
             &output.program,
             &mut output.diagnostics,
             options.ai_session.as_deref(),
@@ -82,7 +86,7 @@ fn run_check(args: Vec<String>) -> i32 {
                 .expect("diagnostics json should serialize")
         );
     } else {
-        eprintln!("{}", render_diagnostics(&source, &output.diagnostics));
+        eprintln!("{}", render_diagnostics(source, &output.diagnostics));
     }
 
     1
@@ -90,22 +94,23 @@ fn run_check(args: Vec<String>) -> i32 {
 
 fn run_ast(args: Vec<String>) -> i32 {
     if args.len() != 1 {
-        eprintln!("usage: axc ast <file>");
+        eprintln!("usage: axc ast <path>");
         return 2;
     }
 
     let path = PathBuf::from(&args[0]);
-    let source = match SourceFile::from_path(&path) {
-        Ok(source) => source,
+    let input = match load_input(&path) {
+        Ok(input) => input,
         Err(error) => {
-            eprintln!("failed to read {}: {error}", path.display());
+            eprintln!("{error}");
             return 1;
         }
     };
+    let source = &input.source;
 
-    let output = analyze(&source);
+    let output = analyze(source);
     if !output.diagnostics.is_empty() {
-        eprintln!("{}", render_diagnostics(&source, &output.diagnostics));
+        eprintln!("{}", render_diagnostics(source, &output.diagnostics));
         return 1;
     }
 
@@ -118,22 +123,23 @@ fn run_ast(args: Vec<String>) -> i32 {
 
 fn run_hir(args: Vec<String>) -> i32 {
     if args.len() != 1 {
-        eprintln!("usage: axc hir <file>");
+        eprintln!("usage: axc hir <path>");
         return 2;
     }
 
     let path = PathBuf::from(&args[0]);
-    let source = match SourceFile::from_path(&path) {
-        Ok(source) => source,
+    let input = match load_input(&path) {
+        Ok(input) => input,
         Err(error) => {
-            eprintln!("failed to read {}: {error}", path.display());
+            eprintln!("{error}");
             return 1;
         }
     };
+    let source = &input.source;
 
-    let output = analyze(&source);
+    let output = analyze(source);
     if !output.diagnostics.is_empty() {
-        eprintln!("{}", render_diagnostics(&source, &output.diagnostics));
+        eprintln!("{}", render_diagnostics(source, &output.diagnostics));
         return 1;
     }
 
@@ -153,22 +159,23 @@ fn run_build(args: Vec<String>) -> i32 {
     let options = match parse_build_args(args) {
         Ok(options) => options,
         Err(error) => {
-            eprintln!("{error}\nusage: axc build <file> [--out-dir <path>]");
+            eprintln!("{error}\nusage: axc build <path> [--out-dir <path>]");
             return 2;
         }
     };
 
-    let source = match SourceFile::from_path(&options.file) {
-        Ok(source) => source,
+    let input = match load_input(&options.file) {
+        Ok(input) => input,
         Err(error) => {
-            eprintln!("failed to read {}: {error}", options.file.display());
+            eprintln!("{error}");
             return 1;
         }
     };
+    let source = &input.source;
 
-    let output = analyze(&source);
+    let output = analyze(source);
     if !output.diagnostics.is_empty() {
-        eprintln!("{}", render_diagnostics(&source, &output.diagnostics));
+        eprintln!("{}", render_diagnostics(source, &output.diagnostics));
         return 1;
     }
 
@@ -181,14 +188,28 @@ fn run_build(args: Vec<String>) -> i32 {
         return 1;
     };
 
-    let result = match build_program(
-        &source,
-        hir,
-        mir,
-        &BuildOptions {
-            out_dir: options.out_dir,
+    let build_input = match input.project.as_ref() {
+        Some(project) => build_input_from_project(source, project),
+        None => match build_input_from_source(source) {
+            Ok(input) => input,
+            Err(error) => {
+                eprintln!("{error}");
+                return 1;
+            }
         },
-    ) {
+    };
+    let out_dir = match options.out_dir {
+        Some(out_dir) => out_dir,
+        None => match default_output_dir(&build_input.target_name) {
+            Ok(out_dir) => out_dir,
+            Err(error) => {
+                eprintln!("{error}");
+                return 1;
+            }
+        },
+    };
+
+    let result = match build_program(source, hir, mir, &build_input, &BuildOptions { out_dir }) {
         Ok(result) => result,
         Err(error) => {
             eprintln!("{error}");
@@ -202,22 +223,23 @@ fn run_build(args: Vec<String>) -> i32 {
 
 fn run_mir(args: Vec<String>) -> i32 {
     if args.len() != 1 {
-        eprintln!("usage: axc mir <file>");
+        eprintln!("usage: axc mir <path>");
         return 2;
     }
 
     let path = PathBuf::from(&args[0]);
-    let source = match SourceFile::from_path(&path) {
-        Ok(source) => source,
+    let input = match load_input(&path) {
+        Ok(input) => input,
         Err(error) => {
-            eprintln!("failed to read {}: {error}", path.display());
+            eprintln!("{error}");
             return 1;
         }
     };
+    let source = &input.source;
 
-    let output = analyze(&source);
+    let output = analyze(source);
     if !output.diagnostics.is_empty() {
-        eprintln!("{}", render_diagnostics(&source, &output.diagnostics));
+        eprintln!("{}", render_diagnostics(source, &output.diagnostics));
         return 1;
     }
 
@@ -235,22 +257,23 @@ fn run_mir(args: Vec<String>) -> i32 {
 
 fn run_run(args: Vec<String>) -> i32 {
     if args.len() != 1 {
-        eprintln!("usage: axc run <file>");
+        eprintln!("usage: axc run <path>");
         return 2;
     }
 
     let path = PathBuf::from(&args[0]);
-    let source = match SourceFile::from_path(&path) {
-        Ok(source) => source,
+    let input = match load_input(&path) {
+        Ok(input) => input,
         Err(error) => {
-            eprintln!("failed to read {}: {error}", path.display());
+            eprintln!("{error}");
             return 1;
         }
     };
+    let source = &input.source;
 
-    let output = analyze(&source);
+    let output = analyze(source);
     if !output.diagnostics.is_empty() {
-        eprintln!("{}", render_diagnostics(&source, &output.diagnostics));
+        eprintln!("{}", render_diagnostics(source, &output.diagnostics));
         return 1;
     }
 
@@ -259,7 +282,7 @@ fn run_run(args: Vec<String>) -> i32 {
         return 1;
     };
 
-    match run_program(&source, hir) {
+    match run_program(source, hir) {
         Ok(result) => {
             for line in result.stdout {
                 println!("{line}");
@@ -267,7 +290,7 @@ fn run_run(args: Vec<String>) -> i32 {
             result.exit_code
         }
         Err(error) => {
-            eprintln!("{}", render_diagnostics(&source, &[error]));
+            eprintln!("{}", render_diagnostics(source, &[error]));
             1
         }
     }
@@ -275,38 +298,39 @@ fn run_run(args: Vec<String>) -> i32 {
 
 fn run_fmt(args: Vec<String>) -> i32 {
     if args.len() != 1 {
-        eprintln!("usage: axc fmt <file>");
+        eprintln!("usage: axc fmt <path>");
         return 2;
     }
 
     let path = PathBuf::from(&args[0]);
-    let source = match SourceFile::from_path(&path) {
-        Ok(source) => source,
+    let input = match load_input(&path) {
+        Ok(input) => input,
         Err(error) => {
-            eprintln!("failed to read {}: {error}", path.display());
+            eprintln!("{error}");
             return 1;
         }
     };
+    let source = &input.source;
 
-    let formatted = match format_source(&source) {
+    let formatted = match format_source(source) {
         Ok(formatted) => formatted,
         Err(diagnostics) => {
-            eprintln!("{}", render_diagnostics(&source, &diagnostics));
+            eprintln!("{}", render_diagnostics(source, &diagnostics));
             return 1;
         }
     };
 
     if source.text() == formatted {
-        println!("already formatted: {}", path.display());
+        println!("already formatted: {}", source.path().display());
         return 0;
     }
 
-    if let Err(error) = fs::write(&path, formatted) {
-        eprintln!("failed to write {}: {error}", path.display());
+    if let Err(error) = fs::write(source.path(), formatted) {
+        eprintln!("failed to write {}: {error}", source.path().display());
         return 1;
     }
 
-    println!("formatted: {}", path.display());
+    println!("formatted: {}", source.path().display());
     0
 }
 
@@ -315,13 +339,13 @@ fn usage() -> &'static str {
 axc <command> [options]
 
 Commands:
-  check <file> [--json] [--ai] [--ai-session <path>]   Run lexer, parser, and base semantic checks
-  ast <file>              Print stable AST JSON
-  hir <file>              Print stable HIR JSON
-  mir <file>              Print stable MIR JSON
-  build <file> [--out-dir <path>]   Emit the build skeleton artifacts for the native backend stage
-  run <file>              Execute the minimal interpreter
-  fmt <file>              Rewrite the file to the canonical AX format
+  check <path> [--json] [--ai] [--ai-session <path>]   Run lexer, parser, and base semantic checks
+  ast <path>               Print stable AST JSON
+  hir <path>               Print stable HIR JSON
+  mir <path>               Print stable MIR JSON
+  build <path> [--out-dir <path>]   Emit the build skeleton artifacts for the native backend stage
+  run <path>               Execute the minimal interpreter
+  fmt <path>               Rewrite the file to the canonical AX format
 "
 }
 
@@ -344,7 +368,7 @@ struct CheckOptions {
 #[derive(Debug, PartialEq, Eq)]
 struct BuildCliOptions {
     file: PathBuf,
-    out_dir: PathBuf,
+    out_dir: Option<PathBuf>,
 }
 
 fn parse_check_args(args: Vec<String>) -> Result<CheckOptions, String> {
@@ -449,12 +473,11 @@ fn parse_build_args(args: Vec<String>) -> Result<BuildCliOptions, String> {
         return Err("missing input file for `axc build`".to_string());
     };
 
-    let out_dir = match out_dir {
-        Some(out_dir) => out_dir,
-        None => default_output_dir(&file)?,
-    };
-
     Ok(BuildCliOptions { file, out_dir })
+}
+
+fn load_input(path: &Path) -> Result<ResolvedInput, String> {
+    resolve_input(path)
 }
 
 #[cfg(test)]
@@ -519,7 +542,7 @@ mod tests {
             options,
             BuildCliOptions {
                 file: PathBuf::from("examples/hello.ax"),
-                out_dir: PathBuf::from("artifacts/hello"),
+                out_dir: Some(PathBuf::from("artifacts/hello")),
             }
         );
     }

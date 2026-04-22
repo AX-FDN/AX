@@ -10,12 +10,12 @@
 
 当前仓库已经可以实践第一版 AX 原型语法。
 
-- `axc check <file>`：执行词法、语法、基础语义与类型检查
-- `axc check <file> --json --ai`：输出带规则卡、修复目标与上下文切片的 AI 增强诊断
+- `axc check <path>`：执行词法、语法、基础语义与类型检查，`<path>` 可以是 `.ax` 文件、项目目录或 `AX.toml`
+- `axc check <path> --json --ai`：输出带规则卡、修复目标与上下文切片的 AI 增强诊断
 - `axc ast <file>`：输出稳定 AST JSON
 - `axc hir <file>`：输出稳定 HIR JSON
-- `axc run <file>`：通过最小解释器执行 AX 程序
-- `axc fmt <file>`：按唯一官方风格原地格式化当前 AX 原型代码
+- `axc run <path>`：通过最小解释器执行 AX 程序
+- `axc fmt <path>`：按唯一官方风格原地格式化当前 AX 原型代码
 
 当前最小可运行子集已经支持：
 
@@ -43,6 +43,7 @@
 cargo run -- check examples\hello.ax
 cargo run -- check examples\syntax_overview.ax
 cargo run -- check examples\missing_semicolon.ax --json --ai
+cargo run -- check examples\project_hello
 ```
 
 查看 AST：
@@ -69,6 +70,25 @@ cargo run -- run examples\hello.ax
 cargo run -- run examples\factorial.ax
 cargo run -- run examples\for_loop.ax
 cargo run -- run examples\syntax_overview.ax
+cargo run -- run examples\project_hello
+```
+
+最小项目 manifest 也已经接入了，当前采用单包、单入口形态：
+
+```toml
+manifest_version = 1
+
+[package]
+name = "project_hello"
+entry = "src/main.ax"
+```
+
+项目目录示例见 [`examples/project_hello`](./examples/project_hello)。对这种目录可以直接运行：
+
+```powershell
+cargo run -- check examples\project_hello
+cargo run -- run examples\project_hello
+cargo run -- build examples\project_hello
 ```
 
 如果当前 Windows 环境没有可用的 MSVC `link.exe`，请直接使用仓库内的 GNU 启动脚本：

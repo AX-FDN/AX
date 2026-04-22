@@ -68,6 +68,15 @@ impl TempDir {
         fs::write(&path, text).expect("failed to write temp file");
         path
     }
+
+    fn write_nested(&self, name: &str, text: &str) -> PathBuf {
+        let path = self.join(name);
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).expect("failed to create temp subdirectory");
+        }
+        fs::write(&path, text).expect("failed to write temp file");
+        path
+    }
 }
 
 impl Drop for TempDir {
@@ -195,6 +204,128 @@ fn main() -> i32 {
 
     let stdout = normalize_text(&string_output(&output.stdout));
     assert_eq!(stdout, snapshot("mir_for_loop.json"));
+}
+
+#[test]
+fn project_directory_run_executes_manifest_entry() {
+    let temp = TempDir::new("project-run");
+    temp.write(
+        "AX.toml",
+        "\
+manifest_version = 1
+
+[package]
+name = \"project_hello\"
+entry = \"src/main.ax\"
+",
+    );
+    temp.write_nested(
+        "src/main.ax",
+        "\
+fn add(left: i32, right: i32) -> i32 {
+    return left + right;
+}
+
+fn main() -> i32 {
+    let value: i32 = add(1, 2);
+    println(value);
+    return 0;
+}
+",
+    );
+
+    let output = run_axc([OsStr::new("run"), temp.path.as_os_str()]);
+    assert_eq!(output.status.code(), Some(0));
+    assert_clean_stderr(&output);
+    assert_eq!(normalize_text(&string_output(&output.stdout)), "3\n");
+}
+
+#[test]
+fn project_build_manifest_matches_snapshot() {
+    let temp = TempDir::new("project-build");
+    temp.write(
+        "AX.toml",
+        "\
+manifest_version = 1
+
+[package]
+name = \"project_hello\"
+entry = \"src/main.ax\"
+",
+    );
+    let input = temp.write_nested(
+        "src/main.ax",
+        "\
+fn add(left: i32, right: i32) -> i32 {
+    return left + right;
+}
+
+fn main() -> i32 {
+    let value: i32 = add(1, 2);
+    println(value);
+    return 0;
+}
+",
+    );
+    let out_dir = temp.join("build-out");
+
+    let output = run_axc([
+        OsStr::new("build"),
+        temp.path.as_os_str(),
+        OsStr::new("--out-dir"),
+        out_dir.as_os_str(),
+    ]);
+    assert_eq!(output.status.code(), Some(0));
+    assert_clean_stderr(&output);
+
+    let manifest_path = out_dir.join("build-manifest.json");
+    let project_manifest_path = out_dir.join("AX.toml");
+    let source_copy_path = out_dir.join("source.ax");
+
+    assert!(
+        manifest_path.exists(),
+        "project build manifest should exist"
+    );
+    assert!(
+        project_manifest_path.exists(),
+        "project build should copy AX.toml"
+    );
+    assert!(
+        source_copy_path.exists(),
+        "project build source copy should exist"
+    );
+
+    let source_copy = normalize_text(
+        &fs::read_to_string(&source_copy_path).expect("project build source copy should exist"),
+    );
+    let original = normalize_text(
+        &fs::read_to_string(&input).expect("project build input source should exist"),
+    );
+    assert_eq!(source_copy, original);
+
+    let manifest_copy = normalize_text(
+        &fs::read_to_string(&project_manifest_path)
+            .expect("project build copied AX.toml should be readable"),
+    );
+    assert_eq!(
+        manifest_copy,
+        "manifest_version = 1\n\n[package]\nname = \"project_hello\"\nentry = \"src/main.ax\"\n"
+    );
+
+    let mut manifest: Value = serde_json::from_str(
+        &fs::read_to_string(&manifest_path).expect("project build manifest should be readable"),
+    )
+    .expect("project build manifest should be valid JSON");
+    manifest["entry_file"] = Value::String("<project>/src/main.ax".to_string());
+    manifest["output_dir"] = Value::String("<build-out>".to_string());
+
+    let rendered = serde_json::to_string_pretty(&manifest)
+        .expect("project build manifest JSON should serialize")
+        + "\n";
+    assert_eq!(
+        normalize_text(&rendered),
+        snapshot("build_project_hello_manifest.json")
+    );
 }
 
 #[test]
