@@ -1,5 +1,6 @@
 pub mod ai;
 pub mod ast;
+pub mod build;
 pub mod cli;
 pub mod diagnostics;
 pub mod formatter;

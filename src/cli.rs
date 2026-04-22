@@ -2,6 +2,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use crate::ai::enhance_diagnostics;
+use crate::build::{BuildOptions, build_program, default_output_dir};
 use crate::diagnostics::render_diagnostics;
 use crate::formatter::format_source;
 use crate::frontend::analyze;
@@ -21,6 +22,7 @@ pub fn run_cli(args: Vec<String>) -> i32 {
         "check" => run_check(rest),
         "ast" => run_ast(rest),
         "hir" => run_hir(rest),
+        "build" => run_build(rest),
         "run" => run_run(rest),
         "fmt" => run_fmt(rest),
         "--help" | "-h" | "help" => {
@@ -146,6 +148,52 @@ fn run_hir(args: Vec<String>) -> i32 {
     0
 }
 
+fn run_build(args: Vec<String>) -> i32 {
+    let options = match parse_build_args(args) {
+        Ok(options) => options,
+        Err(error) => {
+            eprintln!("{error}\nusage: axc build <file> [--out-dir <path>]");
+            return 2;
+        }
+    };
+
+    let source = match SourceFile::from_path(&options.file) {
+        Ok(source) => source,
+        Err(error) => {
+            eprintln!("failed to read {}: {error}", options.file.display());
+            return 1;
+        }
+    };
+
+    let output = analyze(&source);
+    if !output.diagnostics.is_empty() {
+        eprintln!("{}", render_diagnostics(&source, &output.diagnostics));
+        return 1;
+    }
+
+    let Some(hir) = output.hir.as_ref() else {
+        eprintln!("internal error: HIR should be available after a successful analysis");
+        return 1;
+    };
+
+    let result = match build_program(
+        &source,
+        hir,
+        &BuildOptions {
+            out_dir: options.out_dir,
+        },
+    ) {
+        Ok(result) => result,
+        Err(error) => {
+            eprintln!("{error}");
+            return 1;
+        }
+    };
+
+    println!("build succeeded: {}", result.manifest_path.display());
+    0
+}
+
 fn run_run(args: Vec<String>) -> i32 {
     if args.len() != 1 {
         eprintln!("usage: axc run <file>");
@@ -231,6 +279,7 @@ Commands:
   check <file> [--json] [--ai] [--ai-session <path>]   Run lexer, parser, and base semantic checks
   ast <file>              Print stable AST JSON
   hir <file>              Print stable HIR JSON
+  build <file> [--out-dir <path>]   Emit the build skeleton artifacts for the native backend stage
   run <file>              Execute the minimal interpreter
   fmt <file>              Rewrite the file to the canonical AX format
 "
@@ -250,6 +299,12 @@ struct CheckOptions {
     json: bool,
     ai: bool,
     ai_session: Option<PathBuf>,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+struct BuildCliOptions {
+    file: PathBuf,
+    out_dir: PathBuf,
 }
 
 fn parse_check_args(args: Vec<String>) -> Result<CheckOptions, String> {
@@ -315,9 +370,58 @@ fn parse_check_args(args: Vec<String>) -> Result<CheckOptions, String> {
     })
 }
 
+fn parse_build_args(args: Vec<String>) -> Result<BuildCliOptions, String> {
+    let mut out_dir = None;
+    let mut file = None;
+    let mut index = 0;
+
+    while index < args.len() {
+        let arg = &args[index];
+        match arg.as_str() {
+            "--out-dir" => {
+                let Some(path) = args.get(index + 1) else {
+                    return Err("missing path after `--out-dir`".to_string());
+                };
+                out_dir = Some(PathBuf::from(path));
+                index += 1;
+            }
+            _ if arg.starts_with("--out-dir=") => {
+                let path = arg
+                    .split_once('=')
+                    .map(|(_, value)| value)
+                    .unwrap_or_default();
+                if path.is_empty() {
+                    return Err("missing path after `--out-dir=`".to_string());
+                }
+                out_dir = Some(PathBuf::from(path));
+            }
+            _ if file.is_none() => {
+                file = Some(PathBuf::from(arg));
+            }
+            _ => {
+                return Err(format!("unexpected argument `{arg}`"));
+            }
+        }
+        index += 1;
+    }
+
+    let Some(file) = file else {
+        return Err("missing input file for `axc build`".to_string());
+    };
+
+    let out_dir = match out_dir {
+        Some(out_dir) => out_dir,
+        None => default_output_dir(&file)?,
+    };
+
+    Ok(BuildCliOptions { file, out_dir })
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{CheckOptions, parse_check_args, render_check_success};
+    use super::{
+        BuildCliOptions, CheckOptions, parse_build_args, parse_check_args, render_check_success,
+    };
     use std::path::PathBuf;
 
     #[test]
@@ -360,5 +464,30 @@ mod tests {
             render_check_success(false, "examples/hello.ax"),
             "check succeeded: examples/hello.ax"
         );
+    }
+
+    #[test]
+    fn parses_build_options_with_explicit_out_dir() {
+        let options = parse_build_args(vec![
+            "examples/hello.ax".to_string(),
+            "--out-dir".to_string(),
+            "artifacts/hello".to_string(),
+        ])
+        .expect("build arguments should parse");
+
+        assert_eq!(
+            options,
+            BuildCliOptions {
+                file: PathBuf::from("examples/hello.ax"),
+                out_dir: PathBuf::from("artifacts/hello"),
+            }
+        );
+    }
+
+    #[test]
+    fn rejects_build_without_input_file() {
+        let error = parse_build_args(vec!["--out-dir".to_string(), "build/hello".to_string()])
+            .expect_err("build arguments should be rejected");
+        assert!(error.contains("missing input file for `axc build`"));
     }
 }

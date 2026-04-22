@@ -1,0 +1,20 @@
+{
+  "artifacts": {
+    "hir_json": "program.hir.json",
+    "planned_executable": "bin/hello.exe",
+    "source_copy": "source.ax"
+  },
+  "backend": {
+    "entrypoint": "main",
+    "kind": "native",
+    "status": "pending"
+  },
+  "entry_file": "<input>/hello.ax",
+  "notes": [
+    "This build currently emits frontend-stable artifacts only.",
+    "Native executable emission will be added in the future backend stage."
+  ],
+  "output_dir": "<build-out>",
+  "schema_version": 1,
+  "target_name": "hello"
+}

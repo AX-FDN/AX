@@ -53,8 +53,10 @@
 
 ## P2
 
-- [ ] `P2-1` 引入 `axc build` 的最小骨架。
+- [x] `P2-1` 引入 `axc build` 的最小骨架。
   - 目标：为原生后端预留真实命令入口和编译产物流程。
+  - 完成于：2026-04-22
+  - 备注：已新增 `axc build <file> [--out-dir <path>]`，当前会产出 `source.ax`、`program.hir.json` 与 `build-manifest.json`，并通过接口快照测试固定第一版输出形状。
 - [ ] `P2-2` 开始原生后端路线。
   - 目标：按计划进入 `HIR -> MIR(or lower IR) -> Native Backend`。
 - [ ] `P2-3` 推进模块 / manifest 设计。

@@ -171,6 +171,75 @@ fn main() -> i32 {
 }
 
 #[test]
+fn build_manifest_matches_snapshot() {
+    let temp = TempDir::new("build");
+    let input = temp.write(
+        "hello.ax",
+        "\
+fn main() -> i32 {
+    let mut value: i32 = 1;
+    value = value + 2;
+    println(value);
+    return 0;
+}
+",
+    );
+    let out_dir = temp.join("build-out");
+
+    let output = run_axc([
+        OsStr::new("build"),
+        input.as_os_str(),
+        OsStr::new("--out-dir"),
+        out_dir.as_os_str(),
+    ]);
+    assert_eq!(output.status.code(), Some(0));
+    assert_clean_stderr(&output);
+
+    let manifest_path = out_dir.join("build-manifest.json");
+    let hir_path = out_dir.join("program.hir.json");
+    let source_copy_path = out_dir.join("source.ax");
+    let planned_binary_dir = out_dir.join("bin");
+
+    assert!(manifest_path.exists(), "build manifest should exist");
+    assert!(hir_path.exists(), "build HIR should exist");
+    assert!(source_copy_path.exists(), "build source copy should exist");
+    assert!(
+        planned_binary_dir.exists(),
+        "build bin directory should exist even before native backend emission"
+    );
+
+    let source_copy = normalize_text(
+        &fs::read_to_string(&source_copy_path).expect("build source copy should be readable"),
+    );
+    let original = normalize_text(
+        &fs::read_to_string(&input).expect("original build input should be readable"),
+    );
+    assert_eq!(source_copy, original);
+
+    let mut manifest: Value = serde_json::from_str(
+        &fs::read_to_string(&manifest_path).expect("build manifest should be readable"),
+    )
+    .expect("build manifest should be valid JSON");
+    manifest["entry_file"] = Value::String("<input>/hello.ax".to_string());
+    manifest["output_dir"] = Value::String("<build-out>".to_string());
+
+    let rendered = serde_json::to_string_pretty(&manifest)
+        .expect("build manifest JSON should serialize")
+        + "\n";
+    assert_eq!(
+        normalize_text(&rendered),
+        snapshot("build_hello_manifest.json")
+    );
+
+    let stdout = normalize_text(&string_output(&output.stdout));
+    assert!(
+        stdout.starts_with("build succeeded: "),
+        "expected build success message, got:\n{}",
+        stdout
+    );
+}
+
+#[test]
 fn fmt_is_idempotent_and_matches_snapshot() {
     let temp = TempDir::new("fmt");
     let input = temp.write(
