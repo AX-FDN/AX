@@ -24,6 +24,7 @@ pub fn check_program(source: &SourceFile, program: &Program) -> Vec<Diagnostic> 
 
     for item in &program.items {
         if let ItemKind::Function {
+            name,
             params,
             return_type,
             body,
@@ -42,6 +43,27 @@ pub fn check_program(source: &SourceFile, program: &Program) -> Vec<Diagnostic> 
             }
 
             checker.check_block(body);
+            let missing_return_type = if !block_guarantees_return(body) {
+                Some(checker.return_type.describe())
+            } else {
+                None
+            };
+            drop(checker);
+
+            if let Some(return_type_name) = missing_return_type {
+                diagnostics.push(
+                    Diagnostic::new(
+                        "S0023",
+                        format!(
+                            "function `{name}` may complete without returning `{}`",
+                            return_type_name
+                        ),
+                        source,
+                        body.span,
+                    )
+                    .with_suggestion("ensure every control-flow path ends with `return ...;`"),
+                );
+            }
         }
     }
 
@@ -882,6 +904,26 @@ fn item_name(kind: &ItemKind) -> &str {
     }
 }
 
+fn block_guarantees_return(block: &Block) -> bool {
+    block
+        .statements
+        .iter()
+        .any(statement_guarantees_return)
+}
+
+fn statement_guarantees_return(statement: &Stmt) -> bool {
+    match &statement.kind {
+        StmtKind::Return { .. } => true,
+        StmtKind::Block { block } => block_guarantees_return(block),
+        StmtKind::If {
+            then_branch,
+            else_branch: Some(else_branch),
+            ..
+        } => block_guarantees_return(then_branch) && block_guarantees_return(else_branch),
+        _ => false,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::check_program;
@@ -931,5 +973,12 @@ mod tests {
             "fn add(value: i32) -> i32 { return value; } fn main() -> i32 { return add(true); }",
         );
         assert!(codes.iter().any(|code| code == "S0022"));
+    }
+
+    #[test]
+    fn reports_function_that_can_fall_through() {
+        let codes =
+            check("fn helper(flag: bool) -> i32 { if (flag) { return 1; } } fn main() -> i32 { return helper(true); }");
+        assert!(codes.iter().any(|code| code == "S0023"));
     }
 }

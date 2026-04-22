@@ -2,5 +2,5 @@ fn main() -> i32 {
     let mut value: i32 = 1;
     value = value + 2;
     println(value);
-    return value;
+    return 0;
 }

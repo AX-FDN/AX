@@ -568,4 +568,30 @@ fn main() -> i32 {
         assert_eq!(output.exit_code, 0);
         assert_eq!(output.stdout, vec!["ready"]);
     }
+
+    #[test]
+    fn runs_recursive_functions() {
+        let source = SourceFile::anonymous(
+            "\
+fn fact(n: i32) -> i32 {
+    if (n == 0) {
+        return 1;
+    } else {
+        return n * fact(n - 1);
+    }
+}
+
+fn main() -> i32 {
+    println(fact(5));
+    return 0;
+}
+",
+        );
+
+        let analysis = analyze(&source);
+        assert!(analysis.diagnostics.is_empty());
+        let output = run_program(&source, &analysis.program).expect("program should run");
+        assert_eq!(output.exit_code, 0);
+        assert_eq!(output.stdout, vec!["120"]);
+    }
 }
