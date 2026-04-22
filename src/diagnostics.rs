@@ -2,6 +2,7 @@ use std::fmt::Write;
 
 use serde::Serialize;
 
+use crate::ai::AiDiagnostic;
 use crate::source::{SourceFile, Span};
 
 #[derive(Debug, Clone, Serialize)]
@@ -13,6 +14,8 @@ pub struct Diagnostic {
     pub notes: Vec<String>,
     pub expected: Vec<String>,
     pub suggestion: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ai: Option<AiDiagnostic>,
 }
 
 impl Diagnostic {
@@ -30,6 +33,7 @@ impl Diagnostic {
             notes: Vec::new(),
             expected: Vec::new(),
             suggestion: None,
+            ai: None,
         }
     }
 
@@ -45,6 +49,11 @@ impl Diagnostic {
 
     pub fn with_suggestion(mut self, suggestion: impl Into<String>) -> Self {
         self.suggestion = Some(suggestion.into());
+        self
+    }
+
+    pub fn with_ai(mut self, ai: AiDiagnostic) -> Self {
+        self.ai = Some(ai);
         self
     }
 }

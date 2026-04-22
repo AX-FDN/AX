@@ -11,6 +11,7 @@
 当前仓库已经可以实践第一版 AX 原型语法。
 
 - `axc check <file>`：执行词法、语法、基础语义与类型检查
+- `axc check <file> --json --ai`：输出带规则卡、修复目标与上下文切片的 AI 增强诊断
 - `axc ast <file>`：输出稳定 AST JSON
 - `axc run <file>`：通过最小解释器执行 AX 程序
 - `axc fmt <file>`：命令入口已保留，格式化器尚未实现
@@ -40,6 +41,7 @@
 ```powershell
 cargo run -- check examples\hello.ax
 cargo run -- check examples\syntax_overview.ax
+cargo run -- check examples\missing_semicolon.ax --json --ai
 ```
 
 查看 AST：
@@ -62,6 +64,7 @@ cargo run -- run examples\syntax_overview.ax
 ```powershell
 .\scripts\cargo-gnu.ps1 test
 .\scripts\cargo-gnu.ps1 run -- check examples\syntax_overview.ax
+.\scripts\cargo-gnu.ps1 run -- check examples\missing_semicolon.ax --json --ai
 .\scripts\cargo-gnu.ps1 run -- run examples\for_loop.ax
 .\scripts\cargo-gnu.ps1 run -- run examples\syntax_overview.ax
 ```
@@ -73,6 +76,14 @@ rustup toolchain install stable-x86_64-pc-windows-gnu --profile minimal -c rustf
 ```
 
 如果你想把 Cargo 构建产物放到别的盘位，比如 `D:`，可以把 [`.cargo/config.example.toml`](./.cargo/config.example.toml) 复制为本机自己的 `.cargo/config.toml`。这个本地文件已经加入 `.gitignore`，不会被提交到 GitHub。
+
+如果你希望在一次 AI 修复会话里逐步升级教学层级，可以配合 `--ai-session <path>` 使用，例如：
+
+```powershell
+cargo run -- check examples\missing_semicolon.ax --json --ai --ai-session .ax-ai-session.demo.json
+```
+
+默认的 `axc check` 仍然走基础快路径，不会自动做 AI 上下文拼装；只有显式传入 `--json --ai` 时才会启用增强诊断。
 
 ## 推荐阅读顺序
 

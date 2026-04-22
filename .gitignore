@@ -24,6 +24,8 @@ temp/
 .cargo/config.toml
 .cargo/credentials.toml
 !.cargo/config.example.toml
+.ax-ai-session*.json
+.ax-ai/
 
 # Build outputs
 build/
