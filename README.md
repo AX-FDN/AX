@@ -169,6 +169,25 @@ cargo run -- check examples\missing_semicolon.ax --json --ai --ai-session .ax-ai
   -FeedbackMode ai
 ```
 
+如果你想正式比较 `base diagnostics` 和 `ai diagnostics` 的修复提升，可以直接运行：
+
+```powershell
+.\scripts\compare-repair-feedback.ps1 `
+  -RunnerScript .\scripts\codex-repair-adapter.ps1 `
+  -RunnerExtraArgs @('-Model', 'gpt-5.4')
+```
+
+这个脚本会对同一份 repair benchmark 连续跑两轮：
+
+- `base`：只给基础 diagnostics
+- `ai`：给 AI 增强 diagnostics
+
+输出会写到 `.ax-ai\repair-comparisons\<timestamp>\`，其中至少包含：
+
+- `comparison.json`：机器可读的 lift 汇总、分类统计、逐 case 对照结果
+- `comparison.md`：便于人直接阅读的实验报告
+- `base\` / `ai\`：两轮独立 run 和 score 产物，方便回溯
+
 这个 adapter 额外支持这些可选参数：
 
 - `-CodexCommand <name>`：指定 `codex` 可执行文件名或路径
