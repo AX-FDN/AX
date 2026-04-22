@@ -1,0 +1,289 @@
+# AX Repair Benchmark Guide
+
+## Purpose
+
+AX treats repair benchmark evidence as a first-class product asset. The benchmark pipeline exists to answer one concrete question:
+
+- does a given feedback mode help an external agent repair broken AX programs more reliably?
+
+The current repository supports three layers of work:
+
+1. export stable benchmark artifacts from manifest-defined broken programs
+2. run a repair adapter against those artifacts
+3. score repaired candidates and compare `base` versus `ai` feedback
+
+## Source Assets
+
+The benchmark source of truth lives in the repository:
+
+- [`../benchmarks/repair-cases.json`](../benchmarks/repair-cases.json)
+  Full repair benchmark manifest.
+- [`../benchmarks/repair-cases-smoke.json`](../benchmarks/repair-cases-smoke.json)
+  Small CI-safe subset.
+- [`../benchmarks/repair-candidates/smoke`](../benchmarks/repair-candidates/smoke)
+  Replay candidates used by smoke tests.
+- [`../examples`](../examples)
+  Broken AX source files referenced by the manifests.
+
+The full manifest schema is:
+
+```json
+{
+  "version": 1,
+  "description": "Stable broken AX programs for single-round repair experiments.",
+  "cases": [
+    {
+      "id": "missing_semicolon_basic",
+      "file": "examples/missing_semicolon.ax",
+      "category": "syntax",
+      "expected_codes": ["P0001"],
+      "expected_ai_rule_ids": ["statement_terminator_required"],
+      "repair_goal": "Insert the missing semicolon after the let binding.",
+      "notes": "Baseline parser recovery case."
+    }
+  ]
+}
+```
+
+Field meanings:
+
+- `version`
+  Manifest schema version. The current scripts require `1`.
+- `description`
+  Human-readable description only.
+- `cases[].id`
+  Stable case identifier used in artifacts, candidate lookup, and reports.
+- `cases[].file`
+  Repository-relative path to the broken AX source.
+- `cases[].category`
+  Stable grouping key such as `syntax`, `semantic`, or `unsupported`.
+- `cases[].expected_codes`
+  Exact diagnostic code sequence expected from both base and AI-enhanced checks.
+- `cases[].expected_ai_rule_ids`
+  Exact AI rule sequence expected when `--json --ai` is enabled.
+- `cases[].repair_goal`
+  Human-facing repair target used in exported prompts and reports.
+- `cases[].notes`
+  Extra case-specific context for prompts and readers.
+
+## Export Step
+
+Use [`../scripts/export-repair-benchmark.ps1`](../scripts/export-repair-benchmark.ps1) to freeze a benchmark snapshot:
+
+```powershell
+.\scripts\export-repair-benchmark.ps1
+```
+
+By default it writes to:
+
+```text
+.ax-ai\repair-benchmark\<timestamp>\
+```
+
+Each case directory contains:
+
+- `source.ax`
+  Broken source copied from the manifest input.
+- `diagnostics.base.json`
+  Output of `axc check <file> --json`.
+- `diagnostics.ai.json`
+  Output of `axc check <file> --json --ai`.
+- `bundle.base.json`
+  Structured repair bundle for base feedback.
+- `bundle.ai.json`
+  Structured repair bundle for AI feedback.
+- `prompt.base.md`
+  Provider-neutral prompt built from the base bundle.
+- `prompt.ai.md`
+  Provider-neutral prompt built from the AI bundle.
+- `case.json`
+  Per-case export summary and observed codes.
+
+The export root also contains:
+
+- `index.json`
+  Manifest-derived list of all exported cases and artifact paths.
+
+The export script validates the benchmark as it exports it:
+
+- source file must exist
+- `expected_codes` must match observed compiler output exactly
+- `expected_ai_rule_ids` must match observed AI-enhanced output exactly
+
+If any case drifts, export fails immediately.
+
+## Run Step
+
+Use [`../scripts/run-repair-benchmark.ps1`](../scripts/run-repair-benchmark.ps1) to invoke a runner over one exported benchmark:
+
+```powershell
+.\scripts\run-repair-benchmark.ps1 `
+  -RunnerScript .\scripts\replay-repair-adapter.ps1 `
+  -RunnerExtraArgs @('-SourceDir', '.ax-ai\repair-candidates\smoke')
+```
+
+Key parameters:
+
+- `-BenchmarkDir`
+  Optional. Path to an exported benchmark root or its `index.json`.
+- `-RunnerScript`
+  Required. Script that consumes `PromptPath`, `BundlePath`, `OutputPath`, `CaseId`, and `FeedbackMode`.
+- `-RunnerExtraArgs`
+  Optional. Passed through to the runner unchanged.
+- `-FeedbackMode`
+  Either `base` or `ai`.
+- `-RunPrograms`
+  Optional. After successful `check`, also execute `axc run`.
+- `-RefreshBenchmark`
+  Optional. Force a fresh export before running.
+
+Default output root:
+
+```text
+.ax-ai\repair-runs\<timestamp>\
+```
+
+Run output contains:
+
+- `candidates\`
+  Repaired AX source per case.
+- `invocations\`
+  Per-case `stdout.txt`, `stderr.txt`, and `invocation.json`.
+- `run-summary.json`
+  Top-level run result with case statuses.
+- `score\`
+  Embedded score output, unless `-SkipScore` is used.
+
+`run-summary.json` uses these runner statuses:
+
+- `ok`
+  Runner produced a candidate successfully.
+- `failed`
+  Runner exited unsuccessfully or produced no usable candidate.
+- `timed_out`
+  Runner exceeded the configured timeout.
+
+## Score Step
+
+Use [`../scripts/score-repair-benchmark.ps1`](../scripts/score-repair-benchmark.ps1) to validate repaired candidates:
+
+```powershell
+.\scripts\score-repair-benchmark.ps1 -CandidatesDir .ax-ai\repair-candidates\demo
+```
+
+Candidate lookup supports two layouts:
+
+- `.ax-ai\repair-candidates\demo\<case-id>.ax`
+- `.ax-ai\repair-candidates\demo\<case-id>\repaired.ax`
+
+The scorer runs:
+
+- `axc check <candidate> --json`
+- optionally `axc run <candidate>` when `-RunPrograms` is enabled and the candidate passes `check`
+
+Per-case score status is:
+
+- `passed`
+  `axc check` succeeded and emitted no diagnostics.
+- `failed`
+  Candidate existed but still failed `check`.
+- `missing`
+  No candidate file was found for that case.
+
+Standalone score output defaults to:
+
+```text
+.ax-ai\repair-results\<timestamp>\
+```
+
+Important files:
+
+- `summary.json`
+  Full score summary.
+- `<case-id>\result.json`
+  Per-case score result.
+- `<case-id>\diagnostics.json`
+  Remaining diagnostics for failed repairs.
+
+## Compare Step
+
+Use [`../scripts/compare-repair-feedback.ps1`](../scripts/compare-repair-feedback.ps1) for the formal `base` versus `ai` experiment:
+
+```powershell
+.\scripts\compare-repair-feedback.ps1 `
+  -RunnerScript .\scripts\codex-repair-adapter.ps1 `
+  -RunnerExtraArgs @('-Model', 'gpt-5.4')
+```
+
+This script:
+
+1. resolves or exports one benchmark snapshot
+2. runs the same runner twice against the same snapshot
+3. scores both runs
+4. computes pass-rate lift and per-category deltas
+
+Default output root:
+
+```text
+.ax-ai\repair-comparisons\<timestamp>\
+```
+
+Comparison output contains:
+
+- `comparison.json`
+  Machine-readable summary of both modes, category splits, and per-case deltas.
+- `comparison.md`
+  Human-readable report.
+- `base\`
+  Full run and score outputs for base diagnostics.
+- `ai\`
+  Full run and score outputs for AI-enhanced diagnostics.
+
+Comparison metrics:
+
+- `base_pass_rate`
+  Percentage of cases passed in base mode.
+- `ai_pass_rate`
+  Percentage of cases passed in AI mode.
+- `absolute_lift_cases`
+  `ai_passed - base_passed`.
+- `absolute_lift_pp`
+  Pass-rate gain in percentage points.
+- `relative_lift_pct`
+  Relative gain over the base passed-case count when base is non-zero.
+- `improved_cases`
+  Case ids that failed in base and passed in AI.
+- `regressed_cases`
+  Case ids that passed in base and failed in AI.
+
+## Smoke Workflow
+
+For CI and fast local sanity checks, use [`../scripts/smoke-repair-benchmark.ps1`](../scripts/smoke-repair-benchmark.ps1):
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke-repair-benchmark.ps1
+```
+
+This script uses the smoke manifest plus replay candidates committed in the repository. It is intended to prove that:
+
+- the benchmark manifests still export cleanly
+- the runner contract still works
+- scoring still works end to end
+
+It is not intended to prove model quality.
+
+## Stability Policy
+
+The current repository treats these as stable external assets:
+
+- manifest version `1`
+- export `index.json` and per-case artifact naming
+- runner parameter contract
+- score and comparison summary roots
+- diagnostic code sequences and AI rule ids pinned in the manifests
+
+These are intentionally not promised as public stable contracts yet:
+
+- the exact wording of provider-neutral prompts
+- private session state files used by `--ai-session`
+- the internal model-specific prompting strategy of a given adapter

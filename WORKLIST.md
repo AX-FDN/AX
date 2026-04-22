@@ -46,8 +46,10 @@
   - 目标：跑出 `base diagnostics` vs `ai diagnostics` 的真实 repair lift。
   - 完成于：2026-04-22
   - 备注：新增 `scripts/compare-repair-feedback.ps1`，可导出 `comparison.json` / `comparison.md`，并已验证 0 lift 与正 lift 两种场景。
-- [ ] `P1-4` 稳定文档出口。
+- [x] `P1-4` 稳定文档出口。
   - 目标：补 benchmark 使用说明、adapter 规范、diagnostics schema 文档。
+  - 完成于：2026-04-22
+  - 备注：已新增 `docs/README.md`、repair benchmark 指南、repair adapter 规范和 diagnostics schema 文档。
 
 ## P2
 
