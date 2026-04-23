@@ -38,6 +38,7 @@ impl<'a> Lexer<'a> {
                 '/' if self.peek_next_char() == Some('/') => {
                     self.skip_comment();
                 }
+                '/' => self.simple_token(TokenKind::Slash, start),
                 '(' => self.simple_token(TokenKind::LParen, start),
                 ')' => self.simple_token(TokenKind::RParen, start),
                 '[' => self.simple_token(TokenKind::LBracket, start),
@@ -327,6 +328,20 @@ mod tests {
         assert!(output.diagnostics.is_empty());
         assert!(kinds.contains(&TokenKind::LBracket));
         assert!(kinds.contains(&TokenKind::RBracket));
+    }
+
+    #[test]
+    fn tokenizes_division_operator_without_breaking_comments() {
+        let source =
+            SourceFile::anonymous("fn main() -> i32 { let value: i32 = 8 / 2; // keep comment\n}");
+        let output = tokenize(&source);
+        let kinds = output
+            .tokens
+            .iter()
+            .map(|token| token.kind)
+            .collect::<Vec<_>>();
+        assert!(output.diagnostics.is_empty());
+        assert!(kinds.contains(&TokenKind::Slash));
     }
 
     #[test]

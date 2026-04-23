@@ -79,6 +79,7 @@ cargo run -- run examples\syntax_overview.ax
 cargo run -- run examples\project_hello
 cargo run -- run examples\index_out_of_bounds.ax --json
 cargo run -- run examples\index_out_of_bounds.ax --json --ai
+cargo run -- run examples\division_by_zero.ax --json --ai
 ```
 
 最小项目 manifest 也已经接入了，当前采用单包、单入口形态：
@@ -111,6 +112,7 @@ cargo run -- build examples\project_hello
 .\scripts\cargo-gnu.ps1 run -- run examples\syntax_overview.ax
 .\scripts\cargo-gnu.ps1 run -- run examples\index_out_of_bounds.ax --json
 .\scripts\cargo-gnu.ps1 run -- run examples\index_out_of_bounds.ax --json --ai
+.\scripts\cargo-gnu.ps1 run -- run examples\division_by_zero.ax --json --ai
 ```
 
 这个脚本会自动切到 `stable-x86_64-pc-windows-gnu`，并接好 Rust 自带的 GNU linker。若本机还没装该工具链，先执行：

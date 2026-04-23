@@ -873,4 +873,21 @@ fn main() -> i32 {
         assert_eq!(output.exit_code, 4);
         assert_eq!(output.stdout, vec!["[1, 4, 3]"]);
     }
+
+    #[test]
+    fn runs_integer_division() {
+        let (source, hir) = analyzed_hir(
+            "\
+fn main() -> i32 {
+    let value: i32 = 8 / 2;
+    println(value);
+    return value;
+}
+",
+        );
+
+        let output = run_program(&source, &hir).expect("program should run");
+        assert_eq!(output.exit_code, 4);
+        assert_eq!(output.stdout, vec!["4"]);
+    }
 }

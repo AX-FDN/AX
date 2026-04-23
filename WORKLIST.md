@@ -39,6 +39,10 @@
   - 目标：让 `run` 在前端失败和解释器运行失败时都能输出结构化 diagnostics，而不只输出文本。
   - 完成于：2026-04-23
   - 备注：已为 `axc run` 接入 `--json / --ai / --ai-session` 参数解析，补齐运行期越界错误的基础 / AI 接口快照与 CLI 测试，并同步更新 README 与 diagnostics schema 文档。
+- [x] `P0-7` 收口除法执行一致性与除零 AI 规则。
+  - 目标：修复 `/` 词法断层，并把运行期 `R0021` 纳入稳定 AI 反馈覆盖。
+  - 完成于：2026-04-23
+  - 备注：已补 `/` 词法回归测试、解释器整除回归测试、`division_by_zero_must_be_avoided` 规则、CLI AI 快照测试与 `examples/division_by_zero.ax` 示例。
 
 ## P1
 

@@ -390,6 +390,48 @@ fn main() -> i32 {
 }
 
 #[test]
+fn run_runtime_division_by_zero_json_with_ai_matches_snapshot() {
+    let temp = TempDir::new("run-runtime-division-by-zero-ai");
+    let input = temp.write(
+        "division_by_zero.ax",
+        "\
+fn main() -> i32 {
+    let total: i32 = 8;
+    let count: i32 = 0;
+    return total / count;
+}
+",
+    );
+
+    let output = run_axc([
+        OsStr::new("run"),
+        input.as_os_str(),
+        OsStr::new("--json"),
+        OsStr::new("--ai"),
+    ]);
+    assert_eq!(output.status.code(), Some(1));
+    assert_clean_stderr(&output);
+
+    let mut diagnostics: Value =
+        serde_json::from_slice(&output.stdout).expect("run diagnostics output should be JSON");
+    let placeholder = "<input>/division_by_zero.ax".to_string();
+    for diagnostic in diagnostics
+        .as_array_mut()
+        .expect("run diagnostics output should be an array")
+    {
+        diagnostic["file"] = Value::String(placeholder.clone());
+    }
+
+    let rendered = serde_json::to_string_pretty(&diagnostics)
+        .expect("run diagnostics JSON should serialize")
+        + "\n";
+    assert_eq!(
+        normalize_text(&rendered),
+        snapshot("run_division_by_zero_ai.json")
+    );
+}
+
+#[test]
 fn project_build_manifest_matches_snapshot() {
     let temp = TempDir::new("project-build");
     temp.write(

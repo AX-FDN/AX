@@ -218,6 +218,9 @@ fn match_rule(source: &SourceFile, diagnostic: &Diagnostic) -> Option<RuleTempla
         "S0031" => Some(RULE_FOR_HEADER_CLAUSE_SUPPORTED),
         "S0032" => Some(RULE_NON_EMPTY_ARRAY_LITERAL_REQUIRED),
         "S0033" => Some(RULE_INDEX_BASE_MUST_BE_ARRAY),
+        "R0012" | "R0018" | "R0019" | "R0020" | "R0022" => Some(RULE_INTEGER_ARITHMETIC_IN_RANGE),
+        "R0021" => Some(RULE_DIVISION_BY_ZERO),
+        "R0030" => Some(RULE_ARRAY_INDEX_NON_NEGATIVE),
         "R0031" => Some(RULE_ARRAY_INDEX_IN_BOUNDS),
         _ => None,
     }
@@ -600,6 +603,39 @@ const RULE_ARRAY_INDEX_IN_BOUNDS: RuleTemplate = RuleTemplate {
     minimal_example: "let values: [i32; 3] = [1, 2, 3]; println(values[2]);",
     anti_pattern: Some("let values: [i32; 2] = [1, 2]; return values[2];"),
     default_fixit: "change the index or array length so the access stays within bounds",
+};
+
+const RULE_ARRAY_INDEX_NON_NEGATIVE: RuleTemplate = RuleTemplate {
+    rule_id: "array_index_must_be_non_negative",
+    normalized_pattern: "array_index_must_be_non_negative",
+    repair_goal: "Use an index expression that never evaluates to a negative `i32` value.",
+    summary: "AX array indexing accepts `i32`, but runtime indexing still requires the resolved value to be zero or greater.",
+    pattern: "let values: [i32; 2] = [1, 2]; return values[0];",
+    minimal_example: "let values: [i32; 3] = [1, 2, 3]; println(values[index]);",
+    anti_pattern: Some("let values: [i32; 2] = [1, 2]; return values[-1];"),
+    default_fixit: "change the index expression so it stays at 0 or above",
+};
+
+const RULE_DIVISION_BY_ZERO: RuleTemplate = RuleTemplate {
+    rule_id: "division_by_zero_must_be_avoided",
+    normalized_pattern: "division_by_zero_must_be_avoided",
+    repair_goal: "Prove that the divisor is never zero before dividing.",
+    summary: "AX rejects division by zero at runtime for both `i32` and `f32` division.",
+    pattern: "if (divisor == 0) { return 0; } return value / divisor;",
+    minimal_example: "let safe: i32 = total / count;",
+    anti_pattern: Some("return value / 0;"),
+    default_fixit: "guard the divisor or rewrite the calculation so the right-hand side cannot be zero",
+};
+
+const RULE_INTEGER_ARITHMETIC_IN_RANGE: RuleTemplate = RuleTemplate {
+    rule_id: "integer_arithmetic_must_stay_in_range",
+    normalized_pattern: "integer_arithmetic_must_stay_in_range",
+    repair_goal: "Rewrite the arithmetic so every intermediate `i32` result stays within the valid range.",
+    summary: "AX checks `i32` arithmetic at runtime, so negation, addition, subtraction, multiplication, and division must stay within range.",
+    pattern: "let value: i32 = left + right;",
+    minimal_example: "let value: i32 = count - 1;",
+    anti_pattern: Some("let value: i32 = 2147483647 + 1;"),
+    default_fixit: "use smaller operands or rewrite the arithmetic so the `i32` result stays in range",
 };
 
 const RULE_MISSING_SEMICOLON: RuleTemplate = RuleTemplate {
@@ -1373,6 +1409,94 @@ mod tests {
     }
 
     #[test]
+    fn enhances_runtime_negative_index_error_with_specific_rule_card() {
+        let source = SourceFile::anonymous(
+            "fn main() -> i32 { let values: [i32; 2] = [1, 2]; return values[-1]; }",
+        );
+        let analysis = analyze(&source);
+        assert!(
+            analysis.diagnostics.is_empty(),
+            "analysis should succeed before runtime failure"
+        );
+
+        let hir = analysis
+            .hir
+            .as_ref()
+            .expect("HIR should be available after successful analysis");
+        let runtime_error = run_program(&source, hir).expect_err("program should fail at runtime");
+        let mut diagnostics = vec![runtime_error];
+
+        enhance_diagnostics(&source, &analysis.program, &mut diagnostics, None)
+            .expect("ai enhancement should succeed for runtime diagnostics");
+
+        let ai = diagnostics[0]
+            .ai
+            .as_ref()
+            .expect("runtime diagnostic should have ai payload");
+        assert_eq!(diagnostics[0].code, "R0030");
+        assert_eq!(ai.rule_id, "array_index_must_be_non_negative");
+    }
+
+    #[test]
+    fn enhances_runtime_integer_overflow_with_specific_rule_card() {
+        let source =
+            SourceFile::anonymous("fn main() -> i32 { return 2147483647 + 1; }");
+        let analysis = analyze(&source);
+        assert!(
+            analysis.diagnostics.is_empty(),
+            "analysis should succeed before runtime failure"
+        );
+
+        let hir = analysis
+            .hir
+            .as_ref()
+            .expect("HIR should be available after successful analysis");
+        let runtime_error = run_program(&source, hir).expect_err("program should fail at runtime");
+        let mut diagnostics = vec![runtime_error];
+
+        enhance_diagnostics(&source, &analysis.program, &mut diagnostics, None)
+            .expect("ai enhancement should succeed for runtime diagnostics");
+
+        let ai = diagnostics[0]
+            .ai
+            .as_ref()
+            .expect("runtime diagnostic should have ai payload");
+        assert_eq!(diagnostics[0].code, "R0018");
+        assert_eq!(ai.rule_id, "integer_arithmetic_must_stay_in_range");
+    }
+
+    #[test]
+    fn enhances_runtime_division_by_zero_with_specific_rule_card() {
+        let source = SourceFile::anonymous("fn main() -> i32 { return 8 / 0; }");
+        let analysis = analyze(&source);
+        assert!(
+            analysis.diagnostics.is_empty(),
+            "analysis should succeed before runtime failure"
+        );
+
+        let hir = analysis
+            .hir
+            .as_ref()
+            .expect("HIR should be available after successful analysis");
+        let runtime_error = run_program(&source, hir).expect_err("program should fail at runtime");
+        let mut diagnostics = vec![runtime_error];
+
+        enhance_diagnostics(&source, &analysis.program, &mut diagnostics, None)
+            .expect("ai enhancement should succeed for runtime diagnostics");
+
+        let ai = diagnostics[0]
+            .ai
+            .as_ref()
+            .expect("runtime diagnostic should have ai payload");
+        assert_eq!(diagnostics[0].code, "R0021");
+        assert_eq!(ai.rule_id, "division_by_zero_must_be_avoided");
+        assert_eq!(
+            ai.repair_goal,
+            "Prove that the divisor is never zero before dividing."
+        );
+    }
+
+    #[test]
     fn high_value_diagnostics_keep_stable_rule_ids() {
         struct RuleCase<'a> {
             name: &'a str,
@@ -1495,6 +1619,57 @@ mod tests {
             .as_ref()
             .expect("runtime diagnostic should include ai payload");
         assert_eq!(ai.rule_id, "array_index_must_stay_in_bounds");
+
+        let source = SourceFile::anonymous(
+            "fn main() -> i32 { let values: [i32; 2] = [1, 2]; return values[-1]; }",
+        );
+        let analysis = analyze(&source);
+        let hir = analysis
+            .hir
+            .as_ref()
+            .expect("HIR should exist for runtime rule case");
+        let runtime_error = run_program(&source, hir).expect_err("runtime rule case should fail");
+        let mut diagnostics = vec![runtime_error];
+        enhance_diagnostics(&source, &analysis.program, &mut diagnostics, None)
+            .expect("runtime diagnostics should enhance");
+        let ai = diagnostics[0]
+            .ai
+            .as_ref()
+            .expect("runtime diagnostic should include ai payload");
+        assert_eq!(ai.rule_id, "array_index_must_be_non_negative");
+
+        let source =
+            SourceFile::anonymous("fn main() -> i32 { return 2147483647 + 1; }");
+        let analysis = analyze(&source);
+        let hir = analysis
+            .hir
+            .as_ref()
+            .expect("HIR should exist for runtime rule case");
+        let runtime_error = run_program(&source, hir).expect_err("runtime rule case should fail");
+        let mut diagnostics = vec![runtime_error];
+        enhance_diagnostics(&source, &analysis.program, &mut diagnostics, None)
+            .expect("runtime diagnostics should enhance");
+        let ai = diagnostics[0]
+            .ai
+            .as_ref()
+            .expect("runtime diagnostic should include ai payload");
+        assert_eq!(ai.rule_id, "integer_arithmetic_must_stay_in_range");
+
+        let source = SourceFile::anonymous("fn main() -> i32 { return 8 / 0; }");
+        let analysis = analyze(&source);
+        let hir = analysis
+            .hir
+            .as_ref()
+            .expect("HIR should exist for runtime rule case");
+        let runtime_error = run_program(&source, hir).expect_err("runtime rule case should fail");
+        let mut diagnostics = vec![runtime_error];
+        enhance_diagnostics(&source, &analysis.program, &mut diagnostics, None)
+            .expect("runtime diagnostics should enhance");
+        let ai = diagnostics[0]
+            .ai
+            .as_ref()
+            .expect("runtime diagnostic should include ai payload");
+        assert_eq!(ai.rule_id, "division_by_zero_must_be_avoided");
     }
 
     #[test]

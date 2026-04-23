@@ -1,0 +1,53 @@
+[
+  {
+    "ai": {
+      "fixits": [
+        "guard the divisor or rewrite the calculation so the right-hand side cannot be zero"
+      ],
+      "focus_item": {
+        "kind": "function",
+        "name": "main",
+        "signature": "fn main() -> i32",
+        "span": {
+          "end": 94,
+          "start": 0
+        }
+      },
+      "relevant_spans": [
+        {
+          "end": 91,
+          "start": 78
+        },
+        {
+          "end": 94,
+          "start": 0
+        },
+        {
+          "end": 94,
+          "start": 17
+        },
+        {
+          "end": 92,
+          "start": 71
+        }
+      ],
+      "repair_goal": "Prove that the divisor is never zero before dividing.",
+      "repeat_count": 1,
+      "rule_card": {
+        "summary": "AX rejects division by zero at runtime for both `i32` and `f32` division."
+      },
+      "rule_id": "division_by_zero_must_be_avoided",
+      "teaching_level": "L1"
+    },
+    "code": "R0021",
+    "expected": [],
+    "file": "<input>/division_by_zero.ax",
+    "message": "division by zero",
+    "notes": [],
+    "span": {
+      "end": 91,
+      "start": 78
+    },
+    "suggestion": null
+  }
+]
