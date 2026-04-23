@@ -71,6 +71,10 @@
   - 目标：先把赋值目标检查从 `checker.rs` 主体里拆出去，给后续继续拆 `resolver / type checker / assignment rules` 打出稳定边界。
   - 完成于：2026-04-23
   - 备注：已新增 `src/semantic/checker/assignment.rs`，迁出变量赋值、结构体字段赋值、数组元素赋值与非法赋值目标诊断；`cargo-gnu.ps1 test` 已通过。
+- [x] `P0-15` 继续拆名字解析与作用域层。
+  - 目标：把绑定声明、作用域查找、可见变量提示和未定义变量诊断从 `checker.rs` 主体里拆出去，继续收紧 `resolver / type checker` 边界。
+  - 完成于：2026-04-23
+  - 备注：已新增 `src/semantic/checker/names.rs`，迁出 `Binding`、`declare`、`lookup`、未定义变量诊断与作用域可见性辅助逻辑；`cargo-gnu.ps1 test` 已通过。
 
 ## P1
 
