@@ -83,6 +83,10 @@
   - 目标：把 `return / if / while / for` 的语义检查从 `checker.rs` 主体里拆出去，让后续控制流返回分析和语句分发继续解耦。
   - 完成于：2026-04-23
   - 备注：已新增 `src/semantic/checker/control_flow.rs`，迁出返回值校验、条件为 `bool` 的检查、`for` header 校验与块级控制流入口；`checker.rs` 进一步收口为语句分发与共享类型匹配辅助；`cargo-gnu.ps1 test` 已通过。
+- [x] `P0-18` 继续压缩 `checker.rs` 的共享调度层。
+  - 目标：把语句分发与共享类型匹配从 `checker.rs` 再拆出去，让 `checker.rs` 基本只保留 `TypeChecker` 结构、初始化与 block 级编排。
+  - 完成于：2026-04-23
+  - 备注：已新增 `src/semantic/checker/statements.rs` 与 `src/semantic/checker/type_rules.rs`，迁出 `check_statement` 与 `expect_type_match`；`checker.rs` 现在主要承担模块装配、`TypeChecker` 定义与 `check_block` 编排；`cargo-gnu.ps1 test` 已通过。
 
 ## P1
 
