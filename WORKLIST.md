@@ -67,6 +67,10 @@
   - 目标：把 `TypeChecker` 主体和局部绑定逻辑搬进独立模块，让 `semantic.rs` 进一步收口为“入口编排 + 测试”。
   - 完成于：2026-04-23
   - 备注：已新增 `src/semantic/checker.rs`，并把 `TypeChecker` / `Binding` / 检查规则实现整体迁出；`semantic.rs` 现在只保留模块装配、`check_program` 与测试；`cargo-gnu.ps1 test` 已通过。
+- [x] `P0-14` 继续细化 `checker` 的职责边界。
+  - 目标：先把赋值目标检查从 `checker.rs` 主体里拆出去，给后续继续拆 `resolver / type checker / assignment rules` 打出稳定边界。
+  - 完成于：2026-04-23
+  - 备注：已新增 `src/semantic/checker/assignment.rs`，迁出变量赋值、结构体字段赋值、数组元素赋值与非法赋值目标诊断；`cargo-gnu.ps1 test` 已通过。
 
 ## P1
 
