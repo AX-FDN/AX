@@ -6,6 +6,8 @@ AX treats repair benchmark evidence as a first-class product asset. The benchmar
 
 - does a given feedback mode help an external agent repair broken AX programs more reliably?
 
+For the diagnostics-cost baseline that sits alongside the repair benchmark, use [`../scripts/benchmark-diagnostics.ps1`](../scripts/benchmark-diagnostics.ps1). It measures `check`, `check --json`, and `check --json --ai` over stable broken programs and now emits a stable `summary.json` / `summary.md` report under `.ax-ai\diagnostics-benchmark\<timestamp>\`.
+
 The current repository supports three layers of work:
 
 1. export stable benchmark artifacts from manifest-defined broken programs
@@ -282,6 +284,8 @@ This script uses the smoke manifest plus replay candidates committed in the repo
 - scoring still works end to end
 
 It is not intended to prove model quality.
+
+For the diagnostics baseline path, use [`../scripts/smoke-benchmark-diagnostics.ps1`](../scripts/smoke-benchmark-diagnostics.ps1). It asserts the stable `summary.json` contract produced by `benchmark-diagnostics.ps1`, including schema version, mode order, case count, and per-mode row counts.
 
 For the comparison path itself, use [`../scripts/smoke-compare-repair-feedback.ps1`](../scripts/smoke-compare-repair-feedback.ps1):
 

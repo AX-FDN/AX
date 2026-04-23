@@ -50,6 +50,7 @@
   - 通过条件：同一输入可重复跑出同结构报告；能看见 `check / check --json / check --json --ai` 的相对开销。
   - 回归保障：现有 benchmark smoke、CI。
   - 不做范围：不新增大语法特性。
+  - 进展：`benchmark-diagnostics.ps1` 已开始稳定落盘 `summary.json` / `summary.md`，并新增 `smoke-benchmark-diagnostics.ps1` 与 CI 回归入口。
 
 - [~] `P0-22` 固定 `check/json/ai` 接口与回归资产
   - 目标：让基础诊断层和 AI 增强层的外部接口可稳定消费、可快照、可比较。

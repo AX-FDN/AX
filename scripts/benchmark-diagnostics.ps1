@@ -1,7 +1,8 @@
 param(
     [int] $Iterations = 10,
     [string] $ManifestPath = "benchmarks\\repair-cases.json",
-    [string[]] $Files
+    [string[]] $Files,
+    [string] $OutputDir = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -20,6 +21,34 @@ $repoCargoConfig = Join-Path $repoRoot ".cargo\config.toml"
 
 if (-not [System.IO.Path]::IsPathRooted($ManifestPath)) {
     $ManifestPath = Join-Path $repoRoot $ManifestPath
+}
+
+if ([string]::IsNullOrWhiteSpace($OutputDir)) {
+    $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
+    $OutputDir = Join-Path $repoRoot ".ax-ai\\diagnostics-benchmark\\$timestamp"
+} elseif (-not [System.IO.Path]::IsPathRooted($OutputDir)) {
+    $OutputDir = Join-Path $repoRoot $OutputDir
+}
+
+function Write-Utf8File {
+    param(
+        [string] $Path,
+        [string] $Text
+    )
+
+    $parent = Split-Path -Parent $Path
+    if ($parent) {
+        New-Item -ItemType Directory -Force -Path $parent | Out-Null
+    }
+
+    $encoding = New-Object System.Text.UTF8Encoding($false)
+    [System.IO.File]::WriteAllText($Path, $Text, $encoding)
+}
+
+function Format-JsonText {
+    param([object] $Value)
+
+    return (($Value | ConvertTo-Json -Depth 100).TrimEnd() + "`n")
 }
 
 function Resolve-TargetDir {
@@ -80,6 +109,40 @@ function Invoke-Axc {
     return $process.ExitCode
 }
 
+function Build-MarkdownReport {
+    param([object] $Summary)
+
+    $lines = New-Object System.Collections.Generic.List[string]
+    $null = $lines.Add("# AX Diagnostics Benchmark")
+    $null = $lines.Add("")
+    $null = $lines.Add("- Generated at: $($Summary.generated_at)")
+    $null = $lines.Add("- Manifest path: $($Summary.manifest_path)")
+    $null = $lines.Add("- Iterations per file/mode: $($Summary.iterations)")
+    $null = $lines.Add("- Cases: $($Summary.total_cases)")
+    $null = $lines.Add("- AX binary: $($Summary.binary_path)")
+    $null = $lines.Add("")
+    $null = $lines.Add("## Mode Summary")
+    $null = $lines.Add("")
+    $null = $lines.Add("| Mode | Cases | Avg ms | Min ms | Max ms | Total ms |")
+    $null = $lines.Add("| --- | ---: | ---: | ---: | ---: | ---: |")
+
+    foreach ($mode in @($Summary.mode_summary)) {
+        $null = $lines.Add("| $($mode.mode) | $($mode.files) | $($mode.avg_ms) | $($mode.min_ms) | $($mode.max_ms) | $($mode.total_ms) |")
+    }
+
+    $null = $lines.Add("")
+    $null = $lines.Add("## Per-Case Timings")
+    $null = $lines.Add("")
+    $null = $lines.Add("| File | Mode | Iterations | Avg ms | Total ms |")
+    $null = $lines.Add("| --- | --- | ---: | ---: | ---: |")
+
+    foreach ($row in @($Summary.per_case_timings)) {
+        $null = $lines.Add("| $($row.file) | $($row.mode) | $($row.iterations) | $($row.avg_ms) | $($row.total_ms) |")
+    }
+
+    return ($lines -join "`n") + "`n"
+}
+
 if (-not $Files -or $Files.Count -eq 0) {
     $Files = Get-ManifestFiles -Path $ManifestPath
 }
@@ -137,15 +200,73 @@ $results | Sort-Object File, Mode | Format-Table -AutoSize
 
 Write-Host ""
 Write-Host "Mode summary"
-$results |
+$modeSummary = @(
+    $results |
     Group-Object Mode |
     ForEach-Object {
         $avg = ($_.Group | Measure-Object -Property AvgMs -Average).Average
+        $total = ($_.Group | Measure-Object -Property TotalMs -Sum).Sum
+        $min = ($_.Group | Measure-Object -Property AvgMs -Minimum).Minimum
+        $max = ($_.Group | Measure-Object -Property AvgMs -Maximum).Maximum
         [pscustomobject]@{
-            Mode  = $_.Name
-            Files = $_.Count
-            AvgMs = [math]::Round($avg, 2)
+            Mode    = $_.Name
+            Files   = $_.Count
+            AvgMs   = [math]::Round($avg, 2)
+            MinMs   = [math]::Round($min, 2)
+            MaxMs   = [math]::Round($max, 2)
+            TotalMs = [math]::Round($total, 2)
         }
-    } |
+    }
+)
+
+$modeSummary |
     Sort-Object Mode |
     Format-Table -AutoSize
+
+$summary = [ordered]@{
+    schema_version   = 1
+    generated_at     = (Get-Date).ToString("o")
+    manifest_path    = $ManifestPath
+    output_dir       = $OutputDir
+    iterations       = $Iterations
+    total_cases      = @($Files).Count
+    target_dir       = $targetDir
+    binary_path      = $binary
+    mode_order       = @($modes | ForEach-Object { $_.Name })
+    per_case_timings = @(
+        $results |
+            Sort-Object File, Mode |
+            ForEach-Object {
+                [ordered]@{
+                    file       = $_.File
+                    mode       = $_.Mode
+                    iterations = $_.Iterations
+                    total_ms   = $_.TotalMs
+                    avg_ms     = $_.AvgMs
+                }
+            }
+    )
+    mode_summary     = @(
+        $modeSummary |
+            Sort-Object Mode |
+            ForEach-Object {
+                [ordered]@{
+                    mode     = $_.Mode
+                    files    = $_.Files
+                    avg_ms   = $_.AvgMs
+                    min_ms   = $_.MinMs
+                    max_ms   = $_.MaxMs
+                    total_ms = $_.TotalMs
+                }
+            }
+    )
+}
+
+$summaryJsonPath = Join-Path $OutputDir "summary.json"
+$summaryMarkdownPath = Join-Path $OutputDir "summary.md"
+Write-Utf8File -Path $summaryJsonPath -Text (Format-JsonText -Value $summary)
+Write-Utf8File -Path $summaryMarkdownPath -Text (Build-MarkdownReport -Summary $summary)
+
+Write-Host ""
+Write-Host "Summary JSON written to $summaryJsonPath"
+Write-Host "Summary Markdown written to $summaryMarkdownPath"

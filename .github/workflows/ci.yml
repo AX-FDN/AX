@@ -32,6 +32,9 @@ jobs:
       - name: Run Rust tests
         run: .\scripts\cargo-gnu.ps1 test
 
+      - name: Run diagnostics benchmark smoke
+        run: .\scripts\smoke-benchmark-diagnostics.ps1
+
       - name: Run repair benchmark smoke
         run: .\scripts\smoke-repair-benchmark.ps1
 
