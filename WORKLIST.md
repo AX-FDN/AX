@@ -31,6 +31,14 @@
   - 目标：至少覆盖 `fmt` 幂等、diagnostics JSON、AST/HIR dump、repair benchmark smoke run。
   - 完成于：2026-04-22
   - 备注：新增 `tests/interface_snapshots.rs`、`tests/snapshots/`、`scripts/smoke-repair-benchmark.ps1` 与 `.github/workflows/ci.yml`；已通过 `cargo-gnu.ps1 test` 和 replay smoke benchmark 验证。
+- [x] `P0-5` 加固 AI session 版本策略与 AI diagnostics 快照。
+  - 目标：固定 `axc check --json --ai` 的接口形状，并让 `--ai-session` 对不兼容版本显式失败。
+  - 完成于：2026-04-23
+  - 备注：已补 `check --json --ai` 接口快照、unsupported session version CLI 测试、session schema version 单元测试、首批高价值错误码映射测试，并同步更新 diagnostics schema 文档。
+- [x] `P0-6` 打通 `axc run --json` 运行期结构化诊断。
+  - 目标：让 `run` 在前端失败和解释器运行失败时都能输出结构化 diagnostics，而不只输出文本。
+  - 完成于：2026-04-23
+  - 备注：已为 `axc run` 接入 `--json / --ai / --ai-session` 参数解析，补齐运行期越界错误的基础 / AI 接口快照与 CLI 测试，并同步更新 README 与 diagnostics schema 文档。
 
 ## P1
 

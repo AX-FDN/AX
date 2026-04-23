@@ -7,6 +7,7 @@ use crate::hir::{
 };
 use crate::source::{SourceFile, Span};
 
+#[derive(Debug)]
 pub struct RunOutput {
     pub exit_code: i32,
     pub stdout: Vec<String>,

@@ -256,13 +256,17 @@ fn run_mir(args: Vec<String>) -> i32 {
 }
 
 fn run_run(args: Vec<String>) -> i32 {
-    if args.len() != 1 {
-        eprintln!("usage: axc run <path>");
-        return 2;
-    }
+    let options = match parse_run_args(args) {
+        Ok(options) => options,
+        Err(error) => {
+            eprintln!(
+                "{error}\nusage: axc run <path> [--json] [--ai] [--ai-session <path>]"
+            );
+            return 2;
+        }
+    };
 
-    let path = PathBuf::from(&args[0]);
-    let input = match load_input(&path) {
+    let input = match load_input(&options.file) {
         Ok(input) => input,
         Err(error) => {
             eprintln!("{error}");
@@ -271,9 +275,29 @@ fn run_run(args: Vec<String>) -> i32 {
     };
     let source = &input.source;
 
-    let output = analyze(source);
+    let mut output = analyze(source);
     if !output.diagnostics.is_empty() {
-        eprintln!("{}", render_diagnostics(source, &output.diagnostics));
+        if options.ai {
+            if let Err(error) = enhance_diagnostics(
+                source,
+                &output.program,
+                &mut output.diagnostics,
+                options.ai_session.as_deref(),
+            ) {
+                eprintln!("{error}");
+                return 1;
+            }
+        }
+
+        if options.json {
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&output.diagnostics)
+                    .expect("run diagnostics json should serialize")
+            );
+        } else {
+            eprintln!("{}", render_diagnostics(source, &output.diagnostics));
+        }
         return 1;
     }
 
@@ -290,7 +314,28 @@ fn run_run(args: Vec<String>) -> i32 {
             result.exit_code
         }
         Err(error) => {
-            eprintln!("{}", render_diagnostics(source, &[error]));
+            let mut diagnostics = vec![error];
+            if options.ai {
+                if let Err(error) = enhance_diagnostics(
+                    source,
+                    &output.program,
+                    &mut diagnostics,
+                    options.ai_session.as_deref(),
+                ) {
+                    eprintln!("{error}");
+                    return 1;
+                }
+            }
+
+            if options.json {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&diagnostics)
+                        .expect("run diagnostics json should serialize")
+                );
+            } else {
+                eprintln!("{}", render_diagnostics(source, &diagnostics));
+            }
             1
         }
     }
@@ -344,7 +389,7 @@ Commands:
   hir <path>               Print stable HIR JSON
   mir <path>               Print stable MIR JSON
   build <path> [--out-dir <path>]   Emit the build skeleton artifacts for the native backend stage
-  run <path>               Execute the minimal interpreter
+  run <path> [--json] [--ai] [--ai-session <path>]   Execute the minimal interpreter
   fmt <path>               Rewrite the file to the canonical AX format
 "
 }
@@ -369,6 +414,14 @@ struct CheckOptions {
 struct BuildCliOptions {
     file: PathBuf,
     out_dir: Option<PathBuf>,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+struct RunOptions {
+    file: PathBuf,
+    json: bool,
+    ai: bool,
+    ai_session: Option<PathBuf>,
 }
 
 fn parse_check_args(args: Vec<String>) -> Result<CheckOptions, String> {
@@ -434,6 +487,69 @@ fn parse_check_args(args: Vec<String>) -> Result<CheckOptions, String> {
     })
 }
 
+fn parse_run_args(args: Vec<String>) -> Result<RunOptions, String> {
+    let mut json = false;
+    let mut ai = false;
+    let mut ai_session = None;
+    let mut file = None;
+    let mut index = 0;
+
+    while index < args.len() {
+        let arg = &args[index];
+        match arg.as_str() {
+            "--json" => {
+                json = true;
+            }
+            "--ai" => {
+                ai = true;
+            }
+            "--ai-session" => {
+                let Some(path) = args.get(index + 1) else {
+                    return Err("missing path after `--ai-session`".to_string());
+                };
+                ai_session = Some(PathBuf::from(path));
+                index += 1;
+            }
+            _ if arg.starts_with("--ai-session=") => {
+                let path = arg
+                    .split_once('=')
+                    .map(|(_, value)| value)
+                    .unwrap_or_default();
+                if path.is_empty() {
+                    return Err("missing path after `--ai-session=`".to_string());
+                }
+                ai_session = Some(PathBuf::from(path));
+            }
+            _ if file.is_none() => {
+                file = Some(PathBuf::from(arg));
+            }
+            _ => {
+                return Err(format!("unexpected argument `{arg}`"));
+            }
+        }
+        index += 1;
+    }
+
+    let Some(file) = file else {
+        return Err("missing input file for `axc run`".to_string());
+    };
+
+    if ai && !json {
+        return Err("`--ai` requires `--json`".to_string());
+    }
+
+    if ai_session.is_some() && !ai {
+        return Err("`--ai-session` requires `--ai`".to_string());
+    }
+
+    Ok(RunOptions {
+        file,
+        json,
+        ai,
+        ai_session,
+    })
+}
+
 fn parse_build_args(args: Vec<String>) -> Result<BuildCliOptions, String> {
     let mut out_dir = None;
     let mut file = None;
@@ -483,7 +599,8 @@ fn load_input(path: &Path) -> Result<ResolvedInput, String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        BuildCliOptions, CheckOptions, parse_build_args, parse_check_args, render_check_success,
+        BuildCliOptions, CheckOptions, RunOptions, parse_build_args, parse_check_args,
+        parse_run_args, render_check_success,
     };
     use std::path::PathBuf;
 
@@ -552,5 +669,34 @@ mod tests {
         let error = parse_build_args(vec!["--out-dir".to_string(), "build/hello".to_string()])
             .expect_err("build arguments should be rejected");
         assert!(error.contains("missing input file for `axc build`"));
+    }
+
+    #[test]
+    fn parses_run_options_with_ai_session() {
+        let options = parse_run_args(vec![
+            "examples/hello.ax".to_string(),
+            "--json".to_string(),
+            "--ai".to_string(),
+            "--ai-session".to_string(),
+            ".ax-ai-session.json".to_string(),
+        ])
+        .expect("run arguments should parse");
+
+        assert_eq!(
+            options,
+            RunOptions {
+                file: PathBuf::from("examples/hello.ax"),
+                json: true,
+                ai: true,
+                ai_session: Some(PathBuf::from(".ax-ai-session.json")),
+            }
+        );
+    }
+
+    #[test]
+    fn rejects_run_ai_without_json() {
+        let error = parse_run_args(vec!["examples/hello.ax".to_string(), "--ai".to_string()])
+            .expect_err("run arguments should be rejected");
+        assert!(error.contains("`--ai` requires `--json`"));
     }
 }

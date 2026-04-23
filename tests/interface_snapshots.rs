@@ -130,6 +130,78 @@ fn diagnostics_json_matches_snapshot() {
 }
 
 #[test]
+fn diagnostics_json_with_ai_matches_snapshot() {
+    let temp = TempDir::new("diagnostics-ai");
+    let input = temp.write(
+        "missing_semicolon.ax",
+        "fn main() -> i32 {\n    let value: i32 = 1\n    return value;\n}\n",
+    );
+
+    let output = run_axc([
+        OsStr::new("check"),
+        input.as_os_str(),
+        OsStr::new("--json"),
+        OsStr::new("--ai"),
+    ]);
+    assert_eq!(output.status.code(), Some(1));
+    assert_clean_stderr(&output);
+
+    let mut diagnostics: Value =
+        serde_json::from_slice(&output.stdout).expect("diagnostics output should be JSON");
+    let placeholder = "<input>/missing_semicolon.ax".to_string();
+    for diagnostic in diagnostics
+        .as_array_mut()
+        .expect("diagnostics output should be an array")
+    {
+        diagnostic["file"] = Value::String(placeholder.clone());
+    }
+
+    let rendered = serde_json::to_string_pretty(&diagnostics)
+        .expect("diagnostics JSON should serialize")
+        + "\n";
+    assert_eq!(
+        normalize_text(&rendered),
+        snapshot("diagnostics_missing_semicolon_ai.json")
+    );
+}
+
+#[test]
+fn check_rejects_unsupported_ai_session_version() {
+    let temp = TempDir::new("unsupported-ai-session");
+    let input = temp.write(
+        "missing_semicolon.ax",
+        "fn main() -> i32 {\n    let value: i32 = 1\n    return value;\n}\n",
+    );
+    let session = temp.write(
+        "session.json",
+        "{\n  \"version\": 99,\n  \"entries\": {}\n}\n",
+    );
+
+    let output = run_axc([
+        OsStr::new("check"),
+        input.as_os_str(),
+        OsStr::new("--json"),
+        OsStr::new("--ai"),
+        OsStr::new("--ai-session"),
+        session.as_os_str(),
+    ]);
+    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(string_output(&output.stdout), "");
+
+    let stderr = normalize_text(&string_output(&output.stderr));
+    assert!(
+        stderr.contains("unsupported AI session version `99`"),
+        "expected unsupported session version error, got:\n{}",
+        stderr
+    );
+    assert!(
+        stderr.contains("expected `1`"),
+        "expected supported version hint, got:\n{}",
+        stderr
+    );
+}
+
+#[test]
 fn ast_dump_matches_snapshot() {
     let temp = TempDir::new("ast");
     let input = temp.write(
@@ -238,6 +310,83 @@ fn main() -> i32 {
     assert_eq!(output.status.code(), Some(0));
     assert_clean_stderr(&output);
     assert_eq!(normalize_text(&string_output(&output.stdout)), "3\n");
+}
+
+#[test]
+fn run_runtime_error_json_matches_snapshot() {
+    let temp = TempDir::new("run-runtime-error");
+    let input = temp.write(
+        "index_out_of_bounds.ax",
+        "\
+fn main() -> i32 {
+    let values: [i32; 2] = [1, 2];
+    return values[2];
+}
+",
+    );
+
+    let output = run_axc([OsStr::new("run"), input.as_os_str(), OsStr::new("--json")]);
+    assert_eq!(output.status.code(), Some(1));
+    assert_clean_stderr(&output);
+
+    let mut diagnostics: Value =
+        serde_json::from_slice(&output.stdout).expect("run diagnostics output should be JSON");
+    let placeholder = "<input>/index_out_of_bounds.ax".to_string();
+    for diagnostic in diagnostics
+        .as_array_mut()
+        .expect("run diagnostics output should be an array")
+    {
+        diagnostic["file"] = Value::String(placeholder.clone());
+    }
+
+    let rendered = serde_json::to_string_pretty(&diagnostics)
+        .expect("run diagnostics JSON should serialize")
+        + "\n";
+    assert_eq!(
+        normalize_text(&rendered),
+        snapshot("run_index_out_of_bounds.json")
+    );
+}
+
+#[test]
+fn run_runtime_error_json_with_ai_matches_snapshot() {
+    let temp = TempDir::new("run-runtime-error-ai");
+    let input = temp.write(
+        "index_out_of_bounds.ax",
+        "\
+fn main() -> i32 {
+    let values: [i32; 2] = [1, 2];
+    return values[2];
+}
+",
+    );
+
+    let output = run_axc([
+        OsStr::new("run"),
+        input.as_os_str(),
+        OsStr::new("--json"),
+        OsStr::new("--ai"),
+    ]);
+    assert_eq!(output.status.code(), Some(1));
+    assert_clean_stderr(&output);
+
+    let mut diagnostics: Value =
+        serde_json::from_slice(&output.stdout).expect("run diagnostics output should be JSON");
+    let placeholder = "<input>/index_out_of_bounds.ax".to_string();
+    for diagnostic in diagnostics
+        .as_array_mut()
+        .expect("run diagnostics output should be an array")
+    {
+        diagnostic["file"] = Value::String(placeholder.clone());
+    }
+
+    let rendered = serde_json::to_string_pretty(&diagnostics)
+        .expect("run diagnostics JSON should serialize")
+        + "\n";
+    assert_eq!(
+        normalize_text(&rendered),
+        snapshot("run_index_out_of_bounds_ai.json")
+    );
 }
 
 #[test]

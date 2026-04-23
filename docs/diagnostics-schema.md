@@ -6,12 +6,14 @@ This document covers the stable JSON output of:
 
 - `axc check <file> --json`
 - `axc check <file> --json --ai`
+- `axc run <file> --json`
+- `axc run <file> --json --ai`
 
 It does not document:
 
 - text-mode diagnostic rendering
 - private internal compiler structs
-- the on-disk format of `--ai-session` state files
+- the full on-disk format of `--ai-session` state files
 
 ## Command-Level Contract
 
@@ -42,6 +44,22 @@ Stable behavior:
 - base diagnostic ordering stays the same
 - base code, message, file, span, notes, expected, and suggestion stay the same
 - only AI-layer teaching fields such as `teaching_level`, `repeat_count`, and richer examples may change
+- the compiler currently writes AI session files with schema version `1`
+- unsupported AI session versions are rejected with a clear error instead of being read silently
+
+### `axc run <file> --json`
+
+This exposes runtime failures through the same base diagnostic object used by `check`.
+
+Stable behavior:
+
+- successful runs still print program output normally
+- failed runs emit a JSON array of diagnostics on stdout
+- parser, semantic, lowering, and runtime failures all use the same base diagnostic shape
+
+### `axc run <file> --json --ai`
+
+This keeps the base run diagnostic shape intact and may add an optional `ai` field when a run failure matches a registered AI rule.
 
 ## Base Diagnostic Object
 
@@ -174,6 +192,14 @@ Session escalation thresholds:
 - repeat count `4+`: `L3`
 
 Without `--ai-session`, every invocation starts at `L1`.
+
+## AI Session State
+
+The full on-disk `--ai-session` file remains an internal compiler detail, but these behaviors are intentional:
+
+- the compiler currently writes session files with `version: 1`
+- unsupported session versions are rejected predictably
+- session state may change teaching depth, but it must not change base diagnostic ordering or meaning
 
 ## Compatibility Rules
 

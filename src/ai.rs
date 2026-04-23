@@ -218,6 +218,7 @@ fn match_rule(source: &SourceFile, diagnostic: &Diagnostic) -> Option<RuleTempla
         "S0031" => Some(RULE_FOR_HEADER_CLAUSE_SUPPORTED),
         "S0032" => Some(RULE_NON_EMPTY_ARRAY_LITERAL_REQUIRED),
         "S0033" => Some(RULE_INDEX_BASE_MUST_BE_ARRAY),
+        "R0031" => Some(RULE_ARRAY_INDEX_IN_BOUNDS),
         _ => None,
     }
 }
@@ -588,6 +589,17 @@ const RULE_INDEX_BASE_MUST_BE_ARRAY: RuleTemplate = RuleTemplate {
     minimal_example: "let mut values: [i32; 2] = [1, 2]; values[1] = values[0];",
     anti_pattern: Some("let value: i32 = number[0];"),
     default_fixit: "index into an array value like `values[0]`",
+};
+
+const RULE_ARRAY_INDEX_IN_BOUNDS: RuleTemplate = RuleTemplate {
+    rule_id: "array_index_must_stay_in_bounds",
+    normalized_pattern: "array_index_must_stay_in_bounds",
+    repair_goal: "Keep the index within `0..len-1` for the current fixed-size array.",
+    summary: "AX array indexing is bounds-checked at runtime, so the accessed index must stay within the declared array length.",
+    pattern: "let values: [i32; 2] = [1, 2]; return values[1];",
+    minimal_example: "let values: [i32; 3] = [1, 2, 3]; println(values[2]);",
+    anti_pattern: Some("let values: [i32; 2] = [1, 2]; return values[2];"),
+    default_fixit: "change the index or array length so the access stays within bounds",
 };
 
 const RULE_MISSING_SEMICOLON: RuleTemplate = RuleTemplate {
@@ -1191,6 +1203,7 @@ mod tests {
     use std::path::PathBuf;
 
     use crate::frontend::analyze;
+    use crate::interpreter::run_program;
     use crate::source::SourceFile;
 
     fn unique_session_path(label: &str) -> PathBuf {
@@ -1324,6 +1337,164 @@ mod tests {
         let ai = diagnostic.ai.as_ref().expect("ai payload should exist");
         assert_eq!(ai.rule_id, "non_empty_array_literal_required");
         assert_eq!(ai.teaching_level, TeachingLevel::L1);
+    }
+
+    #[test]
+    fn enhances_runtime_array_bounds_error_with_specific_rule_card() {
+        let source = SourceFile::anonymous(
+            "fn main() -> i32 { let values: [i32; 2] = [1, 2]; return values[2]; }",
+        );
+        let analysis = analyze(&source);
+        assert!(
+            analysis.diagnostics.is_empty(),
+            "analysis should succeed before runtime failure"
+        );
+
+        let hir = analysis
+            .hir
+            .as_ref()
+            .expect("HIR should be available after successful analysis");
+        let runtime_error = run_program(&source, hir).expect_err("program should fail at runtime");
+        let mut diagnostics = vec![runtime_error];
+
+        enhance_diagnostics(&source, &analysis.program, &mut diagnostics, None)
+            .expect("ai enhancement should succeed for runtime diagnostics");
+
+        let ai = diagnostics[0]
+            .ai
+            .as_ref()
+            .expect("runtime diagnostic should have ai payload");
+        assert_eq!(diagnostics[0].code, "R0031");
+        assert_eq!(ai.rule_id, "array_index_must_stay_in_bounds");
+        assert_eq!(
+            ai.repair_goal,
+            "Keep the index within `0..len-1` for the current fixed-size array."
+        );
+    }
+
+    #[test]
+    fn high_value_diagnostics_keep_stable_rule_ids() {
+        struct RuleCase<'a> {
+            name: &'a str,
+            source: &'a str,
+            diagnostic_code: &'a str,
+            message_fragment: &'a str,
+            expected_rule_id: &'a str,
+        }
+
+        let cases = [
+            RuleCase {
+                name: "missing_semicolon",
+                source: "fn main() -> i32 { let value: i32 = 1 return value; }",
+                diagnostic_code: "P0001",
+                message_fragment: "expected `;`",
+                expected_rule_id: "statement_terminator_required",
+            },
+            RuleCase {
+                name: "missing_right_paren",
+                source: "fn main() -> i32 { if (true { return 1; } return 0; }",
+                diagnostic_code: "P0001",
+                message_fragment: "expected `)`",
+                expected_rule_id: "close_parenthesized_construct",
+            },
+            RuleCase {
+                name: "undefined_variable",
+                source: "fn main() -> i32 { return missing; }",
+                diagnostic_code: "S0002",
+                message_fragment: "undefined variable",
+                expected_rule_id: "variable_must_be_declared_in_scope",
+            },
+            RuleCase {
+                name: "immutable_assignment",
+                source: "fn main() -> i32 { let value: i32 = 1; value = 2; return value; }",
+                diagnostic_code: "S0003",
+                message_fragment: "cannot assign to immutable variable",
+                expected_rule_id: "mutable_binding_required",
+            },
+            RuleCase {
+                name: "missing_main",
+                source: "fn helper() -> i32 { return 0; }",
+                diagnostic_code: "S0004",
+                message_fragment: "program is missing",
+                expected_rule_id: "main_function_required",
+            },
+            RuleCase {
+                name: "unknown_type",
+                source: "fn main() -> i32 { let value: Missing = 1; return 0; }",
+                diagnostic_code: "S0006",
+                message_fragment: "unknown type",
+                expected_rule_id: "type_must_be_declared",
+            },
+            RuleCase {
+                name: "type_mismatch",
+                source: "fn main() -> i32 { let value: bool = 1; return 0; }",
+                diagnostic_code: "S0022",
+                message_fragment: "cannot initialize",
+                expected_rule_id: "type_match_required",
+            },
+            RuleCase {
+                name: "missing_return",
+                source: "fn helper(flag: bool) -> i32 { if (flag) { return 1; } }\nfn main() -> i32 { return helper(true); }",
+                diagnostic_code: "S0023",
+                message_fragment: "may complete without returning",
+                expected_rule_id: "all_paths_must_return",
+            },
+        ];
+
+        for case in cases {
+            let source = SourceFile::anonymous(case.source);
+            let mut analysis = analyze(&source);
+            enhance_diagnostics(&source, &analysis.program, &mut analysis.diagnostics, None)
+                .expect("ai enhancement should succeed");
+
+            let diagnostic = analysis
+                .diagnostics
+                .iter()
+                .find(|diagnostic| {
+                    diagnostic.code == case.diagnostic_code
+                        && diagnostic.message.contains(case.message_fragment)
+                })
+                .unwrap_or_else(|| {
+                    panic!(
+                        "case `{}` should produce diagnostic `{}` containing `{}`; got {:?}",
+                        case.name,
+                        case.diagnostic_code,
+                        case.message_fragment,
+                        analysis
+                            .diagnostics
+                            .iter()
+                            .map(|diagnostic| (&diagnostic.code, &diagnostic.message))
+                            .collect::<Vec<_>>()
+                    )
+                });
+
+            let ai = diagnostic
+                .ai
+                .as_ref()
+                .unwrap_or_else(|| panic!("case `{}` should include ai payload", case.name));
+            assert_eq!(
+                ai.rule_id, case.expected_rule_id,
+                "case `{}` should keep its stable rule_id",
+                case.name
+            );
+        }
+
+        let source =
+            SourceFile::anonymous("fn main() -> i32 { let values: [i32; 2] = [1, 2]; return values[2]; }");
+        let analysis = analyze(&source);
+        let hir = analysis
+            .hir
+            .as_ref()
+            .expect("HIR should exist for runtime rule case");
+        let runtime_error = run_program(&source, hir).expect_err("runtime rule case should fail");
+        let mut diagnostics = vec![runtime_error];
+        enhance_diagnostics(&source, &analysis.program, &mut diagnostics, None)
+            .expect("runtime diagnostics should enhance");
+        let ai = diagnostics[0]
+            .ai
+            .as_ref()
+            .expect("runtime diagnostic should include ai payload");
+        assert_eq!(ai.rule_id, "array_index_must_stay_in_bounds");
     }
 
     #[test]

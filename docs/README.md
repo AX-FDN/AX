@@ -7,6 +7,6 @@ This directory holds the stable external documentation for the current AX protot
 - [`repair-adapter-spec.md`](./repair-adapter-spec.md)
   Defines the runner script contract used by `run-repair-benchmark.ps1` and `compare-repair-feedback.ps1`.
 - [`diagnostics-schema.md`](./diagnostics-schema.md)
-  Documents the stable JSON shape of `axc check --json` and the optional AI extension used by `--json --ai`.
+  Documents the stable JSON shape of `axc check --json`, `axc run --json`, and the optional AI extension used by `--json --ai`.
 
 Read [`../PLAN.md`](../PLAN.md) for roadmap and project policy, [`../SYNTAX.md`](../SYNTAX.md) for the current prototype grammar, and [`../README.md`](../README.md) for quick-start commands.

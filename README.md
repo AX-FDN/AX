@@ -15,6 +15,8 @@
 - `axc ast <file>`：输出稳定 AST JSON
 - `axc hir <file>`：输出稳定 HIR JSON
 - `axc run <path>`：通过最小解释器执行 AX 程序
+- `axc run <path> --json`：在运行失败时输出结构化 JSON diagnostics
+- `axc run <path> --json --ai`：在命中已注册运行时规则时附加 AI 增强诊断
 - `axc fmt <path>`：按唯一官方风格原地格式化当前 AX 原型代码
 
 当前最小可运行子集已经支持：
@@ -75,6 +77,8 @@ cargo run -- run examples\factorial.ax
 cargo run -- run examples\for_loop.ax
 cargo run -- run examples\syntax_overview.ax
 cargo run -- run examples\project_hello
+cargo run -- run examples\index_out_of_bounds.ax --json
+cargo run -- run examples\index_out_of_bounds.ax --json --ai
 ```
 
 最小项目 manifest 也已经接入了，当前采用单包、单入口形态：
@@ -105,6 +109,8 @@ cargo run -- build examples\project_hello
 .\scripts\cargo-gnu.ps1 run -- run examples\arrays.ax
 .\scripts\cargo-gnu.ps1 run -- run examples\for_loop.ax
 .\scripts\cargo-gnu.ps1 run -- run examples\syntax_overview.ax
+.\scripts\cargo-gnu.ps1 run -- run examples\index_out_of_bounds.ax --json
+.\scripts\cargo-gnu.ps1 run -- run examples\index_out_of_bounds.ax --json --ai
 ```
 
 这个脚本会自动切到 `stable-x86_64-pc-windows-gnu`，并接好 Rust 自带的 GNU linker。若本机还没装该工具链，先执行：
@@ -222,7 +228,7 @@ cargo run -- check examples\missing_semicolon.ax --json --ai --ai-session .ax-ai
 
 仓库现在也带了一套稳定接口快照和 CI 烟雾验证：
 
-- [`tests/interface_snapshots.rs`](./tests/interface_snapshots.rs) 会覆盖 `fmt` 幂等、`check --json`、`ast`、`hir`
+- [`tests/interface_snapshots.rs`](./tests/interface_snapshots.rs) 会覆盖 `fmt` 幂等、`check --json`、`run --json`、`ast`、`hir`
 - [`tests/snapshots`](./tests/snapshots) 保存当前 CLI 外部接口快照
 - [`scripts/smoke-repair-benchmark.ps1`](./scripts/smoke-repair-benchmark.ps1) 会用仓库内的 replay candidates 跑最小 repair benchmark 闭环
 - [`.github/workflows/ci.yml`](./.github/workflows/ci.yml) 会在 GitHub Actions 上执行 `cargo fmt --check`、Rust tests 和 repair benchmark smoke run

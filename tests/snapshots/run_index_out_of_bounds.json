@@ -1,0 +1,14 @@
+[
+  {
+    "code": "R0031",
+    "expected": [],
+    "file": "<input>/index_out_of_bounds.ax",
+    "message": "array index `2` is out of bounds for length 2",
+    "notes": [],
+    "span": {
+      "end": 74,
+      "start": 65
+    },
+    "suggestion": null
+  }
+]

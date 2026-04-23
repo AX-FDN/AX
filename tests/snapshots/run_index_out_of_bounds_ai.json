@@ -1,0 +1,53 @@
+[
+  {
+    "ai": {
+      "fixits": [
+        "change the index or array length so the access stays within bounds"
+      ],
+      "focus_item": {
+        "kind": "function",
+        "name": "main",
+        "signature": "fn main() -> i32",
+        "span": {
+          "end": 77,
+          "start": 0
+        }
+      },
+      "relevant_spans": [
+        {
+          "end": 74,
+          "start": 65
+        },
+        {
+          "end": 77,
+          "start": 0
+        },
+        {
+          "end": 77,
+          "start": 17
+        },
+        {
+          "end": 75,
+          "start": 58
+        }
+      ],
+      "repair_goal": "Keep the index within `0..len-1` for the current fixed-size array.",
+      "repeat_count": 1,
+      "rule_card": {
+        "summary": "AX array indexing is bounds-checked at runtime, so the accessed index must stay within the declared array length."
+      },
+      "rule_id": "array_index_must_stay_in_bounds",
+      "teaching_level": "L1"
+    },
+    "code": "R0031",
+    "expected": [],
+    "file": "<input>/index_out_of_bounds.ax",
+    "message": "array index `2` is out of bounds for length 2",
+    "notes": [],
+    "span": {
+      "end": 74,
+      "start": 65
+    },
+    "suggestion": null
+  }
+]

@@ -1,0 +1,58 @@
+[
+  {
+    "ai": {
+      "fixits": [
+        "insert `;` before the next statement or closing `}`"
+      ],
+      "focus_item": {
+        "kind": "function",
+        "name": "main",
+        "signature": "fn main() -> i32",
+        "span": {
+          "end": 61,
+          "start": 0
+        }
+      },
+      "relevant_spans": [
+        {
+          "end": 52,
+          "start": 46
+        },
+        {
+          "end": 61,
+          "start": 0
+        },
+        {
+          "end": 61,
+          "start": 17
+        },
+        {
+          "end": 52,
+          "start": 23
+        }
+      ],
+      "repair_goal": "Insert the missing semicolon so the statement terminates correctly.",
+      "repeat_count": 1,
+      "rule_card": {
+        "summary": "AX requires `let`, assignment, expression, and `return` statements to end with `;`."
+      },
+      "rule_id": "statement_terminator_required",
+      "teaching_level": "L1"
+    },
+    "code": "P0001",
+    "expected": [
+      "`;`"
+    ],
+    "file": "<input>/missing_semicolon.ax",
+    "message": "expected `;` after variable declaration",
+    "notes": [
+      "found token `return` instead",
+      "AX uses explicit semicolons after `let`, assignments, expression statements, and `return`."
+    ],
+    "span": {
+      "end": 52,
+      "start": 46
+    },
+    "suggestion": "insert `;` before the next statement or closing `}`"
+  }
+]
