@@ -8,12 +8,14 @@ mod checker;
 mod helpers;
 #[path = "semantic/program_info.rs"]
 mod program_info;
+#[path = "semantic/return_analysis.rs"]
+mod return_analysis;
 #[path = "semantic/types.rs"]
 mod types;
 
 use checker::TypeChecker;
-use helpers::{block_guarantees_return, missing_return_note, missing_return_suggestion};
 use program_info::ProgramInfo;
+use return_analysis::missing_return_diagnostic;
 
 pub fn check_program(source: &SourceFile, program: &Program) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
@@ -51,31 +53,12 @@ pub fn check_program(source: &SourceFile, program: &Program) -> Vec<Diagnostic> 
             }
 
             checker.check_block(body);
-            let missing_return_type = if !block_guarantees_return(body) {
-                Some(checker.return_type().clone())
-            } else {
-                None
-            };
+            let missing_return =
+                missing_return_diagnostic(source, name, checker.return_type(), body);
             drop(checker);
 
-            if let Some(return_type) = missing_return_type {
-                let return_type_name = return_type.describe();
-                diagnostics.push(
-                    Diagnostic::new(
-                        "S0023",
-                        format!(
-                            "function `{name}` may complete without returning `{}`",
-                            return_type_name
-                        ),
-                        source,
-                        body.span,
-                    )
-                    .with_note(format!(
-                        "`{name}` is declared to return `{return_type_name}` on every control-flow path"
-                    ))
-                    .with_note(missing_return_note(body))
-                    .with_suggestion(missing_return_suggestion(&return_type)),
-                );
+            if let Some(diagnostic) = missing_return {
+                diagnostics.push(diagnostic);
             }
         }
     }

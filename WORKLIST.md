@@ -87,6 +87,10 @@
   - 目标：把语句分发与共享类型匹配从 `checker.rs` 再拆出去，让 `checker.rs` 基本只保留 `TypeChecker` 结构、初始化与 block 级编排。
   - 完成于：2026-04-23
   - 备注：已新增 `src/semantic/checker/statements.rs` 与 `src/semantic/checker/type_rules.rs`，迁出 `check_statement` 与 `expect_type_match`；`checker.rs` 现在主要承担模块装配、`TypeChecker` 定义与 `check_block` 编排；`cargo-gnu.ps1 test` 已通过。
+- [x] `P0-19` 继续拆返回路径分析层。
+  - 目标：把缺少 `return` 的控制流分析与 `S0023` 诊断构造从 `semantic.rs` 和通用 helper 里拆出去，让语义入口进一步只负责编排。
+  - 完成于：2026-04-23
+  - 备注：已新增 `src/semantic/return_analysis.rs`，迁出返回路径判断、缺少 `return` 的 note/suggestion 与 `S0023` 诊断构造；`semantic.rs` 现在直接复用 `missing_return_diagnostic(...)`；`cargo-gnu.ps1 test` 已通过。
 
 ## P1
 
