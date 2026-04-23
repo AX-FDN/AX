@@ -207,6 +207,12 @@ fn match_rule(source: &SourceFile, diagnostic: &Diagnostic) -> Option<RuleTempla
         "S0018" | "S0019" => Some(RULE_CALL_TARGET_MUST_BE_FUNCTION_NAME),
         "S0020" | "S0027" => Some(RULE_STRUCT_FIELD_MUST_EXIST),
         "S0021" => Some(RULE_FIELD_ACCESS_REQUIRES_STRUCT_VALUE),
+        "S0022" if looks_like_function_argument_type_mismatch(diagnostic) => {
+            Some(RULE_FUNCTION_ARGUMENT_TYPE_MUST_MATCH)
+        }
+        "S0022" if looks_like_return_type_mismatch(diagnostic) => {
+            Some(RULE_RETURN_VALUE_MUST_MATCH_DECLARED_TYPE)
+        }
         "S0022" if looks_like_condition_type_mismatch(diagnostic) => {
             Some(RULE_CONDITION_MUST_BE_BOOL)
         }
@@ -234,6 +240,14 @@ fn match_rule(source: &SourceFile, diagnostic: &Diagnostic) -> Option<RuleTempla
 
 fn note_contains(diagnostic: &Diagnostic, needle: &str) -> bool {
     diagnostic.notes.iter().any(|note| note.contains(needle))
+}
+
+fn looks_like_function_argument_type_mismatch(diagnostic: &Diagnostic) -> bool {
+    diagnostic.message.starts_with("function `") && diagnostic.message.contains("expects argument `")
+}
+
+fn looks_like_return_type_mismatch(diagnostic: &Diagnostic) -> bool {
+    diagnostic.message.contains("return statement must produce `")
 }
 
 fn looks_like_condition_type_mismatch(diagnostic: &Diagnostic) -> bool {
@@ -716,6 +730,28 @@ const RULE_MAIN_SIGNATURE: RuleTemplate = RuleTemplate {
     minimal_example: "fn main() -> i32 { return 0; }",
     anti_pattern: Some("fn main(value: i32) -> bool { return false; }"),
     default_fixit: "rewrite `main` to `fn main() -> i32 { ... }`",
+};
+
+const RULE_FUNCTION_ARGUMENT_TYPE_MUST_MATCH: RuleTemplate = RuleTemplate {
+    rule_id: "function_argument_type_must_match",
+    normalized_pattern: "function_argument_type_must_match",
+    repair_goal: "Make each call argument produce the exact type declared by the target parameter.",
+    summary: "AX checks every call argument against the function signature and does not coerce argument types.",
+    pattern: "fn add(value: i32) -> i32 { return value; }",
+    minimal_example: "fn main() -> i32 { return add(1); }",
+    anti_pattern: Some("fn main() -> i32 { return add(true); }"),
+    default_fixit: "change the argument expression or parameter type so the call matches the function signature",
+};
+
+const RULE_RETURN_VALUE_MUST_MATCH_DECLARED_TYPE: RuleTemplate = RuleTemplate {
+    rule_id: "return_value_must_match_declared_type",
+    normalized_pattern: "return_value_must_match_declared_type",
+    repair_goal: "Return a value whose type matches the function's declared return type.",
+    summary: "AX checks every `return` statement against the declared function return type and does not coerce values.",
+    pattern: "fn main() -> i32 { return 0; }",
+    minimal_example: "fn ready() -> bool { return true; }",
+    anti_pattern: Some("fn main() -> i32 { return false; }"),
+    default_fixit: "change the returned expression or the function return type so they match exactly",
 };
 
 const RULE_CONDITION_MUST_BE_BOOL: RuleTemplate = RuleTemplate {
@@ -1349,6 +1385,50 @@ mod tests {
     }
 
     #[test]
+    fn enhances_function_argument_type_mismatch_with_specific_rule_card() {
+        let source = SourceFile::anonymous(
+            "fn add(value: i32) -> i32 { return value; } fn main() -> i32 { return add(true); }",
+        );
+        let mut analysis = analyze(&source);
+        enhance_diagnostics(&source, &analysis.program, &mut analysis.diagnostics, None)
+            .expect("ai enhancement should succeed");
+
+        let diagnostic = analysis
+            .diagnostics
+            .iter()
+            .find(|diagnostic| {
+                diagnostic.code == "S0022"
+                    && diagnostic.message.contains("expects argument `value` to be `i32`")
+            })
+            .expect("function argument diagnostic should exist");
+        let ai = diagnostic.ai.as_ref().expect("ai payload should exist");
+        assert_eq!(ai.rule_id, "function_argument_type_must_match");
+        assert_eq!(ai.teaching_level, TeachingLevel::L1);
+    }
+
+    #[test]
+    fn enhances_return_type_mismatch_with_specific_rule_card() {
+        let source = SourceFile::anonymous("fn main() -> i32 { return false; }");
+        let mut analysis = analyze(&source);
+        enhance_diagnostics(&source, &analysis.program, &mut analysis.diagnostics, None)
+            .expect("ai enhancement should succeed");
+
+        let diagnostic = analysis
+            .diagnostics
+            .iter()
+            .find(|diagnostic| {
+                diagnostic.code == "S0022"
+                    && diagnostic
+                        .message
+                        .contains("return statement must produce `i32`")
+            })
+            .expect("return type diagnostic should exist");
+        let ai = diagnostic.ai.as_ref().expect("ai payload should exist");
+        assert_eq!(ai.rule_id, "return_value_must_match_declared_type");
+        assert_eq!(ai.teaching_level, TeachingLevel::L1);
+    }
+
+    #[test]
     fn enhances_non_bool_condition_with_specific_rule_card() {
         let source = SourceFile::anonymous("fn main() -> i32 { if (1) { return 1; } return 0; }");
         let mut analysis = analyze(&source);
@@ -1630,6 +1710,20 @@ mod tests {
                 diagnostic_code: "S0022",
                 message_fragment: "cannot initialize",
                 expected_rule_id: "type_match_required",
+            },
+            RuleCase {
+                name: "function_argument_type",
+                source: "fn add(value: i32) -> i32 { return value; } fn main() -> i32 { return add(true); }",
+                diagnostic_code: "S0022",
+                message_fragment: "expects argument `value` to be `i32`",
+                expected_rule_id: "function_argument_type_must_match",
+            },
+            RuleCase {
+                name: "return_type",
+                source: "fn main() -> i32 { return false; }",
+                diagnostic_code: "S0022",
+                message_fragment: "return statement must produce `i32`",
+                expected_rule_id: "return_value_must_match_declared_type",
             },
             RuleCase {
                 name: "non_bool_condition",

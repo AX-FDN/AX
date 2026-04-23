@@ -1,0 +1,55 @@
+[
+  {
+    "ai": {
+      "fixits": [
+        "make the expression produce `i32`, or change the declared type if `bool` is intended"
+      ],
+      "focus_item": {
+        "kind": "function",
+        "name": "main",
+        "signature": "fn main() -> i32",
+        "span": {
+          "end": 91,
+          "start": 49
+        }
+      },
+      "relevant_spans": [
+        {
+          "end": 88,
+          "start": 79
+        },
+        {
+          "end": 91,
+          "start": 49
+        },
+        {
+          "end": 91,
+          "start": 66
+        },
+        {
+          "end": 89,
+          "start": 72
+        }
+      ],
+      "repair_goal": "Make each call argument produce the exact type declared by the target parameter.",
+      "repeat_count": 1,
+      "rule_card": {
+        "summary": "AX checks every call argument against the function signature and does not coerce argument types."
+      },
+      "rule_id": "function_argument_type_must_match",
+      "teaching_level": "L1"
+    },
+    "code": "S0022",
+    "expected": [],
+    "file": "<input>/function_argument_type_mismatch.ax",
+    "message": "function `add` expects argument `value` to be `i32`, found `bool`",
+    "notes": [
+      "AX does not implicitly convert `bool` to `i32`"
+    ],
+    "span": {
+      "end": 88,
+      "start": 79
+    },
+    "suggestion": "make the expression produce `i32`, or change the declared type if `bool` is intended"
+  }
+]

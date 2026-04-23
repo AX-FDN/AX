@@ -47,6 +47,10 @@
   - 目标：把“条件必须是 `bool`”和“数组索引必须是 `i32`”从泛型 `type_match_required` 中拆出来，给更具体的修复 guidance。
   - 完成于：2026-04-23
   - 备注：已新增 `condition_expression_must_be_bool` 与 `array_index_must_be_i32`，补齐单元测试、稳定 `rule_id` 覆盖、CLI 快照，以及 `examples/non_bool_condition.ax`、`examples/array_index_type_mismatch.ax` 示例。
+- [x] `P0-9` 继续拆分高频 `S0022` 类型错位。
+  - 目标：把“函数参数类型不匹配”和“return 类型不匹配”从泛型 `type_match_required` 中拆出来，让 AI 反馈更接近真实修复动作。
+  - 完成于：2026-04-23
+  - 备注：已新增 `function_argument_type_must_match` 与 `return_value_must_match_declared_type`，补齐单元测试、稳定 `rule_id` 覆盖、函数参数类型错的 CLI 快照，以及 `examples/function_argument_type_mismatch.ax`、`examples/return_type_mismatch.ax` 示例。
 
 ## P1
 

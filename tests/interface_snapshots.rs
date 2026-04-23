@@ -209,6 +209,50 @@ fn main() -> i32 {
 }
 
 #[test]
+fn diagnostics_function_argument_type_json_with_ai_matches_snapshot() {
+    let temp = TempDir::new("diagnostics-function-argument-type-ai");
+    let input = temp.write(
+        "function_argument_type_mismatch.ax",
+        "\
+fn add(value: i32) -> i32 {
+    return value;
+}
+
+fn main() -> i32 {
+    return add(true);
+}
+",
+    );
+
+    let output = run_axc([
+        OsStr::new("check"),
+        input.as_os_str(),
+        OsStr::new("--json"),
+        OsStr::new("--ai"),
+    ]);
+    assert_eq!(output.status.code(), Some(1));
+    assert_clean_stderr(&output);
+
+    let mut diagnostics: Value =
+        serde_json::from_slice(&output.stdout).expect("diagnostics output should be JSON");
+    let placeholder = "<input>/function_argument_type_mismatch.ax".to_string();
+    for diagnostic in diagnostics
+        .as_array_mut()
+        .expect("diagnostics output should be an array")
+    {
+        diagnostic["file"] = Value::String(placeholder.clone());
+    }
+
+    let rendered = serde_json::to_string_pretty(&diagnostics)
+        .expect("diagnostics JSON should serialize")
+        + "\n";
+    assert_eq!(
+        normalize_text(&rendered),
+        snapshot("diagnostics_function_argument_type_ai.json")
+    );
+}
+
+#[test]
 fn check_rejects_unsupported_ai_session_version() {
     let temp = TempDir::new("unsupported-ai-session");
     let input = temp.write(
