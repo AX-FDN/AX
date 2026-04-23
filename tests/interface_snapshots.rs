@@ -645,6 +645,14 @@ fn main() -> i32 {
 }
 
 #[test]
+fn bootstrap_state_machine_example_runs() {
+    let output = run_axc([OsStr::new("run"), OsStr::new("examples/bootstrap_state_machine.ax")]);
+    assert_eq!(output.status.code(), Some(0));
+    assert_clean_stderr(&output);
+    assert_eq!(normalize_text(&string_output(&output.stdout)), "1\n0\n");
+}
+
+#[test]
 fn run_runtime_error_json_matches_snapshot() {
     let temp = TempDir::new("run-runtime-error");
     let input = temp.write(

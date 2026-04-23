@@ -5,7 +5,7 @@ This directory holds the stable external documentation for the current AX protot
 - [`repair-benchmark.md`](./repair-benchmark.md)
   Explains the benchmark manifests, export pipeline, runner flow, scoring, and comparison workflow.
 - [`repair-adapter-spec.md`](./repair-adapter-spec.md)
-  Defines the runner script contract used by `run-repair-benchmark.ps1` and `compare-repair-feedback.ps1`.
+  Defines the runner script contract used by `run-repair-benchmark.ps1`, `compare-repair-feedback.ps1`, and `compare-repair-modes.ps1`.
 - [`diagnostics-schema.md`](./diagnostics-schema.md)
   Documents the stable JSON shape of `axc check --json`, `axc run --json`, and the optional AI extension used by `--json --ai`.
 - [`diagnostics-benchmark-schema.md`](./diagnostics-benchmark-schema.md)

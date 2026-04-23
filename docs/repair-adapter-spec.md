@@ -13,6 +13,7 @@ The repository-level contract is deliberately small. If your adapter obeys it, i
 
 - [`../scripts/run-repair-benchmark.ps1`](../scripts/run-repair-benchmark.ps1)
 - [`../scripts/compare-repair-feedback.ps1`](../scripts/compare-repair-feedback.ps1)
+- [`../scripts/compare-repair-modes.ps1`](../scripts/compare-repair-modes.ps1)
 
 ## Required Parameters
 
@@ -32,7 +33,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File <runner.ps1> `
   -BundlePath <path> `
   -OutputPath <path> `
   -CaseId <case-id> `
-  -FeedbackMode <base|ai> `
+  -FeedbackMode <cold|base|ai> `
   <runner-extra-args...>
 ```
 
@@ -182,3 +183,5 @@ An adapter is compatible with AX benchmark tooling if all of the following are t
 - it does not require the caller to parse provider-specific output formats
 
 If all five hold, `run-repair-benchmark.ps1` and `compare-repair-feedback.ps1` can use it directly.
+
+The same runner contract is also used by `compare-repair-modes.ps1`, which exercises the three-mode `cold -> base -> ai` comparison ladder over one exported benchmark snapshot.

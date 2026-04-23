@@ -73,13 +73,15 @@
   - 完成于：2026-04-23
   - 备注：已新增 `tests/interface_snapshots.rs` 的 manifest 驱动 CLI 级规则回归测试，直接校验 [`benchmarks/repair-cases.json`](C:/Users/xiaoy/Desktop/A语言/AX/benchmarks/repair-cases.json) 中的 `expected_codes` 与 `expected_ai_rule_ids`；同时补了 `--ai-session` 落盘状态的版本化断言，确保外部接口层也固定 `version=1`、`repeat_count` 与 `last_teaching_level` 的基本语义。
 
-- [~] `P0-24` 文档-实现一致性清理
+- [x] `P0-24` 文档-实现一致性清理
   - 目标：让 `README`、[`SYNTAX.md`](C:/Users/xiaoy/Desktop/A语言/AX/SYNTAX.md)、[`PLAN.md`](C:/Users/xiaoy/Desktop/A语言/AX/PLAN.md) 和当前实现不互相打架。
   - 输入：现有命令行为、示例、文档。
   - 输出：一致性清单与修正文档。
   - 通过条件：已支持 / 未支持 / guidance-only 条目明确且一致。
   - 回归保障：文档人工审计与示例 smoke。
   - 不做范围：不在文档中提前承诺未落地能力。
+  - 完成于：2026-04-23
+  - 备注：已统一 `docs/repair-adapter-spec.md`、`docs/README.md` 与当前三模式 benchmark 事实，明确 runner 合约覆盖 `cold/base/ai`；同时补齐 [`详细介绍.md`](C:/Users/xiaoy/Desktop/A语言/AX/详细介绍.md) 对 `axc mir` 与 `axc build` 当前阶段含义的说明，避免把 build 骨架产物误读成成熟原生后端。
 
 - [~] `P0-25` 建立首批工具风格样例集合
   - 目标：不只做一个示例，而是形成一小组能反映“AX 是否适合写工具”的样例。
@@ -88,6 +90,7 @@
   - 通过条件：至少覆盖 token 扫描、状态机、计数或简单格式化中的两类。
   - 回归保障：样例可 `check`、可 `run`，后续可纳入 smoke。
   - 不做范围：不要求现在就上文件 IO 或完整编译器模块。
+  - 进展：已落地 [`examples/bootstrap_token_scan.ax`](C:/Users/xiaoy/Desktop/A语言/AX/examples/bootstrap_token_scan.ax) 与 [`examples/bootstrap_state_machine.ax`](C:/Users/xiaoy/Desktop/A语言/AX/examples/bootstrap_state_machine.ax)，分别覆盖 token 扫描/计数 与状态机两类工具风格逻辑；后者已加入 [`tests/interface_snapshots.rs`](C:/Users/xiaoy/Desktop/A语言/AX/tests/interface_snapshots.rs) 的运行回归。
 
 - [ ] `P0-26` 根据样例与 benchmark 排能力缺口
   - 目标：把“接下来补什么”从感觉变成证据。

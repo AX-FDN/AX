@@ -1,0 +1,80 @@
+enum TokenKind {
+    Number,
+    Plus,
+    End,
+    Invalid,
+}
+
+enum ParseState {
+    ExpectValue,
+    ExpectOperator,
+    Accept,
+    Error,
+}
+
+fn advance_state(state: ParseState, token: TokenKind) -> ParseState {
+    if (state == ParseState.ExpectValue) {
+        if (token == TokenKind.Number) {
+            return ParseState.ExpectOperator;
+        }
+        return ParseState.Error;
+    }
+
+    if (state == ParseState.ExpectOperator) {
+        if (token == TokenKind.Plus) {
+            return ParseState.ExpectValue;
+        }
+        if (token == TokenKind.End) {
+            return ParseState.Accept;
+        }
+        return ParseState.Error;
+    }
+
+    if (state == ParseState.Accept) {
+        return ParseState.Error;
+    }
+
+    return ParseState.Error;
+}
+
+fn validate_expression(tokens: [TokenKind; 6]) -> i32 {
+    let mut state: ParseState = ParseState.ExpectValue;
+    let mut index: i32 = 0;
+
+    while (index < 6) {
+        state = advance_state(state, tokens[index]);
+        if (state == ParseState.Error) {
+            return 0;
+        }
+        index = index + 1;
+    }
+
+    if (state == ParseState.Accept) {
+        return 1;
+    }
+
+    return 0;
+}
+
+fn main() -> i32 {
+    let valid: [TokenKind; 6] = [
+        TokenKind.Number,
+        TokenKind.Plus,
+        TokenKind.Number,
+        TokenKind.Plus,
+        TokenKind.Number,
+        TokenKind.End,
+    ];
+    let invalid: [TokenKind; 6] = [
+        TokenKind.Plus,
+        TokenKind.Number,
+        TokenKind.End,
+        TokenKind.Invalid,
+        TokenKind.Invalid,
+        TokenKind.Invalid,
+    ];
+
+    println(validate_expression(valid));
+    println(validate_expression(invalid));
+    return 0;
+}
