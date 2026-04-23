@@ -53,13 +53,15 @@
   - 完成于：2026-04-23
   - 备注：`benchmark-diagnostics.ps1` 现在稳定落盘 `summary.json` / `summary.md`，包含三组固定 `pairwise_overhead`；已新增 `smoke-benchmark-diagnostics.ps1`、CI 入口与 [`docs/diagnostics-benchmark-schema.md`](C:/Users/xiaoy/Desktop/A语言/AX/docs/diagnostics-benchmark-schema.md)。
 
-- [~] `P0-22` 固定 `check/json/ai` 接口与回归资产
+- [x] `P0-22` 固定 `check/json/ai` 接口与回归资产
   - 目标：让基础诊断层和 AI 增强层的外部接口可稳定消费、可快照、可比较。
   - 输入：现有 `Diagnostic` schema、`--json --ai` 输出、interface snapshots。
   - 输出：稳定 schema、快照、必要的接口说明。
   - 通过条件：基础层字段语义不漂移；AI 增强层只做增量扩展；快照稳定。
   - 回归保障：`tests/interface_snapshots.rs` 与相关示例。
   - 不做范围：不引入供应商定制 prompt 文案。
+  - 完成于：2026-04-23
+  - 备注：已补齐 `check --json` 成功路径快照、`check --json --ai` 成功路径快照，以及 `--ai-session` 从 `L1 -> L2` 的 CLI 级快照；[`docs/diagnostics-schema.md`](C:/Users/xiaoy/Desktop/A语言/AX/docs/diagnostics-schema.md) 也已同步说明成功输出与 session 升级语义。
 
 - [~] `P0-23` AI 规则覆盖与 session 版本策略
   - 目标：把高频错误的 AI 修复反馈变成可回归资产，而不是临时文案。

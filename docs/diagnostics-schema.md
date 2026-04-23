@@ -32,6 +32,7 @@ This keeps the base diagnostic shape intact and may add an optional `ai` field p
 
 Important compatibility rule:
 
+- successful checks still return `[]` on stdout
 - base fields do not change meaning when `--ai` is enabled
 - diagnostics without a matched AI rule simply omit the `ai` field
 
@@ -44,6 +45,7 @@ Stable behavior:
 - base diagnostic ordering stays the same
 - base code, message, file, span, notes, expected, and suggestion stay the same
 - only AI-layer teaching fields such as `teaching_level`, `repeat_count`, and richer examples may change
+- repeated invocations against the same session are expected to escalate from `L1` to `L2` and `L3` without changing the base diagnostic fields
 - the compiler currently writes AI session files with schema version `1`
 - unsupported AI session versions are rejected with a clear error instead of being read silently
 

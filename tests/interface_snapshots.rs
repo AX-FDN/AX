@@ -130,6 +130,35 @@ fn diagnostics_json_matches_snapshot() {
 }
 
 #[test]
+fn diagnostics_success_json_matches_snapshot() {
+    let output = run_axc([
+        OsStr::new("check"),
+        OsStr::new("examples/hello.ax"),
+        OsStr::new("--json"),
+    ]);
+    assert_eq!(output.status.code(), Some(0));
+    assert_clean_stderr(&output);
+
+    let stdout = normalize_text(&string_output(&output.stdout));
+    assert_eq!(stdout, snapshot("diagnostics_success.json"));
+}
+
+#[test]
+fn diagnostics_success_json_with_ai_matches_snapshot() {
+    let output = run_axc([
+        OsStr::new("check"),
+        OsStr::new("examples/hello.ax"),
+        OsStr::new("--json"),
+        OsStr::new("--ai"),
+    ]);
+    assert_eq!(output.status.code(), Some(0));
+    assert_clean_stderr(&output);
+
+    let stdout = normalize_text(&string_output(&output.stdout));
+    assert_eq!(stdout, snapshot("diagnostics_success.json"));
+}
+
+#[test]
 fn diagnostics_json_with_ai_matches_snapshot() {
     let temp = TempDir::new("diagnostics-ai");
     let input = temp.write(
@@ -162,6 +191,74 @@ fn diagnostics_json_with_ai_matches_snapshot() {
     assert_eq!(
         normalize_text(&rendered),
         snapshot("diagnostics_missing_semicolon_ai.json")
+    );
+}
+
+#[test]
+fn diagnostics_ai_session_escalation_matches_snapshots() {
+    let temp = TempDir::new("diagnostics-ai-session");
+    let input = temp.write(
+        "missing_semicolon.ax",
+        "fn main() -> i32 {\n    let value: i32 = 1\n    return value;\n}\n",
+    );
+    let session = temp.join("session.json");
+
+    let first = run_axc([
+        OsStr::new("check"),
+        input.as_os_str(),
+        OsStr::new("--json"),
+        OsStr::new("--ai"),
+        OsStr::new("--ai-session"),
+        session.as_os_str(),
+    ]);
+    assert_eq!(first.status.code(), Some(1));
+    assert_clean_stderr(&first);
+
+    let second = run_axc([
+        OsStr::new("check"),
+        input.as_os_str(),
+        OsStr::new("--json"),
+        OsStr::new("--ai"),
+        OsStr::new("--ai-session"),
+        session.as_os_str(),
+    ]);
+    assert_eq!(second.status.code(), Some(1));
+    assert_clean_stderr(&second);
+
+    let placeholder = "<input>/missing_semicolon.ax".to_string();
+
+    let mut first_diagnostics: Value =
+        serde_json::from_slice(&first.stdout).expect("first diagnostics output should be JSON");
+    for diagnostic in first_diagnostics
+        .as_array_mut()
+        .expect("first diagnostics output should be an array")
+    {
+        diagnostic["file"] = Value::String(placeholder.clone());
+    }
+
+    let mut second_diagnostics: Value =
+        serde_json::from_slice(&second.stdout).expect("second diagnostics output should be JSON");
+    for diagnostic in second_diagnostics
+        .as_array_mut()
+        .expect("second diagnostics output should be an array")
+    {
+        diagnostic["file"] = Value::String(placeholder.clone());
+    }
+
+    let first_rendered = serde_json::to_string_pretty(&first_diagnostics)
+        .expect("first diagnostics JSON should serialize")
+        + "\n";
+    assert_eq!(
+        normalize_text(&first_rendered),
+        snapshot("diagnostics_missing_semicolon_ai_session_l1.json")
+    );
+
+    let second_rendered = serde_json::to_string_pretty(&second_diagnostics)
+        .expect("second diagnostics JSON should serialize")
+        + "\n";
+    assert_eq!(
+        normalize_text(&second_rendered),
+        snapshot("diagnostics_missing_semicolon_ai_session_l2.json")
     );
 }
 
