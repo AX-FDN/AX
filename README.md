@@ -190,6 +190,7 @@ cargo run -- check examples\missing_semicolon.ax --json --ai --ai-session .ax-ai
 这个 replay adapter 现在还支持三种可选候选目录参数：
 
 - `-SourceDir <dir>`：两种反馈模式共用的候选目录
+- `-SourceDirCold <dir>`：`cold` 模式优先使用的候选目录
 - `-SourceDirBase <dir>`：只在 `base` 模式优先使用的候选目录
 - `-SourceDirAi <dir>`：只在 `ai` 模式优先使用的候选目录
 
@@ -233,6 +234,26 @@ cargo run -- check examples\missing_semicolon.ax --json --ai --ai-session .ax-ai
 - `comparison.md`：便于人直接阅读的实验报告
 - `base\` / `ai\`：两轮独立 run 和 score 产物，方便回溯
 
+如果你想看三种反馈层级的固定对比，可以直接运行：
+
+```powershell
+.\scripts\compare-repair-modes.ps1 `
+  -RunnerScript .\scripts\codex-repair-adapter.ps1 `
+  -RunnerExtraArgs @('-Model', 'gpt-5.4')
+```
+
+这个脚本会对同一份 repair benchmark 连续跑三轮：
+
+- `cold`：只给冷启动提示
+- `base`：给基础 diagnostics
+- `ai`：给 AI 增强 diagnostics
+
+输出会写到 `.ax-ai\repair-mode-comparisons\<timestamp>\`，其中至少包含：
+
+- `comparison.json`：机器可读的三模式 lift、分类统计、逐 case 对照结果
+- `comparison.md`：便于人直接阅读的实验报告
+- `cold\` / `base\` / `ai\`：三轮独立 run 和 score 产物，方便回溯
+
 如果你想本地快速验证这条 compare 链路本身没坏，可以直接跑：
 
 ```powershell
@@ -259,7 +280,8 @@ cargo run -- check examples\missing_semicolon.ax --json --ai --ai-session .ax-ai
 - [`tests/snapshots`](./tests/snapshots) 保存当前 CLI 外部接口快照
 - [`scripts/smoke-repair-benchmark.ps1`](./scripts/smoke-repair-benchmark.ps1) 会用仓库内的 replay candidates 跑最小 repair benchmark 闭环
 - [`scripts/smoke-compare-repair-feedback.ps1`](./scripts/smoke-compare-repair-feedback.ps1) 会固定回归 `comparison.json` 的核心对比契约
-- [`.github/workflows/ci.yml`](./.github/workflows/ci.yml) 会在 GitHub Actions 上执行 `cargo fmt --check`、Rust tests、repair benchmark smoke run 和 repair comparison smoke run
+- [`scripts/smoke-compare-repair-modes.ps1`](./scripts/smoke-compare-repair-modes.ps1) 会固定回归三模式 `comparison.json` 契约
+- [`.github/workflows/ci.yml`](./.github/workflows/ci.yml) 会在 GitHub Actions 上执行 `cargo fmt --check`、Rust tests、repair benchmark smoke run、repair comparison smoke run 和 repair mode comparison smoke run
 
 ## 推荐阅读顺序
 

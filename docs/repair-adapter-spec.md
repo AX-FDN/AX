@@ -49,12 +49,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File <runner.ps1> `
 - `CaseId`
   Stable benchmark case id.
 - `FeedbackMode`
-  Experiment branch chosen by the caller. Current values are `base` and `ai`.
+  Experiment branch chosen by the caller. Current values are `cold`, `base`, and `ai`.
 
 Important distinction:
 
-- runner parameter `FeedbackMode` is `base` or `ai`
-- bundle field `feedback_mode` inside exported JSON is `base_json` or `ai_json`
+- runner parameter `FeedbackMode` is `cold`, `base`, or `ai`
+- bundle field `feedback_mode` inside exported JSON is `cold_prompt`, `base_json`, or `ai_json`
 
 The first describes the experiment branch. The second describes the artifact flavor.
 
@@ -144,6 +144,8 @@ It also supports optional replay roots:
 
 - `-SourceDir`
   Shared replay candidate root.
+- `-SourceDirCold`
+  Cold-start replay override root.
 - `-SourceDirBase`
   Base-only override root.
 - `-SourceDirAi`

@@ -2,7 +2,7 @@ param(
     [string] $BenchmarkDir = "",
     [string] $RunnerScript = "",
     [string[]] $RunnerExtraArgs = @(),
-    [ValidateSet("base", "ai")]
+    [ValidateSet("cold", "base", "ai")]
     [string] $FeedbackMode = "ai",
     [string] $OutputDir = "",
     [switch] $RefreshBenchmark,
@@ -200,16 +200,16 @@ foreach ($case in @($benchmarkIndex.cases)) {
     $caseInvocationDir = Join-Path $invocationsDir $caseId
     New-Item -ItemType Directory -Force -Path $caseInvocationDir | Out-Null
 
-    $promptArtifact = if ($FeedbackMode -eq "ai") {
-        [string] $case.artifacts.ai_prompt
-    } else {
-        [string] $case.artifacts.base_prompt
+    $promptArtifact = switch ($FeedbackMode) {
+        "cold" { [string] $case.artifacts.cold_prompt }
+        "base" { [string] $case.artifacts.base_prompt }
+        "ai" { [string] $case.artifacts.ai_prompt }
     }
 
-    $bundleArtifact = if ($FeedbackMode -eq "ai") {
-        [string] $case.artifacts.ai_bundle
-    } else {
-        [string] $case.artifacts.base_bundle
+    $bundleArtifact = switch ($FeedbackMode) {
+        "cold" { [string] $case.artifacts.cold_bundle }
+        "base" { [string] $case.artifacts.base_bundle }
+        "ai" { [string] $case.artifacts.ai_bundle }
     }
 
     $promptPath = Join-Path $benchmarkRoot $promptArtifact

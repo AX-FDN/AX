@@ -55,6 +55,10 @@
   - 目标：让 `base diagnostics` vs `ai diagnostics` 的 `comparison.json` 不再只是一次性产物，而是有稳定回归保护的外部契约。
   - 完成于：2026-04-23
   - 备注：已扩展 `scripts/replay-repair-adapter.ps1` 支持 `-SourceDirBase / -SourceDirAi` 覆盖目录；新增 `scripts/smoke-compare-repair-feedback.ps1`、`benchmarks/repair-candidates/compare/base/` 稳定样本，并将 compare smoke 接入 CI 与 benchmark 文档。
+- [x] `P0-11` 固定三模式 benchmark 报告。
+  - 目标：把 `cold / base / ai` 三层反馈做成稳定、可比较、可回归的固定报告，而不是只停留在两模式对比。
+  - 完成于：2026-04-23
+  - 备注：已为 export / run / replay adapter 接入 `cold` 模式，新增 `scripts/compare-repair-modes.ps1`、`scripts/smoke-compare-repair-modes.ps1` 与 `benchmarks/repair-candidates/compare/cold/` 稳定样本，并将三模式 smoke 接入 CI 与 benchmark 文档。
 
 ## P1
 

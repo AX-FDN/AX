@@ -76,6 +76,17 @@ function New-RepairPrompt {
         $notesBlock = "Case notes: $Notes`n"
     }
 
+    $diagnosticsBlock = ""
+    if (-not [string]::IsNullOrWhiteSpace($DiagnosticsJson)) {
+        $diagnosticsBlock = @"
+
+Compiler diagnostics:
+~~~json
+$DiagnosticsJson
+~~~
+"@
+    }
+
     @"
 You are repairing a broken AX program.
 
@@ -100,11 +111,7 @@ Broken AX source:
 ~~~ax
 $SourceText
 ~~~
-
-Compiler diagnostics:
-~~~json
-$DiagnosticsJson
-~~~
+$diagnosticsBlock
 "@
 }
 
@@ -269,14 +276,30 @@ foreach ($case in @($manifest.cases)) {
     $sourceArtifact = Join-Path $caseDir "source.ax"
     $baseArtifact = Join-Path $caseDir "diagnostics.base.json"
     $aiArtifact = Join-Path $caseDir "diagnostics.ai.json"
+    $coldBundleArtifact = Join-Path $caseDir "bundle.cold.json"
     $baseBundleArtifact = Join-Path $caseDir "bundle.base.json"
     $aiBundleArtifact = Join-Path $caseDir "bundle.ai.json"
+    $coldPromptArtifact = Join-Path $caseDir "prompt.cold.md"
     $basePromptArtifact = Join-Path $caseDir "prompt.base.md"
     $aiPromptArtifact = Join-Path $caseDir "prompt.ai.md"
     $caseArtifact = Join-Path $caseDir "case.json"
 
     $baseDiagnosticsText = Format-JsonText -Value (@($baseDiagnostics))
     $aiDiagnosticsText = Format-JsonText -Value (@($aiDiagnostics))
+
+    $coldBundle = [ordered]@{
+        schema_version       = 1
+        case_id              = $caseId
+        feedback_mode        = "cold_prompt"
+        file                 = $relativeFile
+        category             = [string] $case.category
+        repair_goal          = [string] $case.repair_goal
+        notes                = [string] $case.notes
+        expected_codes       = $expectedCodes
+        expected_ai_rule_ids = $expectedAiRuleIds
+        source_file          = "$caseId/source.ax"
+        diagnostics          = @()
+    }
 
     $baseBundle = [ordered]@{
         schema_version       = 1
@@ -309,8 +332,10 @@ foreach ($case in @($manifest.cases)) {
     Write-Utf8File -Path $sourceArtifact -Text $sourceText
     Write-Utf8File -Path $baseArtifact -Text $baseDiagnosticsText
     Write-Utf8File -Path $aiArtifact -Text $aiDiagnosticsText
+    Write-Utf8File -Path $coldBundleArtifact -Text (Format-JsonText -Value $coldBundle)
     Write-Utf8File -Path $baseBundleArtifact -Text (Format-JsonText -Value $baseBundle)
     Write-Utf8File -Path $aiBundleArtifact -Text (Format-JsonText -Value $aiBundle)
+    Write-Utf8File -Path $coldPromptArtifact -Text (New-RepairPrompt -CaseId $caseId -FeedbackMode "cold_prompt" -RepairGoal ([string] $case.repair_goal) -Notes ([string] $case.notes) -SourceText $sourceText -DiagnosticsJson "")
     Write-Utf8File -Path $basePromptArtifact -Text (New-RepairPrompt -CaseId $caseId -FeedbackMode "base_json" -RepairGoal ([string] $case.repair_goal) -Notes ([string] $case.notes) -SourceText $sourceText -DiagnosticsJson $baseDiagnosticsText)
     Write-Utf8File -Path $aiPromptArtifact -Text (New-RepairPrompt -CaseId $caseId -FeedbackMode "ai_json" -RepairGoal ([string] $case.repair_goal) -Notes ([string] $case.notes) -SourceText $sourceText -DiagnosticsJson $aiDiagnosticsText)
 
@@ -324,6 +349,8 @@ foreach ($case in @($manifest.cases)) {
         expected_ai_rule_ids = $expectedAiRuleIds
         artifacts            = [ordered]@{
             source           = "$caseId/source.ax"
+            cold_bundle      = "$caseId/bundle.cold.json"
+            cold_prompt      = "$caseId/prompt.cold.md"
             base_diagnostics = "$caseId/diagnostics.base.json"
             ai_diagnostics   = "$caseId/diagnostics.ai.json"
             base_bundle      = "$caseId/bundle.base.json"

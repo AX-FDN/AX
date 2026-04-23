@@ -141,6 +141,8 @@ Runner-specific extra args are passed through unchanged. The replay adapter uses
 
 - `-SourceDir`
   Shared replay candidate root used by both modes.
+- `-SourceDirCold`
+  `cold` mode override root.
 - `-SourceDirBase`
   Base-only override root searched before `-SourceDir`.
 - `-SourceDirAi`
@@ -301,6 +303,16 @@ It then asserts the stable `comparison.json` contract, including:
 - improved and regressed case ids
 
 This gives CI a deterministic proof that `compare-repair-feedback.ps1` still produces a comparable machine-readable report, not just two ad hoc benchmark runs.
+
+For the three-mode report, use [`../scripts/compare-repair-modes.ps1`](../scripts/compare-repair-modes.ps1):
+
+```powershell
+.\scripts\compare-repair-modes.ps1 `
+  -RunnerScript .\scripts\codex-repair-adapter.ps1 `
+  -RunnerExtraArgs @('-Model', 'gpt-5.4')
+```
+
+This adds a fixed `cold` -> `base` -> `ai` ladder on top of the same exported benchmark snapshot and writes a three-mode `comparison.json` under `.ax-ai\repair-mode-comparisons\<timestamp>\`.
 
 ## Stability Policy
 

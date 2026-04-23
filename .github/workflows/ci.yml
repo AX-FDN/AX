@@ -37,3 +37,6 @@ jobs:
 
       - name: Run repair comparison smoke
         run: .\scripts\smoke-compare-repair-feedback.ps1
+
+      - name: Run repair mode comparison smoke
+        run: .\scripts\smoke-compare-repair-modes.ps1

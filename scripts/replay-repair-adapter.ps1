@@ -10,6 +10,7 @@ param(
     [Parameter(Mandatory = $true)]
     [string] $FeedbackMode,
     [string] $SourceDir = "",
+    [string] $SourceDirCold = "",
     [string] $SourceDirBase = "",
     [string] $SourceDirAi = ""
 )
@@ -46,10 +47,10 @@ function Get-CandidatePaths {
     )
 }
 
-$resolvedModeSourceDir = if ($FeedbackMode -eq "base") {
-    Resolve-SourceDirectory -Path $SourceDirBase -Label "SourceDirBase"
-} else {
-    Resolve-SourceDirectory -Path $SourceDirAi -Label "SourceDirAi"
+$resolvedModeSourceDir = switch ($FeedbackMode) {
+    "cold" { Resolve-SourceDirectory -Path $SourceDirCold -Label "SourceDirCold" }
+    "base" { Resolve-SourceDirectory -Path $SourceDirBase -Label "SourceDirBase" }
+    "ai" { Resolve-SourceDirectory -Path $SourceDirAi -Label "SourceDirAi" }
 }
 $resolvedDefaultSourceDir = Resolve-SourceDirectory -Path $SourceDir -Label "SourceDir"
 
@@ -62,7 +63,7 @@ if ($resolvedDefaultSourceDir) {
 }
 
 if ($searchRoots.Count -eq 0) {
-    Write-Error "At least one replay source directory must be provided. Use -SourceDir, -SourceDirBase, or -SourceDirAi."
+    Write-Error "At least one replay source directory must be provided. Use -SourceDir, -SourceDirCold, -SourceDirBase, or -SourceDirAi."
 }
 
 $candidatePath = $null
