@@ -59,6 +59,14 @@
   - 目标：把 `cold / base / ai` 三层反馈做成稳定、可比较、可回归的固定报告，而不是只停留在两模式对比。
   - 完成于：2026-04-23
   - 备注：已为 export / run / replay adapter 接入 `cold` 模式，新增 `scripts/compare-repair-modes.ps1`、`scripts/smoke-compare-repair-modes.ps1` 与 `benchmarks/repair-candidates/compare/cold/` 稳定样本，并将三模式 smoke 接入 CI 与 benchmark 文档。
+- [x] `P0-12` 启动 `semantic.rs` 拆层的第一步。
+  - 目标：先把语义层里的类型定义、顶层收集器和诊断 helper 拆出去，减少 `semantic.rs` 的“大厨房”压力，同时保持外部行为不变。
+  - 完成于：2026-04-23
+  - 备注：已新增 `src/semantic/types.rs`、`src/semantic/program_info.rs`、`src/semantic/helpers.rs`，让 `semantic.rs` 开始退回到“入口 + checker + tests”；`cargo-gnu.ps1 test` 已通过。
+- [x] `P0-13` 完成 `semantic.rs` 拆层的第二步。
+  - 目标：把 `TypeChecker` 主体和局部绑定逻辑搬进独立模块，让 `semantic.rs` 进一步收口为“入口编排 + 测试”。
+  - 完成于：2026-04-23
+  - 备注：已新增 `src/semantic/checker.rs`，并把 `TypeChecker` / `Binding` / 检查规则实现整体迁出；`semantic.rs` 现在只保留模块装配、`check_program` 与测试；`cargo-gnu.ps1 test` 已通过。
 
 ## P1
 
