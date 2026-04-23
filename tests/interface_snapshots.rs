@@ -653,6 +653,17 @@ fn bootstrap_state_machine_example_runs() {
 }
 
 #[test]
+fn bootstrap_block_summary_example_runs() {
+    let output = run_axc([OsStr::new("run"), OsStr::new("examples/bootstrap_block_summary.ax")]);
+    assert_eq!(output.status.code(), Some(0));
+    assert_clean_stderr(&output);
+    assert_eq!(
+        normalize_text(&string_output(&output.stdout)),
+        "4\n2\n1\n1\n1\n0\n"
+    );
+}
+
+#[test]
 fn run_runtime_error_json_matches_snapshot() {
     let temp = TempDir::new("run-runtime-error");
     let input = temp.write(

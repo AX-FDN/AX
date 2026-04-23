@@ -1,0 +1,96 @@
+enum TokenKind {
+    LBrace,
+    RBrace,
+    Semicolon,
+    End,
+    Invalid,
+}
+
+struct Summary {
+    statements: i32,
+    max_depth: i32,
+    balanced: i32,
+}
+
+fn summarize(tokens: [TokenKind; 10]) -> Summary {
+    let mut index: i32 = 0;
+    let mut depth: i32 = 0;
+    let mut max_depth: i32 = 0;
+    let mut statements: i32 = 0;
+    let mut balanced: i32 = 1;
+
+    while (index < 10) {
+        if (tokens[index] == TokenKind.LBrace) {
+            depth = depth + 1;
+            if (depth > max_depth) {
+                max_depth = depth;
+            }
+        }
+
+        if (tokens[index] == TokenKind.RBrace) {
+            if (depth == 0) {
+                balanced = 0;
+            } else {
+                depth = depth - 1;
+            }
+        }
+
+        if (tokens[index] == TokenKind.Semicolon) {
+            statements = statements + 1;
+        }
+
+        if (tokens[index] == TokenKind.End) {
+            index = 10;
+        } else {
+            index = index + 1;
+        }
+    }
+
+    if (depth != 0) {
+        balanced = 0;
+    }
+
+    return Summary {
+        statements: statements,
+        max_depth: max_depth,
+        balanced: balanced,
+    };
+}
+
+fn print_summary(summary: Summary) -> i32 {
+    println(summary.statements);
+    println(summary.max_depth);
+    println(summary.balanced);
+    return 0;
+}
+
+fn main() -> i32 {
+    let formatted_like: [TokenKind; 10] = [
+        TokenKind.LBrace,
+        TokenKind.Semicolon,
+        TokenKind.LBrace,
+        TokenKind.Semicolon,
+        TokenKind.Semicolon,
+        TokenKind.RBrace,
+        TokenKind.Semicolon,
+        TokenKind.RBrace,
+        TokenKind.End,
+        TokenKind.Invalid,
+    ];
+    let unbalanced: [TokenKind; 10] = [
+        TokenKind.LBrace,
+        TokenKind.Semicolon,
+        TokenKind.RBrace,
+        TokenKind.RBrace,
+        TokenKind.End,
+        TokenKind.Invalid,
+        TokenKind.Invalid,
+        TokenKind.Invalid,
+        TokenKind.Invalid,
+        TokenKind.Invalid,
+    ];
+
+    print_summary(summarize(formatted_like));
+    print_summary(summarize(unbalanced));
+    return 0;
+}
