@@ -43,6 +43,10 @@
   - 目标：修复 `/` 词法断层，并把运行期 `R0021` 纳入稳定 AI 反馈覆盖。
   - 完成于：2026-04-23
   - 备注：已补 `/` 词法回归测试、解释器整除回归测试、`division_by_zero_must_be_avoided` 规则、CLI AI 快照测试与 `examples/division_by_zero.ax` 示例。
+- [x] `P0-8` 细化高频类型诊断的专门 AI 规则。
+  - 目标：把“条件必须是 `bool`”和“数组索引必须是 `i32`”从泛型 `type_match_required` 中拆出来，给更具体的修复 guidance。
+  - 完成于：2026-04-23
+  - 备注：已新增 `condition_expression_must_be_bool` 与 `array_index_must_be_i32`，补齐单元测试、稳定 `rule_id` 覆盖、CLI 快照，以及 `examples/non_bool_condition.ax`、`examples/array_index_type_mismatch.ax` 示例。
 
 ## P1
 

@@ -1,0 +1,55 @@
+[
+  {
+    "ai": {
+      "fixits": [
+        "make the expression produce `bool`; AX does not coerce `i32` into a condition"
+      ],
+      "focus_item": {
+        "kind": "function",
+        "name": "main",
+        "signature": "fn main() -> i32",
+        "span": {
+          "end": 71,
+          "start": 0
+        }
+      },
+      "relevant_spans": [
+        {
+          "end": 28,
+          "start": 27
+        },
+        {
+          "end": 71,
+          "start": 0
+        },
+        {
+          "end": 71,
+          "start": 17
+        },
+        {
+          "end": 55,
+          "start": 23
+        }
+      ],
+      "repair_goal": "Make the condition expression evaluate to `bool`.",
+      "repeat_count": 1,
+      "rule_card": {
+        "summary": "AX does not coerce integers, strings, or other values into `if`, `while`, or `for` conditions."
+      },
+      "rule_id": "condition_expression_must_be_bool",
+      "teaching_level": "L1"
+    },
+    "code": "S0022",
+    "expected": [],
+    "file": "<input>/non_bool_condition.ax",
+    "message": "`if` condition must be `bool`, found `i32`",
+    "notes": [
+      "AX does not implicitly convert `i32` to `bool`"
+    ],
+    "span": {
+      "end": 28,
+      "start": 27
+    },
+    "suggestion": "make the expression produce `bool`; AX does not coerce `i32` into a condition"
+  }
+]

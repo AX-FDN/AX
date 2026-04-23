@@ -166,6 +166,49 @@ fn diagnostics_json_with_ai_matches_snapshot() {
 }
 
 #[test]
+fn diagnostics_non_bool_condition_json_with_ai_matches_snapshot() {
+    let temp = TempDir::new("diagnostics-non-bool-condition-ai");
+    let input = temp.write(
+        "non_bool_condition.ax",
+        "\
+fn main() -> i32 {
+    if (1) {
+        return 1;
+    }
+    return 0;
+}
+",
+    );
+
+    let output = run_axc([
+        OsStr::new("check"),
+        input.as_os_str(),
+        OsStr::new("--json"),
+        OsStr::new("--ai"),
+    ]);
+    assert_eq!(output.status.code(), Some(1));
+    assert_clean_stderr(&output);
+
+    let mut diagnostics: Value =
+        serde_json::from_slice(&output.stdout).expect("diagnostics output should be JSON");
+    let placeholder = "<input>/non_bool_condition.ax".to_string();
+    for diagnostic in diagnostics
+        .as_array_mut()
+        .expect("diagnostics output should be an array")
+    {
+        diagnostic["file"] = Value::String(placeholder.clone());
+    }
+
+    let rendered = serde_json::to_string_pretty(&diagnostics)
+        .expect("diagnostics JSON should serialize")
+        + "\n";
+    assert_eq!(
+        normalize_text(&rendered),
+        snapshot("diagnostics_non_bool_condition_ai.json")
+    );
+}
+
+#[test]
 fn check_rejects_unsupported_ai_session_version() {
     let temp = TempDir::new("unsupported-ai-session");
     let input = temp.write(

@@ -207,6 +207,12 @@ fn match_rule(source: &SourceFile, diagnostic: &Diagnostic) -> Option<RuleTempla
         "S0018" | "S0019" => Some(RULE_CALL_TARGET_MUST_BE_FUNCTION_NAME),
         "S0020" | "S0027" => Some(RULE_STRUCT_FIELD_MUST_EXIST),
         "S0021" => Some(RULE_FIELD_ACCESS_REQUIRES_STRUCT_VALUE),
+        "S0022" if looks_like_condition_type_mismatch(diagnostic) => {
+            Some(RULE_CONDITION_MUST_BE_BOOL)
+        }
+        "S0022" if looks_like_array_index_type_mismatch(diagnostic) => {
+            Some(RULE_ARRAY_INDEX_MUST_BE_I32)
+        }
         "S0022" => Some(RULE_TYPE_MISMATCH),
         "S0023" => Some(RULE_MISSING_RETURN),
         "S0024" => Some(RULE_STRUCT_LITERAL_REQUIRES_STRUCT_TYPE),
@@ -228,6 +234,14 @@ fn match_rule(source: &SourceFile, diagnostic: &Diagnostic) -> Option<RuleTempla
 
 fn note_contains(diagnostic: &Diagnostic, needle: &str) -> bool {
     diagnostic.notes.iter().any(|note| note.contains(needle))
+}
+
+fn looks_like_condition_type_mismatch(diagnostic: &Diagnostic) -> bool {
+    diagnostic.message.contains("condition must be `bool`")
+}
+
+fn looks_like_array_index_type_mismatch(diagnostic: &Diagnostic) -> bool {
+    diagnostic.message.contains("array index must be `i32`")
 }
 
 fn looks_like_match_attempt(source: &SourceFile, diagnostic: &Diagnostic) -> bool {
@@ -594,6 +608,17 @@ const RULE_INDEX_BASE_MUST_BE_ARRAY: RuleTemplate = RuleTemplate {
     default_fixit: "index into an array value like `values[0]`",
 };
 
+const RULE_ARRAY_INDEX_MUST_BE_I32: RuleTemplate = RuleTemplate {
+    rule_id: "array_index_must_be_i32",
+    normalized_pattern: "array_index_must_be_i32",
+    repair_goal: "Rewrite the index expression so it produces an `i32` value.",
+    summary: "AX array indexing accepts only `i32` index expressions before runtime bounds checks run.",
+    pattern: "let value: i32 = values[index];",
+    minimal_example: "let index: i32 = 1; return values[index];",
+    anti_pattern: Some("return values[true];"),
+    default_fixit: "change the index expression to an `i32` value",
+};
+
 const RULE_ARRAY_INDEX_IN_BOUNDS: RuleTemplate = RuleTemplate {
     rule_id: "array_index_must_stay_in_bounds",
     normalized_pattern: "array_index_must_stay_in_bounds",
@@ -691,6 +716,17 @@ const RULE_MAIN_SIGNATURE: RuleTemplate = RuleTemplate {
     minimal_example: "fn main() -> i32 { return 0; }",
     anti_pattern: Some("fn main(value: i32) -> bool { return false; }"),
     default_fixit: "rewrite `main` to `fn main() -> i32 { ... }`",
+};
+
+const RULE_CONDITION_MUST_BE_BOOL: RuleTemplate = RuleTemplate {
+    rule_id: "condition_expression_must_be_bool",
+    normalized_pattern: "condition_expression_must_be_bool",
+    repair_goal: "Make the condition expression evaluate to `bool`.",
+    summary: "AX does not coerce integers, strings, or other values into `if`, `while`, or `for` conditions.",
+    pattern: "if (count < limit) { return 1; }",
+    minimal_example: "while (index < len) { index = index + 1; }",
+    anti_pattern: Some("if (1) { return 0; }"),
+    default_fixit: "rewrite the condition as a boolean comparison or boolean variable",
 };
 
 const RULE_TYPE_MISMATCH: RuleTemplate = RuleTemplate {
@@ -1313,6 +1349,45 @@ mod tests {
     }
 
     #[test]
+    fn enhances_non_bool_condition_with_specific_rule_card() {
+        let source = SourceFile::anonymous("fn main() -> i32 { if (1) { return 1; } return 0; }");
+        let mut analysis = analyze(&source);
+        enhance_diagnostics(&source, &analysis.program, &mut analysis.diagnostics, None)
+            .expect("ai enhancement should succeed");
+
+        let diagnostic = analysis
+            .diagnostics
+            .iter()
+            .find(|diagnostic| {
+                diagnostic.code == "S0022" && diagnostic.message.contains("condition must be `bool`")
+            })
+            .expect("condition type diagnostic should exist");
+        let ai = diagnostic.ai.as_ref().expect("ai payload should exist");
+        assert_eq!(ai.rule_id, "condition_expression_must_be_bool");
+        assert_eq!(ai.teaching_level, TeachingLevel::L1);
+    }
+
+    #[test]
+    fn enhances_array_index_type_mismatch_with_specific_rule_card() {
+        let source =
+            SourceFile::anonymous("fn main() -> i32 { let values: [i32; 2] = [1, 2]; return values[true]; }");
+        let mut analysis = analyze(&source);
+        enhance_diagnostics(&source, &analysis.program, &mut analysis.diagnostics, None)
+            .expect("ai enhancement should succeed");
+
+        let diagnostic = analysis
+            .diagnostics
+            .iter()
+            .find(|diagnostic| {
+                diagnostic.code == "S0022" && diagnostic.message.contains("array index must be `i32`")
+            })
+            .expect("array index type diagnostic should exist");
+        let ai = diagnostic.ai.as_ref().expect("ai payload should exist");
+        assert_eq!(ai.rule_id, "array_index_must_be_i32");
+        assert_eq!(ai.teaching_level, TeachingLevel::L1);
+    }
+
+    #[test]
     fn adds_import_guidance_for_unsupported_feature_attempts() {
         let source = SourceFile::anonymous("import math\nfn main() -> i32 { return 0; }");
         let mut analysis = analyze(&source);
@@ -1555,6 +1630,20 @@ mod tests {
                 diagnostic_code: "S0022",
                 message_fragment: "cannot initialize",
                 expected_rule_id: "type_match_required",
+            },
+            RuleCase {
+                name: "non_bool_condition",
+                source: "fn main() -> i32 { if (1) { return 1; } return 0; }",
+                diagnostic_code: "S0022",
+                message_fragment: "condition must be `bool`",
+                expected_rule_id: "condition_expression_must_be_bool",
+            },
+            RuleCase {
+                name: "array_index_type",
+                source: "fn main() -> i32 { let values: [i32; 2] = [1, 2]; return values[true]; }",
+                diagnostic_code: "S0022",
+                message_fragment: "array index must be `i32`",
+                expected_rule_id: "array_index_must_be_i32",
             },
             RuleCase {
                 name: "missing_return",

@@ -48,6 +48,7 @@ cargo run -- check examples\hello.ax
 cargo run -- check examples\arrays.ax
 cargo run -- check examples\syntax_overview.ax
 cargo run -- check examples\missing_semicolon.ax --json --ai
+cargo run -- check examples\non_bool_condition.ax --json --ai
 cargo run -- check examples\project_hello
 ```
 
@@ -106,6 +107,7 @@ cargo run -- build examples\project_hello
 .\scripts\cargo-gnu.ps1 test
 .\scripts\cargo-gnu.ps1 run -- check examples\syntax_overview.ax
 .\scripts\cargo-gnu.ps1 run -- check examples\missing_semicolon.ax --json --ai
+.\scripts\cargo-gnu.ps1 run -- check examples\non_bool_condition.ax --json --ai
 .\scripts\cargo-gnu.ps1 run -- hir examples\syntax_overview.ax
 .\scripts\cargo-gnu.ps1 run -- run examples\arrays.ax
 .\scripts\cargo-gnu.ps1 run -- run examples\for_loop.ax
