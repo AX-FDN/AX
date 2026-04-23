@@ -53,12 +53,12 @@ enum Flag {
 - `i32`
 - `f32`
 - `string`
+- 固定长度数组：`[Type; N]`
 - 用户声明的 `struct` 名
 - 用户声明的 `enum` 名
 
 当前没有：
 
-- 数组
 - 切片
 - 泛型
 - `Option` / `Result` 的完整表面语法
@@ -171,6 +171,18 @@ Point { x: 2, y: 3 }
 point.x
 ```
 
+数组字面量：
+
+```ax
+[1, 2, 3]
+```
+
+索引读取：
+
+```ax
+values[1]
+```
+
 枚举值：
 
 ```ax
@@ -220,9 +232,10 @@ expr_stmt         := expr ";"
 expr              := binary_expr
 binary_expr       := unary_expr (BINARY_OP unary_expr)*
 unary_expr        := ("-" | "!") unary_expr | postfix_expr
-postfix_expr      := primary_expr (call_suffix | field_suffix)*
+postfix_expr      := primary_expr (call_suffix | field_suffix | index_suffix)*
 call_suffix       := "(" arg_list? ")"
 field_suffix      := "." IDENT
+index_suffix      := "[" expr "]"
 arg_list          := expr ("," expr)*
 
 primary_expr      := INT
@@ -231,13 +244,19 @@ primary_expr      := INT
                   | STRING
                   | IDENT
                   | struct_literal
+                  | array_literal
                   | "(" expr ")"
 
 struct_literal    := IDENT "{" struct_init_list? "}"
 struct_init_list  := struct_init ("," struct_init)* ","?
 struct_init       := IDENT ":" expr
 
-type_ref          := "bool" | "i32" | "f32" | "string" | IDENT
+array_literal     := "[" array_item_list? "]"
+array_item_list   := expr ("," expr)* ","?
+
+type_ref          := named_type | array_type
+named_type        := "bool" | "i32" | "f32" | "string" | IDENT
+array_type        := "[" type_ref ";" INT "]"
 ```
 
 补充说明：
@@ -258,6 +277,7 @@ type_ref          := "bool" | "i32" | "f32" | "string" | IDENT
 - 局部变量
 - 变量赋值
 - 结构体字段赋值
+- 固定长度数组字面量与索引读取
 - 算术与比较
 - `if / else`
 - `while`
@@ -273,15 +293,14 @@ type_ref          := "bool" | "i32" | "f32" | "string" | IDENT
 下面这些请不要在当前原型里使用：
 
 - `match`
-- 数组 / 切片
+- 切片
+- 数组元素赋值：`values[index] = expr;`
 - import / module
-- manifest
 - 异常
 - async / await
 - 泛型
 - 宏
 - 原生后端
-- `axc build`
 
 ## 9. 给 AI 的直接提示词
 
@@ -297,7 +316,8 @@ Rules:
 - Enum values must use EnumName.Variant.
 - Construct structs with TypeName { field: expr, ... }.
 - Use for loops only as for (init; condition; step) { ... }.
+- Fixed-size arrays are allowed as [Type; N], [a, b, c], and values[index].
 - Direct field assignment is allowed only as name.field = expr; and only when name is a mutable struct variable.
-- Do not use match, arrays, modules, imports, exceptions, async, or generics.
+- Do not use match, slices, array element assignment, modules, imports, exceptions, async, or generics.
 - Return 0 from main on success unless a different exit code is explicitly needed.
 ```

@@ -98,9 +98,9 @@ impl Formatter {
             if index > 0 {
                 self.out.push_str(", ");
             }
-            let _ = write!(self.out, "{}: {}", param.name, param.ty.name);
+            let _ = write!(self.out, "{}: {}", param.name, format_type_ref(&param.ty));
         }
-        let _ = write!(self.out, ") -> {} ", return_type.name);
+        let _ = write!(self.out, ") -> {} ", format_type_ref(return_type));
         self.format_block(body);
     }
 
@@ -114,7 +114,7 @@ impl Formatter {
         self.indent += 1;
         for field in fields {
             self.write_indent();
-            let _ = writeln!(self.out, "{}: {},", field.name, field.ty.name);
+            let _ = writeln!(self.out, "{}: {},", field.name, format_type_ref(&field.ty));
         }
         self.indent -= 1;
         self.write_indent();
@@ -168,7 +168,7 @@ impl Formatter {
                 let _ = write!(
                     self.out,
                     "{binding} {name}: {} = {};",
-                    ty.name,
+                    format_type_ref(ty),
                     format_expr(initializer)
                 );
             }
@@ -285,7 +285,7 @@ fn format_for_header_statement(statement: &Stmt) -> String {
             let binding = if *mutable { "let mut" } else { "let" };
             format!(
                 "{binding} {name}: {} = {}",
-                ty.name,
+                format_type_ref(ty),
                 format_expr(initializer)
             )
         }
@@ -331,9 +331,22 @@ fn format_expr_with_min_precedence(expr: &Expr, min_precedence: u8) -> String {
         ExprKind::StructLiteral { name, fields } => {
             format!("{name} {}", format_struct_literal_fields(fields))
         }
+        ExprKind::ArrayLiteral { elements } => {
+            let body = elements
+                .iter()
+                .map(format_expr)
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!("[{body}]")
+        }
         ExprKind::Field { base, field } => {
             let base_text = format_expr_with_min_precedence(base, PREC_POSTFIX);
             format!("{base_text}.{field}")
+        }
+        ExprKind::Index { base, index } => {
+            let base_text = format_expr_with_min_precedence(base, PREC_POSTFIX);
+            let index_text = format_expr(index);
+            format!("{base_text}[{index_text}]")
         }
         ExprKind::Error => "<error>".to_string(),
     };
@@ -358,17 +371,28 @@ fn format_struct_literal_fields(fields: &[StructLiteralField]) -> String {
     format!("{{ {body} }}")
 }
 
+fn format_type_ref(ty: &TypeRef) -> String {
+    match (&ty.name, &ty.element, ty.length) {
+        (Some(name), None, None) => name.clone(),
+        (None, Some(element), Some(length)) => {
+            format!("[{}; {}]", format_type_ref(element), length)
+        }
+        _ => "<invalid-type>".to_string(),
+    }
+}
+
 fn expr_precedence(expr: &Expr) -> u8 {
     match &expr.kind {
         ExprKind::Binary { op, .. } => binary_precedence(*op),
         ExprKind::Unary { .. } => PREC_UNARY,
-        ExprKind::Call { .. } | ExprKind::Field { .. } => PREC_POSTFIX,
+        ExprKind::Call { .. } | ExprKind::Field { .. } | ExprKind::Index { .. } => PREC_POSTFIX,
         ExprKind::Int { .. }
         | ExprKind::Float { .. }
         | ExprKind::Bool { .. }
         | ExprKind::String { .. }
         | ExprKind::Name { .. }
         | ExprKind::StructLiteral { .. }
+        | ExprKind::ArrayLiteral { .. }
         | ExprKind::Error => PREC_PRIMARY,
     }
 }
@@ -439,7 +463,7 @@ mod tests {
     #[test]
     fn formats_current_prototype_syntax() {
         let source = SourceFile::anonymous(
-            "struct Point{x:i32,y:i32} enum Flag{On,Off} fn main()->i32{let mut point:Point=Point{x:1,y:2};if(point.x==1){println(\"ready\");}else if(point.x==2){println(\"fallback\");}else{println(\"other\");}for(let mut i:i32=0;i<2;i=i+1){point.x=point.x+i;}return 0;}",
+            "struct Point{x:i32,y:i32} enum Flag{On,Off} fn main()->i32{let mut point:Point=Point{x:1,y:2};let values:[i32;3]=[1,2,3];if(point.x==1){println(\"ready\");}else if(point.x==2){println(values[1]);}else{println(\"other\");}for(let mut i:i32=0;i<2;i=i+1){point.x=point.x+i;}return values[0];}",
         );
 
         let formatted = format_source(&source).expect("source should format");
@@ -458,17 +482,18 @@ mod tests {
                 "\n",
                 "fn main() -> i32 {\n",
                 "    let mut point: Point = Point { x: 1, y: 2 };\n",
+                "    let values: [i32; 3] = [1, 2, 3];\n",
                 "    if (point.x == 1) {\n",
                 "        println(\"ready\");\n",
                 "    } else if (point.x == 2) {\n",
-                "        println(\"fallback\");\n",
+                "        println(values[1]);\n",
                 "    } else {\n",
                 "        println(\"other\");\n",
                 "    }\n",
                 "    for (let mut i: i32 = 0; i < 2; i = i + 1) {\n",
                 "        point.x = point.x + i;\n",
                 "    }\n",
-                "    return 0;\n",
+                "    return values[0];\n",
                 "}\n"
             )
         );

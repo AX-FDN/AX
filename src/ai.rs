@@ -4,7 +4,7 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
-use crate::ast::{Block, Expr, ExprKind, Item, ItemKind, Program, Stmt, StmtKind};
+use crate::ast::{Block, Expr, ExprKind, Item, ItemKind, Program, Stmt, StmtKind, TypeRef};
 use crate::diagnostics::Diagnostic;
 use crate::source::{SourceFile, Span};
 
@@ -160,9 +160,6 @@ struct RuleTemplate {
 fn match_rule(source: &SourceFile, diagnostic: &Diagnostic) -> Option<RuleTemplate> {
     let expects = diagnostic.expected.join(" ");
     match diagnostic.code.as_str() {
-        "L0001" if diagnostic.message.contains("`[`") || diagnostic.message.contains("`]`") => {
-            Some(RULE_ARRAY_SYNTAX_NOT_SUPPORTED)
-        }
         "L0001" => Some(RULE_UNEXPECTED_CHARACTER),
         "L0002" => Some(RULE_UNTERMINATED_STRING_LITERAL),
         "L0003" => Some(RULE_INTEGER_LITERAL_SYNTAX),
@@ -217,6 +214,9 @@ fn match_rule(source: &SourceFile, diagnostic: &Diagnostic) -> Option<RuleTempla
         "S0029" => Some(RULE_ENUM_VARIANT_MUST_EXIST),
         "S0030" => Some(RULE_MUTABLE_STRUCT_FIELD_ASSIGNMENT_REQUIRED),
         "S0031" => Some(RULE_FOR_HEADER_CLAUSE_SUPPORTED),
+        "S0032" => Some(RULE_NON_EMPTY_ARRAY_LITERAL_REQUIRED),
+        "S0033" => Some(RULE_INDEX_BASE_MUST_BE_ARRAY),
+        "S0034" => Some(RULE_ARRAY_ELEMENT_ASSIGNMENT_NOT_SUPPORTED),
         _ => None,
     }
 }
@@ -358,17 +358,6 @@ const RULE_MATCH_NOT_SUPPORTED: RuleTemplate = RuleTemplate {
     default_fixit: "rewrite this branch with `if / else`",
 };
 
-const RULE_ARRAY_SYNTAX_NOT_SUPPORTED: RuleTemplate = RuleTemplate {
-    rule_id: "array_syntax_not_supported",
-    normalized_pattern: "array_syntax_not_supported",
-    repair_goal: "Replace bracket-based collection syntax with currently supported AX constructs.",
-    summary: "The current AX prototype does not support arrays, slices, or bracket-based collection literals.",
-    pattern: "struct Pair { left: i32, right: i32 }",
-    minimal_example: "let first: i32 = 1;\nlet second: i32 = 2;",
-    anti_pattern: Some("let items: i32 = [1, 2];"),
-    default_fixit: "rewrite this using scalar locals or structs because `[` and `]` are not supported yet",
-};
-
 const RULE_TOP_LEVEL_DECLARATION_REQUIRED: RuleTemplate = RuleTemplate {
     rule_id: "top_level_item_required",
     normalized_pattern: "top_level_item_required",
@@ -384,8 +373,8 @@ const RULE_TYPE_NAME_REQUIRED: RuleTemplate = RuleTemplate {
     rule_id: "type_name_required",
     normalized_pattern: "type_name_required",
     repair_goal: "Insert a valid AX type name in the current type position.",
-    summary: "AX type positions require `bool`, `i32`, `f32`, `string`, or a previously declared type.",
-    pattern: "let value: i32 = 1;",
+    summary: "AX type positions require `bool`, `i32`, `f32`, `string`, `[Type; N]`, or a previously declared type.",
+    pattern: "let value: [i32; 3] = [1, 2, 3];",
     minimal_example: "fn helper(value: i32) -> bool { return true; }",
     anti_pattern: Some("let value: = 1;"),
     default_fixit: "insert a builtin type or a previously declared type name",
@@ -395,8 +384,8 @@ const RULE_EXPRESSION_REQUIRED: RuleTemplate = RuleTemplate {
     rule_id: "expression_required",
     normalized_pattern: "expression_required",
     repair_goal: "Insert a runtime expression that produces the needed value.",
-    summary: "AX expression positions require a literal, name, call, field access, unary expression, binary expression, or grouped expression.",
-    pattern: "return helper(value);",
+    summary: "AX expression positions require a literal, array literal, name, call, field access, index expression, unary expression, binary expression, or grouped expression.",
+    pattern: "return values[index];",
     minimal_example: "let total: i32 = left + right;",
     anti_pattern: Some("return ;"),
     default_fixit: "insert a valid AX expression",
@@ -576,6 +565,39 @@ const RULE_FOR_HEADER_CLAUSE_SUPPORTED: RuleTemplate = RuleTemplate {
     minimal_example: "for (let i: i32 = 0; i < 3; i = i + 1) { return i; }",
     anti_pattern: Some("for (return 0; true; step()) { }"),
     default_fixit: "rewrite the header using only `let`, assignment, or expression clauses",
+};
+
+const RULE_NON_EMPTY_ARRAY_LITERAL_REQUIRED: RuleTemplate = RuleTemplate {
+    rule_id: "non_empty_array_literal_required",
+    normalized_pattern: "non_empty_array_literal_required",
+    repair_goal: "Provide at least one element so AX can infer the fixed array length and element type.",
+    summary: "The current AX prototype supports fixed-size arrays, but empty array literals are not implemented yet.",
+    pattern: "let values: [i32; 3] = [1, 2, 3];",
+    minimal_example: "let flags: [bool; 1] = [true];",
+    anti_pattern: Some("let values: [i32; 0] = [];"),
+    default_fixit: "add at least one element to the array literal",
+};
+
+const RULE_INDEX_BASE_MUST_BE_ARRAY: RuleTemplate = RuleTemplate {
+    rule_id: "index_base_must_be_array",
+    normalized_pattern: "index_base_must_be_array",
+    repair_goal: "Use `expr[index]` only when the base expression evaluates to a fixed-size array.",
+    summary: "AX indexing with `[]` currently reads from fixed-size arrays only.",
+    pattern: "let value: i32 = values[0];",
+    minimal_example: "let values: [i32; 2] = [1, 2]; return values[1];",
+    anti_pattern: Some("let value: i32 = number[0];"),
+    default_fixit: "index into an array value like `values[0]`",
+};
+
+const RULE_ARRAY_ELEMENT_ASSIGNMENT_NOT_SUPPORTED: RuleTemplate = RuleTemplate {
+    rule_id: "array_element_assignment_not_supported",
+    normalized_pattern: "array_element_assignment_not_supported",
+    repair_goal: "Avoid writing through `values[index] = ...` because the current prototype only supports array reads.",
+    summary: "The current AX prototype supports fixed-size array literals and index reads, but not element assignment.",
+    pattern: "let values: [i32; 2] = [1, 2]; let second: i32 = values[1];",
+    minimal_example: "let mut values: [i32; 2] = [1, 2]; values = [values[0], 3];",
+    anti_pattern: Some("values[0] = 3;"),
+    default_fixit: "rebuild the whole array instead of assigning through an index",
 };
 
 const RULE_MISSING_SEMICOLON: RuleTemplate = RuleTemplate {
@@ -898,10 +920,10 @@ fn item_descriptor(item: &Item) -> AiFocusItem {
                 "fn {name}({}) -> {}",
                 params
                     .iter()
-                    .map(|param| format!("{}: {}", param.name, param.ty.name))
+                    .map(|param| format!("{}: {}", param.name, param.ty.describe()))
                     .collect::<Vec<_>>()
                     .join(", "),
-                return_type.name
+                return_type.describe()
             )),
             span: item.span,
         },
@@ -912,7 +934,7 @@ fn item_descriptor(item: &Item) -> AiFocusItem {
                 "struct {name} {{ {} }}",
                 fields
                     .iter()
-                    .map(|field| format!("{}: {}", field.name, field.ty.name))
+                    .map(|field| format!("{}: {}", field.name, field.ty.describe()))
                     .collect::<Vec<_>>()
                     .join(", ")
             )),
@@ -960,14 +982,14 @@ fn related_symbols_for_item(program: &Program, focus_item: &Item) -> Vec<AiRelat
             ..
         } => {
             for param in params {
-                referenced.insert(param.ty.name.clone());
+                collect_type_ref_names(&param.ty, &mut referenced);
             }
-            referenced.insert(return_type.name.clone());
+            collect_type_ref_names(return_type, &mut referenced);
             collect_block_names(body, &mut referenced);
         }
         ItemKind::Struct { fields, .. } => {
             for field in fields {
-                referenced.insert(field.ty.name.clone());
+                collect_type_ref_names(&field.ty, &mut referenced);
             }
         }
         ItemKind::Enum { .. } => {}
@@ -998,7 +1020,7 @@ fn collect_statement_names(statement: &Stmt, names: &mut BTreeSet<String>) {
         StmtKind::Let {
             ty, initializer, ..
         } => {
-            names.insert(ty.name.clone());
+            collect_type_ref_names(ty, names);
             collect_expr_names(initializer, names);
         }
         StmtKind::Assign { target, value } => {
@@ -1069,12 +1091,31 @@ fn collect_expr_names(expr: &Expr, names: &mut BTreeSet<String>) {
                 collect_expr_names(&field.value, names);
             }
         }
+        ExprKind::ArrayLiteral { elements } => {
+            for element in elements {
+                collect_expr_names(element, names);
+            }
+        }
         ExprKind::Field { base, .. } => collect_expr_names(base, names),
+        ExprKind::Index { base, index } => {
+            collect_expr_names(base, names);
+            collect_expr_names(index, names);
+        }
         ExprKind::Int { .. }
         | ExprKind::Float { .. }
         | ExprKind::Bool { .. }
         | ExprKind::String { .. }
         | ExprKind::Error => {}
+    }
+}
+
+fn collect_type_ref_names(ty: &TypeRef, names: &mut BTreeSet<String>) {
+    match (&ty.name, &ty.element, ty.length) {
+        (Some(name), None, None) => {
+            names.insert(name.clone());
+        }
+        (None, Some(element), Some(_)) => collect_type_ref_names(element, names),
+        _ => {}
     }
 }
 
@@ -1255,6 +1296,25 @@ mod tests {
             ai.fixits,
             vec!["insert `;` before the next statement or closing `}`".to_string()]
         );
+    }
+
+    #[test]
+    fn adds_array_assignment_guidance_for_unsupported_writes() {
+        let source = SourceFile::anonymous(
+            "fn main() -> i32 { let mut values: [i32; 1] = [1]; values[0] = 2; return 0; }",
+        );
+        let mut analysis = analyze(&source);
+        enhance_diagnostics(&source, &analysis.program, &mut analysis.diagnostics, None)
+            .expect("ai enhancement should succeed");
+
+        let diagnostic = analysis
+            .diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.code == "S0034")
+            .expect("array assignment diagnostic should exist");
+        let ai = diagnostic.ai.as_ref().expect("ai payload should exist");
+        assert_eq!(ai.rule_id, "array_element_assignment_not_supported");
+        assert_eq!(ai.teaching_level, TeachingLevel::L1);
     }
 
     #[test]

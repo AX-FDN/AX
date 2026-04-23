@@ -81,6 +81,7 @@ enum Type {
     I32,
     F32,
     String,
+    Array { element: Box<Type>, length: usize },
     Struct(String),
     Enum(String),
     Void,
@@ -94,6 +95,7 @@ impl Type {
             Self::I32 => "i32".to_string(),
             Self::F32 => "f32".to_string(),
             Self::String => "string".to_string(),
+            Self::Array { element, length } => format!("[{}; {}]", element.describe(), length),
             Self::Struct(name) | Self::Enum(name) => name.clone(),
             Self::Void => "<void>".to_string(),
             Self::Error => "<error>".to_string(),
@@ -113,7 +115,12 @@ impl Type {
     }
 
     fn is_equality_comparable(&self) -> bool {
-        self.is_comparable_primitive() || matches!(self, Self::Enum(_))
+        self.is_comparable_primitive()
+            || matches!(self, Self::Enum(_))
+            || matches!(
+                self,
+                Self::Array { element, .. } if element.is_equality_comparable()
+            )
     }
 }
 
@@ -193,7 +200,7 @@ impl<'a> ProgramInfo<'a> {
                     ..
                 } if name == "main" => {
                     has_main = true;
-                    if !params.is_empty() || return_type.name != "i32" {
+                    if !params.is_empty() || return_type.direct_name() != Some("i32") {
                         diagnostics.push(
                             Diagnostic::new(
                                 "S0005",
@@ -305,19 +312,32 @@ impl<'a> ProgramInfo<'a> {
     }
 
     fn resolve_type_ref(&self, ty: &TypeRef, diagnostics: &mut Vec<Diagnostic>) -> Type {
-        match self.named_types.get(&ty.name) {
-            Some(found) => found.clone(),
-            None => {
+        match (&ty.name, &ty.element, ty.length) {
+            (Some(name), None, None) => match self.named_types.get(name) {
+                Some(found) => found.clone(),
+                None => {
+                    diagnostics.push(
+                        Diagnostic::new(
+                            "S0006",
+                            format!("unknown type `{}`", name),
+                            self.source,
+                            ty.span,
+                        )
+                        .with_suggestion(
+                            "use a builtin type, `[Type; N]`, or declare the type before referencing it",
+                        ),
+                    );
+                    Type::Error
+                }
+            },
+            (None, Some(element), Some(length)) => Type::Array {
+                element: Box::new(self.resolve_type_ref(element, diagnostics)),
+                length,
+            },
+            _ => {
                 diagnostics.push(
-                    Diagnostic::new(
-                        "S0006",
-                        format!("unknown type `{}`", ty.name),
-                        self.source,
-                        ty.span,
-                    )
-                    .with_suggestion(
-                        "use a builtin type or declare the type before referencing it",
-                    ),
+                    Diagnostic::new("S0006", "invalid type syntax", self.source, ty.span)
+                        .with_suggestion("use a named type or an array type like `[i32; 3]`"),
                 );
                 Type::Error
             }
@@ -843,6 +863,44 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
 
                 Type::Struct(struct_name)
             }
+            ExprKind::ArrayLiteral { elements } => {
+                let Some((first, rest)) = elements.split_first() else {
+                    self.diagnostics.push(
+                        Diagnostic::new(
+                            "S0032",
+                            "empty array literals are not supported yet",
+                            self.info.source,
+                            expr.span,
+                        )
+                        .with_suggestion("add at least one element to the array literal"),
+                    );
+                    return Type::Error;
+                };
+
+                let element_type = self.check_expr(first);
+                for element in rest {
+                    let current_type = self.check_expr(element);
+                    self.expect_type_match(
+                        &element_type,
+                        &current_type,
+                        element.span,
+                        format!(
+                            "array literal element expects `{}`, found `{}`",
+                            element_type.describe(),
+                            current_type.describe()
+                        ),
+                    );
+                }
+
+                if element_type.is_error() {
+                    Type::Error
+                } else {
+                    Type::Array {
+                        element: Box::new(element_type),
+                        length: elements.len(),
+                    }
+                }
+            }
             ExprKind::Field { base, field } => {
                 if let ExprKind::Name { value: enum_name } = &base.kind {
                     if let Some(enum_info) = self.info.enums.get(enum_name) {
@@ -907,6 +965,39 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     }
                 }
             }
+            ExprKind::Index { base, index } => {
+                let base_type = self.check_expr(base);
+                let index_type = self.check_expr(index);
+                self.expect_type_match(
+                    &Type::I32,
+                    &index_type,
+                    index.span,
+                    format!(
+                        "array index must be `i32`, found `{}`",
+                        index_type.describe()
+                    ),
+                );
+
+                match base_type {
+                    Type::Array { element, .. } => *element,
+                    Type::Error => Type::Error,
+                    other => {
+                        self.diagnostics.push(
+                            Diagnostic::new(
+                                "S0033",
+                                format!(
+                                    "index access expects an array value, found `{}`",
+                                    other.describe()
+                                ),
+                                self.info.source,
+                                expr.span,
+                            )
+                            .with_suggestion("index into an array value like `values[0]`"),
+                        );
+                        Type::Error
+                    }
+                }
+            }
             ExprKind::Error => Type::Error,
         }
     }
@@ -918,6 +1009,20 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             }
             ExprKind::Field { base, field } => {
                 self.check_field_assignment(base, field, target.span, value_span, value_type);
+            }
+            ExprKind::Index { .. } => {
+                self.diagnostics.push(
+                    Diagnostic::new(
+                        "S0034",
+                        "array element assignment is not supported yet",
+                        self.info.source,
+                        target.span,
+                    )
+                    .with_suggestion(
+                        "read array elements with `values[index]` for now, or rebuild the whole array",
+                    ),
+                );
+                self.check_expr(target);
             }
             _ => {
                 self.diagnostics.push(
@@ -1502,6 +1607,26 @@ fn main() -> i32 {
             "struct Point { x: i32 } fn main() -> i32 { let point: Point = Point { x: 1 }; point.x = 2; return 0; }",
         );
         assert!(codes.iter().any(|code| code == "S0030"));
+    }
+
+    #[test]
+    fn accepts_fixed_size_arrays_and_index_reads() {
+        let codes =
+            check("fn main() -> i32 { let values: [i32; 3] = [1, 2, 3]; return values[1]; }");
+        assert!(codes.is_empty(), "unexpected diagnostics: {codes:?}");
+    }
+
+    #[test]
+    fn reports_non_array_index_base() {
+        let codes = check("fn main() -> i32 { let value: i32 = 1; return value[0]; }");
+        assert!(codes.iter().any(|code| code == "S0033"));
+    }
+
+    #[test]
+    fn reports_array_element_assignment_as_unsupported() {
+        let codes =
+            check("fn main() -> i32 { let mut values: [i32; 1] = [1]; values[0] = 2; return 0; }");
+        assert!(codes.iter().any(|code| code == "S0034"));
     }
 
     #[test]

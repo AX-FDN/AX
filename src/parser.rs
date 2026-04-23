@@ -192,6 +192,40 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_type(&mut self) -> TypeRef {
+        if self.matches(&[TokenKind::LBracket]) {
+            let start = self.previous().span.start;
+            let element = self.parse_type();
+            self.expect(
+                TokenKind::Semicolon,
+                "expected `;` after array element type",
+                &["`;`"],
+            );
+            let length_token = self.expect(
+                TokenKind::IntLiteral,
+                "expected an integer array length",
+                &["integer literal"],
+            );
+            let length = length_token.lexeme.parse::<usize>().unwrap_or_else(|_| {
+                self.diagnostics.push(
+                    Diagnostic::new(
+                        "P0002",
+                        "expected a valid non-negative array length",
+                        self.source,
+                        length_token.span,
+                    )
+                    .with_expected("non-negative integer literal")
+                    .with_suggestion("use an array length like `[i32; 3]`"),
+                );
+                0
+            });
+            let close = self.expect(
+                TokenKind::RBracket,
+                "expected `]` after array type",
+                &["`]`"],
+            );
+            return TypeRef::array(element, length, Span::new(start, close.span.end));
+        }
+
         let token = if self.check(TokenKind::Identifier) {
             self.advance()
         } else {
@@ -199,9 +233,32 @@ impl<'a> Parser<'a> {
             self.advance()
         };
 
-        TypeRef {
-            name: token.lexeme,
-            span: token.span,
+        TypeRef::named(token.lexeme, token.span)
+    }
+
+    fn parse_array_literal(&mut self, start: usize) -> Expr {
+        let mut elements = Vec::new();
+        if !self.check(TokenKind::RBracket) {
+            loop {
+                elements.push(self.parse_expression());
+                if !self.matches(&[TokenKind::Comma]) {
+                    break;
+                }
+                if self.check(TokenKind::RBracket) {
+                    break;
+                }
+            }
+        }
+
+        let close = self.expect(
+            TokenKind::RBracket,
+            "expected `]` after array literal",
+            &["`]`"],
+        );
+
+        Expr {
+            span: Span::new(start, close.span.end),
+            kind: ExprKind::ArrayLiteral { elements },
         }
     }
 
@@ -562,6 +619,23 @@ impl<'a> Parser<'a> {
                 continue;
             }
 
+            if self.matches(&[TokenKind::LBracket]) {
+                let index = self.parse_expression();
+                let close = self.expect(
+                    TokenKind::RBracket,
+                    "expected `]` after array index",
+                    &["`]`"],
+                );
+                expr = Expr {
+                    span: Span::new(expr.span.start, close.span.end),
+                    kind: ExprKind::Index {
+                        base: Box::new(expr),
+                        index: Box::new(index),
+                    },
+                };
+                continue;
+            }
+
             break;
         }
         expr
@@ -604,6 +678,7 @@ impl<'a> Parser<'a> {
                 expr.span = Span::new(token.span.start, close.span.end);
                 expr
             }
+            TokenKind::LBracket => self.parse_array_literal(token.span.start),
             _ => {
                 self.diagnostics.push(
                     Diagnostic::new("P0003", "expected an expression", self.source, token.span)
@@ -773,6 +848,11 @@ impl<'a> Parser<'a> {
             .map(|index| self.tokens[index].kind)
     }
 
+    fn previous(&self) -> &Token {
+        let index = self.current.saturating_sub(1);
+        &self.tokens[index]
+    }
+
     fn is_at_end(&self) -> bool {
         self.peek().kind == TokenKind::Eof
     }
@@ -793,6 +873,12 @@ fn enrich_parse_error(mut diagnostic: Diagnostic, token: &Token, message: &str) 
             .with_suggestion("insert `)` to close the current parenthesized construct");
     }
 
+    if message.contains("expected `]`") {
+        return diagnostic
+            .with_note("AX closes array literals, array types, and index expressions with `]`")
+            .with_suggestion("insert `]` to close the current bracketed construct");
+    }
+
     if message.contains("expected `}`") {
         return diagnostic
             .with_note("AX closes blocks and struct literals with `}`")
@@ -805,13 +891,13 @@ fn enrich_parse_error(mut diagnostic: Diagnostic, token: &Token, message: &str) 
 
     if message == "expected a type name" {
         return diagnostic.with_suggestion(
-            "use `bool`, `i32`, `f32`, `string`, or a previously declared type name",
+            "use `bool`, `i32`, `f32`, `string`, `[Type; N]`, or a previously declared type name",
         );
     }
 
     if message == "expected an expression" {
         return diagnostic.with_suggestion(
-            "insert a runtime expression such as a literal, name, call, or parenthesized expression",
+            "insert a runtime expression such as a literal, array literal, name, call, or parenthesized expression",
         );
     }
 
@@ -823,6 +909,8 @@ fn describe_token(token: &Token) -> String {
         TokenKind::Eof => "the end of file".to_string(),
         TokenKind::Semicolon => "`;`".to_string(),
         TokenKind::RParen => "`)`".to_string(),
+        TokenKind::LBracket => "`[`".to_string(),
+        TokenKind::RBracket => "`]`".to_string(),
         TokenKind::RBrace => "`}`".to_string(),
         TokenKind::LParen => "`(`".to_string(),
         TokenKind::LBrace => "`{`".to_string(),
@@ -936,6 +1024,34 @@ fn main() -> i32 {
     }
 
     #[test]
+    fn parses_array_types_literals_and_indexing() {
+        let source = SourceFile::anonymous(
+            "fn main() -> i32 { let values: [i32; 3] = [1, 2, 3]; return values[1]; }",
+        );
+        let tokens = tokenize(&source).tokens;
+        let output = parse(&source, tokens);
+        assert!(output.diagnostics.is_empty(), "{:?}", output.diagnostics);
+
+        let ItemKind::Function { body, .. } = &output.program.items[0].kind else {
+            panic!("expected function");
+        };
+
+        let StmtKind::Let {
+            ty, initializer, ..
+        } = &body.statements[0].kind
+        else {
+            panic!("expected let statement");
+        };
+        assert_eq!(ty.describe(), "[i32; 3]");
+        assert!(matches!(initializer.kind, ExprKind::ArrayLiteral { .. }));
+
+        let StmtKind::Return { value: Some(expr) } = &body.statements[1].kind else {
+            panic!("expected return statement");
+        };
+        assert!(matches!(expr.kind, ExprKind::Index { .. }));
+    }
+
+    #[test]
     fn enriches_missing_semicolon_diagnostic() {
         let source = SourceFile::anonymous("fn main() -> i32 { let value: i32 = 1 return value; }");
         let tokens = tokenize(&source).tokens;
@@ -986,6 +1102,30 @@ fn main() -> i32 {
         assert_eq!(
             diagnostic.suggestion.as_deref(),
             Some("insert `)` to close the current parenthesized construct")
+        );
+    }
+
+    #[test]
+    fn enriches_missing_right_bracket_diagnostic() {
+        let source =
+            SourceFile::anonymous("fn main() -> i32 { let values: [i32; 2 = [1, 2]; return 0; }");
+        let tokens = tokenize(&source).tokens;
+        let output = parse(&source, tokens);
+        let diagnostic = output
+            .diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.message.contains("expected `]` after array type"))
+            .expect("missing right bracket diagnostic should exist");
+
+        assert!(
+            diagnostic
+                .notes
+                .iter()
+                .any(|note| note.contains("array literals, array types, and index expressions"))
+        );
+        assert_eq!(
+            diagnostic.suggestion.as_deref(),
+            Some("insert `]` to close the current bracketed construct")
         );
     }
 }

@@ -40,6 +40,8 @@ impl<'a> Lexer<'a> {
                 }
                 '(' => self.simple_token(TokenKind::LParen, start),
                 ')' => self.simple_token(TokenKind::RParen, start),
+                '[' => self.simple_token(TokenKind::LBracket, start),
+                ']' => self.simple_token(TokenKind::RBracket, start),
                 '{' => self.simple_token(TokenKind::LBrace, start),
                 '}' => self.simple_token(TokenKind::RBrace, start),
                 ',' => self.simple_token(TokenKind::Comma, start),
@@ -311,6 +313,20 @@ mod tests {
             .collect::<Vec<_>>();
         assert!(output.diagnostics.is_empty());
         assert!(kinds.contains(&TokenKind::ForKw));
+    }
+
+    #[test]
+    fn tokenizes_array_punctuation() {
+        let source = SourceFile::anonymous("fn main() -> i32 { let values: [i32; 2] = [1, 2]; }");
+        let output = tokenize(&source);
+        let kinds = output
+            .tokens
+            .iter()
+            .map(|token| token.kind)
+            .collect::<Vec<_>>();
+        assert!(output.diagnostics.is_empty());
+        assert!(kinds.contains(&TokenKind::LBracket));
+        assert!(kinds.contains(&TokenKind::RBracket));
     }
 
     #[test]

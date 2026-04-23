@@ -62,8 +62,45 @@ pub struct EnumVariant {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct TypeRef {
-    pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub element: Option<Box<TypeRef>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub length: Option<usize>,
     pub span: Span,
+}
+
+impl TypeRef {
+    pub fn named(name: impl Into<String>, span: Span) -> Self {
+        Self {
+            name: Some(name.into()),
+            element: None,
+            length: None,
+            span,
+        }
+    }
+
+    pub fn array(element: TypeRef, length: usize, span: Span) -> Self {
+        Self {
+            name: None,
+            element: Some(Box::new(element)),
+            length: Some(length),
+            span,
+        }
+    }
+
+    pub fn direct_name(&self) -> Option<&str> {
+        self.name.as_deref()
+    }
+
+    pub fn describe(&self) -> String {
+        match (&self.name, &self.element, self.length) {
+            (Some(name), None, None) => name.clone(),
+            (None, Some(element), Some(length)) => format!("[{}; {}]", element.describe(), length),
+            _ => "<invalid-type>".to_string(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -160,9 +197,16 @@ pub enum ExprKind {
         name: String,
         fields: Vec<StructLiteralField>,
     },
+    ArrayLiteral {
+        elements: Vec<Expr>,
+    },
     Field {
         base: Box<Expr>,
         field: String,
+    },
+    Index {
+        base: Box<Expr>,
+        index: Box<Expr>,
     },
     Error,
 }

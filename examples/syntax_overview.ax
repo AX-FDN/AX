@@ -25,6 +25,9 @@ fn main() -> i32 {
 
     println(flag);
 
+    let values: [i32; 3] = [1, 2, 3];
+    println(values[1]);
+
     let mut current: i32 = total(point);
     while (current < 8) {
         current = current + 1;

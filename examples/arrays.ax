@@ -1,0 +1,11 @@
+fn edge_sum(values: [i32; 3]) -> i32 {
+    return values[0] + values[2];
+}
+
+fn main() -> i32 {
+    let values: [i32; 3] = [1, 2, 3];
+    println(values);
+    println(values[1]);
+    println(edge_sum(values));
+    return 0;
+}

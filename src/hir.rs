@@ -72,6 +72,7 @@ pub enum Type {
     I32,
     F32,
     String,
+    Array { element: Box<Type>, length: usize },
     Struct { name: String },
     Enum { name: String },
 }
@@ -178,6 +179,9 @@ pub enum ExprKind {
         name: String,
         fields: Vec<StructLiteralField>,
     },
+    ArrayLiteral {
+        elements: Vec<Expr>,
+    },
     EnumVariant {
         enum_name: String,
         variant: String,
@@ -185,6 +189,10 @@ pub enum ExprKind {
     Field {
         base: Box<Expr>,
         field: String,
+    },
+    Index {
+        base: Box<Expr>,
+        index: Box<Expr>,
     },
 }
 
@@ -286,20 +294,31 @@ impl<'a> LoweringContext<'a> {
     }
 
     fn lower_type_ref(&self, ty: &ast::TypeRef) -> Result<Type, Diagnostic> {
-        match ty.name.as_str() {
-            "bool" => Ok(Type::Bool),
-            "i32" => Ok(Type::I32),
-            "f32" => Ok(Type::F32),
-            "string" => Ok(Type::String),
-            name if self.struct_names.contains(name) => Ok(Type::Struct {
-                name: name.to_string(),
-            }),
-            name if self.enum_names.contains(name) => Ok(Type::Enum {
-                name: name.to_string(),
+        match (&ty.name, &ty.element, ty.length) {
+            (Some(name), None, None) => match name.as_str() {
+                "bool" => Ok(Type::Bool),
+                "i32" => Ok(Type::I32),
+                "f32" => Ok(Type::F32),
+                "string" => Ok(Type::String),
+                name if self.struct_names.contains(name) => Ok(Type::Struct {
+                    name: name.to_string(),
+                }),
+                name if self.enum_names.contains(name) => Ok(Type::Enum {
+                    name: name.to_string(),
+                }),
+                _ => Err(self.lowering_error(
+                    "H0001",
+                    format!("cannot lower unknown type `{}` into HIR", name),
+                    ty.span,
+                )),
+            },
+            (None, Some(element), Some(length)) => Ok(Type::Array {
+                element: Box::new(self.lower_type_ref(element)?),
+                length,
             }),
             _ => Err(self.lowering_error(
                 "H0001",
-                format!("cannot lower unknown type `{}` into HIR", ty.name),
+                "cannot lower invalid type syntax into HIR",
                 ty.span,
             )),
         }
@@ -546,6 +565,12 @@ impl<'a> LoweringContext<'a> {
                     })
                     .collect::<Result<Vec<_>, Diagnostic>>()?,
             },
+            ast::ExprKind::ArrayLiteral { elements } => ExprKind::ArrayLiteral {
+                elements: elements
+                    .iter()
+                    .map(|element| self.lower_expr(element))
+                    .collect::<Result<Vec<_>, _>>()?,
+            },
             ast::ExprKind::Field { base, field } => {
                 if let ast::ExprKind::Name { value: enum_name } = &base.kind
                     && self.enum_names.contains(enum_name)
@@ -561,6 +586,10 @@ impl<'a> LoweringContext<'a> {
                     }
                 }
             }
+            ast::ExprKind::Index { base, index } => ExprKind::Index {
+                base: Box::new(self.lower_expr(base)?),
+                index: Box::new(self.lower_expr(index)?),
+            },
             ast::ExprKind::Error => {
                 return Err(self.lowering_error(
                     "H0007",
@@ -583,7 +612,7 @@ impl<'a> LoweringContext<'a> {
 
 #[cfg(test)]
 mod tests {
-    use super::{ExprKind, ItemKind, PlaceKind, StmtKind, lower_program};
+    use super::{ExprKind, ItemKind, PlaceKind, StmtKind, Type, lower_program};
     use crate::lexer::tokenize;
     use crate::parser::parse;
     use crate::semantic::check_program;
@@ -689,5 +718,43 @@ fn main() -> i32 {
             expr.kind,
             ExprKind::Call { ref function, .. } if function == "println"
         ));
+    }
+
+    #[test]
+    fn lowers_array_types_literals_and_indexing() {
+        let program = lower(
+            "\
+fn main() -> i32 {
+    let values: [i32; 3] = [1, 2, 3];
+    return values[1];
+}
+",
+        );
+
+        let ItemKind::Function {
+            return_type, body, ..
+        } = &program.items[0].kind
+        else {
+            panic!("expected function");
+        };
+
+        assert!(matches!(return_type, Type::I32));
+
+        let StmtKind::Let {
+            ty, initializer, ..
+        } = &body.statements[0].kind
+        else {
+            panic!("expected let statement");
+        };
+        assert!(matches!(
+            ty,
+            Type::Array { element, length } if **element == Type::I32 && *length == 3
+        ));
+        assert!(matches!(initializer.kind, ExprKind::ArrayLiteral { .. }));
+
+        let StmtKind::Return { value } = &body.statements[1].kind else {
+            panic!("expected return statement");
+        };
+        assert!(matches!(value.kind, ExprKind::Index { .. }));
     }
 }

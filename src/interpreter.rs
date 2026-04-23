@@ -46,6 +46,7 @@ enum Value {
     F32(f32),
     Bool(bool),
     String(String),
+    Array(Vec<Value>),
     Enum {
         name: String,
         variant: String,
@@ -75,6 +76,14 @@ impl Value {
             }
             Self::Bool(value) => value.to_string(),
             Self::String(value) => value.clone(),
+            Self::Array(elements) => {
+                let elements = elements
+                    .iter()
+                    .map(Value::display)
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                format!("[{elements}]")
+            }
             Self::Enum { name, variant } => format!("{name}.{variant}"),
             Self::Struct { name, fields } => {
                 let fields = fields
@@ -420,6 +429,12 @@ impl<'a> Interpreter<'a> {
                     fields: values,
                 })
             }
+            ExprKind::ArrayLiteral { elements } => Ok(Value::Array(
+                elements
+                    .iter()
+                    .map(|element| self.eval_expr(element, frame))
+                    .collect::<Result<Vec<_>, _>>()?,
+            )),
             ExprKind::EnumVariant { enum_name, variant } => Ok(Value::Enum {
                 name: enum_name.clone(),
                 variant: variant.clone(),
@@ -441,6 +456,53 @@ impl<'a> Interpreter<'a> {
                     expr.span,
                 )),
             },
+            ExprKind::Index { base, index } => {
+                let base_value = self.eval_expr(base, frame)?;
+                let index_expr = index;
+                let index_value = self.eval_expr(index_expr, frame)?;
+
+                let Value::Array(elements) = base_value else {
+                    return Err(self.runtime_error(
+                        "R0028",
+                        format!(
+                            "index access requires an array value, got `{}`",
+                            base_value.display()
+                        ),
+                        expr.span,
+                    ));
+                };
+
+                let Value::I32(index) = index_value else {
+                    return Err(self.runtime_error(
+                        "R0029",
+                        format!(
+                            "array index must evaluate to `i32`, got `{}`",
+                            index_value.display()
+                        ),
+                        index_expr.span,
+                    ));
+                };
+
+                if index < 0 {
+                    return Err(self.runtime_error(
+                        "R0030",
+                        format!("array index cannot be negative, got `{index}`"),
+                        index_expr.span,
+                    ));
+                }
+
+                let index = usize::try_from(index).expect("non-negative i32 should fit in usize");
+                elements.get(index).cloned().ok_or_else(|| {
+                    self.runtime_error(
+                        "R0031",
+                        format!(
+                            "array index `{index}` is out of bounds for length {}",
+                            elements.len()
+                        ),
+                        expr.span,
+                    )
+                })
+            }
         }
     }
 
@@ -711,5 +773,23 @@ fn main() -> i32 {
         let output = run_program(&source, &hir).expect("program should run");
         assert_eq!(output.exit_code, 6);
         assert_eq!(output.stdout, vec!["6"]);
+    }
+
+    #[test]
+    fn runs_fixed_size_arrays_and_index_reads() {
+        let (source, hir) = analyzed_hir(
+            "\
+fn main() -> i32 {
+    let values: [i32; 3] = [1, 2, 3];
+    println(values);
+    println(values[1]);
+    return values[0] + values[2];
+}
+",
+        );
+
+        let output = run_program(&source, &hir).expect("program should run");
+        assert_eq!(output.exit_code, 4);
+        assert_eq!(output.stdout, vec!["[1, 2, 3]", "2"]);
     }
 }

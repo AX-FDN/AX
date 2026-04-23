@@ -186,6 +186,9 @@ pub enum ExprKind {
         name: String,
         fields: Vec<StructLiteralField>,
     },
+    ArrayLiteral {
+        elements: Vec<Expr>,
+    },
     EnumVariant {
         enum_name: String,
         variant: String,
@@ -193,6 +196,10 @@ pub enum ExprKind {
     Field {
         base: Box<Expr>,
         field: String,
+    },
+    Index {
+        base: Box<Expr>,
+        index: Box<Expr>,
     },
 }
 
@@ -512,6 +519,12 @@ impl FunctionLowerer {
                     })
                     .collect::<Result<Vec<_>, String>>()?,
             },
+            hir::ExprKind::ArrayLiteral { elements } => ExprKind::ArrayLiteral {
+                elements: elements
+                    .iter()
+                    .map(|element| self.lower_expr(element))
+                    .collect::<Result<Vec<_>, _>>()?,
+            },
             hir::ExprKind::EnumVariant { enum_name, variant } => ExprKind::EnumVariant {
                 enum_name: enum_name.clone(),
                 variant: variant.clone(),
@@ -519,6 +532,10 @@ impl FunctionLowerer {
             hir::ExprKind::Field { base, field } => ExprKind::Field {
                 base: Box::new(self.lower_expr(base)?),
                 field: field.clone(),
+            },
+            hir::ExprKind::Index { base, index } => ExprKind::Index {
+                base: Box::new(self.lower_expr(base)?),
+                index: Box::new(self.lower_expr(index)?),
             },
         };
 
@@ -779,5 +796,35 @@ fn main() -> i32 {
             .expect("return terminator should exist");
 
         assert_eq!(printed_locals[1], returned_local);
+    }
+
+    #[test]
+    fn lowers_array_literals_and_index_reads() {
+        let program = lower(
+            "\
+fn main() -> i32 {
+    let values: [i32; 3] = [1, 2, 3];
+    return values[2];
+}
+",
+        );
+
+        let ItemKind::Function { blocks, .. } = &program.items[0].kind else {
+            panic!("expected function item");
+        };
+
+        let StatementKind::Let { initializer, .. } = &blocks[0].statements[0].kind else {
+            panic!("expected let statement");
+        };
+        assert!(matches!(initializer.kind, ExprKind::ArrayLiteral { .. }));
+
+        let returned = blocks
+            .iter()
+            .find_map(|block| match &block.terminator.kind {
+                TerminatorKind::Return { value } => Some(value),
+                _ => None,
+            })
+            .expect("return terminator should exist");
+        assert!(matches!(returned.kind, ExprKind::Index { .. }));
     }
 }
