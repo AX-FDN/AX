@@ -93,13 +93,15 @@
   - 完成于：2026-04-23
   - 备注：已落地 [`examples/bootstrap_token_scan.ax`](C:/Users/xiaoy/Desktop/A语言/AX/examples/bootstrap_token_scan.ax)、[`examples/bootstrap_state_machine.ax`](C:/Users/xiaoy/Desktop/A语言/AX/examples/bootstrap_state_machine.ax) 与 [`examples/bootstrap_block_summary.ax`](C:/Users/xiaoy/Desktop/A语言/AX/examples/bootstrap_block_summary.ax)，覆盖 token 扫描/计数、状态机、以及接近简单格式化/结构遍历的 block 总结三类工具风格逻辑；后两者都已加入 [`tests/interface_snapshots.rs`](C:/Users/xiaoy/Desktop/A语言/AX/tests/interface_snapshots.rs) 的运行回归。
 
-- [ ] `P0-26` 根据样例与 benchmark 排能力缺口
+- [x] `P0-26` 根据样例与 benchmark 排能力缺口
   - 目标：把“接下来补什么”从感觉变成证据。
   - 输入：工具风格样例、benchmark 结果、AI 生成修复体验。
   - 输出：明确的下一批能力缺口排序。
   - 通过条件：能回答“先补什么最值”。
   - 回归保障：同步更新 [`规划.md`](C:/Users/xiaoy/Desktop/A语言/AX/规划.md)。
   - 不做范围：不立即把所有缺口都实现。
+  - 完成于：2026-04-23
+  - 备注：已新增 [`能力缺口排序.md`](C:/Users/xiaoy/Desktop/A语言/AX/能力缺口排序.md)，把工具风格样例、repair benchmark 与当前实现边界放到同一张表里做排序；当前结论是优先推进切片、更实用的字符串处理、空数组字面量策略与更贴近工具代码的遍历能力，同时明确 `match`、`import/module` 与 `native backend` 现在不应抢优先级。
 
 - [x] `P0-27` 补 `run` 结构化错误输出
   - 目标：让运行期失败也能进入结构化诊断和后续 AI 修复链。
