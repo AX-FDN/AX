@@ -98,10 +98,12 @@ struct AiSessionFile {
     entries: BTreeMap<String, AiSessionEntry>,
 }
 
+const AI_SESSION_VERSION: u32 = 1;
+
 impl Default for AiSessionFile {
     fn default() -> Self {
         Self {
-            version: 1,
+            version: AI_SESSION_VERSION,
             entries: BTreeMap::new(),
         }
     }
@@ -721,6 +723,14 @@ fn load_session(path: &Path) -> Result<AiSession, String> {
             let file: AiSessionFile = serde_json::from_str(&text).map_err(|error| {
                 format!("failed to parse AI session {}: {error}", path.display())
             })?;
+            if file.version != AI_SESSION_VERSION {
+                return Err(format!(
+                    "unsupported AI session version `{}` in {}; expected `{}`",
+                    file.version,
+                    path.display(),
+                    AI_SESSION_VERSION
+                ));
+            }
             Ok(AiSession {
                 entries: file.entries,
             })
@@ -742,7 +752,7 @@ fn save_session(path: &Path, session: &AiSession) -> Result<(), String> {
     }
 
     let file = AiSessionFile {
-        version: 1,
+        version: AI_SESSION_VERSION,
         entries: session.entries.clone(),
     };
     let text = serde_json::to_string_pretty(&file)
@@ -1178,9 +1188,21 @@ fn snippet_text(source: &SourceFile, span: Span, max_lines: usize) -> String {
 mod tests {
     use super::{TeachingLevel, enhance_diagnostics};
     use std::fs;
+    use std::path::PathBuf;
 
     use crate::frontend::analyze;
     use crate::source::SourceFile;
+
+    fn unique_session_path(label: &str) -> PathBuf {
+        std::env::temp_dir().join(format!(
+            "ax-ai-session-{label}-{}-{}.json",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("time should be monotonic")
+                .as_nanos()
+        ))
+    }
 
     #[test]
     fn base_diagnostics_omit_ai_when_not_enhanced() {
@@ -1306,14 +1328,7 @@ mod tests {
 
     #[test]
     fn teaching_level_escalates_with_session_reuse() {
-        let temp_path = std::env::temp_dir().join(format!(
-            "ax-ai-session-{}-{}.json",
-            std::process::id(),
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .expect("time should be monotonic")
-                .as_nanos()
-        ));
+        let temp_path = unique_session_path("teaching-level");
 
         let source = SourceFile::anonymous("fn main() -> i32 { let value: i32 = 1 return value; }");
 
@@ -1348,6 +1363,51 @@ mod tests {
         assert_eq!(second_ai.teaching_level, TeachingLevel::L2);
         assert_eq!(second_ai.repeat_count, 2);
         assert!(second_ai.rule_card.pattern.is_some());
+
+        let _ = fs::remove_file(temp_path);
+    }
+
+    #[test]
+    fn rejects_unsupported_session_versions() {
+        let temp_path = unique_session_path("unsupported-version");
+        fs::write(&temp_path, "{\n  \"version\": 99,\n  \"entries\": {}\n}")
+            .expect("test session file should be written");
+
+        let source = SourceFile::anonymous("fn main() -> i32 { let value: i32 = 1 return value; }");
+        let mut analysis = analyze(&source);
+        let error = enhance_diagnostics(
+            &source,
+            &analysis.program,
+            &mut analysis.diagnostics,
+            Some(temp_path.as_path()),
+        )
+        .expect_err("unsupported version should be rejected");
+
+        assert!(error.contains("unsupported AI session version `99`"));
+        assert!(error.contains("expected `1`"));
+
+        let _ = fs::remove_file(temp_path);
+    }
+
+    #[test]
+    fn persists_session_schema_version_when_writing_state() {
+        let temp_path = unique_session_path("persisted-version");
+        let source = SourceFile::anonymous("fn main() -> i32 { let value: i32 = 1 return value; }");
+        let mut analysis = analyze(&source);
+
+        enhance_diagnostics(
+            &source,
+            &analysis.program,
+            &mut analysis.diagnostics,
+            Some(temp_path.as_path()),
+        )
+        .expect("enhancement should write a session file");
+
+        let saved = fs::read_to_string(&temp_path).expect("session file should be readable");
+        let json: serde_json::Value =
+            serde_json::from_str(&saved).expect("session file should contain valid json");
+        assert_eq!(json["version"], serde_json::Value::from(1));
+        assert!(json["entries"].is_object());
 
         let _ = fs::remove_file(temp_path);
     }
