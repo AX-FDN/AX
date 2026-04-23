@@ -63,13 +63,15 @@
   - 完成于：2026-04-23
   - 备注：已补齐 `check --json` 成功路径快照、`check --json --ai` 成功路径快照，以及 `--ai-session` 从 `L1 -> L2` 的 CLI 级快照；[`docs/diagnostics-schema.md`](C:/Users/xiaoy/Desktop/A语言/AX/docs/diagnostics-schema.md) 也已同步说明成功输出与 session 升级语义。
 
-- [~] `P0-23` AI 规则覆盖与 session 版本策略
+- [x] `P0-23` AI 规则覆盖与 session 版本策略
   - 目标：把高频错误的 AI 修复反馈变成可回归资产，而不是临时文案。
   - 输入：现有 `ai.rs`、规则卡、session 文件、examples 与 benchmark cases。
   - 输出：规则覆盖测试、session version 策略、更多稳定 `rule_id` 映射。
   - 通过条件：高频错误能稳定命中规则；session 行为可预期；相同输入 + 相同 session 输出一致。
   - 回归保障：接口快照、AI 规则测试、repair smoke。
   - 不做范围：不追求一次性覆盖全部错误码。
+  - 完成于：2026-04-23
+  - 备注：已新增 `tests/interface_snapshots.rs` 的 manifest 驱动 CLI 级规则回归测试，直接校验 [`benchmarks/repair-cases.json`](C:/Users/xiaoy/Desktop/A语言/AX/benchmarks/repair-cases.json) 中的 `expected_codes` 与 `expected_ai_rule_ids`；同时补了 `--ai-session` 落盘状态的版本化断言，确保外部接口层也固定 `version=1`、`repeat_count` 与 `last_teaching_level` 的基本语义。
 
 - [~] `P0-24` 文档-实现一致性清理
   - 目标：让 `README`、[`SYNTAX.md`](C:/Users/xiaoy/Desktop/A语言/AX/SYNTAX.md)、[`PLAN.md`](C:/Users/xiaoy/Desktop/A语言/AX/PLAN.md) 和当前实现不互相打架。

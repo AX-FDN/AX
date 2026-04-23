@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use std::process::{Command, Output};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use serde::Deserialize;
 use serde_json::Value;
 
 fn repo_root() -> PathBuf {
@@ -96,6 +97,19 @@ fn assert_clean_stderr(output: &Output) {
         "expected empty stderr, got:\n{}",
         stderr
     );
+}
+
+#[derive(Deserialize)]
+struct RepairCaseManifest {
+    cases: Vec<RepairCaseEntry>,
+}
+
+#[derive(Deserialize)]
+struct RepairCaseEntry {
+    id: String,
+    file: String,
+    expected_codes: Vec<String>,
+    expected_ai_rule_ids: Vec<String>,
 }
 
 #[test]
@@ -382,6 +396,140 @@ fn check_rejects_unsupported_ai_session_version() {
         stderr.contains("expected `1`"),
         "expected supported version hint, got:\n{}",
         stderr
+    );
+}
+
+#[test]
+fn diagnostics_ai_rule_ids_match_repair_manifest_cases() {
+    let manifest_text = fs::read_to_string(repo_root().join("benchmarks").join("repair-cases.json"))
+        .expect("repair benchmark manifest should be readable");
+    let manifest: RepairCaseManifest =
+        serde_json::from_str(&manifest_text).expect("repair benchmark manifest should be valid");
+
+    for case in manifest.cases {
+        let output = run_axc([
+            OsStr::new("check"),
+            OsStr::new(case.file.as_str()),
+            OsStr::new("--json"),
+            OsStr::new("--ai"),
+        ]);
+        assert_eq!(
+            output.status.code(),
+            Some(1),
+            "case `{}` should emit diagnostics",
+            case.id
+        );
+        assert_clean_stderr(&output);
+
+        let diagnostics: Value =
+            serde_json::from_slice(&output.stdout).expect("diagnostics output should be JSON");
+        let diagnostics = diagnostics
+            .as_array()
+            .unwrap_or_else(|| panic!("case `{}` should return a diagnostic array", case.id));
+
+        let observed_codes: Vec<String> = diagnostics
+            .iter()
+            .map(|diagnostic| {
+                diagnostic["code"]
+                    .as_str()
+                    .unwrap_or_else(|| panic!("case `{}` diagnostic should include code", case.id))
+                    .to_string()
+            })
+            .collect();
+        assert_eq!(
+            observed_codes, case.expected_codes,
+            "case `{}` should keep stable diagnostic codes",
+            case.id
+        );
+
+        let observed_rule_ids: Vec<String> = diagnostics
+            .iter()
+            .filter_map(|diagnostic| {
+                diagnostic
+                    .get("ai")
+                    .and_then(|ai| ai.get("rule_id"))
+                    .and_then(Value::as_str)
+                    .map(str::to_string)
+            })
+            .collect();
+        assert_eq!(
+            observed_rule_ids, case.expected_ai_rule_ids,
+            "case `{}` should keep stable ai rule ids",
+            case.id
+        );
+
+        for diagnostic in diagnostics {
+            if let Some(ai) = diagnostic.get("ai") {
+                assert_eq!(
+                    ai["teaching_level"].as_str(),
+                    Some("L1"),
+                    "case `{}` should default to L1 without session reuse",
+                    case.id
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn diagnostics_ai_session_file_written_by_cli_keeps_versioned_state() {
+    let temp = TempDir::new("diagnostics-ai-session-state");
+    let input = temp.write(
+        "missing_semicolon.ax",
+        "fn main() -> i32 {\n    let value: i32 = 1\n    return value;\n}\n",
+    );
+    let session = temp.join("session.json");
+
+    let output = run_axc([
+        OsStr::new("check"),
+        input.as_os_str(),
+        OsStr::new("--json"),
+        OsStr::new("--ai"),
+        OsStr::new("--ai-session"),
+        session.as_os_str(),
+    ]);
+    assert_eq!(output.status.code(), Some(1));
+    assert_clean_stderr(&output);
+
+    let session_text =
+        fs::read_to_string(&session).expect("cli ai session file should be written to disk");
+    let session_json: Value =
+        serde_json::from_str(&session_text).expect("cli ai session file should be valid JSON");
+
+    assert_eq!(
+        session_json["version"],
+        Value::from(1),
+        "cli ai session file should keep schema version 1"
+    );
+
+    let entries = session_json["entries"]
+        .as_object()
+        .expect("cli ai session file should store an entries object");
+    assert_eq!(entries.len(), 1, "expected one tracked session entry");
+
+    let entry = entries
+        .values()
+        .next()
+        .expect("expected one stored ai session entry");
+    assert_eq!(
+        entry["diagnostic_code"].as_str(),
+        Some("P0001"),
+        "stored session entry should record the diagnostic code"
+    );
+    assert_eq!(
+        entry["rule_id"].as_str(),
+        Some("statement_terminator_required"),
+        "stored session entry should record the ai rule id"
+    );
+    assert_eq!(
+        entry["repeat_count"].as_u64(),
+        Some(1),
+        "stored session entry should start at repeat_count 1"
+    );
+    assert_eq!(
+        entry["last_teaching_level"].as_str(),
+        Some("L1"),
+        "stored session entry should start at teaching level L1"
     );
 }
 
