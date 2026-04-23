@@ -9,4 +9,4 @@ This directory holds the stable external documentation for the current AX protot
 - [`diagnostics-schema.md`](./diagnostics-schema.md)
   Documents the stable JSON shape of `axc check --json`, `axc run --json`, and the optional AI extension used by `--json --ai`.
 
-Read [`../PLAN.md`](../PLAN.md) for roadmap and project policy, [`../SYNTAX.md`](../SYNTAX.md) for the current prototype grammar, and [`../README.md`](../README.md) for quick-start commands.
+Read [`../README.md`](../README.md) for the AX design statement and project entry, [`../详细介绍.md`](../详细介绍.md) for practical commands and benchmark workflow, [`../PLAN.md`](../PLAN.md) for roadmap and project policy, and [`../SYNTAX.md`](../SYNTAX.md) for the current prototype grammar.

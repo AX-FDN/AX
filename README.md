@@ -1,338 +1,129 @@
 # AX
 
-`PLAN.md` 是 AX 项目的唯一设计基线。
-
-- `README.md` 负责说明当前仓库已经实现并可直接实践的 AX 原型。
-- `SYNTAX.md` 负责给人和 AI 提供更完整的当前语法参考与 EBNF。
-- 如需改语言方向、路线或边界，请先更新 `PLAN.md`，再改代码与文档。
-
-## 当前状态
-
-当前仓库已经可以实践第一版 AX 原型语法。
-
-- `axc check <path>`：执行词法、语法、基础语义与类型检查，`<path>` 可以是 `.ax` 文件、项目目录或 `AX.toml`
-- `axc check <path> --json --ai`：输出带规则卡、修复目标与上下文切片的 AI 增强诊断
-- `axc ast <file>`：输出稳定 AST JSON
-- `axc hir <file>`：输出稳定 HIR JSON
-- `axc run <path>`：通过最小解释器执行 AX 程序
-- `axc run <path> --json`：在运行失败时输出结构化 JSON diagnostics
-- `axc run <path> --json --ai`：在命中已注册运行时规则时附加 AI 增强诊断
-- `axc fmt <path>`：按唯一官方风格原地格式化当前 AX 原型代码
-
-当前最小可运行子集已经支持：
-
-- 顶层：`fn`、`struct`、`enum`
-- 语句：`let`、`let mut`、变量赋值、结构体字段赋值、表达式语句、`return`、`if / else`、`while`、`for`
-- 表达式：整数、浮点、布尔、字符串、变量引用、一元运算、二元运算、函数调用、结构体字面量、数组字面量、字段访问、索引读取、枚举值引用
-- 解释器：`main`、局部变量、函数调用、递归、算术/比较、条件、循环、内置 `println`、结构体、固定长度数组、枚举值
-
-使用时请记住这几个硬约束：
-
-- `main` 必须是 `fn main() -> i32`
-- `main` 的返回值就是进程退出码；成功时建议返回 `0`
-- 枚举值写法固定为 `EnumName.Variant`
-- 固定长度数组类型写作 `[Type; N]`，字面量写作 `[expr, ...]`，当前支持读取 `values[index]`
-- 固定长度数组当前也支持直接元素写入：`values[index] = expr;`，前提是数组变量用 `let mut` 声明
-- 结构体字段写入当前只支持直接形式：`point.x = expr;`
-- `for` 当前使用 C 风格表头：`for (init; condition; step) { ... }`
-- `let`、赋值、表达式语句、`return` 都必须带分号
-
-完整语法说明请看 [`SYNTAX.md`](./SYNTAX.md)。
-
-## 快速开始
-
-先跑检查：
-
-```powershell
-cargo run -- check examples\hello.ax
-cargo run -- check examples\arrays.ax
-cargo run -- check examples\syntax_overview.ax
-cargo run -- check examples\missing_semicolon.ax --json --ai
-cargo run -- check examples\non_bool_condition.ax --json --ai
-cargo run -- check examples\function_argument_type_mismatch.ax --json --ai
-cargo run -- check examples\project_hello
-```
+AX 是一个面向 AI 时代重新设计的编程语言项目。
 
-查看 AST：
+我们不是在重复做一门“又一个通用语言”，也不是只做一个 parser demo。AX 想解决的是一个更直接、也更现实的问题：
 
-```powershell
-cargo run -- ast examples\syntax_overview.ax
-```
+> 当代码越来越多地由大模型生成时，编程语言本身能不能主动配合 AI，而不是继续默认“只服务人类书写习惯”？
 
-查看 HIR：
-```powershell
-cargo run -- hir examples\syntax_overview.ax
-```
+AX 给出的答案是：可以，而且应该。
 
-格式化文件：
+## 我们在做什么
 
-```powershell
-cargo run -- fmt examples\syntax_overview.ax
-```
+AX 正在尝试把传统“为了人类灵活书写而设计”的语言，收敛成一套更适合大模型稳定生成、稳定理解、稳定诊断、稳定修复的语言系统。
 
-执行示例：
+这意味着我们会主动减少很多传统语言里常见、但对模型并不友好的东西：
 
-```powershell
-cargo run -- run examples\hello.ax
-cargo run -- run examples\arrays.ax
-cargo run -- run examples\factorial.ax
-cargo run -- run examples\for_loop.ax
-cargo run -- run examples\syntax_overview.ax
-cargo run -- run examples\project_hello
-cargo run -- run examples\index_out_of_bounds.ax --json
-cargo run -- run examples\index_out_of_bounds.ax --json --ai
-cargo run -- run examples\division_by_zero.ax --json --ai
-```
+- 过多的等价写法
+- 高歧义语法
+- 隐式转换
+- 隐式控制流
+- 漂移很大的报错文本
+- 修一个错顺手改乱整段代码的空间
 
-最小项目 manifest 也已经接入了，当前采用单包、单入口形态：
+AX 的核心方向不是“让语法更花”，而是：
 
-```toml
-manifest_version = 1
+- 让模型更不容易写错
+- 让编译器更容易判断
+- 让错误更容易结构化
+- 让修复更容易自动化
+- 让 benchmark 更容易稳定比较
 
-[package]
-name = "project_hello"
-entry = "src/main.ax"
-```
+一句话说，AX 想做的是：
 
-项目目录示例见 [`examples/project_hello`](./examples/project_hello)。对这种目录可以直接运行：
+> 一门为 AI 的确定性生成与可控修复而设计的编程语言与编译协议。
 
-```powershell
-cargo run -- check examples\project_hello
-cargo run -- run examples\project_hello
-cargo run -- build examples\project_hello
-```
+## 为什么 AX 值得认真做
 
-如果当前 Windows 环境没有可用的 MSVC `link.exe`，请直接使用仓库内的 GNU 启动脚本：
+很多新语言项目停在“我设计了一套语法”这一步，但 AX 从一开始就不是这样。
 
-```powershell
-.\scripts\cargo-gnu.ps1 test
-.\scripts\cargo-gnu.ps1 run -- check examples\syntax_overview.ax
-.\scripts\cargo-gnu.ps1 run -- check examples\missing_semicolon.ax --json --ai
-.\scripts\cargo-gnu.ps1 run -- check examples\non_bool_condition.ax --json --ai
-.\scripts\cargo-gnu.ps1 run -- check examples\function_argument_type_mismatch.ax --json --ai
-.\scripts\cargo-gnu.ps1 run -- hir examples\syntax_overview.ax
-.\scripts\cargo-gnu.ps1 run -- run examples\arrays.ax
-.\scripts\cargo-gnu.ps1 run -- run examples\for_loop.ax
-.\scripts\cargo-gnu.ps1 run -- run examples\syntax_overview.ax
-.\scripts\cargo-gnu.ps1 run -- run examples\index_out_of_bounds.ax --json
-.\scripts\cargo-gnu.ps1 run -- run examples\index_out_of_bounds.ax --json --ai
-.\scripts\cargo-gnu.ps1 run -- run examples\division_by_zero.ax --json --ai
-```
+AX 现在已经具备一条真实可运行的原型链路：
 
-这个脚本会自动切到 `stable-x86_64-pc-windows-gnu`，并接好 Rust 自带的 GNU linker。若本机还没装该工具链，先执行：
+- `axc check / run / ast / hir / mir / fmt / build`
+- `Lexer -> Parser -> AST -> HIR -> 语义检查 -> 解释执行`
+- 结构化 diagnostics
+- `--json --ai` 增强反馈
+- repair benchmark、adapter、comparison、smoke 与 CI
 
-```powershell
-rustup toolchain install stable-x86_64-pc-windows-gnu --profile minimal -c rustfmt
-```
+也就是说，AX 不是纸上概念，不是只会解析源码的玩具项目，而是已经在认真搭建：
 
-如果你想把 Cargo 构建产物放到别的盘位，比如 `D:`，可以把 [`.cargo/config.example.toml`](./.cargo/config.example.toml) 复制为本机自己的 `.cargo/config.toml`。这个本地文件已经加入 `.gitignore`，不会被提交到 GitHub。
+- 语言本体
+- 编译器前中端
+- AI 反馈协议
+- 自动修复闭环
+- benchmark 验证体系
 
-如果你希望在一次 AI 修复会话里逐步升级教学层级，可以配合 `--ai-session <path>` 使用，例如：
+这正是 AX 最了不起的地方之一：
 
-```powershell
-cargo run -- check examples\missing_semicolon.ax --json --ai --ai-session .ax-ai-session.demo.json
-```
+> 我们不是只想“发明一种语法”，而是在同时建设一整套 AI 原生的语言基础设施。
 
-默认的 `axc check` 仍然走基础快路径，不会自动做 AI 上下文拼装；只有显式传入 `--json --ai` 时才会启用增强诊断。
+## AX 的不同，不只在语法
 
-如果你想快速比较基础诊断和 AI 增强诊断的开销，可以直接运行：
+传统语言通常默认：
 
-```powershell
-.\scripts\benchmark-diagnostics.ps1 -Iterations 10
-```
+- 代码主要由人写
+- 编译器主要负责报错
+- 报错能给人看懂就行
 
-这个脚本会先构建 `axc`，然后按 [`benchmarks/repair-cases.json`](./benchmarks/repair-cases.json) 里的稳定坏例子，分别测量 `check`、`check --json`、`check --json --ai` 三种模式。
+AX 的思路完全不同。
 
-如果你想把这些坏例子一次性导出成“源码 + 基础 JSON diagnostics + AI 增强 JSON diagnostics”的成对工件，直接运行：
+AX 不是只想让 AI “勉强能写”，而是想让 AI 在整条链路上都更可控：
 
-```powershell
-.\scripts\export-repair-benchmark.ps1
-```
+- 生成时尽量沿着唯一轨道输出
+- 出错时拿到固定结构的诊断结果
+- 修复时围绕明确的 `rule_id`、`repair_goal`、`fixits` 收敛
+- benchmark 时能比较“冷启动 / 基础诊断 / AI 增强诊断”三种模式到底差多少
 
-默认输出会写到 `.ax-ai\repair-benchmark\<timestamp>\`，里面会包含每个 case 的源码副本、两份诊断结果、两份 provider-neutral repair prompt、两份结构化 bundle，以及一个总索引 `index.json`，方便后续喂给 Codex、Claude Code 或你自己的 benchmark 自动化。
+所以 AX 本质上不是单独的一门语言，而是一整套系统：
 
-如果你已经拿到一批修复结果，想批量验证它们是否真正通过 AX 检查，可以运行：
+- 语言本体
+- 编译器
+- 诊断协议
+- 修复协议
+- 生成与修复闭环
 
-```powershell
-.\scripts\score-repair-benchmark.ps1 -CandidatesDir .ax-ai\repair-candidates\demo
-```
+更直白一点说：
 
-评分脚本默认会读取最近一次导出的 repair benchmark；候选修复文件可以放成两种形式之一：
+> AX 想把编程语言，从“自然型工具”，推进成“适合 AI 消费的工业化标准件”。
 
-- `.ax-ai\repair-candidates\demo\<case-id>.ax`
-- `.ax-ai\repair-candidates\demo\<case-id>\repaired.ax`
+## 我们的设计宣言
 
-评分结果会写到 `.ax-ai\repair-results\<timestamp>\`，并生成总汇总 `summary.json`。
+我们正在尝试设计一门面向大模型生成的编程语言。
 
-如果你想把“导出 prompt -> 调用修复器 -> 评分”串成一次运行，可以直接用：
+这门语言不再优先服务人类程序员的书写自由，而是优先服务 AI 的稳定生成、稳定理解、稳定诊断与稳定修复。
 
-```powershell
-.\scripts\run-repair-benchmark.ps1 -RunnerScript .\scripts\replay-repair-adapter.ps1 -RunnerExtraArgs @('-SourceDir', '.ax-ai\repair-candidates\smoke')
-```
+因此，我们会尽可能消除语法糖、等价写法、隐式转换、隐式控制流和多义结构，把语言收敛为尽量唯一的表达形式。
 
-这个命令会：
+同时，编译器的报错结果也将结构化和固定化，使 AI 能够严格按照统一规则完成生成、诊断和修复。
 
-- 读取最近一次 repair benchmark 导出，或在没有导出时自动先导出一份
-- 逐个 case 调用你提供的 runner script
-- 把候选修复写到新的 run 目录下
-- 自动调用 `score-repair-benchmark.ps1` 生成评分结果
+AX 的目标不是提高“写法自由度”，而是最大化“生成确定性”和“修复可控性”。
 
-当前 runner script 的最小契约是接收这些参数：
+## 当前阶段
 
-- `-PromptPath`
-- `-BundlePath`
-- `-OutputPath`
-- `-CaseId`
-- `-FeedbackMode`
+我们对 AX 的判断是清醒的：
 
-仓库里自带的 [`replay-repair-adapter.ps1`](./scripts/replay-repair-adapter.ps1) 只是一个回放适配器，适合 smoke test 或重放已有候选结果；后面如果你要接 `Codex`、`Claude Code` 或别的模型 CLI，直接按同样参数签名写一个新的 adapter 就行。
+- AX 现在已经不是概念稿
+- AX 也还不是已经证明自己必胜的成熟语言
 
-这个 replay adapter 现在还支持三种可选候选目录参数：
+当前最关键的工作，不是无止境堆特性，而是持续验证三件事：
 
-- `-SourceDir <dir>`：两种反馈模式共用的候选目录
-- `-SourceDirCold <dir>`：`cold` 模式优先使用的候选目录
-- `-SourceDirBase <dir>`：只在 `base` 模式优先使用的候选目录
-- `-SourceDirAi <dir>`：只在 `ai` 模式优先使用的候选目录
+- AX 是否真的提升 AI 首次生成成功率
+- AX 是否真的提升单轮修复率
+- AX 的结构化反馈是否真的比普通报错更有价值
 
-查找顺序是“当前模式专用目录优先，再回退到共享目录”。这样可以在不改 runner 合约的前提下，稳定回放“同一 benchmark、不同反馈模式、不同修复结果”的对照实验。
+如果这些成立，AX 就不只是“一个有趣的想法”，而会变成一条真正有竞争力的路线。
 
-仓库现在也自带了一个真实可调用的 [`codex-repair-adapter.ps1`](./scripts/codex-repair-adapter.ps1)。它会用 `codex exec` 的非交互模式读取 benchmark prompt，并通过 JSON schema 把最终输出约束成稳定的 `repaired_source` 字段。
+## 阅读入口
 
-如果本机已经能直接运行 `codex exec`，可以这样跑一轮真实修复：
+- [`详细介绍.md`](./详细介绍.md)：当前仓库能力、命令、示例、benchmark 与实践说明
+- [`PLAN.md`](./PLAN.md)：路线、边界、原则与阶段目标
+- [`SYNTAX.md`](./SYNTAX.md)：当前 AX 原型语法与 EBNF
+- [`docs/README.md`](./docs/README.md)：稳定外部文档入口
 
-```powershell
-.\scripts\run-repair-benchmark.ps1 `
-  -RunnerScript .\scripts\codex-repair-adapter.ps1 `
-  -RunnerExtraArgs @('-Model', 'gpt-5.4') `
-  -FeedbackMode ai
-```
+## 最后一句话
 
-如果你想沿用本机 `codex` 默认模型，也可以不传 `-Model`：
+AX 要做的，不是再造一门“对人类程序员更自由”的语言。
 
-```powershell
-.\scripts\run-repair-benchmark.ps1 `
-  -RunnerScript .\scripts\codex-repair-adapter.ps1 `
-  -FeedbackMode ai
-```
+AX 要做的，是一门对 AI 更稳定、对编译器更友好、对错误更可诊断、对修复更可控的语言。
 
-如果你想正式比较 `base diagnostics` 和 `ai diagnostics` 的修复提升，可以直接运行：
-
-```powershell
-.\scripts\compare-repair-feedback.ps1 `
-  -RunnerScript .\scripts\codex-repair-adapter.ps1 `
-  -RunnerExtraArgs @('-Model', 'gpt-5.4')
-```
-
-这个脚本会对同一份 repair benchmark 连续跑两轮：
-
-- `base`：只给基础 diagnostics
-- `ai`：给 AI 增强 diagnostics
-
-输出会写到 `.ax-ai\repair-comparisons\<timestamp>\`，其中至少包含：
-
-- `comparison.json`：机器可读的 lift 汇总、分类统计、逐 case 对照结果
-- `comparison.md`：便于人直接阅读的实验报告
-- `base\` / `ai\`：两轮独立 run 和 score 产物，方便回溯
-
-如果你想看三种反馈层级的固定对比，可以直接运行：
-
-```powershell
-.\scripts\compare-repair-modes.ps1 `
-  -RunnerScript .\scripts\codex-repair-adapter.ps1 `
-  -RunnerExtraArgs @('-Model', 'gpt-5.4')
-```
-
-这个脚本会对同一份 repair benchmark 连续跑三轮：
-
-- `cold`：只给冷启动提示
-- `base`：给基础 diagnostics
-- `ai`：给 AI 增强 diagnostics
-
-输出会写到 `.ax-ai\repair-mode-comparisons\<timestamp>\`，其中至少包含：
-
-- `comparison.json`：机器可读的三模式 lift、分类统计、逐 case 对照结果
-- `comparison.md`：便于人直接阅读的实验报告
-- `cold\` / `base\` / `ai\`：三轮独立 run 和 score 产物，方便回溯
-
-如果你想本地快速验证这条 compare 链路本身没坏，可以直接跑：
-
-```powershell
-.\scripts\smoke-compare-repair-feedback.ps1
-```
-
-这个 smoke 会固定使用仓库内的 smoke manifest、共享 replay 候选，以及一组只覆盖 `base` 模式的 override 候选，然后断言 `comparison.json` 的关键字段保持稳定，比如：
-
-- 总 case 数
-- `base` / `ai` 各自通过数
-- lift 结果
-- improved / regressed case 列表
-
-这个 adapter 额外支持这些可选参数：
-
-- `-CodexCommand <name>`：指定 `codex` 可执行文件名或路径
-- `-Model <name>`：显式指定模型，例如 `gpt-5.4`
-- `-Profile <name>`：复用 `~/.codex/config.toml` 里的 profile
-- `-ConfigOverride @('key=value', ...)`：透传额外 `codex -c` 配置覆盖
-
-仓库现在也带了一套稳定接口快照和 CI 烟雾验证：
-
-- [`tests/interface_snapshots.rs`](./tests/interface_snapshots.rs) 会覆盖 `fmt` 幂等、`check --json`、`run --json`、`ast`、`hir`
-- [`tests/snapshots`](./tests/snapshots) 保存当前 CLI 外部接口快照
-- [`scripts/smoke-repair-benchmark.ps1`](./scripts/smoke-repair-benchmark.ps1) 会用仓库内的 replay candidates 跑最小 repair benchmark 闭环
-- [`scripts/smoke-compare-repair-feedback.ps1`](./scripts/smoke-compare-repair-feedback.ps1) 会固定回归 `comparison.json` 的核心对比契约
-- [`scripts/smoke-compare-repair-modes.ps1`](./scripts/smoke-compare-repair-modes.ps1) 会固定回归三模式 `comparison.json` 契约
-- [`.github/workflows/ci.yml`](./.github/workflows/ci.yml) 会在 GitHub Actions 上执行 `cargo fmt --check`、Rust tests、repair benchmark smoke run、repair comparison smoke run 和 repair mode comparison smoke run
-
-## 推荐阅读顺序
-
-- 想了解项目边界与阶段路线：看 [`PLAN.md`](./PLAN.md)
-- 想按当前仓库真实语法写代码：看 [`SYNTAX.md`](./SYNTAX.md)
-- 想直接照着例子练：看 [`examples/hello.ax`](./examples/hello.ax)、[`examples/arrays.ax`](./examples/arrays.ax)、[`examples/factorial.ax`](./examples/factorial.ax)、[`examples/for_loop.ax`](./examples/for_loop.ax)、[`examples/syntax_overview.ax`](./examples/syntax_overview.ax)
-
-## 给 AI 的最小规则
-
-如果你把 README 直接喂给模型，请让它严格遵守下面这些规则：
-
-1. 只使用当前仓库已实现的原型语法，不要发明 `match`、切片、空数组字面量、模块、泛型、异常、async。
-2. 所有函数参数、返回类型、局部变量都必须显式标注类型。
-3. `main` 必须写成 `fn main() -> i32 { ... }`。
-4. 枚举值必须写成 `EnumName.Variant`。
-5. 构造结构体必须写成 `TypeName { field: expr, ... }`。
-6. 结构体字段写入只生成直接形式：`point.x = expr;`，其中 `point` 必须是 `let mut` 声明的结构体变量。
-7. `for` 使用 `for (init; condition; step) { ... }`；推荐 `for (let mut i: i32 = 0; i < n; i = i + 1) { ... }`。
-8. `println` 是当前唯一内置函数。
-9. 若不确定某个语法是否支持，就不要使用；优先生成更朴素、更显式的代码。
-
-## 最小示例
-
-```ax
-struct Point {
-    x: i32,
-    y: i32,
-}
-
-enum Flag {
-    On,
-    Off,
-}
-
-fn total(point: Point) -> i32 {
-    return point.x + point.y;
-}
-
-fn main() -> i32 {
-    let mut point: Point = Point { x: 2, y: 3 };
-    point.x = point.x + 1;
-
-    let flag: Flag = Flag.On;
-    if (flag == Flag.On) {
-        println("enabled");
-    } else {
-        println("disabled");
-    }
-
-    println(flag);
-    println(total(point));
-    return 0;
-}
-```
+如果这条路走通，它不会只是“又一个语言项目”，而会是一套真正属于 AI 时代的编程协议。
