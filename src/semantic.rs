@@ -1010,30 +1010,19 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             ExprKind::Field { base, field } => {
                 self.check_field_assignment(base, field, target.span, value_span, value_type);
             }
-            ExprKind::Index { .. } => {
-                self.diagnostics.push(
-                    Diagnostic::new(
-                        "S0034",
-                        "array element assignment is not supported yet",
-                        self.info.source,
-                        target.span,
-                    )
-                    .with_suggestion(
-                        "read array elements with `values[index]` for now, or rebuild the whole array",
-                    ),
-                );
-                self.check_expr(target);
+            ExprKind::Index { base, index } => {
+                self.check_array_assignment(base, index, target.span, value_span, value_type);
             }
             _ => {
                 self.diagnostics.push(
                     Diagnostic::new(
                         "S0008",
-                        "assignment target must be a mutable variable or direct mutable struct field",
+                        "assignment target must be a mutable variable, direct mutable struct field, or direct mutable array element",
                         self.info.source,
                         target.span,
                     )
                     .with_suggestion(
-                        "assign to `value = expr;` or `point.x = expr;`",
+                        "assign to `value = expr;`, `point.x = expr;`, or `values[index] = expr;`",
                     ),
                 );
                 self.check_expr(target);
@@ -1244,6 +1233,100 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     base_name,
                     base.span,
                     format!("declare `{base_name}` before assigning to its field"),
+                ));
+            }
+        }
+    }
+
+    fn check_array_assignment(
+        &mut self,
+        base: &Expr,
+        index: &Expr,
+        target_span: Span,
+        value_span: Span,
+        value_type: &Type,
+    ) {
+        let ExprKind::Name { value: base_name } = &base.kind else {
+            self.diagnostics.push(
+                Diagnostic::new(
+                    "S0008",
+                    "assignment target must be a mutable variable, direct mutable struct field, or direct mutable array element",
+                    self.info.source,
+                    target_span,
+                )
+                .with_suggestion("use a direct array write like `values[index] = expr;`"),
+            );
+            self.check_expr(base);
+            self.check_expr(index);
+            return;
+        };
+
+        match self.lookup(base_name) {
+            Some(binding) if !binding.mutable => {
+                let (line, column) = self.info.source.line_col(binding.start);
+                self.diagnostics.push(
+                    Diagnostic::new(
+                        "S0003",
+                        format!("cannot assign through immutable array variable `{base_name}`"),
+                        self.info.source,
+                        target_span,
+                    )
+                    .with_note(format!(
+                        "`{base_name}` was declared immutable at {line}:{column}"
+                    ))
+                    .with_note("AX fixes local mutability at the declaration site; array element writes require `let mut`")
+                    .with_suggestion(format!("declare `{base_name}` with `let mut`")),
+                );
+            }
+            Some(binding) => {
+                let index_type = self.check_expr(index);
+                self.expect_type_match(
+                    &Type::I32,
+                    &index_type,
+                    index.span,
+                    format!(
+                        "array index must be `i32`, found `{}`",
+                        index_type.describe()
+                    ),
+                );
+
+                match binding.ty {
+                    Type::Array { element, .. } => {
+                        self.expect_type_match(
+                            element.as_ref(),
+                            value_type,
+                            value_span,
+                            format!(
+                                "cannot assign `{}` to an array element of type `{}`",
+                                value_type.describe(),
+                                element.describe()
+                            ),
+                        );
+                    }
+                    Type::Error => {}
+                    other => {
+                        self.diagnostics.push(
+                            Diagnostic::new(
+                                "S0033",
+                                format!(
+                                    "array element assignment requires an array value, found `{}`",
+                                    other.describe()
+                                ),
+                                self.info.source,
+                                target_span,
+                            )
+                            .with_suggestion(
+                                "assign through a mutable array variable like `values[index] = expr;`",
+                            ),
+                        );
+                    }
+                }
+            }
+            None => {
+                self.diagnostics.push(self.undefined_variable_diagnostic(
+                    base_name,
+                    base.span,
+                    format!("declare `{base_name}` before assigning to its elements"),
                 ));
             }
         }
@@ -1623,10 +1706,18 @@ fn main() -> i32 {
     }
 
     #[test]
-    fn reports_array_element_assignment_as_unsupported() {
+    fn accepts_mutable_array_element_assignment() {
+        let codes = check(
+            "fn main() -> i32 { let mut values: [i32; 2] = [1, 2]; values[0] = 3; return values[0]; }",
+        );
+        assert!(codes.is_empty(), "unexpected diagnostics: {codes:?}");
+    }
+
+    #[test]
+    fn reports_immutable_array_element_assignment() {
         let codes =
-            check("fn main() -> i32 { let mut values: [i32; 1] = [1]; values[0] = 2; return 0; }");
-        assert!(codes.iter().any(|code| code == "S0034"));
+            check("fn main() -> i32 { let values: [i32; 1] = [1]; values[0] = 2; return 0; }");
+        assert!(codes.iter().any(|code| code == "S0003"));
     }
 
     #[test]

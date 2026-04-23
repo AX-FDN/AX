@@ -135,6 +135,7 @@ pub struct Place {
 pub enum PlaceKind {
     Local { name: String },
     Field { base: String, field: String },
+    Index { base: String, index: Expr },
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -482,10 +483,23 @@ impl<'a> LoweringContext<'a> {
                     field: field.clone(),
                 }
             }
+            ast::ExprKind::Index { base, index } => {
+                let ast::ExprKind::Name { value } = &base.kind else {
+                    return Err(self.lowering_error(
+                        "H0003",
+                        "HIR assignments require a direct variable, direct field, or direct array index target",
+                        expr.span,
+                    ));
+                };
+                PlaceKind::Index {
+                    base: value.clone(),
+                    index: self.lower_expr(index)?,
+                }
+            }
             _ => {
                 return Err(self.lowering_error(
                     "H0003",
-                    "HIR assignments require a direct variable or direct field target",
+                    "HIR assignments require a direct variable, direct field, or direct array index target",
                     expr.span,
                 ));
             }
@@ -756,5 +770,27 @@ fn main() -> i32 {
             panic!("expected return statement");
         };
         assert!(matches!(value.kind, ExprKind::Index { .. }));
+    }
+
+    #[test]
+    fn lowers_array_element_assignment_places() {
+        let program = lower(
+            "\
+fn main() -> i32 {
+    let mut values: [i32; 2] = [1, 2];
+    values[0] = 3;
+    return values[0];
+}
+",
+        );
+
+        let ItemKind::Function { body, .. } = &program.items[0].kind else {
+            panic!("expected function");
+        };
+
+        let StmtKind::Assign { target, .. } = &body.statements[1].kind else {
+            panic!("expected assignment statement");
+        };
+        assert!(matches!(target.kind, PlaceKind::Index { .. }));
     }
 }

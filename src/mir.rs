@@ -141,6 +141,11 @@ pub enum PlaceKind {
         name: String,
         field: String,
     },
+    Index {
+        local: u32,
+        name: String,
+        index: Expr,
+    },
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -467,6 +472,11 @@ impl FunctionLowerer {
                 name: base.clone(),
                 field: field.clone(),
             },
+            hir::PlaceKind::Index { base, index } => PlaceKind::Index {
+                local: self.lookup(base)?,
+                name: base.clone(),
+                index: self.lower_expr(index)?,
+            },
         };
 
         Ok(Place {
@@ -644,7 +654,9 @@ fn goto(target: u32, span: Span) -> Terminator {
 
 #[cfg(test)]
 mod tests {
-    use super::{ExprKind, ItemKind, LocalKind, StatementKind, TerminatorKind, lower_program};
+    use super::{
+        ExprKind, ItemKind, LocalKind, PlaceKind, StatementKind, TerminatorKind, lower_program,
+    };
     use crate::hir::lower_program as lower_hir_program;
     use crate::lexer::tokenize;
     use crate::parser::parse;
@@ -826,5 +838,27 @@ fn main() -> i32 {
             })
             .expect("return terminator should exist");
         assert!(matches!(returned.kind, ExprKind::Index { .. }));
+    }
+
+    #[test]
+    fn lowers_array_element_assignment_places() {
+        let program = lower(
+            "\
+fn main() -> i32 {
+    let mut values: [i32; 2] = [1, 2];
+    values[0] = 3;
+    return values[0];
+}
+",
+        );
+
+        let ItemKind::Function { blocks, .. } = &program.items[0].kind else {
+            panic!("expected function item");
+        };
+
+        let StatementKind::Assign { target, .. } = &blocks[0].statements[1].kind else {
+            panic!("expected assignment statement");
+        };
+        assert!(matches!(target.kind, PlaceKind::Index { .. }));
     }
 }

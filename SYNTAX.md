@@ -86,6 +86,13 @@ let mut point: Point = Point { x: 1, y: 2 };
 point.x = point.x + 1;
 ```
 
+数组元素写入：
+
+```ax
+let mut values: [i32; 3] = [1, 2, 3];
+values[1] = values[0] + values[2];
+```
+
 返回：
 
 ```ax
@@ -261,9 +268,10 @@ array_type        := "[" type_ref ";" INT "]"
 
 补充说明：
 
-- `assign_stmt` 在语法层允许 `expr = expr;`，但语义层当前只接受两种目标：
+- `assign_stmt` 在语法层允许 `expr = expr;`，但语义层当前只接受三种目标：
 - 变量赋值：`name = expr;`
 - 结构体字段赋值：`name.field = expr;`
+- 数组元素赋值：`name[index] = expr;`
 - `for` 当前支持的表头子句是：
 - 初始化：空、`let`、赋值、表达式
 - 条件：空或任意会检查为 `bool` 的表达式
@@ -277,6 +285,7 @@ array_type        := "[" type_ref ";" INT "]"
 - 局部变量
 - 变量赋值
 - 结构体字段赋值
+- 数组元素赋值
 - 固定长度数组字面量与索引读取
 - 算术与比较
 - `if / else`
@@ -294,7 +303,7 @@ array_type        := "[" type_ref ";" INT "]"
 
 - `match`
 - 切片
-- 数组元素赋值：`values[index] = expr;`
+- 空数组字面量：`[]`
 - import / module
 - 异常
 - async / await
@@ -317,7 +326,8 @@ Rules:
 - Construct structs with TypeName { field: expr, ... }.
 - Use for loops only as for (init; condition; step) { ... }.
 - Fixed-size arrays are allowed as [Type; N], [a, b, c], and values[index].
+- Direct array element assignment is allowed as values[index] = expr; when the array variable is mutable.
 - Direct field assignment is allowed only as name.field = expr; and only when name is a mutable struct variable.
-- Do not use match, slices, array element assignment, modules, imports, exceptions, async, or generics.
+- Do not use match, slices, empty array literals, modules, imports, exceptions, async, or generics.
 - Return 0 from main on success unless a different exit code is explicitly needed.
 ```

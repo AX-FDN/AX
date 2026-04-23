@@ -216,7 +216,6 @@ fn match_rule(source: &SourceFile, diagnostic: &Diagnostic) -> Option<RuleTempla
         "S0031" => Some(RULE_FOR_HEADER_CLAUSE_SUPPORTED),
         "S0032" => Some(RULE_NON_EMPTY_ARRAY_LITERAL_REQUIRED),
         "S0033" => Some(RULE_INDEX_BASE_MUST_BE_ARRAY),
-        "S0034" => Some(RULE_ARRAY_ELEMENT_ASSIGNMENT_NOT_SUPPORTED),
         _ => None,
     }
 }
@@ -427,12 +426,12 @@ const RULE_FUNCTION_MUST_BE_DECLARED: RuleTemplate = RuleTemplate {
 const RULE_ASSIGNMENT_TARGET_REQUIRED: RuleTemplate = RuleTemplate {
     rule_id: "writable_assignment_target_required",
     normalized_pattern: "writable_assignment_target_required",
-    repair_goal: "Assign only to a mutable variable or a direct mutable struct field.",
-    summary: "AX assignments can only write to `name = expr;` or `struct_value.field = expr;` targets that are writable.",
+    repair_goal: "Assign only to a mutable variable, a direct mutable struct field, or a direct mutable array element.",
+    summary: "AX assignments can only write to `name = expr;`, `struct_value.field = expr;`, or `array_value[index] = expr;` targets that are writable.",
     pattern: "value = 1;",
-    minimal_example: "point.x = 1;",
+    minimal_example: "values[0] = 1;",
     anti_pattern: Some("(left + right) = 1;"),
-    default_fixit: "rewrite the assignment to target a writable variable or direct field",
+    default_fixit: "rewrite the assignment to target a writable variable, direct field, or direct array element",
 };
 
 const RULE_FUNCTION_NAME_NOT_RUNTIME_VALUE: RuleTemplate = RuleTemplate {
@@ -582,22 +581,11 @@ const RULE_INDEX_BASE_MUST_BE_ARRAY: RuleTemplate = RuleTemplate {
     rule_id: "index_base_must_be_array",
     normalized_pattern: "index_base_must_be_array",
     repair_goal: "Use `expr[index]` only when the base expression evaluates to a fixed-size array.",
-    summary: "AX indexing with `[]` currently reads from fixed-size arrays only.",
+    summary: "AX indexing with `[]` only works on fixed-size arrays, both for reads and element writes.",
     pattern: "let value: i32 = values[0];",
-    minimal_example: "let values: [i32; 2] = [1, 2]; return values[1];",
+    minimal_example: "let mut values: [i32; 2] = [1, 2]; values[1] = values[0];",
     anti_pattern: Some("let value: i32 = number[0];"),
     default_fixit: "index into an array value like `values[0]`",
-};
-
-const RULE_ARRAY_ELEMENT_ASSIGNMENT_NOT_SUPPORTED: RuleTemplate = RuleTemplate {
-    rule_id: "array_element_assignment_not_supported",
-    normalized_pattern: "array_element_assignment_not_supported",
-    repair_goal: "Avoid writing through `values[index] = ...` because the current prototype only supports array reads.",
-    summary: "The current AX prototype supports fixed-size array literals and index reads, but not element assignment.",
-    pattern: "let values: [i32; 2] = [1, 2]; let second: i32 = values[1];",
-    minimal_example: "let mut values: [i32; 2] = [1, 2]; values = [values[0], 3];",
-    anti_pattern: Some("values[0] = 3;"),
-    default_fixit: "rebuild the whole array instead of assigning through an index",
 };
 
 const RULE_MISSING_SEMICOLON: RuleTemplate = RuleTemplate {
@@ -1299,10 +1287,9 @@ mod tests {
     }
 
     #[test]
-    fn adds_array_assignment_guidance_for_unsupported_writes() {
-        let source = SourceFile::anonymous(
-            "fn main() -> i32 { let mut values: [i32; 1] = [1]; values[0] = 2; return 0; }",
-        );
+    fn adds_empty_array_guidance_for_unimplemented_literals() {
+        let source =
+            SourceFile::anonymous("fn main() -> i32 { let values: [i32; 0] = []; return 0; }");
         let mut analysis = analyze(&source);
         enhance_diagnostics(&source, &analysis.program, &mut analysis.diagnostics, None)
             .expect("ai enhancement should succeed");
@@ -1310,10 +1297,10 @@ mod tests {
         let diagnostic = analysis
             .diagnostics
             .iter()
-            .find(|diagnostic| diagnostic.code == "S0034")
-            .expect("array assignment diagnostic should exist");
+            .find(|diagnostic| diagnostic.code == "S0032")
+            .expect("empty array diagnostic should exist");
         let ai = diagnostic.ai.as_ref().expect("ai payload should exist");
-        assert_eq!(ai.rule_id, "array_element_assignment_not_supported");
+        assert_eq!(ai.rule_id, "non_empty_array_literal_required");
         assert_eq!(ai.teaching_level, TeachingLevel::L1);
     }
 

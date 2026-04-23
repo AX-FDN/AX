@@ -37,7 +37,7 @@
 - [x] `P1-1` 扩大 AI 规则卡覆盖范围。
   - 目标：加入 unsupported feature guidance、更多类型错误、更多语法恢复规则。
   - 完成于：2026-04-22
-  - 备注：已补齐首批 lexer/parser/semantic 规则卡扩展，并接入 `import` / `module` / `match` / 数组相关 guidance；当前固定长度数组已支持，数组元素赋值仍保留为稳定 unsupported guidance。
+  - 备注：已补齐首批 lexer/parser/semantic 规则卡扩展，并接入 `import` / `module` / `match` / 数组相关 guidance；当前固定长度数组与元素赋值已支持，空数组字面量仍保留为稳定 unsupported guidance。
 - [x] `P1-2` 扩大 repair benchmark 数据集。
   - 目标：从当前高频坏例子扩展到更多真实小任务和多轮样例。
   - 完成于：2026-04-22
@@ -66,4 +66,4 @@
   - 备注：已接入最小项目 manifest `AX.toml`，当前支持单包单入口工程目录；`axc check/run/build/fmt/ast/hir/mir` 都可直接接受项目目录或 manifest 路径，`build` 也会复制项目 manifest 并固定接口快照。
 - [~] `P2-4` 扩展更丰富的类型与语法能力。
   - 目标：在 benchmark 证据支持下，继续推进 `match`、切片、更多类型表面。
-  - 进展：已完成第一批固定长度数组支持：`[Type; N]`、数组字面量、索引读取、HIR/MIR/解释器贯通；切片与数组元素赋值待后续轮次。
+  - 进展：已完成第一批固定长度数组支持：`[Type; N]`、数组字面量、索引读取、数组元素赋值、HIR/MIR/解释器贯通；切片与空数组字面量推导待后续轮次。

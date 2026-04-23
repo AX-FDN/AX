@@ -30,8 +30,8 @@
 - `main` 的返回值就是进程退出码；成功时建议返回 `0`
 - 枚举值写法固定为 `EnumName.Variant`
 - 固定长度数组类型写作 `[Type; N]`，字面量写作 `[expr, ...]`，当前支持读取 `values[index]`
+- 固定长度数组当前也支持直接元素写入：`values[index] = expr;`，前提是数组变量用 `let mut` 声明
 - 结构体字段写入当前只支持直接形式：`point.x = expr;`
-- 数组元素写入当前还不支持：`values[index] = expr;`
 - `for` 当前使用 C 风格表头：`for (init; condition; step) { ... }`
 - `let`、赋值、表达式语句、`return` 都必须带分号
 
@@ -237,7 +237,7 @@ cargo run -- check examples\missing_semicolon.ax --json --ai --ai-session .ax-ai
 
 如果你把 README 直接喂给模型，请让它严格遵守下面这些规则：
 
-1. 只使用当前仓库已实现的原型语法，不要发明 `match`、切片、数组元素写入、模块、泛型、异常、async。
+1. 只使用当前仓库已实现的原型语法，不要发明 `match`、切片、空数组字面量、模块、泛型、异常、async。
 2. 所有函数参数、返回类型、局部变量都必须显式标注类型。
 3. `main` 必须写成 `fn main() -> i32 { ... }`。
 4. 枚举值必须写成 `EnumName.Variant`。

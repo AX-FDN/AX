@@ -90,7 +90,7 @@ AX constraints:
 - Enum values use EnumName.Variant.
 - Struct literals use TypeName { field: expr, ... }.
 - let, assignment, expression, and return statements must end with ;.
-- Do not introduce unsupported features such as match, slices, array element assignment, modules or imports, generics, exceptions, or async.
+- Do not introduce unsupported features such as match, slices, empty array literals, modules or imports, generics, exceptions, or async.
 
 Case id: $CaseId
 Feedback mode: $FeedbackMode

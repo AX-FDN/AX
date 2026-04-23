@@ -293,7 +293,7 @@ impl<'a> Interpreter<'a> {
     }
 
     fn assign_target(
-        &self,
+        &mut self,
         frame: &mut Frame,
         target: &Place,
         next_value: Value,
@@ -349,6 +349,58 @@ impl<'a> Interpreter<'a> {
                         "R0027",
                         format!(
                             "field assignment requires a struct value, got `{}`",
+                            other.display()
+                        ),
+                        target.span,
+                    )),
+                }
+            }
+            PlaceKind::Index { base, index } => {
+                let array_len = {
+                    let slot = lookup_slot(frame, base).ok_or_else(|| {
+                        self.runtime_error(
+                            "R0006",
+                            format!("assignment to unknown variable `{base}`"),
+                            target.span,
+                        )
+                    })?;
+                    if !slot.mutable {
+                        return Err(self.runtime_error(
+                            "R0007",
+                            format!("cannot assign through immutable array variable `{base}`"),
+                            target.span,
+                        ));
+                    }
+
+                    match &slot.value {
+                        Value::Array(elements) => elements.len(),
+                        other => {
+                            return Err(self.runtime_error(
+                                "R0028",
+                                format!(
+                                    "array element assignment requires an array value, got `{}`",
+                                    other.display()
+                                ),
+                                target.span,
+                            ));
+                        }
+                    }
+                };
+
+                let index_value = self.eval_expr(index, frame)?;
+                let resolved_index =
+                    self.resolve_array_index(index_value, index.span, array_len, target.span)?;
+
+                let slot = lookup_slot_mut(frame, base).expect("array slot should still exist");
+                match &mut slot.value {
+                    Value::Array(elements) => {
+                        elements[resolved_index] = next_value;
+                        Ok(())
+                    }
+                    other => Err(self.runtime_error(
+                        "R0028",
+                        format!(
+                            "array element assignment requires an array value, got `{}`",
                             other.display()
                         ),
                         target.span,
@@ -458,8 +510,6 @@ impl<'a> Interpreter<'a> {
             },
             ExprKind::Index { base, index } => {
                 let base_value = self.eval_expr(base, frame)?;
-                let index_expr = index;
-                let index_value = self.eval_expr(index_expr, frame)?;
 
                 let Value::Array(elements) = base_value else {
                     return Err(self.runtime_error(
@@ -472,38 +522,50 @@ impl<'a> Interpreter<'a> {
                     ));
                 };
 
-                let Value::I32(index) = index_value else {
-                    return Err(self.runtime_error(
-                        "R0029",
-                        format!(
-                            "array index must evaluate to `i32`, got `{}`",
-                            index_value.display()
-                        ),
-                        index_expr.span,
-                    ));
-                };
-
-                if index < 0 {
-                    return Err(self.runtime_error(
-                        "R0030",
-                        format!("array index cannot be negative, got `{index}`"),
-                        index_expr.span,
-                    ));
-                }
-
-                let index = usize::try_from(index).expect("non-negative i32 should fit in usize");
-                elements.get(index).cloned().ok_or_else(|| {
-                    self.runtime_error(
-                        "R0031",
-                        format!(
-                            "array index `{index}` is out of bounds for length {}",
-                            elements.len()
-                        ),
-                        expr.span,
-                    )
-                })
+                let index_value = self.eval_expr(index, frame)?;
+                let resolved =
+                    self.resolve_array_index(index_value, index.span, elements.len(), expr.span)?;
+                Ok(elements[resolved].clone())
             }
         }
+    }
+
+    fn resolve_array_index(
+        &self,
+        index_value: Value,
+        index_span: Span,
+        array_len: usize,
+        overall_span: Span,
+    ) -> Result<usize, Diagnostic> {
+        let Value::I32(index) = index_value else {
+            return Err(self.runtime_error(
+                "R0029",
+                format!(
+                    "array index must evaluate to `i32`, got `{}`",
+                    index_value.display()
+                ),
+                index_span,
+            ));
+        };
+
+        if index < 0 {
+            return Err(self.runtime_error(
+                "R0030",
+                format!("array index cannot be negative, got `{index}`"),
+                index_span,
+            ));
+        }
+
+        let index = usize::try_from(index).expect("non-negative i32 should fit in usize");
+        if index >= array_len {
+            return Err(self.runtime_error(
+                "R0031",
+                format!("array index `{index}` is out of bounds for length {array_len}"),
+                overall_span,
+            ));
+        }
+
+        Ok(index)
     }
 
     fn eval_binary(
@@ -791,5 +853,23 @@ fn main() -> i32 {
         let output = run_program(&source, &hir).expect("program should run");
         assert_eq!(output.exit_code, 4);
         assert_eq!(output.stdout, vec!["[1, 2, 3]", "2"]);
+    }
+
+    #[test]
+    fn runs_mutable_array_element_assignment() {
+        let (source, hir) = analyzed_hir(
+            "\
+fn main() -> i32 {
+    let mut values: [i32; 3] = [1, 2, 3];
+    values[1] = values[0] + values[2];
+    println(values);
+    return values[1];
+}
+",
+        );
+
+        let output = run_program(&source, &hir).expect("program should run");
+        assert_eq!(output.exit_code, 4);
+        assert_eq!(output.stdout, vec!["[1, 4, 3]"]);
     }
 }
