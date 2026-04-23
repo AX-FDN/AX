@@ -91,6 +91,10 @@
   - 目标：把缺少 `return` 的控制流分析与 `S0023` 诊断构造从 `semantic.rs` 和通用 helper 里拆出去，让语义入口进一步只负责编排。
   - 完成于：2026-04-23
   - 备注：已新增 `src/semantic/return_analysis.rs`，迁出返回路径判断、缺少 `return` 的 note/suggestion 与 `S0023` 诊断构造；`semantic.rs` 现在直接复用 `missing_return_diagnostic(...)`；`cargo-gnu.ps1 test` 已通过。
+- [x] `P0-20` 继续细化表达式类型规则边界。
+  - 目标：把 `expr.rs` 里的函数调用检查和复合表达式检查拆出去，让表达式主干收口为更基础的字面量、名字和运算规则。
+  - 完成于：2026-04-23
+  - 备注：已新增 `src/semantic/checker/calls.rs` 与 `src/semantic/checker/composite.rs`，迁出调用检查、结构体字面量、数组字面量、字段访问与索引访问规则；`expr.rs` 现在主要保留基础表达式类型检查；`cargo-gnu.ps1 test` 已通过。
 
 ## P1
 

@@ -5,6 +5,10 @@ use crate::diagnostics::Diagnostic;
 
 #[path = "checker/assignment.rs"]
 mod assignment;
+#[path = "checker/calls.rs"]
+mod calls;
+#[path = "checker/composite.rs"]
+mod composite;
 #[path = "checker/control_flow.rs"]
 mod control_flow;
 #[path = "checker/expr.rs"]
