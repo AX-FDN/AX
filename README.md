@@ -1,129 +1,160 @@
+<div align="center">
+  <img src="./assets/ax-logo.svg" alt="AX logo" width="132" height="132" />
+
 # AX
 
-AX 是一个面向 AI 时代重新设计的编程语言项目。
+### A programming language and compiler protocol designed for AI generation, diagnosis, and repair.
 
-我们不是在重复做一门“又一个通用语言”，也不是只做一个 parser demo。AX 想解决的是一个更直接、也更现实的问题：
+[![CI](https://img.shields.io/github/actions/workflow/status/AX-FDN/AX/ci.yml?branch=main&label=CI)](https://github.com/AX-FDN/AX/actions/workflows/ci.yml)
+[![License](https://img.shields.io/github/license/AX-FDN/AX)](./LICENSE)
+[![Prototype](https://img.shields.io/badge/status-prototype-0ea5e9)](./规划.md)
+[![Diagnostics](https://img.shields.io/badge/diagnostics-structured-111827)](./docs/diagnostics-schema.md)
+[![Benchmark](https://img.shields.io/badge/repair%20benchmark-included-2563eb)](./docs/repair-benchmark.md)
+[![Syntax](https://img.shields.io/badge/syntax-frozen%20prototype-1d4ed8)](./SYNTAX.md)
 
-> 当代码越来越多地由大模型生成时，编程语言本身能不能主动配合 AI，而不是继续默认“只服务人类书写习惯”？
+</div>
 
-AX 给出的答案是：可以，而且应该。
+AX 不是“又一门通用语言”的复刻项目，也不是一个只会把源码 parse 掉的玩具编译器。
 
-## 我们在做什么
+AX 的目标更直接，也更适合 AI 时代：
 
-AX 正在尝试把传统“为了人类灵活书写而设计”的语言，收敛成一套更适合大模型稳定生成、稳定理解、稳定诊断、稳定修复的语言系统。
+> 当越来越多的代码由大模型生成时，语言本身和编译器能不能主动为 AI 的稳定生成、稳定理解、稳定修复而设计？
 
-这意味着我们会主动减少很多传统语言里常见、但对模型并不友好的东西：
+我们的回答是：可以，而且值得认真做。
 
-- 过多的等价写法
-- 高歧义语法
-- 隐式转换
-- 隐式控制流
-- 漂移很大的报错文本
-- 修一个错顺手改乱整段代码的空间
+## Why AX
 
-AX 的核心方向不是“让语法更花”，而是：
+传统语言默认服务的是“人类自由书写”。  
+AX 更在意的是“模型稳定输出”。
 
-- 让模型更不容易写错
-- 让编译器更容易判断
-- 让错误更容易结构化
-- 让修复更容易自动化
-- 让 benchmark 更容易稳定比较
+这意味着 AX 会主动压缩很多对大模型并不友好的空间：
 
-一句话说，AX 想做的是：
+- 减少等价写法、模糊语法和高歧义结构
+- 避免隐式转换、隐式控制流和漂移很大的错误表达
+- 让编译器输出稳定、可比较、机器可消费的诊断结果
+- 让 agent 可以围绕 `rule_id`、`repair_goal`、`fixits` 和上下文切片收敛修复
 
-> 一门为 AI 的确定性生成与可控修复而设计的编程语言与编译协议。
+AX 要追求的不是“写法自由度最大化”，而是：
 
-## 为什么 AX 值得认真做
+- 生成更确定
+- 诊断更结构化
+- 修复更可控
+- benchmark 更可比较
 
-很多新语言项目停在“我设计了一套语法”这一步，但 AX 从一开始就不是这样。
+## What Exists Today
 
-AX 现在已经具备一条真实可运行的原型链路：
+AX 已经不是纸上概念。当前仓库里已经有一条真实可运行的原型链路：
 
 - `axc check / run / ast / hir / mir / fmt / build`
-- `Lexer -> Parser -> AST -> HIR -> 语义检查 -> 解释执行`
-- 结构化 diagnostics
-- `--json --ai` 增强反馈
-- repair benchmark、adapter、comparison、smoke 与 CI
+- `Lexer -> Parser -> AST -> HIR -> Semantic Check -> Interpreter`
+- 结构化 diagnostics，与 `--json --ai` AI 增强反馈
+- repair benchmark、adapter、comparison、smoke 脚本和 CI
+- 项目 manifest、接口快照测试、稳定文档入口
 
-也就是说，AX 不是纸上概念，不是只会解析源码的玩具项目，而是已经在认真搭建：
+这意味着 AX 现在更像一个正在被工程化推进的语言系统，而不是一句“我想造门语言”的口号。
+
+## What Makes AX Different
+
+| 传统语言默认假设 | AX 的设计选择 |
+| --- | --- |
+| 代码主要由人写 | 代码越来越多地由模型生成 |
+| 编译器主要负责报错 | 编译器同时负责提供可修复协议 |
+| 报错给人看懂就够了 | 诊断既要给人看，也要给 agent 稳定消费 |
+| 同一个意思允许多种写法 | 尽量收敛到更少、更稳的表达形式 |
+| 修复靠自由发挥 | 修复围绕固定字段和规则卡收敛 |
+
+所以 AX 不是只在设计语法，而是在同时建设：
 
 - 语言本体
 - 编译器前中端
-- AI 反馈协议
-- 自动修复闭环
-- benchmark 验证体系
+- 结构化诊断协议
+- AI 修复反馈层
+- benchmark 验证闭环
 
-这正是 AX 最了不起的地方之一：
+## Design Statement
 
-> 我们不是只想“发明一种语法”，而是在同时建设一整套 AI 原生的语言基础设施。
+AX 正在尝试把编程语言从“给人类高手使用的自然型工具”，推进成“适合 AI 消费的工业化标准件”。
 
-## AX 的不同，不只在语法
+这并不意味着 AX 要做得僵硬，而是要让整条链路都更稳定：
 
-传统语言通常默认：
+- 生成时少乱写
+- 报错时少含糊
+- 修复时少漂移
+- 对比时少靠感觉
 
-- 代码主要由人写
-- 编译器主要负责报错
-- 报错能给人看懂就行
+如果这条路线成立，AX 的价值不会只是“有一套语法”，而会是一整套 AI 原生的编程协议与工具链。
 
-AX 的思路完全不同。
+## Quick Look
 
-AX 不是只想让 AI “勉强能写”，而是想让 AI 在整条链路上都更可控：
+```ax
+struct Point {
+    x: i32,
+    y: i32,
+}
 
-- 生成时尽量沿着唯一轨道输出
-- 出错时拿到固定结构的诊断结果
-- 修复时围绕明确的 `rule_id`、`repair_goal`、`fixits` 收敛
-- benchmark 时能比较“冷启动 / 基础诊断 / AI 增强诊断”三种模式到底差多少
+fn total(point: Point) -> i32 {
+    return point.x + point.y;
+}
 
-所以 AX 本质上不是单独的一门语言，而是一整套系统：
+fn main() -> i32 {
+    let mut point: Point = Point { x: 2, y: 3 };
+    point.x = point.x + 1;
+    println(total(point));
+    return 0;
+}
+```
 
-- 语言本体
-- 编译器
-- 诊断协议
-- 修复协议
-- 生成与修复闭环
+```powershell
+.\scripts\cargo-gnu.ps1 run -- check examples\syntax_overview.ax
+.\scripts\cargo-gnu.ps1 run -- run examples\hello.ax
+.\scripts\cargo-gnu.ps1 run -- check examples\missing_semicolon.ax --json --ai
+```
 
-更直白一点说：
+更多命令、示例、benchmark 工作流和 Windows 使用方式，请看 [`详细介绍.md`](./详细介绍.md)。
 
-> AX 想把编程语言，从“自然型工具”，推进成“适合 AI 消费的工业化标准件”。
+## Repository Guide
 
-## 我们的设计宣言
+- [`详细介绍.md`](./详细介绍.md)
+  当前原型已经支持的命令、示例、repair benchmark、adapter 和实践说明。
+- [`SYNTAX.md`](./SYNTAX.md)
+  当前 AX 原型语法、支持范围与 EBNF。
+- [`PLAN.md`](./PLAN.md)
+  项目路线、边界、核心原则与阶段目标。
+- [`规划.md`](./规划.md)
+  从当前原型收口到 benchmark、后端与产品化的执行顺序。
+- [`WORKLIST.md`](./WORKLIST.md)
+  当前施工项、优先级和已完成记录。
+- [`docs/README.md`](./docs/README.md)
+  稳定外部文档入口，包括 diagnostics schema 与 repair adapter 契约。
 
-我们正在尝试设计一门面向大模型生成的编程语言。
+## Current Position
 
-这门语言不再优先服务人类程序员的书写自由，而是优先服务 AI 的稳定生成、稳定理解、稳定诊断与稳定修复。
+AX 现在的状态很明确：
 
-因此，我们会尽可能消除语法糖、等价写法、隐式转换、隐式控制流和多义结构，把语言收敛为尽量唯一的表达形式。
+- 它已经不是概念项目
+- 它也还不是“已经证明自己成立”的成熟语言
 
-同时，编译器的报错结果也将结构化和固定化，使 AI 能够严格按照统一规则完成生成、诊断和修复。
-
-AX 的目标不是提高“写法自由度”，而是最大化“生成确定性”和“修复可控性”。
-
-## 当前阶段
-
-我们对 AX 的判断是清醒的：
-
-- AX 现在已经不是概念稿
-- AX 也还不是已经证明自己必胜的成熟语言
-
-当前最关键的工作，不是无止境堆特性，而是持续验证三件事：
+当前最关键的，不是无止境地堆新特性，而是持续验证三件事：
 
 - AX 是否真的提升 AI 首次生成成功率
-- AX 是否真的提升单轮修复率
+- AX 是否真的提升单轮修复成功率
 - AX 的结构化反馈是否真的比普通报错更有价值
 
-如果这些成立，AX 就不只是“一个有趣的想法”，而会变成一条真正有竞争力的路线。
+AX 接下来要赢的，不是“特性数量”，而是证据。
 
-## 阅读入口
+## Read This First If You Are An Agent
 
-- [`详细介绍.md`](./详细介绍.md)：当前仓库能力、命令、示例、benchmark 与实践说明
-- [`PLAN.md`](./PLAN.md)：路线、边界、原则与阶段目标
-- [`SYNTAX.md`](./SYNTAX.md)：当前 AX 原型语法与 EBNF
-- [`docs/README.md`](./docs/README.md)：稳定外部文档入口
+- 只使用仓库当前已经实现的原型语法
+- 不要擅自发明 `match`、切片、泛型、模块系统、异常或 `async`
+- `main` 必须写成 `fn main() -> i32 { ... }`
+- 局部变量、参数、返回值都应显式标注类型
+- 先参考 [`SYNTAX.md`](./SYNTAX.md)，再生成 AX 代码
+- 如果要消费结构化修复反馈，请优先参考 [`docs/diagnostics-schema.md`](./docs/diagnostics-schema.md)
 
-## 最后一句话
+## Closing
 
-AX 要做的，不是再造一门“对人类程序员更自由”的语言。
+AX 要做的，不是再造一门“更自由”的语言。
 
 AX 要做的，是一门对 AI 更稳定、对编译器更友好、对错误更可诊断、对修复更可控的语言。
 
-如果这条路走通，它不会只是“又一个语言项目”，而会是一套真正属于 AI 时代的编程协议。
+如果这条路走通，AX 不会只是“又一个语言项目”，而会是一套真正属于 AI 时代的编程协议。
