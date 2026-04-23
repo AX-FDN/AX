@@ -1,0 +1,16 @@
+[
+  {
+    "code": "R0021",
+    "expected": [],
+    "file": "<input>/division_by_zero.ax",
+    "message": "division by zero",
+    "notes": [
+      "AX checks integer division by zero at runtime"
+    ],
+    "span": {
+      "end": 91,
+      "start": 78
+    },
+    "suggestion": "guard the divisor or rewrite the calculation so the right-hand side cannot be zero"
+  }
+]

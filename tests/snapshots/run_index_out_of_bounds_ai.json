@@ -43,11 +43,13 @@
     "expected": [],
     "file": "<input>/index_out_of_bounds.ax",
     "message": "array index `2` is out of bounds for length 2",
-    "notes": [],
+    "notes": [
+      "this access targets a fixed-size array with length 2"
+    ],
     "span": {
       "end": 74,
       "start": 65
     },
-    "suggestion": null
+    "suggestion": "change the index or array length so the access stays within bounds"
   }
 ]

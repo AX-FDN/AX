@@ -204,14 +204,19 @@ impl<'a> Interpreter<'a> {
 
         match self.exec_block(function.body, &mut frame)? {
             ControlFlow::Return(value) => Ok(value),
-            ControlFlow::Continue => Err(self.runtime_error(
-                "R0005",
-                format!(
-                    "function `{}` completed without returning a value",
-                    function.name
-                ),
-                function.span,
-            )),
+            ControlFlow::Continue => Err(self
+                .runtime_error(
+                    "R0005",
+                    format!(
+                        "function `{}` completed without returning a value",
+                        function.name
+                    ),
+                    function.span,
+                )
+                .with_note(
+                    "runtime reached the end of the function body without executing `return`",
+                )
+                .with_suggestion("add an explicit `return` on every reachable path")),
         }
     }
 
@@ -539,31 +544,44 @@ impl<'a> Interpreter<'a> {
         overall_span: Span,
     ) -> Result<usize, Diagnostic> {
         let Value::I32(index) = index_value else {
-            return Err(self.runtime_error(
-                "R0029",
-                format!(
-                    "array index must evaluate to `i32`, got `{}`",
-                    index_value.display()
-                ),
-                index_span,
-            ));
+            return Err(self
+                .runtime_error(
+                    "R0029",
+                    format!(
+                        "array index must evaluate to `i32`, got `{}`",
+                        index_value.display()
+                    ),
+                    index_span,
+                )
+                .with_note("AX array indices use `i32` values in the current prototype")
+                .with_suggestion("compute or convert an `i32` index before indexing the array"));
         };
 
         if index < 0 {
-            return Err(self.runtime_error(
-                "R0030",
-                format!("array index cannot be negative, got `{index}`"),
-                index_span,
-            ));
+            return Err(self
+                .runtime_error(
+                    "R0030",
+                    format!("array index cannot be negative, got `{index}`"),
+                    index_span,
+                )
+                .with_note("AX arrays use zero-based indexing")
+                .with_suggestion("use an index in the range `0..len-1`"));
         }
 
         let index = usize::try_from(index).expect("non-negative i32 should fit in usize");
         if index >= array_len {
-            return Err(self.runtime_error(
-                "R0031",
-                format!("array index `{index}` is out of bounds for length {array_len}"),
-                overall_span,
-            ));
+            return Err(self
+                .runtime_error(
+                    "R0031",
+                    format!("array index `{index}` is out of bounds for length {array_len}"),
+                    overall_span,
+                )
+                .with_note(format!(
+                    "this access targets a fixed-size array with length {array_len}"
+                ))
+                .with_suggestion(
+                    "change the index or array length so the access stays within bounds",
+                ));
         }
 
         Ok(index)
@@ -590,9 +608,12 @@ impl<'a> Interpreter<'a> {
                     self.runtime_error("R0020", "integer multiplication overflowed", span)
                 })
             }
-            (BinaryOp::Divide, Value::I32(_), Value::I32(0)) => {
-                Err(self.runtime_error("R0021", "division by zero", span))
-            }
+            (BinaryOp::Divide, Value::I32(_), Value::I32(0)) => Err(self
+                .runtime_error("R0021", "division by zero", span)
+                .with_note("AX checks integer division by zero at runtime")
+                .with_suggestion(
+                    "guard the divisor or rewrite the calculation so the right-hand side cannot be zero",
+                )),
             (BinaryOp::Divide, Value::I32(left), Value::I32(right)) => left
                 .checked_div(right)
                 .map(Value::I32)
@@ -604,9 +625,12 @@ impl<'a> Interpreter<'a> {
             (BinaryOp::Multiply, Value::F32(left), Value::F32(right)) => {
                 Ok(Value::F32(left * right))
             }
-            (BinaryOp::Divide, Value::F32(_), Value::F32(0.0)) => {
-                Err(self.runtime_error("R0021", "division by zero", span))
-            }
+            (BinaryOp::Divide, Value::F32(_), Value::F32(0.0)) => Err(self
+                .runtime_error("R0021", "division by zero", span)
+                .with_note("AX checks floating-point division by zero at runtime")
+                .with_suggestion(
+                    "guard the divisor or rewrite the calculation so the right-hand side cannot be zero",
+                )),
             (BinaryOp::Divide, Value::F32(left), Value::F32(right)) => Ok(Value::F32(left / right)),
             (BinaryOp::Equal, left, right) => Ok(Value::Bool(left == right)),
             (BinaryOp::NotEqual, left, right) => Ok(Value::Bool(left != right)),

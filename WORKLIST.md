@@ -91,13 +91,15 @@
   - 回归保障：同步更新 [`规划.md`](C:/Users/xiaoy/Desktop/A语言/AX/规划.md)。
   - 不做范围：不立即把所有缺口都实现。
 
-- [ ] `P0-27` 补 `run` 结构化错误输出
+- [x] `P0-27` 补 `run` 结构化错误输出
   - 目标：让运行期失败也能进入结构化诊断和后续 AI 修复链。
   - 输入：现有 `axc run` 文本错误、runtime diagnostics、`--json` 输出约定。
   - 输出：更稳定的 `run` 结构化错误输出与对应测试。
   - 通过条件：常见运行期失败可输出结构化字段，且不破坏基础快路径。
   - 回归保障：interface snapshots、runtime 相关示例与 smoke。
   - 不做范围：不追求一次性覆盖所有运行期异常。
+  - 完成于：2026-04-23
+  - 备注：已补强高频 runtime error 的基础 `notes/suggestion`，并新增 `run_division_by_zero.json` 快照覆盖基础 JSON 契约。
 
 ## P1
 
