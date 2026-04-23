@@ -1,0 +1,54 @@
+enum TokenKind {
+    Number,
+    Plus,
+    Minus,
+    End,
+}
+
+struct Token {
+    kind: TokenKind,
+    value: i32,
+}
+
+fn count_number_tokens(tokens: [Token; 6]) -> i32 {
+    let mut count: i32 = 0;
+    let mut index: i32 = 0;
+
+    while (index < 6) {
+        if (tokens[index].kind == TokenKind.Number) {
+            count = count + 1;
+        }
+        index = index + 1;
+    }
+
+    return count;
+}
+
+fn sum_number_tokens(tokens: [Token; 6]) -> i32 {
+    let mut total: i32 = 0;
+    let mut index: i32 = 0;
+
+    while (index < 6) {
+        if (tokens[index].kind == TokenKind.Number) {
+            total = total + tokens[index].value;
+        }
+        index = index + 1;
+    }
+
+    return total;
+}
+
+fn main() -> i32 {
+    let tokens: [Token; 6] = [
+        Token { kind: TokenKind.Number, value: 7 },
+        Token { kind: TokenKind.Plus, value: 0 },
+        Token { kind: TokenKind.Number, value: 11 },
+        Token { kind: TokenKind.Minus, value: 0 },
+        Token { kind: TokenKind.Number, value: 3 },
+        Token { kind: TokenKind.End, value: 0 },
+    ];
+
+    println(count_number_tokens(tokens));
+    println(sum_number_tokens(tokens));
+    return 0;
+}

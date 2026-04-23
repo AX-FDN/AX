@@ -3,7 +3,7 @@
 
 # AX
 
-### A programming language and compiler protocol designed for AI generation, diagnosis, and repair.
+### AX — The AI Execution Language
 
 [![CI](https://img.shields.io/github/actions/workflow/status/AX-FDN/AX/ci.yml?branch=main&label=CI)](https://github.com/AX-FDN/AX/actions/workflows/ci.yml)
 [![License](https://img.shields.io/github/license/AX-FDN/AX)](./LICENSE)
