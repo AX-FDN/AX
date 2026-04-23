@@ -75,6 +75,14 @@
   - 目标：把绑定声明、作用域查找、可见变量提示和未定义变量诊断从 `checker.rs` 主体里拆出去，继续收紧 `resolver / type checker` 边界。
   - 完成于：2026-04-23
   - 备注：已新增 `src/semantic/checker/names.rs`，迁出 `Binding`、`declare`、`lookup`、未定义变量诊断与作用域可见性辅助逻辑；`cargo-gnu.ps1 test` 已通过。
+- [x] `P0-16` 继续拆表达式类型检查层。
+  - 目标：把 `check_expr` 与表达式级类型/调用/字面量校验从 `checker.rs` 主体里拆出去，继续把 `TypeChecker` 主干收口到更清晰的语句与控制流边界。
+  - 完成于：2026-04-23
+  - 备注：已新增 `src/semantic/checker/expr.rs`，迁出表达式类型检查与相关诊断逻辑；`checker.rs` 现在主要保留语句分发、`for`/块控制流检查和共享的 `expect_type_match`；`cargo-gnu.ps1 test` 已通过。
+- [x] `P0-17` 继续拆控制流语义规则。
+  - 目标：把 `return / if / while / for` 的语义检查从 `checker.rs` 主体里拆出去，让后续控制流返回分析和语句分发继续解耦。
+  - 完成于：2026-04-23
+  - 备注：已新增 `src/semantic/checker/control_flow.rs`，迁出返回值校验、条件为 `bool` 的检查、`for` header 校验与块级控制流入口；`checker.rs` 进一步收口为语句分发与共享类型匹配辅助；`cargo-gnu.ps1 test` 已通过。
 
 ## P1
 
