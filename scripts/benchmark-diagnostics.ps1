@@ -131,6 +131,17 @@ function Build-MarkdownReport {
     }
 
     $null = $lines.Add("")
+    $null = $lines.Add("## Pairwise Overhead")
+    $null = $lines.Add("")
+    $null = $lines.Add("| From | To | Avg overhead ms | Relative overhead % |")
+    $null = $lines.Add("| --- | --- | ---: | ---: |")
+
+    foreach ($pair in @($Summary.pairwise_overhead)) {
+        $relative = if ($null -ne $pair.relative_overhead_pct) { "$($pair.relative_overhead_pct)%" } else { "n/a" }
+        $null = $lines.Add("| $($pair.from_mode) | $($pair.to_mode) | $($pair.avg_overhead_ms) | $relative |")
+    }
+
+    $null = $lines.Add("")
     $null = $lines.Add("## Per-Case Timings")
     $null = $lines.Add("")
     $null = $lines.Add("| File | Mode | Iterations | Avg ms | Total ms |")
@@ -141,6 +152,58 @@ function Build-MarkdownReport {
     }
 
     return ($lines -join "`n") + "`n"
+}
+
+function Get-ModeSummaryByName {
+    param(
+        [object[]] $ModeSummary,
+        [string] $ModeName
+    )
+
+    return @($ModeSummary | Where-Object { $_.Mode -eq $ModeName })[0]
+}
+
+function Build-PairwiseOverhead {
+    param(
+        [string] $FromMode,
+        [string] $ToMode,
+        [object[]] $Results,
+        [object[]] $ModeSummary
+    )
+
+    $fromRows = @($Results | Where-Object { $_.Mode -eq $FromMode } | Sort-Object File)
+    $toRows = @($Results | Where-Object { $_.Mode -eq $ToMode } | Sort-Object File)
+    if ($fromRows.Count -ne $toRows.Count) {
+        Write-Error "Cannot compare mode '$FromMode' to '$ToMode' because the row counts differ."
+    }
+
+    $deltas = New-Object System.Collections.Generic.List[double]
+    for ($index = 0; $index -lt $fromRows.Count; $index += 1) {
+        if ($fromRows[$index].File -ne $toRows[$index].File) {
+            Write-Error "Cannot compare mode '$FromMode' to '$ToMode' because file ordering drifted."
+        }
+
+        $delta = [double] $toRows[$index].AvgMs - [double] $fromRows[$index].AvgMs
+        $deltas.Add($delta)
+    }
+
+    $avgDelta = ($deltas | Measure-Object -Average).Average
+    $fromSummary = Get-ModeSummaryByName -ModeSummary $ModeSummary -ModeName $FromMode
+    $toSummary = Get-ModeSummaryByName -ModeSummary $ModeSummary -ModeName $ToMode
+    $relative = if ([double] $fromSummary.AvgMs -gt 0) {
+        [math]::Round((($toSummary.AvgMs - $fromSummary.AvgMs) / $fromSummary.AvgMs) * 100, 2)
+    } else {
+        $null
+    }
+
+    return [ordered]@{
+        from_mode             = $FromMode
+        to_mode               = $ToMode
+        avg_from_ms           = [math]::Round([double] $fromSummary.AvgMs, 2)
+        avg_to_ms             = [math]::Round([double] $toSummary.AvgMs, 2)
+        avg_overhead_ms       = [math]::Round([double] $avgDelta, 2)
+        relative_overhead_pct = $relative
+    }
 }
 
 if (-not $Files -or $Files.Count -eq 0) {
@@ -223,6 +286,16 @@ $modeSummary |
     Sort-Object Mode |
     Format-Table -AutoSize
 
+$pairwiseOverhead = @(
+    Build-PairwiseOverhead -FromMode "text" -ToMode "json" -Results $results -ModeSummary $modeSummary
+    Build-PairwiseOverhead -FromMode "json" -ToMode "json_ai" -Results $results -ModeSummary $modeSummary
+    Build-PairwiseOverhead -FromMode "text" -ToMode "json_ai" -Results $results -ModeSummary $modeSummary
+)
+
+Write-Host ""
+Write-Host "Pairwise overhead"
+$pairwiseOverhead | Format-Table -AutoSize
+
 $summary = [ordered]@{
     schema_version   = 1
     generated_at     = (Get-Date).ToString("o")
@@ -260,6 +333,7 @@ $summary = [ordered]@{
                 }
             }
     )
+    pairwise_overhead = @($pairwiseOverhead)
 }
 
 $summaryJsonPath = Join-Path $OutputDir "summary.json"

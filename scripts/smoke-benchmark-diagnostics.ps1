@@ -87,6 +87,7 @@ Assert-Equal -Label "total_cases" -Actual ([int] $summary.total_cases) -Expected
 Assert-StringArray -Label "mode_order" -Actual @($summary.mode_order) -Expected @("text", "json", "json_ai")
 Assert-Equal -Label "per_case_timings count" -Actual (@($summary.per_case_timings).Count) -Expected 15
 Assert-Equal -Label "mode_summary count" -Actual (@($summary.mode_summary).Count) -Expected 3
+Assert-Equal -Label "pairwise_overhead count" -Actual (@($summary.pairwise_overhead).Count) -Expected 3
 
 $textMode = @($summary.mode_summary | Where-Object { [string] $_.mode -eq "text" })
 $jsonMode = @($summary.mode_summary | Where-Object { [string] $_.mode -eq "json" })
@@ -98,5 +99,13 @@ Assert-Equal -Label "json_ai mode rows" -Actual $jsonAiMode.Count -Expected 1
 Assert-Equal -Label "text mode files" -Actual ([int] $textMode[0].files) -Expected 5
 Assert-Equal -Label "json mode files" -Actual ([int] $jsonMode[0].files) -Expected 5
 Assert-Equal -Label "json_ai mode files" -Actual ([int] $jsonAiMode[0].files) -Expected 5
+
+$textToJson = @($summary.pairwise_overhead | Where-Object { [string] $_.from_mode -eq "text" -and [string] $_.to_mode -eq "json" })
+$jsonToJsonAi = @($summary.pairwise_overhead | Where-Object { [string] $_.from_mode -eq "json" -and [string] $_.to_mode -eq "json_ai" })
+$textToJsonAi = @($summary.pairwise_overhead | Where-Object { [string] $_.from_mode -eq "text" -and [string] $_.to_mode -eq "json_ai" })
+
+Assert-Equal -Label "text->json pair count" -Actual $textToJson.Count -Expected 1
+Assert-Equal -Label "json->json_ai pair count" -Actual $jsonToJsonAi.Count -Expected 1
+Assert-Equal -Label "text->json_ai pair count" -Actual $textToJsonAi.Count -Expected 1
 
 Write-Host "Diagnostics benchmark smoke passed. Stable summary contract verified at $summaryPath"

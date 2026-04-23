@@ -6,7 +6,7 @@ AX treats repair benchmark evidence as a first-class product asset. The benchmar
 
 - does a given feedback mode help an external agent repair broken AX programs more reliably?
 
-For the diagnostics-cost baseline that sits alongside the repair benchmark, use [`../scripts/benchmark-diagnostics.ps1`](../scripts/benchmark-diagnostics.ps1). It measures `check`, `check --json`, and `check --json --ai` over stable broken programs and now emits a stable `summary.json` / `summary.md` report under `.ax-ai\diagnostics-benchmark\<timestamp>\`.
+For the diagnostics-cost baseline that sits alongside the repair benchmark, use [`../scripts/benchmark-diagnostics.ps1`](../scripts/benchmark-diagnostics.ps1). It measures `check`, `check --json`, and `check --json --ai` over stable broken programs and now emits a stable `summary.json` / `summary.md` report under `.ax-ai\diagnostics-benchmark\<timestamp>\`. The stable schema for that report is documented in [`diagnostics-benchmark-schema.md`](./diagnostics-benchmark-schema.md).
 
 The current repository supports three layers of work:
 

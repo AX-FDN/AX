@@ -43,14 +43,15 @@
 
 ## P0
 
-- [~] `P0-21` 固定 benchmark 与性能基线
+- [x] `P0-21` 固定 benchmark 与性能基线
   - 目标：让三模式 benchmark 和最小性能测量成为稳定可重复的证据链。
   - 输入：现有 `compare-repair-modes.ps1`、`benchmark-diagnostics.ps1`、repair cases。
   - 输出：稳定报告节奏、最小性能基线、可复跑结果。
   - 通过条件：同一输入可重复跑出同结构报告；能看见 `check / check --json / check --json --ai` 的相对开销。
   - 回归保障：现有 benchmark smoke、CI。
   - 不做范围：不新增大语法特性。
-  - 进展：`benchmark-diagnostics.ps1` 已开始稳定落盘 `summary.json` / `summary.md`，并新增 `smoke-benchmark-diagnostics.ps1` 与 CI 回归入口。
+  - 完成于：2026-04-23
+  - 备注：`benchmark-diagnostics.ps1` 现在稳定落盘 `summary.json` / `summary.md`，包含三组固定 `pairwise_overhead`；已新增 `smoke-benchmark-diagnostics.ps1`、CI 入口与 [`docs/diagnostics-benchmark-schema.md`](C:/Users/xiaoy/Desktop/A语言/AX/docs/diagnostics-benchmark-schema.md)。
 
 - [~] `P0-22` 固定 `check/json/ai` 接口与回归资产
   - 目标：让基础诊断层和 AI 增强层的外部接口可稳定消费、可快照、可比较。
