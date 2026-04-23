@@ -187,6 +187,14 @@ cargo run -- check examples\missing_semicolon.ax --json --ai --ai-session .ax-ai
 
 仓库里自带的 [`replay-repair-adapter.ps1`](./scripts/replay-repair-adapter.ps1) 只是一个回放适配器，适合 smoke test 或重放已有候选结果；后面如果你要接 `Codex`、`Claude Code` 或别的模型 CLI，直接按同样参数签名写一个新的 adapter 就行。
 
+这个 replay adapter 现在还支持三种可选候选目录参数：
+
+- `-SourceDir <dir>`：两种反馈模式共用的候选目录
+- `-SourceDirBase <dir>`：只在 `base` 模式优先使用的候选目录
+- `-SourceDirAi <dir>`：只在 `ai` 模式优先使用的候选目录
+
+查找顺序是“当前模式专用目录优先，再回退到共享目录”。这样可以在不改 runner 合约的前提下，稳定回放“同一 benchmark、不同反馈模式、不同修复结果”的对照实验。
+
 仓库现在也自带了一个真实可调用的 [`codex-repair-adapter.ps1`](./scripts/codex-repair-adapter.ps1)。它会用 `codex exec` 的非交互模式读取 benchmark prompt，并通过 JSON schema 把最终输出约束成稳定的 `repaired_source` 字段。
 
 如果本机已经能直接运行 `codex exec`，可以这样跑一轮真实修复：
@@ -225,6 +233,19 @@ cargo run -- check examples\missing_semicolon.ax --json --ai --ai-session .ax-ai
 - `comparison.md`：便于人直接阅读的实验报告
 - `base\` / `ai\`：两轮独立 run 和 score 产物，方便回溯
 
+如果你想本地快速验证这条 compare 链路本身没坏，可以直接跑：
+
+```powershell
+.\scripts\smoke-compare-repair-feedback.ps1
+```
+
+这个 smoke 会固定使用仓库内的 smoke manifest、共享 replay 候选，以及一组只覆盖 `base` 模式的 override 候选，然后断言 `comparison.json` 的关键字段保持稳定，比如：
+
+- 总 case 数
+- `base` / `ai` 各自通过数
+- lift 结果
+- improved / regressed case 列表
+
 这个 adapter 额外支持这些可选参数：
 
 - `-CodexCommand <name>`：指定 `codex` 可执行文件名或路径
@@ -237,7 +258,8 @@ cargo run -- check examples\missing_semicolon.ax --json --ai --ai-session .ax-ai
 - [`tests/interface_snapshots.rs`](./tests/interface_snapshots.rs) 会覆盖 `fmt` 幂等、`check --json`、`run --json`、`ast`、`hir`
 - [`tests/snapshots`](./tests/snapshots) 保存当前 CLI 外部接口快照
 - [`scripts/smoke-repair-benchmark.ps1`](./scripts/smoke-repair-benchmark.ps1) 会用仓库内的 replay candidates 跑最小 repair benchmark 闭环
-- [`.github/workflows/ci.yml`](./.github/workflows/ci.yml) 会在 GitHub Actions 上执行 `cargo fmt --check`、Rust tests 和 repair benchmark smoke run
+- [`scripts/smoke-compare-repair-feedback.ps1`](./scripts/smoke-compare-repair-feedback.ps1) 会固定回归 `comparison.json` 的核心对比契约
+- [`.github/workflows/ci.yml`](./.github/workflows/ci.yml) 会在 GitHub Actions 上执行 `cargo fmt --check`、Rust tests、repair benchmark smoke run 和 repair comparison smoke run
 
 ## 推荐阅读顺序
 

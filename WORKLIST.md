@@ -51,6 +51,10 @@
   - 目标：把“函数参数类型不匹配”和“return 类型不匹配”从泛型 `type_match_required` 中拆出来，让 AI 反馈更接近真实修复动作。
   - 完成于：2026-04-23
   - 备注：已新增 `function_argument_type_must_match` 与 `return_value_must_match_declared_type`，补齐单元测试、稳定 `rule_id` 覆盖、函数参数类型错的 CLI 快照，以及 `examples/function_argument_type_mismatch.ax`、`examples/return_type_mismatch.ax` 示例。
+- [x] `P0-10` 固定 compare benchmark 的 smoke 回归。
+  - 目标：让 `base diagnostics` vs `ai diagnostics` 的 `comparison.json` 不再只是一次性产物，而是有稳定回归保护的外部契约。
+  - 完成于：2026-04-23
+  - 备注：已扩展 `scripts/replay-repair-adapter.ps1` 支持 `-SourceDirBase / -SourceDirAi` 覆盖目录；新增 `scripts/smoke-compare-repair-feedback.ps1`、`benchmarks/repair-candidates/compare/base/` 稳定样本，并将 compare smoke 接入 CI 与 benchmark 文档。
 
 ## P1
 

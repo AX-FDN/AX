@@ -140,7 +140,21 @@ Its behavior is:
 2. copy that candidate to `OutputPath`
 3. exit `0`
 
-This adapter is used for smoke tests and contract validation.
+It also supports optional replay roots:
+
+- `-SourceDir`
+  Shared replay candidate root.
+- `-SourceDirBase`
+  Base-only override root.
+- `-SourceDirAi`
+  AI-only override root.
+
+Lookup order is:
+
+1. mode-specific override root for the current `FeedbackMode`, if provided
+2. shared `SourceDir`, if provided
+
+This lets smoke tests replay deterministic `base` versus `ai` outcomes without changing the runner contract.
 
 ## Real Model Example
 

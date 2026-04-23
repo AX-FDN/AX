@@ -137,6 +137,15 @@ Key parameters:
 - `-RefreshBenchmark`
   Optional. Force a fresh export before running.
 
+Runner-specific extra args are passed through unchanged. The replay adapter uses this to support:
+
+- `-SourceDir`
+  Shared replay candidate root used by both modes.
+- `-SourceDirBase`
+  Base-only override root searched before `-SourceDir`.
+- `-SourceDirAi`
+  AI-only override root searched before `-SourceDir`.
+
 Default output root:
 
 ```text
@@ -271,6 +280,27 @@ This script uses the smoke manifest plus replay candidates committed in the repo
 - scoring still works end to end
 
 It is not intended to prove model quality.
+
+For the comparison path itself, use [`../scripts/smoke-compare-repair-feedback.ps1`](../scripts/smoke-compare-repair-feedback.ps1):
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke-compare-repair-feedback.ps1
+```
+
+This compare smoke intentionally replays:
+
+- one shared repaired candidate set
+- one `base`-only override set that leaves two semantic cases still broken
+
+It then asserts the stable `comparison.json` contract, including:
+
+- schema version
+- total case count
+- `base_passed` and `ai_passed`
+- absolute lift
+- improved and regressed case ids
+
+This gives CI a deterministic proof that `compare-repair-feedback.ps1` still produces a comparable machine-readable report, not just two ad hoc benchmark runs.
 
 ## Stability Policy
 

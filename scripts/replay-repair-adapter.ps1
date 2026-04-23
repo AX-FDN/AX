@@ -9,24 +9,73 @@ param(
     [string] $CaseId,
     [Parameter(Mandatory = $true)]
     [string] $FeedbackMode,
-    [Parameter(Mandatory = $true)]
-    [string] $SourceDir
+    [string] $SourceDir = "",
+    [string] $SourceDirBase = "",
+    [string] $SourceDirAi = ""
 )
 
 $ErrorActionPreference = "Stop"
 
-if (-not [System.IO.Path]::IsPathRooted($SourceDir)) {
-    $SourceDir = Join-Path (Get-Location) $SourceDir
+function Resolve-SourceDirectory {
+    param(
+        [string] $Path,
+        [string] $Label
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Path)) {
+        return $null
+    }
+
+    if (-not [System.IO.Path]::IsPathRooted($Path)) {
+        $Path = Join-Path (Get-Location) $Path
+    }
+
+    if (-not (Test-Path $Path)) {
+        Write-Error "$Label not found: $Path"
+    }
+
+    return $Path
 }
 
-$candidatePaths = @(
-    (Join-Path $SourceDir "$CaseId.ax"),
-    (Join-Path (Join-Path $SourceDir $CaseId) "repaired.ax")
-)
+function Get-CandidatePaths {
+    param([string] $Root)
 
-$candidatePath = $candidatePaths | Where-Object { Test-Path $_ } | Select-Object -First 1
+    return @(
+        (Join-Path $Root "$CaseId.ax"),
+        (Join-Path (Join-Path $Root $CaseId) "repaired.ax")
+    )
+}
+
+$resolvedModeSourceDir = if ($FeedbackMode -eq "base") {
+    Resolve-SourceDirectory -Path $SourceDirBase -Label "SourceDirBase"
+} else {
+    Resolve-SourceDirectory -Path $SourceDirAi -Label "SourceDirAi"
+}
+$resolvedDefaultSourceDir = Resolve-SourceDirectory -Path $SourceDir -Label "SourceDir"
+
+$searchRoots = @()
+if ($resolvedModeSourceDir) {
+    $searchRoots += $resolvedModeSourceDir
+}
+if ($resolvedDefaultSourceDir) {
+    $searchRoots += $resolvedDefaultSourceDir
+}
+
+if ($searchRoots.Count -eq 0) {
+    Write-Error "At least one replay source directory must be provided. Use -SourceDir, -SourceDirBase, or -SourceDirAi."
+}
+
+$candidatePath = $null
+foreach ($root in $searchRoots) {
+    $candidatePath = Get-CandidatePaths -Root $root | Where-Object { Test-Path $_ } | Select-Object -First 1
+    if ($candidatePath) {
+        break
+    }
+}
+
 if (-not $candidatePath) {
-    Write-Error "Replay candidate not found for case '$CaseId' in $SourceDir"
+    $searchedRoots = $searchRoots -join ", "
+    Write-Error "Replay candidate not found for case '$CaseId' in: $searchedRoots"
 }
 
 $parent = Split-Path -Parent $OutputPath
