@@ -716,6 +716,156 @@ impl<'a> Interpreter<'a> {
             };
         }
 
+        if name == "path_file_name" {
+            if arguments.len() != 1 {
+                return Err(self.runtime_error(
+                    "R0076",
+                    format!(
+                        "function `path_file_name` expected 1 argument(s), got {}",
+                        arguments.len()
+                    ),
+                    span,
+                ));
+            }
+
+            let path = arguments
+                .into_iter()
+                .next()
+                .expect("path_file_name argument should exist");
+            return match path {
+                Value::String(path) => {
+                    let name = Path::new(&path)
+                        .file_name()
+                        .map(|value| value.to_string_lossy().into_owned())
+                        .unwrap_or_default();
+                    Ok(Value::String(name))
+                }
+                other => Err(self
+                    .runtime_error(
+                        "R0077",
+                        format!(
+                            "function `path_file_name` requires a `string` path, got `{}`",
+                            other.display()
+                        ),
+                        span,
+                    )
+                    .with_suggestion(
+                        "call `path_file_name` with a string value like `path_file_name(path)`",
+                    )),
+            };
+        }
+
+        if name == "path_stem" {
+            if arguments.len() != 1 {
+                return Err(self.runtime_error(
+                    "R0078",
+                    format!(
+                        "function `path_stem` expected 1 argument(s), got {}",
+                        arguments.len()
+                    ),
+                    span,
+                ));
+            }
+
+            let path = arguments
+                .into_iter()
+                .next()
+                .expect("path_stem argument should exist");
+            return match path {
+                Value::String(path) => {
+                    let stem = Path::new(&path)
+                        .file_stem()
+                        .map(|value| value.to_string_lossy().into_owned())
+                        .unwrap_or_default();
+                    Ok(Value::String(stem))
+                }
+                other => Err(self
+                    .runtime_error(
+                        "R0079",
+                        format!(
+                            "function `path_stem` requires a `string` path, got `{}`",
+                            other.display()
+                        ),
+                        span,
+                    )
+                    .with_suggestion(
+                        "call `path_stem` with a string value like `path_stem(path)`",
+                    )),
+            };
+        }
+
+        if name == "path_extension" {
+            if arguments.len() != 1 {
+                return Err(self.runtime_error(
+                    "R0080",
+                    format!(
+                        "function `path_extension` expected 1 argument(s), got {}",
+                        arguments.len()
+                    ),
+                    span,
+                ));
+            }
+
+            let path = arguments
+                .into_iter()
+                .next()
+                .expect("path_extension argument should exist");
+            return match path {
+                Value::String(path) => {
+                    let extension = Path::new(&path)
+                        .extension()
+                        .map(|value| value.to_string_lossy().into_owned())
+                        .unwrap_or_default();
+                    Ok(Value::String(extension))
+                }
+                other => Err(self
+                    .runtime_error(
+                        "R0081",
+                        format!(
+                            "function `path_extension` requires a `string` path, got `{}`",
+                            other.display()
+                        ),
+                        span,
+                    )
+                    .with_suggestion(
+                        "call `path_extension` with a string value like `path_extension(path)`",
+                    )),
+            };
+        }
+
+        if name == "path_is_absolute" {
+            if arguments.len() != 1 {
+                return Err(self.runtime_error(
+                    "R0082",
+                    format!(
+                        "function `path_is_absolute` expected 1 argument(s), got {}",
+                        arguments.len()
+                    ),
+                    span,
+                ));
+            }
+
+            let path = arguments
+                .into_iter()
+                .next()
+                .expect("path_is_absolute argument should exist");
+            return match path {
+                Value::String(path) => Ok(Value::Bool(Path::new(&path).is_absolute())),
+                other => Err(self
+                    .runtime_error(
+                        "R0083",
+                        format!(
+                            "function `path_is_absolute` requires a `string` path, got `{}`",
+                            other.display()
+                        ),
+                        span,
+                    )
+                    .with_suggestion(
+                        "call `path_is_absolute` with a string value like `path_is_absolute(path)`",
+                    )),
+            };
+        }
+
         if name == "fs_exists" {
             if arguments.len() != 1 {
                 return Err(self.runtime_error(
@@ -745,6 +895,76 @@ impl<'a> Interpreter<'a> {
                     )
                     .with_suggestion(
                         "call `fs_exists` with a string value like `fs_exists(path)`",
+                    )),
+            };
+        }
+
+        if name == "fs_copy_file" {
+            if arguments.len() != 2 {
+                return Err(self.runtime_error(
+                    "R0084",
+                    format!(
+                        "function `fs_copy_file` expected 2 argument(s), got {}",
+                        arguments.len()
+                    ),
+                    span,
+                ));
+            }
+
+            let mut arguments = arguments.into_iter();
+            let source_path = arguments
+                .next()
+                .expect("fs_copy_file source argument should exist");
+            let destination_path = arguments
+                .next()
+                .expect("fs_copy_file destination argument should exist");
+            return match (source_path, destination_path) {
+                (Value::String(source_path), Value::String(destination_path)) => {
+                    let resolved_source = self.resolve_host_path(&source_path);
+                    let resolved_destination = self.resolve_host_path(&destination_path);
+                    fs::copy(&resolved_source, &resolved_destination)
+                        .map_err(|error| {
+                            self.runtime_error(
+                                "R0087",
+                                format!(
+                                    "failed to copy `{}` to `{}`: {error}",
+                                    resolved_source.display(),
+                                    resolved_destination.display()
+                                ),
+                                span,
+                            )
+                            .with_suggestion(
+                                "ensure the source file exists and the destination directory is writable",
+                            )
+                        })
+                        .and_then(|bytes| {
+                            i32::try_from(bytes).map(Value::I32).map_err(|_| {
+                                self.runtime_error(
+                                    "R0086",
+                                    format!(
+                                        "copied file `{}` is too large to report as `i32` bytes",
+                                        resolved_destination.display()
+                                    ),
+                                    span,
+                                )
+                                .with_suggestion(
+                                    "copy smaller files or change the runtime byte-count contract before handling multi-gigabyte assets",
+                                )
+                            })
+                        })
+                }
+                (source_path, destination_path) => Err(self
+                    .runtime_error(
+                        "R0085",
+                        format!(
+                            "function `fs_copy_file` requires `string` arguments, got `{}` and `{}`",
+                            source_path.display(),
+                            destination_path.display()
+                        ),
+                        span,
+                    )
+                    .with_suggestion(
+                        "call `fs_copy_file` like `fs_copy_file(source_path, destination_path)`",
                     )),
             };
         }

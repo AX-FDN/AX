@@ -1,0 +1,41 @@
+fn main() -> i32 {
+    if (argv_len() < 2) {
+        println("usage: axc run examples/package_asset.ax -- <input> <out_dir>");
+        return 1;
+    }
+
+    let input_path: string = argv_get(0);
+    let out_dir: string = argv_get(1);
+
+    if (!fs_exists(input_path)) {
+        println("missing input: " + input_path);
+        return 2;
+    }
+
+    let file_name: string = path_file_name(input_path);
+    if (string_len(file_name) == 0) {
+        println("input has no file name: " + input_path);
+        return 3;
+    }
+
+    fs_create_dir_all(out_dir);
+
+    let output_path: string = path_join(out_dir, file_name);
+    let copied_bytes: i32 = fs_copy_file(input_path, output_path);
+
+    let manifest_path: string = path_join(out_dir, file_name + ".manifest.txt");
+    let manifest: string =
+        "asset=" + file_name
+        + "\nsource=" + input_path
+        + "\noutput=" + output_path
+        + "\nparent=" + path_parent(input_path)
+        + "\nstem=" + path_stem(input_path)
+        + "\nextension=" + path_extension(input_path)
+        + "\nsource_absolute=" + to_string(path_is_absolute(input_path))
+        + "\ncopied_bytes=" + to_string(copied_bytes)
+        + "\n";
+
+    fs_write_string(manifest_path, manifest);
+    println("packaged=" + output_path);
+    return 0;
+}
