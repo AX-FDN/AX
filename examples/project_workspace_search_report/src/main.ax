@@ -1,0 +1,56 @@
+fn main() -> i32 {
+    if (argv_len() < 3) {
+        println("usage: axc run examples/project_workspace_search_report -- <root_dir> <needle> <output>");
+        return 1;
+    }
+    let root_dir: string = argv_get(0);
+    let needle: string = argv_get(1);
+    let output_path: string = argv_get(2);
+    if (!fs_is_dir(root_dir)) {
+        println("root dir is not a directory: " + root_dir);
+        return 2;
+    }
+    if (string_len(needle) == 0) {
+        println("needle must not be empty");
+        return 3;
+    }
+    let output_dir: string = path_parent(output_path);
+    if (string_len(output_dir) != 0) {
+        fs_create_dir_all(output_dir);
+    }
+    let entries: [string] = fs_read_dir(root_dir);
+    let mut totals: SearchTotals = zero_search_totals();
+    let mut match_report: string = "";
+    for (let mut i: i32 = 0; i < len(entries); i = i + 1) {
+        let entry: string = entries[i];
+        if (fs_is_file(entry)) {
+            if (is_searchable_file(entry)) {
+                let searched: FileSearch = search_file(match_report, totals, entry, 0, needle);
+                match_report = searched.report;
+                totals = searched.totals;
+            }
+        }
+        if (fs_is_dir(entry)) {
+            let children: [string] = fs_read_dir(entry);
+            for (let mut child_index: i32 = 0; child_index < len(children); child_index = child_index + 1) {
+                let child: string = children[child_index];
+                if (fs_is_file(child)) {
+                    if (is_searchable_file(child)) {
+                        let searched: FileSearch = search_file(match_report, totals, child, 1, needle);
+                        match_report = searched.report;
+                        totals = searched.totals;
+                    }
+                }
+            }
+        }
+    }
+    let mut summary: string = build_summary(root_dir, needle, totals);
+    if (string_len(match_report) == 0) {
+        summary = summary + "(none)\n";
+    } else {
+        summary = summary + match_report;
+    }
+    fs_write_string(output_path, summary);
+    println("searched=" + output_path);
+    return 0;
+}

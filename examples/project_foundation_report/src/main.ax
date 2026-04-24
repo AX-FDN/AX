@@ -1,0 +1,31 @@
+fn build_file_report(path: string, text: string, stats: TextStats) -> string {
+    let mut report: string = "";
+    report = append_string_stat(report, "file", path_file_name(path));
+    report = append_string_stat(report, "kind", classify_file_kind(path));
+    report = append_int_stat(report, "chars", string_len(text));
+    report = append_int_stat(report, "lines", stats.lines);
+    report = append_int_stat(report, "nonempty", stats.nonempty);
+    report = append_int_stat(report, "headings", stats.headings);
+    report = append_int_stat(report, "action_items", stats.action_items);
+    return report;
+}
+
+fn main() -> i32 {
+    if (argv_len() < 1) {
+        println("usage: axc run examples/project_foundation_report -- <file>");
+        return 1;
+    }
+
+    let input_path: string = argv_get(0);
+    if (!fs_is_file(input_path)) {
+        println("file does not exist: " + input_path);
+        return 2;
+    }
+
+    let text: string = fs_read_to_string(input_path);
+    let stats: TextStats = analyze_text(text);
+    let report: string = build_file_report(input_path, text, stats);
+
+    println(report);
+    return stats.action_items;
+}

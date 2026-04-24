@@ -122,8 +122,12 @@ fn string_output(bytes: &[u8]) -> String {
 fn read_json_file(path: &Path, label: &str) -> Value {
     let text = fs::read_to_string(path)
         .unwrap_or_else(|error| panic!("failed to read {label} `{}`: {error}", path.display()));
-    serde_json::from_str(&text)
-        .unwrap_or_else(|error| panic!("failed to parse {label} `{}` as JSON: {error}", path.display()))
+    serde_json::from_str(&text).unwrap_or_else(|error| {
+        panic!(
+            "failed to parse {label} `{}` as JSON: {error}",
+            path.display()
+        )
+    })
 }
 
 fn powershell_literal_path(path: &Path) -> String {
@@ -131,7 +135,8 @@ fn powershell_literal_path(path: &Path) -> String {
 }
 
 fn json_string_array(value: &Value, label: &str) -> Vec<String> {
-    value.as_array()
+    value
+        .as_array()
         .unwrap_or_else(|| panic!("{label} should be a JSON array"))
         .iter()
         .map(|item| {
@@ -158,13 +163,19 @@ fn assert_json_path_exists(value: &Value, label: &str) -> PathBuf {
             .as_str()
             .unwrap_or_else(|| panic!("{label} should be a JSON string path")),
     );
-    assert!(path.exists(), "{label} should exist at `{}`", path.display());
+    assert!(
+        path.exists(),
+        "{label} should exist at `{}`",
+        path.display()
+    );
     path
 }
 
 fn export_repair_benchmark(temp: &TempDir, manifest_path: &Path) -> PathBuf {
     let output_dir = temp.join("benchmark");
-    let script_path = repo_root().join("scripts").join("export-repair-benchmark.ps1");
+    let script_path = repo_root()
+        .join("scripts")
+        .join("export-repair-benchmark.ps1");
 
     let output = run_powershell_script(
         &script_path,
@@ -191,7 +202,9 @@ fn export_repair_benchmark(temp: &TempDir, manifest_path: &Path) -> PathBuf {
 fn export_smoke_repair_benchmark(temp: &TempDir) -> PathBuf {
     export_repair_benchmark(
         temp,
-        &repo_root().join("benchmarks").join("repair-cases-smoke.json"),
+        &repo_root()
+            .join("benchmarks")
+            .join("repair-cases-smoke.json"),
     )
 }
 
@@ -203,14 +216,19 @@ fn write_replay_wrapper(
     base_source_dir: Option<&Path>,
     ai_source_dir: Option<&Path>,
 ) -> PathBuf {
-    let replay_adapter = repo_root().join("scripts").join("replay-repair-adapter.ps1");
+    let replay_adapter = repo_root()
+        .join("scripts")
+        .join("replay-repair-adapter.ps1");
     let mut args = vec![
         "-PromptPath $PromptPath".to_string(),
         "-BundlePath $BundlePath".to_string(),
         "-OutputPath $OutputPath".to_string(),
         "-CaseId $CaseId".to_string(),
         "-FeedbackMode $FeedbackMode".to_string(),
-        format!("-SourceDir '{}'", powershell_literal_path(shared_source_dir)),
+        format!(
+            "-SourceDir '{}'",
+            powershell_literal_path(shared_source_dir)
+        ),
     ];
 
     if let Some(path) = cold_source_dir {
@@ -391,6 +409,32 @@ fn assert_clean_stderr(output: &Output) {
     );
 }
 
+fn normalize_temp_output(text: &str, temp: &TempDir) -> String {
+    let normalized = normalize_text(text).replace('\\', "/");
+    let root = temp.path.display().to_string().replace('\\', "/");
+    normalized.replace(&root, "<root>")
+}
+
+fn line_count(text: &str) -> i32 {
+    text.lines().count() as i32
+}
+
+fn nonempty_line_count(text: &str) -> i32 {
+    text.lines().filter(|line| !line.trim().is_empty()).count() as i32
+}
+
+fn heading_count(text: &str) -> i32 {
+    text.lines()
+        .filter(|line| line.trim().starts_with('#'))
+        .count() as i32
+}
+
+fn action_item_count(text: &str) -> i32 {
+    text.lines()
+        .filter(|line| line.contains("TODO") || line.contains("FIXME"))
+        .count() as i32
+}
+
 #[derive(Deserialize)]
 struct RepairCaseManifest {
     cases: Vec<RepairCaseEntry>,
@@ -412,10 +456,12 @@ impl RepairCaseEntry {
 }
 
 fn load_repair_manifest(path: &str) -> RepairCaseManifest {
-    let manifest_text = fs::read_to_string(repo_root().join(path))
-        .unwrap_or_else(|error| panic!("repair benchmark manifest `{path}` should be readable: {error}"));
-    serde_json::from_str(&manifest_text)
-        .unwrap_or_else(|error| panic!("repair benchmark manifest `{path}` should be valid: {error}"))
+    let manifest_text = fs::read_to_string(repo_root().join(path)).unwrap_or_else(|error| {
+        panic!("repair benchmark manifest `{path}` should be readable: {error}")
+    });
+    serde_json::from_str(&manifest_text).unwrap_or_else(|error| {
+        panic!("repair benchmark manifest `{path}` should be valid: {error}")
+    })
 }
 
 fn find_replay_candidate(root: &Path, case_id: &str) -> Option<PathBuf> {
@@ -874,7 +920,9 @@ fn repair_benchmark_export_keeps_cold_base_ai_artifact_contracts() {
     );
 
     let cold_bundle = read_json_file(
-        &output_dir.join("missing_semicolon_basic").join("bundle.cold.json"),
+        &output_dir
+            .join("missing_semicolon_basic")
+            .join("bundle.cold.json"),
         "cold bundle",
     );
     assert_eq!(cold_bundle["schema_version"], Value::from(1));
@@ -893,7 +941,9 @@ fn repair_benchmark_export_keeps_cold_base_ai_artifact_contracts() {
     );
 
     let base_bundle = read_json_file(
-        &output_dir.join("missing_semicolon_basic").join("bundle.base.json"),
+        &output_dir
+            .join("missing_semicolon_basic")
+            .join("bundle.base.json"),
         "base bundle",
     );
     assert_eq!(base_bundle["feedback_mode"], Value::from("base_json"));
@@ -905,7 +955,9 @@ fn repair_benchmark_export_keeps_cold_base_ai_artifact_contracts() {
     );
 
     let ai_bundle = read_json_file(
-        &output_dir.join("missing_semicolon_basic").join("bundle.ai.json"),
+        &output_dir
+            .join("missing_semicolon_basic")
+            .join("bundle.ai.json"),
         "ai bundle",
     );
     assert_eq!(ai_bundle["feedback_mode"], Value::from("ai_json"));
@@ -934,8 +986,12 @@ fn repair_benchmark_export_keeps_cold_base_ai_artifact_contracts() {
     );
 
     let cold_prompt = normalize_text(
-        &fs::read_to_string(output_dir.join("missing_semicolon_basic").join("prompt.cold.md"))
-            .expect("cold prompt should be readable"),
+        &fs::read_to_string(
+            output_dir
+                .join("missing_semicolon_basic")
+                .join("prompt.cold.md"),
+        )
+        .expect("cold prompt should be readable"),
     );
     assert!(
         cold_prompt.contains("Feedback mode: cold_prompt"),
@@ -947,8 +1003,12 @@ fn repair_benchmark_export_keeps_cold_base_ai_artifact_contracts() {
     );
 
     let base_prompt = normalize_text(
-        &fs::read_to_string(output_dir.join("missing_semicolon_basic").join("prompt.base.md"))
-            .expect("base prompt should be readable"),
+        &fs::read_to_string(
+            output_dir
+                .join("missing_semicolon_basic")
+                .join("prompt.base.md"),
+        )
+        .expect("base prompt should be readable"),
     );
     assert!(
         base_prompt.contains("Feedback mode: base_json"),
@@ -964,8 +1024,12 @@ fn repair_benchmark_export_keeps_cold_base_ai_artifact_contracts() {
     );
 
     let ai_prompt = normalize_text(
-        &fs::read_to_string(output_dir.join("missing_semicolon_basic").join("prompt.ai.md"))
-            .expect("ai prompt should be readable"),
+        &fs::read_to_string(
+            output_dir
+                .join("missing_semicolon_basic")
+                .join("prompt.ai.md"),
+        )
+        .expect("ai prompt should be readable"),
     );
     assert!(
         ai_prompt.contains("Feedback mode: ai_json"),
@@ -987,11 +1051,19 @@ fn repair_benchmark_export_keeps_cold_base_ai_artifact_contracts() {
     );
 
     let runtime_cold_bundle = read_json_file(
-        &output_dir.join("index_out_of_bounds_runtime").join("bundle.cold.json"),
+        &output_dir
+            .join("index_out_of_bounds_runtime")
+            .join("bundle.cold.json"),
         "runtime cold bundle",
     );
-    assert_eq!(runtime_cold_bundle["feedback_mode"], Value::from("cold_prompt"));
-    assert_eq!(runtime_cold_bundle["diagnostic_command"], Value::from("run"));
+    assert_eq!(
+        runtime_cold_bundle["feedback_mode"],
+        Value::from("cold_prompt")
+    );
+    assert_eq!(
+        runtime_cold_bundle["diagnostic_command"],
+        Value::from("run")
+    );
     assert!(
         runtime_cold_bundle["diagnostics"]
             .as_array()
@@ -1001,7 +1073,9 @@ fn repair_benchmark_export_keeps_cold_base_ai_artifact_contracts() {
     );
 
     let runtime_base_bundle = read_json_file(
-        &output_dir.join("index_out_of_bounds_runtime").join("bundle.base.json"),
+        &output_dir
+            .join("index_out_of_bounds_runtime")
+            .join("bundle.base.json"),
         "runtime base bundle",
     );
     assert_eq!(
@@ -1011,8 +1085,12 @@ fn repair_benchmark_export_keeps_cold_base_ai_artifact_contracts() {
     );
 
     let runtime_cold_prompt = normalize_text(
-        &fs::read_to_string(output_dir.join("index_out_of_bounds_runtime").join("prompt.cold.md"))
-            .expect("runtime cold prompt should be readable"),
+        &fs::read_to_string(
+            output_dir
+                .join("index_out_of_bounds_runtime")
+                .join("prompt.cold.md"),
+        )
+        .expect("runtime cold prompt should be readable"),
     );
     assert!(
         runtime_cold_prompt.contains("Diagnostic command: axc run --json"),
@@ -1061,12 +1139,17 @@ fn repair_benchmark_run_accepts_large_stdout_only_adapter_output_without_timeout
     );
     assert_clean_stderr(&output);
 
-    let run_summary =
-        read_json_file(&output_dir.join("run-summary.json"), "stdout-only runner summary");
+    let run_summary = read_json_file(
+        &output_dir.join("run-summary.json"),
+        "stdout-only runner summary",
+    );
     assert_eq!(run_summary["schema_version"], Value::from(1));
     assert_eq!(run_summary["feedback_mode"], Value::from("ai"));
     assert_eq!(
-        assert_json_path_exists(&run_summary["benchmark_index"], "stdout-only benchmark_index"),
+        assert_json_path_exists(
+            &run_summary["benchmark_index"],
+            "stdout-only benchmark_index"
+        ),
         benchmark_dir.join("index.json")
     );
     assert_eq!(
@@ -1170,8 +1253,10 @@ fn repair_benchmark_run_rejects_zero_exit_without_file_or_stdout() {
     );
     assert_clean_stderr(&output);
 
-    let run_summary =
-        read_json_file(&output_dir.join("run-summary.json"), "silent runner summary");
+    let run_summary = read_json_file(
+        &output_dir.join("run-summary.json"),
+        "silent runner summary",
+    );
     assert_eq!(run_summary["schema_version"], Value::from(1));
     assert_eq!(
         assert_json_path_exists(&run_summary["benchmark_index"], "silent benchmark_index"),
@@ -1254,7 +1339,9 @@ fn main() -> i32 {
     .expect("failed to write runtime candidate");
 
     let output_dir = temp.join("score");
-    let script_path = repo_root().join("scripts").join("score-repair-benchmark.ps1");
+    let script_path = repo_root()
+        .join("scripts")
+        .join("score-repair-benchmark.ps1");
 
     let output = run_powershell_script(
         &script_path,
@@ -1277,7 +1364,10 @@ fn main() -> i32 {
     );
     assert_clean_stderr(&output);
 
-    let summary = read_json_file(&output_dir.join("summary.json"), "runtime exit score summary");
+    let summary = read_json_file(
+        &output_dir.join("summary.json"),
+        "runtime exit score summary",
+    );
     assert_eq!(summary["totals"]["total"], Value::from(1));
     assert_eq!(summary["totals"]["passed"], Value::from(1));
     assert_eq!(summary["totals"]["failed"], Value::from(0));
@@ -1328,7 +1418,9 @@ fn main() -> i32 {
     );
 
     let output_dir = temp.join("score");
-    let script_path = repo_root().join("scripts").join("score-repair-benchmark.ps1");
+    let script_path = repo_root()
+        .join("scripts")
+        .join("score-repair-benchmark.ps1");
     let output = run_powershell_script(
         &script_path,
         [
@@ -1350,7 +1442,10 @@ fn main() -> i32 {
     );
     assert_clean_stderr(&output);
 
-    let summary = read_json_file(&output_dir.join("summary.json"), "BOM candidate score summary");
+    let summary = read_json_file(
+        &output_dir.join("summary.json"),
+        "BOM candidate score summary",
+    );
     assert_eq!(summary["totals"]["total"], Value::from(1));
     assert_eq!(summary["totals"]["passed"], Value::from(1));
     assert_eq!(summary["totals"]["failed"], Value::from(0));
@@ -1373,12 +1468,19 @@ fn main() -> i32 {
     );
     assert_eq!(cases[0]["check_exit_code"], Value::from(0));
     assert_eq!(
-        json_string_array(&cases[0]["remaining_codes"], "BOM candidate remaining_codes"),
+        json_string_array(
+            &cases[0]["remaining_codes"],
+            "BOM candidate remaining_codes"
+        ),
         Vec::<String>::new()
     );
 
-    let normalized_copy = fs::read(output_dir.join("missing_semicolon_basic").join("candidate.ax"))
-        .expect("scorer should emit a normalized candidate copy");
+    let normalized_copy = fs::read(
+        output_dir
+            .join("missing_semicolon_basic")
+            .join("candidate.ax"),
+    )
+    .expect("scorer should emit a normalized candidate copy");
     assert!(
         !normalized_copy.starts_with(&[0xEF, 0xBB, 0xBF]),
         "normalized candidate copy should strip the UTF-8 BOM"
@@ -1405,7 +1507,9 @@ fn main() -> i32 {
     );
 
     let output_dir = temp.join("score");
-    let script_path = repo_root().join("scripts").join("score-repair-benchmark.ps1");
+    let script_path = repo_root()
+        .join("scripts")
+        .join("score-repair-benchmark.ps1");
     let output = run_powershell_script(
         &script_path,
         [
@@ -1460,8 +1564,12 @@ fn main() -> i32 {
         Vec::<String>::new()
     );
 
-    let normalized_copy = fs::read(output_dir.join("missing_semicolon_basic").join("candidate.ax"))
-        .expect("scorer should emit a normalized UTF-16 candidate copy");
+    let normalized_copy = fs::read(
+        output_dir
+            .join("missing_semicolon_basic")
+            .join("candidate.ax"),
+    )
+    .expect("scorer should emit a normalized UTF-16 candidate copy");
     assert!(
         !normalized_copy.starts_with(&[0xFF, 0xFE]),
         "normalized candidate copy should strip the UTF-16 LE BOM"
@@ -1521,7 +1629,10 @@ fn repair_benchmark_run_keeps_smoke_run_and_score_contracts_without_rebuild() {
     assert_eq!(run_summary["schema_version"], Value::from(1));
     assert_eq!(run_summary["feedback_mode"], Value::from("ai"));
     assert_eq!(
-        assert_json_path_exists(&run_summary["benchmark_index"], "run summary benchmark_index"),
+        assert_json_path_exists(
+            &run_summary["benchmark_index"],
+            "run summary benchmark_index"
+        ),
         benchmark_dir.join("index.json")
     );
     assert_eq!(
@@ -1537,7 +1648,10 @@ fn repair_benchmark_run_keeps_smoke_run_and_score_contracts_without_rebuild() {
         runner_script
     );
     assert_eq!(
-        json_string_array(&run_summary["runner_extra_args"], "run summary runner_extra_args"),
+        json_string_array(
+            &run_summary["runner_extra_args"],
+            "run summary runner_extra_args"
+        ),
         Vec::<String>::new()
     );
     assert_eq!(
@@ -1584,7 +1698,10 @@ fn repair_benchmark_run_keeps_smoke_run_and_score_contracts_without_rebuild() {
 
     assert_eq!(score_summary["schema_version"], Value::from(1));
     assert_eq!(
-        assert_json_path_exists(&score_summary["benchmark_dir"], "score summary benchmark_dir"),
+        assert_json_path_exists(
+            &score_summary["benchmark_dir"],
+            "score summary benchmark_dir"
+        ),
         benchmark_dir.clone()
     );
     assert_eq!(
@@ -1760,7 +1877,10 @@ fn repair_feedback_comparison_keeps_smoke_contract_without_rebuild() {
     assert_eq!(comparison["comparison"]["total_cases"], Value::from(10));
     assert_eq!(comparison["comparison"]["base_passed"], Value::from(5));
     assert_eq!(comparison["comparison"]["ai_passed"], Value::from(10));
-    assert_eq!(comparison["comparison"]["absolute_lift_cases"], Value::from(5));
+    assert_eq!(
+        comparison["comparison"]["absolute_lift_cases"],
+        Value::from(5)
+    );
     assert_json_f64(
         &comparison["comparison"]["absolute_lift_pp"],
         50.0,
@@ -1771,16 +1891,34 @@ fn repair_feedback_comparison_keeps_smoke_contract_without_rebuild() {
         100.0,
         "comparison relative_lift_pct",
     );
-    assert_eq!(comparison["modes"]["base"]["invocation_totals"]["ok"], Value::from(10));
-    assert_eq!(comparison["modes"]["ai"]["invocation_totals"]["ok"], Value::from(10));
-    assert_eq!(comparison["modes"]["base"]["score_totals"]["failed"], Value::from(5));
-    assert_eq!(comparison["modes"]["ai"]["score_totals"]["failed"], Value::from(0));
+    assert_eq!(
+        comparison["modes"]["base"]["invocation_totals"]["ok"],
+        Value::from(10)
+    );
+    assert_eq!(
+        comparison["modes"]["ai"]["invocation_totals"]["ok"],
+        Value::from(10)
+    );
+    assert_eq!(
+        comparison["modes"]["base"]["score_totals"]["failed"],
+        Value::from(5)
+    );
+    assert_eq!(
+        comparison["modes"]["ai"]["score_totals"]["failed"],
+        Value::from(0)
+    );
     assert_eq!(comparison["modes"]["base"]["exit_code"], Value::from(1));
     assert_eq!(comparison["modes"]["ai"]["exit_code"], Value::from(0));
     assert_eq!(comparison["modes"]["base"]["timed_out"], Value::from(false));
     assert_eq!(comparison["modes"]["ai"]["timed_out"], Value::from(false));
-    assert_json_path_exists(&comparison["modes"]["base"]["stdout_log"], "base stdout_log");
-    assert_json_path_exists(&comparison["modes"]["base"]["stderr_log"], "base stderr_log");
+    assert_json_path_exists(
+        &comparison["modes"]["base"]["stdout_log"],
+        "base stdout_log",
+    );
+    assert_json_path_exists(
+        &comparison["modes"]["base"]["stderr_log"],
+        "base stderr_log",
+    );
     assert_json_path_exists(
         &comparison["modes"]["base"]["run_summary_path"],
         "base run_summary_path",
@@ -1868,10 +2006,7 @@ fn repair_feedback_comparison_keeps_smoke_contract_without_rebuild() {
     assert_eq!(semantic["improved"], Value::from(3));
     assert_eq!(semantic["regressed"], Value::from(0));
     assert_eq!(
-        json_string_array(
-            &semantic["improved_case_ids"],
-            "semantic improved_case_ids",
-        ),
+        json_string_array(&semantic["improved_case_ids"], "semantic improved_case_ids",),
         vec![
             "type_mismatch_bool_from_int".to_string(),
             "missing_struct_literal_field".to_string(),
@@ -1896,20 +2031,14 @@ fn repair_feedback_comparison_keeps_smoke_contract_without_rebuild() {
     assert_eq!(runtime["improved"], Value::from(2));
     assert_eq!(runtime["regressed"], Value::from(0));
     assert_eq!(
-        json_string_array(
-            &runtime["improved_case_ids"],
-            "runtime improved_case_ids",
-        ),
+        json_string_array(&runtime["improved_case_ids"], "runtime improved_case_ids",),
         vec![
             "index_out_of_bounds_runtime".to_string(),
             "division_by_zero_runtime".to_string(),
         ]
     );
     assert_eq!(
-        json_string_array(
-            &runtime["regressed_case_ids"],
-            "runtime regressed_case_ids",
-        ),
+        json_string_array(&runtime["regressed_case_ids"], "runtime regressed_case_ids",),
         Vec::<String>::new()
     );
 }
@@ -2007,11 +2136,26 @@ fn repair_mode_comparison_keeps_smoke_contract_without_rebuild() {
     assert_eq!(comparison["modes"]["cold"]["exit_code"], Value::from(1));
     assert_eq!(comparison["modes"]["base"]["exit_code"], Value::from(1));
     assert_eq!(comparison["modes"]["ai"]["exit_code"], Value::from(0));
-    assert_eq!(comparison["modes"]["cold"]["score_totals"]["failed"], Value::from(7));
-    assert_eq!(comparison["modes"]["base"]["score_totals"]["failed"], Value::from(5));
-    assert_eq!(comparison["modes"]["ai"]["score_totals"]["failed"], Value::from(0));
-    assert_json_path_exists(&comparison["modes"]["cold"]["stdout_log"], "cold stdout_log");
-    assert_json_path_exists(&comparison["modes"]["cold"]["stderr_log"], "cold stderr_log");
+    assert_eq!(
+        comparison["modes"]["cold"]["score_totals"]["failed"],
+        Value::from(7)
+    );
+    assert_eq!(
+        comparison["modes"]["base"]["score_totals"]["failed"],
+        Value::from(5)
+    );
+    assert_eq!(
+        comparison["modes"]["ai"]["score_totals"]["failed"],
+        Value::from(0)
+    );
+    assert_json_path_exists(
+        &comparison["modes"]["cold"]["stdout_log"],
+        "cold stdout_log",
+    );
+    assert_json_path_exists(
+        &comparison["modes"]["cold"]["stderr_log"],
+        "cold stderr_log",
+    );
     assert_json_path_exists(
         &comparison["modes"]["cold"]["run_summary_path"],
         "cold run_summary_path",
@@ -2020,8 +2164,14 @@ fn repair_mode_comparison_keeps_smoke_contract_without_rebuild() {
         &comparison["modes"]["cold"]["score_summary_path"],
         "cold score_summary_path",
     );
-    assert_json_path_exists(&comparison["modes"]["base"]["stdout_log"], "base stdout_log");
-    assert_json_path_exists(&comparison["modes"]["base"]["stderr_log"], "base stderr_log");
+    assert_json_path_exists(
+        &comparison["modes"]["base"]["stdout_log"],
+        "base stdout_log",
+    );
+    assert_json_path_exists(
+        &comparison["modes"]["base"]["stderr_log"],
+        "base stderr_log",
+    );
     assert_json_path_exists(
         &comparison["modes"]["base"]["run_summary_path"],
         "base run_summary_path",
@@ -2160,9 +2310,18 @@ fn repair_mode_comparison_keeps_smoke_contract_without_rebuild() {
         .iter()
         .find(|case| case["id"].as_str() == Some("unknown_type_missing"))
         .expect("mode comparison should include unknown_type_missing");
-    assert_eq!(cold_to_base_case["cold_to_base_delta"], Value::from("improved"));
-    assert_eq!(cold_to_base_case["base_to_ai_delta"], Value::from("both_pass"));
-    assert_eq!(cold_to_base_case["cold_to_ai_delta"], Value::from("improved"));
+    assert_eq!(
+        cold_to_base_case["cold_to_base_delta"],
+        Value::from("improved")
+    );
+    assert_eq!(
+        cold_to_base_case["base_to_ai_delta"],
+        Value::from("both_pass")
+    );
+    assert_eq!(
+        cold_to_base_case["cold_to_ai_delta"],
+        Value::from("improved")
+    );
 
     let categories = comparison["categories"]
         .as_array()
@@ -2232,12 +2391,14 @@ fn smoke_repair_manifest_stays_aligned_with_full_manifest() {
     );
 
     for smoke_case in &smoke_manifest.cases {
-        let full_case = *full_cases_by_id.get(smoke_case.id.as_str()).unwrap_or_else(|| {
-            panic!(
-                "smoke case `{}` should also exist in the full repair manifest",
-                smoke_case.id
-            )
-        });
+        let full_case = *full_cases_by_id
+            .get(smoke_case.id.as_str())
+            .unwrap_or_else(|| {
+                panic!(
+                    "smoke case `{}` should also exist in the full repair manifest",
+                    smoke_case.id
+                )
+            });
 
         assert_eq!(
             smoke_case.file.as_str(),
@@ -2308,7 +2469,9 @@ fn full_compare_shared_replay_scores_cleanly() {
         .join("compare")
         .join("shared");
     let output_dir = temp.join("score");
-    let script_path = repo_root().join("scripts").join("score-repair-benchmark.ps1");
+    let script_path = repo_root()
+        .join("scripts")
+        .join("score-repair-benchmark.ps1");
 
     let output = run_powershell_script(
         &script_path,
@@ -2331,7 +2494,10 @@ fn full_compare_shared_replay_scores_cleanly() {
     );
     assert_clean_stderr(&output);
 
-    let summary = read_json_file(&output_dir.join("summary.json"), "full compare shared score summary");
+    let summary = read_json_file(
+        &output_dir.join("summary.json"),
+        "full compare shared score summary",
+    );
     assert_eq!(summary["totals"]["total"], Value::from(26));
     assert_eq!(summary["totals"]["passed"], Value::from(26));
     assert_eq!(summary["totals"]["failed"], Value::from(0));
@@ -2512,8 +2678,302 @@ fn main() -> i32 {
 }
 
 #[test]
+fn project_directory_run_executes_manifest_entry_with_support_sources() {
+    let output = run_axc([OsStr::new("run"), OsStr::new("examples/project_split")]);
+    assert_eq!(output.status.code(), Some(7));
+    assert_clean_stderr(&output);
+    assert_eq!(normalize_text(&string_output(&output.stdout)), "total=7\n");
+}
+
+#[test]
+fn project_check_reports_support_source_file_in_json_diagnostics() {
+    let temp = TempDir::new("project-support-diagnostic");
+    temp.write(
+        "AX.toml",
+        "\
+manifest_version = 1
+
+[package]
+name = \"project_support_diagnostic\"
+entry = \"src/main.ax\"
+sources = [\"src/lib.ax\"]
+",
+    );
+    temp.write_nested(
+        "src/lib.ax",
+        "\
+fn helper() -> i32 {
+    let value: i32 = 1
+    return value;
+}
+",
+    );
+    temp.write_nested(
+        "src/main.ax",
+        "\
+fn main() -> i32 {
+    return helper();
+}
+",
+    );
+
+    let output = run_axc([
+        OsStr::new("check"),
+        temp.path.as_os_str(),
+        OsStr::new("--json"),
+    ]);
+    assert_eq!(output.status.code(), Some(1));
+    assert_clean_stderr(&output);
+
+    let diagnostics: Value =
+        serde_json::from_slice(&output.stdout).expect("project diagnostics should be JSON");
+    let diagnostics = diagnostics
+        .as_array()
+        .expect("project diagnostics should be an array");
+    assert!(!diagnostics.is_empty(), "expected project diagnostics");
+    assert_eq!(
+        diagnostics[0]["file"].as_str(),
+        Some(temp.join("src/lib.ax").to_string_lossy().as_ref()),
+        "diagnostics should point at the support source file"
+    );
+    assert_eq!(
+        diagnostics[0]["code"].as_str(),
+        Some("P0001"),
+        "support source parse failure should preserve the parse diagnostic code"
+    );
+}
+
+#[test]
+fn fmt_formats_multifile_project_inputs() {
+    let temp = TempDir::new("fmt-project");
+    temp.write(
+        "AX.toml",
+        "\
+manifest_version = 1
+
+[package]
+name = \"fmt_project\"
+entry = \"src/main.ax\"
+sources = [\"src/math.ax\", \"src/report.ax\"]
+",
+    );
+    let math = temp.write_nested(
+        "src/math.ax",
+        "\
+fn add(left:i32,right:i32)->i32 {
+return left + right;
+}
+",
+    );
+    let report = temp.write_nested(
+        "src/report.ax",
+        "\
+fn render_total(total:i32)->string {
+return \"total=\" + to_string(total);
+}
+",
+    );
+    let main = temp.write_nested(
+        "src/main.ax",
+        "\
+fn main() -> i32 {
+let total:i32=add(2,5);
+println(render_total(total));
+return total;
+}
+",
+    );
+
+    let first = run_axc([OsStr::new("fmt"), temp.path.as_os_str()]);
+    assert_eq!(first.status.code(), Some(0));
+    assert_clean_stderr(&first);
+    assert_eq!(
+        normalize_temp_output(&string_output(&first.stdout), &temp),
+        "\
+formatted: <root>/src/math.ax
+formatted: <root>/src/report.ax
+formatted: <root>/src/main.ax
+"
+    );
+
+    assert_eq!(
+        normalize_text(&fs::read_to_string(&math).expect("math source should be formatted")),
+        "\
+fn add(left: i32, right: i32) -> i32 {
+    return left + right;
+}
+"
+    );
+    assert_eq!(
+        normalize_text(&fs::read_to_string(&report).expect("report source should be formatted")),
+        "\
+fn render_total(total: i32) -> string {
+    return \"total=\" + to_string(total);
+}
+"
+    );
+    assert_eq!(
+        normalize_text(&fs::read_to_string(&main).expect("main source should be formatted")),
+        "\
+fn main() -> i32 {
+    let total: i32 = add(2, 5);
+    println(render_total(total));
+    return total;
+}
+"
+    );
+
+    let second = run_axc([OsStr::new("fmt"), temp.path.as_os_str()]);
+    assert_eq!(second.status.code(), Some(0));
+    assert_clean_stderr(&second);
+    assert_eq!(
+        normalize_temp_output(&string_output(&second.stdout), &temp),
+        "\
+already formatted: <root>/src/math.ax
+already formatted: <root>/src/report.ax
+already formatted: <root>/src/main.ax
+"
+    );
+}
+
+#[test]
+fn project_foundation_report_runs_with_ax_side_library_helpers() {
+    let temp = TempDir::new("project-foundation-report");
+    let input_text = "\
+# Release
+TODO polish
+
+## Follow Up
+FIXME rename
+";
+    let input_path = temp.write("notes.md", input_text);
+
+    let output = run_axc([
+        OsStr::new("run"),
+        OsStr::new("examples/project_foundation_report"),
+        OsStr::new("--"),
+        input_path.as_os_str(),
+    ]);
+    assert_eq!(output.status.code(), Some(2));
+    assert_clean_stderr(&output);
+
+    let expected = format!(
+        "\
+file=notes.md
+kind=markdown
+chars={}
+lines={}
+nonempty={}
+headings={}
+action_items={}
+",
+        input_text.chars().count(),
+        line_count(input_text),
+        nonempty_line_count(input_text),
+        heading_count(input_text),
+        action_item_count(input_text),
+    );
+    assert_eq!(normalize_text(&string_output(&output.stdout)), expected);
+}
+
+#[test]
+fn project_docs_release_runs_on_controlled_fixture() {
+    let temp = TempDir::new("project-docs-release");
+    let docs_dir = temp.join("docs");
+    fs::create_dir_all(docs_dir.join("nested")).expect("nested docs directory should exist");
+
+    let alpha_text = "\
+# Alpha
+TODO polish
+";
+    let beta_text = "\
+## Beta
+Stable
+";
+
+    fs::write(docs_dir.join("alpha.md"), alpha_text).expect("alpha.md should exist");
+    fs::write(docs_dir.join("beta.md"), beta_text).expect("beta.md should exist");
+    fs::write(docs_dir.join("notes.txt"), "ignore me\n").expect("notes.txt should exist");
+
+    let out_dir = temp.join("release");
+    let output = run_axc([
+        OsStr::new("run"),
+        OsStr::new("examples/project_docs_release"),
+        OsStr::new("--"),
+        docs_dir.as_os_str(),
+        out_dir.as_os_str(),
+    ]);
+    assert_eq!(output.status.code(), Some(0));
+    assert_clean_stderr(&output);
+
+    let stdout = normalize_temp_output(&string_output(&output.stdout), &temp);
+    assert_eq!(stdout, "snapshotted=<root>/release/docs-snapshot\n");
+
+    let snapshot_dir = out_dir.join("docs-snapshot");
+    let summary_path = snapshot_dir.join("SUMMARY.txt");
+    let summary = normalize_temp_output(
+        &fs::read_to_string(&summary_path).expect("summary should exist"),
+        &temp,
+    );
+    let expected_summary = format!(
+        "\
+source=<root>/docs
+snapshot=<root>/release/docs-snapshot
+entries_seen=4
+copied_files=2
+skipped_entries=2
+copied_bytes={}
+lines={}
+headings={}
+action_items={}
+
+files:
+alpha.md | bytes={} | lines={} | headings={} | action_items={}
+beta.md | bytes={} | lines={} | headings={} | action_items={}
+",
+        alpha_text.len() + beta_text.len(),
+        line_count(alpha_text) + line_count(beta_text),
+        heading_count(alpha_text) + heading_count(beta_text),
+        action_item_count(alpha_text) + action_item_count(beta_text),
+        alpha_text.len(),
+        line_count(alpha_text),
+        heading_count(alpha_text),
+        action_item_count(alpha_text),
+        beta_text.len(),
+        line_count(beta_text),
+        heading_count(beta_text),
+        action_item_count(beta_text),
+    );
+    assert_eq!(summary, expected_summary);
+
+    let receipt = normalize_temp_output(
+        &fs::read_to_string(snapshot_dir.join("receipts").join("alpha.receipt.txt"))
+            .expect("alpha receipt should exist"),
+        &temp,
+    );
+    let expected_receipt = format!(
+        "\
+source=<root>/docs/alpha.md
+destination=<root>/release/docs-snapshot/alpha.md
+bytes={}
+lines={}
+headings={}
+action_items={}
+",
+        alpha_text.len(),
+        line_count(alpha_text),
+        heading_count(alpha_text),
+        action_item_count(alpha_text),
+    );
+    assert_eq!(receipt, expected_receipt);
+}
+
+#[test]
 fn bootstrap_state_machine_example_runs() {
-    let output = run_axc([OsStr::new("run"), OsStr::new("examples/bootstrap_state_machine.ax")]);
+    let output = run_axc([
+        OsStr::new("run"),
+        OsStr::new("examples/bootstrap_state_machine.ax"),
+    ]);
     assert_eq!(output.status.code(), Some(0));
     assert_clean_stderr(&output);
     assert_eq!(normalize_text(&string_output(&output.stdout)), "1\n0\n");
@@ -2521,7 +2981,10 @@ fn bootstrap_state_machine_example_runs() {
 
 #[test]
 fn bootstrap_block_summary_example_runs() {
-    let output = run_axc([OsStr::new("run"), OsStr::new("examples/bootstrap_block_summary.ax")]);
+    let output = run_axc([
+        OsStr::new("run"),
+        OsStr::new("examples/bootstrap_block_summary.ax"),
+    ]);
     assert_eq!(output.status.code(), Some(0));
     assert_clean_stderr(&output);
     assert_eq!(
@@ -2535,7 +2998,10 @@ fn slices_example_runs() {
     let output = run_axc([OsStr::new("run"), OsStr::new("examples/slices.ax")]);
     assert_eq!(output.status.code(), Some(3));
     assert_clean_stderr(&output);
-    assert_eq!(normalize_text(&string_output(&output.stdout)), "[2, 3]\n7\n");
+    assert_eq!(
+        normalize_text(&string_output(&output.stdout)),
+        "[2, 3]\n7\n"
+    );
 }
 
 #[test]
@@ -2543,7 +3009,10 @@ fn string_tools_example_runs() {
     let output = run_axc([OsStr::new("run"), OsStr::new("examples/string_tools.ax")]);
     assert_eq!(output.status.code(), Some(2));
     assert_clean_stderr(&output);
-    assert_eq!(normalize_text(&string_output(&output.stdout)), "AX report ready\n15\n");
+    assert_eq!(
+        normalize_text(&string_output(&output.stdout)),
+        "AX report ready\n15\n"
+    );
 }
 
 #[test]
@@ -2551,7 +3020,10 @@ fn traversal_example_runs() {
     let output = run_axc([OsStr::new("run"), OsStr::new("examples/traversal.ax")]);
     assert_eq!(output.status.code(), Some(15));
     assert_clean_stderr(&output);
-    assert_eq!(normalize_text(&string_output(&output.stdout)), "2\n5\n3\n9\n");
+    assert_eq!(
+        normalize_text(&string_output(&output.stdout)),
+        "2\n5\n3\n9\n"
+    );
 }
 
 #[test]
@@ -2571,6 +3043,419 @@ fn empty_array_example_runs() {
     assert_eq!(output.status.code(), Some(0));
     assert_clean_stderr(&output);
     assert_eq!(normalize_text(&string_output(&output.stdout)), "[]\n");
+}
+
+#[test]
+fn workspace_audit_example_runs_on_controlled_fixture() {
+    let temp = TempDir::new("workspace-audit-example");
+    let workspace_dir = temp.join("workspace");
+    fs::create_dir_all(workspace_dir.join("docs")).expect("docs directory should exist");
+    fs::create_dir_all(workspace_dir.join("tmp").join("inner"))
+        .expect("nested directory should exist");
+
+    let app_text = "\
+fn main() -> i32 {
+    return 0;
+}
+";
+    let guide_text = "\
+# Guide
+TODO: refine
+Details
+";
+    let blob_bytes = b"AX\x00\x01";
+
+    fs::write(workspace_dir.join("app.ax"), app_text).expect("app.ax should exist");
+    fs::write(workspace_dir.join("docs").join("guide.md"), guide_text)
+        .expect("guide.md should exist");
+    fs::write(workspace_dir.join("docs").join("blob.bin"), blob_bytes)
+        .expect("blob.bin should exist");
+
+    let output_path = temp.join("audit.txt");
+    let output = run_axc([
+        OsStr::new("run"),
+        OsStr::new("examples/workspace_audit.ax"),
+        OsStr::new("--"),
+        workspace_dir.as_os_str(),
+        output_path.as_os_str(),
+    ]);
+    assert_eq!(output.status.code(), Some(0));
+    assert_clean_stderr(&output);
+
+    let stdout = normalize_temp_output(&string_output(&output.stdout), &temp);
+    assert_eq!(stdout, "audited=<root>/audit.txt\n");
+
+    let rendered = normalize_temp_output(
+        &fs::read_to_string(&output_path).expect("audit report should exist"),
+        &temp,
+    );
+    let expected = format!(
+        "\
+root=<root>/workspace
+scope=top-level + one nested level
+top_level_entries=3
+directories=3
+files=3
+text_files=2
+bytes={}
+lines={}
+nonempty={}
+headings={}
+action_items={}
+
+entries:
+app.ax | file | bytes={} | lines={} | nonempty={} | headings=0 | action_items=0
+docs | dir | children=2
+  docs/blob.bin | file | bytes={}
+  docs/guide.md | file | bytes={} | lines={} | nonempty={} | headings={} | action_items={}
+tmp | dir | children=1
+  tmp/inner | dir | children=0
+",
+        app_text.len() + guide_text.len() + blob_bytes.len(),
+        line_count(app_text) + line_count(guide_text),
+        nonempty_line_count(app_text) + nonempty_line_count(guide_text),
+        heading_count(guide_text),
+        action_item_count(guide_text),
+        app_text.len(),
+        line_count(app_text),
+        nonempty_line_count(app_text),
+        blob_bytes.len(),
+        guide_text.len(),
+        line_count(guide_text),
+        nonempty_line_count(guide_text),
+        heading_count(guide_text),
+        action_item_count(guide_text),
+    );
+    assert_eq!(rendered, expected);
+}
+
+#[test]
+fn project_workspace_audit_runs_on_controlled_fixture() {
+    let temp = TempDir::new("project-workspace-audit");
+    let workspace_dir = temp.join("workspace");
+    fs::create_dir_all(workspace_dir.join("docs")).expect("docs directory should exist");
+    fs::create_dir_all(workspace_dir.join("tmp").join("inner"))
+        .expect("nested directory should exist");
+
+    let app_text = "\
+fn main() -> i32 {
+    return 0;
+}
+";
+    let guide_text = "\
+# Guide
+TODO: refine
+Details
+";
+    let blob_bytes = b"AX\x00\x01";
+
+    fs::write(workspace_dir.join("app.ax"), app_text).expect("app.ax should exist");
+    fs::write(workspace_dir.join("docs").join("guide.md"), guide_text)
+        .expect("guide.md should exist");
+    fs::write(workspace_dir.join("docs").join("blob.bin"), blob_bytes)
+        .expect("blob.bin should exist");
+
+    let output_path = temp.join("audit.txt");
+    let output = run_axc([
+        OsStr::new("run"),
+        OsStr::new("examples/project_workspace_audit"),
+        OsStr::new("--"),
+        workspace_dir.as_os_str(),
+        output_path.as_os_str(),
+    ]);
+    assert_eq!(output.status.code(), Some(0));
+    assert_clean_stderr(&output);
+
+    let stdout = normalize_temp_output(&string_output(&output.stdout), &temp);
+    assert_eq!(stdout, "audited=<root>/audit.txt\n");
+
+    let rendered = normalize_temp_output(
+        &fs::read_to_string(&output_path).expect("audit report should exist"),
+        &temp,
+    );
+    let expected = format!(
+        "\
+root=<root>/workspace
+scope=top-level + one nested level
+top_level_entries=3
+directories=3
+files=3
+text_files=2
+bytes={}
+lines={}
+nonempty={}
+headings={}
+action_items={}
+
+entries:
+app.ax | file | bytes={} | lines={} | nonempty={} | headings=0 | action_items=0
+docs | dir | children=2
+  docs/blob.bin | file | bytes={}
+  docs/guide.md | file | bytes={} | lines={} | nonempty={} | headings={} | action_items={}
+tmp | dir | children=1
+  tmp/inner | dir | children=0
+",
+        app_text.len() + guide_text.len() + blob_bytes.len(),
+        line_count(app_text) + line_count(guide_text),
+        nonempty_line_count(app_text) + nonempty_line_count(guide_text),
+        heading_count(guide_text),
+        action_item_count(guide_text),
+        app_text.len(),
+        line_count(app_text),
+        nonempty_line_count(app_text),
+        blob_bytes.len(),
+        guide_text.len(),
+        line_count(guide_text),
+        nonempty_line_count(guide_text),
+        heading_count(guide_text),
+        action_item_count(guide_text),
+    );
+    assert_eq!(rendered, expected);
+}
+
+#[test]
+fn docs_release_snapshot_example_runs_on_controlled_fixture() {
+    let temp = TempDir::new("docs-release-snapshot-example");
+    let docs_dir = temp.join("docs");
+    fs::create_dir_all(docs_dir.join("nested")).expect("nested docs directory should exist");
+
+    let alpha_text = "\
+# Alpha
+TODO polish
+";
+    let beta_text = "\
+## Beta
+Stable
+";
+
+    fs::write(docs_dir.join("alpha.md"), alpha_text).expect("alpha.md should exist");
+    fs::write(docs_dir.join("beta.md"), beta_text).expect("beta.md should exist");
+    fs::write(docs_dir.join("notes.txt"), "ignore me\n").expect("notes.txt should exist");
+
+    let out_dir = temp.join("release");
+    let output = run_axc([
+        OsStr::new("run"),
+        OsStr::new("examples/docs_release_snapshot.ax"),
+        OsStr::new("--"),
+        docs_dir.as_os_str(),
+        out_dir.as_os_str(),
+    ]);
+    assert_eq!(output.status.code(), Some(0));
+    assert_clean_stderr(&output);
+
+    let stdout = normalize_temp_output(&string_output(&output.stdout), &temp);
+    assert_eq!(stdout, "snapshotted=<root>/release/docs-snapshot\n");
+
+    let snapshot_dir = out_dir.join("docs-snapshot");
+    let summary_path = snapshot_dir.join("SUMMARY.txt");
+    let summary = normalize_temp_output(
+        &fs::read_to_string(&summary_path).expect("summary should exist"),
+        &temp,
+    );
+    let expected_summary = format!(
+        "\
+source=<root>/docs
+snapshot=<root>/release/docs-snapshot
+entries_seen=4
+copied_files=2
+skipped_entries=2
+copied_bytes={}
+lines={}
+headings={}
+action_items={}
+
+files:
+alpha.md | bytes={} | lines={} | headings={} | action_items={}
+beta.md | bytes={} | lines={} | headings={} | action_items={}
+",
+        alpha_text.len() + beta_text.len(),
+        line_count(alpha_text) + line_count(beta_text),
+        heading_count(alpha_text) + heading_count(beta_text),
+        action_item_count(alpha_text) + action_item_count(beta_text),
+        alpha_text.len(),
+        line_count(alpha_text),
+        heading_count(alpha_text),
+        action_item_count(alpha_text),
+        beta_text.len(),
+        line_count(beta_text),
+        heading_count(beta_text),
+        action_item_count(beta_text),
+    );
+    assert_eq!(summary, expected_summary);
+
+    let copied_alpha =
+        fs::read_to_string(snapshot_dir.join("alpha.md")).expect("copied alpha.md should exist");
+    let copied_beta =
+        fs::read_to_string(snapshot_dir.join("beta.md")).expect("copied beta.md should exist");
+    assert_eq!(copied_alpha, alpha_text);
+    assert_eq!(copied_beta, beta_text);
+
+    let receipt = normalize_temp_output(
+        &fs::read_to_string(snapshot_dir.join("receipts").join("alpha.receipt.txt"))
+            .expect("alpha receipt should exist"),
+        &temp,
+    );
+    let expected_receipt = format!(
+        "\
+source=<root>/docs/alpha.md
+destination=<root>/release/docs-snapshot/alpha.md
+bytes={}
+lines={}
+headings={}
+action_items={}
+",
+        alpha_text.len(),
+        line_count(alpha_text),
+        heading_count(alpha_text),
+        action_item_count(alpha_text),
+    );
+    assert_eq!(receipt, expected_receipt);
+}
+
+#[test]
+fn workspace_search_report_example_runs_on_controlled_fixture() {
+    let temp = TempDir::new("workspace-search-report-example");
+    let workspace_dir = temp.join("workspace");
+    fs::create_dir_all(workspace_dir.join("docs")).expect("docs directory should exist");
+    fs::create_dir_all(workspace_dir.join("tmp").join("inner"))
+        .expect("nested directory should exist");
+
+    let app_text = "\
+repair plan
+stable repair output
+done
+";
+    let guide_text = "\
+repair evidence
+more detail
+";
+    let notes_text = "\
+plain note
+still stable
+";
+
+    fs::write(workspace_dir.join("app.ax"), app_text).expect("app.ax should exist");
+    fs::write(workspace_dir.join("docs").join("guide.md"), guide_text)
+        .expect("guide.md should exist");
+    fs::write(workspace_dir.join("notes.md"), notes_text).expect("notes.md should exist");
+    fs::write(workspace_dir.join("docs").join("blob.bin"), b"\x01\x02\x03")
+        .expect("blob.bin should exist");
+
+    let output_path = temp.join("search.txt");
+    let output = run_axc([
+        OsStr::new("run"),
+        OsStr::new("examples/workspace_search_report.ax"),
+        OsStr::new("--"),
+        workspace_dir.as_os_str(),
+        OsStr::new("repair"),
+        output_path.as_os_str(),
+    ]);
+    assert_eq!(output.status.code(), Some(0));
+    assert_clean_stderr(&output);
+
+    let stdout = normalize_temp_output(&string_output(&output.stdout), &temp);
+    assert_eq!(stdout, "searched=<root>/search.txt\n");
+
+    let rendered = normalize_temp_output(
+        &fs::read_to_string(&output_path).expect("search report should exist"),
+        &temp,
+    );
+    let expected = format!(
+        "\
+root=<root>/workspace
+needle=repair
+scope=top-level + one nested level
+searchable_files=3
+matched_files=2
+bytes={}
+lines={}
+matched_lines=3
+
+matches:
+app.ax | bytes={} | lines={} | matched_lines=2
+  docs/guide.md | bytes={} | lines={} | matched_lines=1
+",
+        app_text.len() + guide_text.len() + notes_text.len(),
+        line_count(app_text) + line_count(guide_text) + line_count(notes_text),
+        app_text.len(),
+        line_count(app_text),
+        guide_text.len(),
+        line_count(guide_text),
+    );
+    assert_eq!(rendered, expected);
+}
+
+#[test]
+fn project_workspace_search_report_runs_on_controlled_fixture() {
+    let temp = TempDir::new("project-workspace-search-report");
+    let workspace_dir = temp.join("workspace");
+    fs::create_dir_all(workspace_dir.join("docs")).expect("docs directory should exist");
+    fs::create_dir_all(workspace_dir.join("tmp").join("inner"))
+        .expect("nested directory should exist");
+
+    let app_text = "\
+repair plan
+stable repair output
+done
+";
+    let guide_text = "\
+repair evidence
+more detail
+";
+    let notes_text = "\
+plain note
+still stable
+";
+
+    fs::write(workspace_dir.join("app.ax"), app_text).expect("app.ax should exist");
+    fs::write(workspace_dir.join("docs").join("guide.md"), guide_text)
+        .expect("guide.md should exist");
+    fs::write(workspace_dir.join("notes.md"), notes_text).expect("notes.md should exist");
+    fs::write(workspace_dir.join("docs").join("blob.bin"), b"\x01\x02\x03")
+        .expect("blob.bin should exist");
+
+    let output_path = temp.join("search.txt");
+    let output = run_axc([
+        OsStr::new("run"),
+        OsStr::new("examples/project_workspace_search_report"),
+        OsStr::new("--"),
+        workspace_dir.as_os_str(),
+        OsStr::new("repair"),
+        output_path.as_os_str(),
+    ]);
+    assert_eq!(output.status.code(), Some(0));
+    assert_clean_stderr(&output);
+
+    let stdout = normalize_temp_output(&string_output(&output.stdout), &temp);
+    assert_eq!(stdout, "searched=<root>/search.txt\n");
+
+    let rendered = normalize_temp_output(
+        &fs::read_to_string(&output_path).expect("search report should exist"),
+        &temp,
+    );
+    let expected = format!(
+        "\
+root=<root>/workspace
+needle=repair
+scope=top-level + one nested level
+searchable_files=3
+matched_files=2
+bytes={}
+lines={}
+matched_lines=3
+
+matches:
+app.ax | bytes={} | lines={} | matched_lines=2
+  docs/guide.md | bytes={} | lines={} | matched_lines=1
+",
+        app_text.len() + guide_text.len() + notes_text.len(),
+        line_count(app_text) + line_count(guide_text) + line_count(notes_text),
+        app_text.len(),
+        line_count(app_text),
+        guide_text.len(),
+        line_count(guide_text),
+    );
+    assert_eq!(rendered, expected);
 }
 
 #[test]
@@ -2770,6 +3655,8 @@ fn main() -> i32 {
     let manifest_path = out_dir.join("build-manifest.json");
     let project_manifest_path = out_dir.join("AX.toml");
     let source_copy_path = out_dir.join("source.ax");
+    let project_sources_dir = out_dir.join("project-sources");
+    let copied_entry_path = project_sources_dir.join("src").join("main.ax");
 
     assert!(
         manifest_path.exists(),
@@ -2783,6 +3670,14 @@ fn main() -> i32 {
         source_copy_path.exists(),
         "project build source copy should exist"
     );
+    assert!(
+        project_sources_dir.exists(),
+        "project build should copy the original project source tree"
+    );
+    assert!(
+        copied_entry_path.exists(),
+        "project build should copy the entry source file"
+    );
 
     let source_copy = normalize_text(
         &fs::read_to_string(&source_copy_path).expect("project build source copy should exist"),
@@ -2791,6 +3686,13 @@ fn main() -> i32 {
         &fs::read_to_string(&input).expect("project build input source should exist"),
     );
     assert_eq!(source_copy, original);
+    assert_eq!(
+        normalize_text(
+            &fs::read_to_string(&copied_entry_path)
+                .expect("project build copied entry source should be readable"),
+        ),
+        original
+    );
 
     let manifest_copy = normalize_text(
         &fs::read_to_string(&project_manifest_path)
@@ -2814,6 +3716,184 @@ fn main() -> i32 {
     assert_eq!(
         normalize_text(&rendered),
         snapshot("build_project_hello_manifest.json")
+    );
+}
+
+#[test]
+fn project_build_copies_source_tree_for_support_source_directories() {
+    let temp = TempDir::new("project-build-sources-dir");
+    temp.write(
+        "AX.toml",
+        "\
+manifest_version = 1
+
+[package]
+name = \"project_build_sources\"
+entry = \"src/main.ax\"
+sources = [\"lib\"]
+",
+    );
+    temp.write_nested(
+        "lib/math.ax",
+        "\
+fn add(left: i32, right: i32) -> i32 {
+    return left + right;
+}
+",
+    );
+    temp.write_nested(
+        "lib/nested/report.ax",
+        "\
+fn render_total(total: i32) -> string {
+    return \"total=\" + to_string(total);
+}
+",
+    );
+    temp.write_nested(
+        "src/main.ax",
+        "\
+fn main() -> i32 {
+    let total: i32 = add(2, 5);
+    println(render_total(total));
+    return total;
+}
+",
+    );
+    let out_dir = temp.join("build-out");
+
+    let output = run_axc([
+        OsStr::new("build"),
+        temp.path.as_os_str(),
+        OsStr::new("--out-dir"),
+        out_dir.as_os_str(),
+    ]);
+    assert_eq!(output.status.code(), Some(0));
+    assert_clean_stderr(&output);
+
+    let project_manifest_copy = normalize_text(
+        &fs::read_to_string(out_dir.join("AX.toml"))
+            .expect("project build copied manifest should be readable"),
+    );
+    assert_eq!(
+        project_manifest_copy,
+        "\
+manifest_version = 1
+
+[package]
+name = \"project_build_sources\"
+entry = \"src/main.ax\"
+sources = [\"lib\"]
+"
+    );
+
+    let copied_math = normalize_text(
+        &fs::read_to_string(out_dir.join("project-sources").join("lib").join("math.ax"))
+            .expect("project build copied math source should be readable"),
+    );
+    assert_eq!(
+        copied_math,
+        "\
+fn add(left: i32, right: i32) -> i32 {
+    return left + right;
+}
+"
+    );
+
+    let copied_report = normalize_text(
+        &fs::read_to_string(
+            out_dir
+                .join("project-sources")
+                .join("lib")
+                .join("nested")
+                .join("report.ax"),
+        )
+        .expect("project build copied nested report source should be readable"),
+    );
+    assert_eq!(
+        copied_report,
+        "\
+fn render_total(total: i32) -> string {
+    return \"total=\" + to_string(total);
+}
+"
+    );
+
+    let copied_entry = normalize_text(
+        &fs::read_to_string(out_dir.join("project-sources").join("src").join("main.ax"))
+            .expect("project build copied entry source should be readable"),
+    );
+    assert_eq!(
+        copied_entry,
+        "\
+fn main() -> i32 {
+    let total: i32 = add(2, 5);
+    println(render_total(total));
+    return total;
+}
+"
+    );
+
+    let manifest: Value = serde_json::from_str(
+        &fs::read_to_string(out_dir.join("build-manifest.json"))
+            .expect("project build manifest should be readable"),
+    )
+    .expect("project build manifest should be valid JSON");
+    assert_eq!(
+        json_string_array(&manifest["artifacts"]["project_sources"], "project sources"),
+        vec![
+            "lib/math.ax".to_string(),
+            "lib/nested/report.ax".to_string(),
+            "src/main.ax".to_string(),
+        ]
+    );
+}
+
+#[test]
+fn project_workspace_search_report_build_copies_real_example_source_tree() {
+    let temp = TempDir::new("project-workspace-search-build");
+    let out_dir = temp.join("build-out");
+
+    let output = run_axc([
+        OsStr::new("build"),
+        OsStr::new("examples/project_workspace_search_report"),
+        OsStr::new("--out-dir"),
+        out_dir.as_os_str(),
+    ]);
+    assert_eq!(output.status.code(), Some(0));
+    assert_clean_stderr(&output);
+
+    assert!(
+        out_dir
+            .join("project-sources")
+            .join("src")
+            .join("main.ax")
+            .exists(),
+        "build should copy the example entry source"
+    );
+    assert!(
+        out_dir
+            .join("project-sources")
+            .join("lib")
+            .join("file_search.ax")
+            .exists(),
+        "build should copy the example helper sources"
+    );
+
+    let manifest: Value = serde_json::from_str(
+        &fs::read_to_string(out_dir.join("build-manifest.json"))
+            .expect("project build manifest should be readable"),
+    )
+    .expect("project build manifest should be valid JSON");
+    assert_eq!(
+        json_string_array(&manifest["artifacts"]["project_sources"], "project sources"),
+        vec![
+            "lib/file_kind.ax".to_string(),
+            "lib/file_search.ax".to_string(),
+            "lib/report.ax".to_string(),
+            "lib/search_stats.ax".to_string(),
+            "lib/search_totals.ax".to_string(),
+            "src/main.ax".to_string(),
+        ]
     );
 }
 

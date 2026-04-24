@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "description": "Single-case repair demo manifest for the sharp AX repair walkthrough.",
+  "cases": [
+    {
+      "id": "slice_assignment_read_only",
+      "file": "examples/slice_assignment.ax",
+      "category": "semantic",
+      "expected_codes": ["S0035"],
+      "expected_ai_rule_ids": ["slice_values_are_read_only"],
+      "repair_goal": "Rewrite the write to target the original mutable array instead of the slice view.",
+      "notes": "Single-case demo manifest for same-case base-vs-ai repair comparisons."
+    }
+  ]
+}

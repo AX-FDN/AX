@@ -1,0 +1,3 @@
+fn render_total(total: i32) -> string {
+    return "total=" + to_string(total);
+}

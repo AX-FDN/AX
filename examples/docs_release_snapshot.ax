@@ -1,0 +1,171 @@
+struct DocStats {
+    lines: i32,
+    headings: i32,
+    action_items: i32,
+}
+
+struct SnapshotTotals {
+    copied_files: i32,
+    copied_bytes: i32,
+    lines: i32,
+    headings: i32,
+    action_items: i32,
+    skipped_entries: i32,
+}
+
+fn zero_doc_stats() -> DocStats {
+    return DocStats {
+        lines: 0,
+        headings: 0,
+        action_items: 0,
+    };
+}
+
+fn zero_snapshot_totals() -> SnapshotTotals {
+    return SnapshotTotals {
+        copied_files: 0,
+        copied_bytes: 0,
+        lines: 0,
+        headings: 0,
+        action_items: 0,
+        skipped_entries: 0,
+    };
+}
+
+fn is_markdown_file(path: string) -> bool {
+    if (string_ends_with(path, ".md")) {
+        return true;
+    }
+    return false;
+}
+
+fn analyze_doc(text: string) -> DocStats {
+    let lines: [string] = string_split_lines(text);
+    let mut stats: DocStats = zero_doc_stats();
+
+    for (let mut i: i32 = 0; i < len(lines); i = i + 1) {
+        let line: string = string_trim(lines[i]);
+        stats.lines = stats.lines + 1;
+
+        if (string_starts_with(line, "#")) {
+            stats.headings = stats.headings + 1;
+        }
+
+        if (string_contains(line, "TODO")) {
+            stats.action_items = stats.action_items + 1;
+        } else {
+            if (string_contains(line, "FIXME")) {
+                stats.action_items = stats.action_items + 1;
+            }
+        }
+    }
+
+    return stats;
+}
+
+fn add_doc(totals: SnapshotTotals, copied_bytes: i32, stats: DocStats) -> SnapshotTotals {
+    let mut next: SnapshotTotals = totals;
+    next.copied_files = next.copied_files + 1;
+    next.copied_bytes = next.copied_bytes + copied_bytes;
+    next.lines = next.lines + stats.lines;
+    next.headings = next.headings + stats.headings;
+    next.action_items = next.action_items + stats.action_items;
+    return next;
+}
+
+fn add_skipped(totals: SnapshotTotals) -> SnapshotTotals {
+    let mut next: SnapshotTotals = totals;
+    next.skipped_entries = next.skipped_entries + 1;
+    return next;
+}
+
+fn build_receipt(source_path: string, destination_path: string, copied_bytes: i32, stats: DocStats) -> string {
+    return "source=" + path_resolve(source_path)
+        + "\ndestination=" + path_resolve(destination_path)
+        + "\nbytes=" + to_string(copied_bytes)
+        + "\nlines=" + to_string(stats.lines)
+        + "\nheadings=" + to_string(stats.headings)
+        + "\naction_items=" + to_string(stats.action_items)
+        + "\n";
+}
+
+fn main() -> i32 {
+    if (argv_len() < 2) {
+        println("usage: axc run examples/docs_release_snapshot.ax -- <source_dir> <out_dir>");
+        return 1;
+    }
+
+    let source_dir: string = argv_get(0);
+    let out_dir: string = argv_get(1);
+
+    if (!fs_is_dir(source_dir)) {
+        println("source dir is not a directory: " + source_dir);
+        return 2;
+    }
+
+    fs_create_dir_all(out_dir);
+
+    let snapshot_dir: string = path_join(out_dir, "docs-snapshot");
+    if (fs_is_dir(snapshot_dir)) {
+        fs_remove_dir_all(snapshot_dir);
+    }
+    fs_create_dir_all(snapshot_dir);
+
+    let receipts_dir: string = path_join(snapshot_dir, "receipts");
+    fs_create_dir_all(receipts_dir);
+
+    let entries: [string] = fs_read_dir(source_dir);
+    let mut totals: SnapshotTotals = zero_snapshot_totals();
+    let mut detail_report: string = "";
+
+    for (let mut i: i32 = 0; i < len(entries); i = i + 1) {
+        let entry: string = entries[i];
+
+        if (fs_is_file(entry)) {
+            if (is_markdown_file(entry)) {
+                let text: string = fs_read_to_string(entry);
+                let stats: DocStats = analyze_doc(text);
+                let destination_path: string = path_join(snapshot_dir, path_file_name(entry));
+                let copied_bytes: i32 = fs_copy_file(entry, destination_path);
+                let receipt_path: string = path_join(receipts_dir, path_stem(entry) + ".receipt.txt");
+                let receipt: string = build_receipt(entry, destination_path, copied_bytes, stats);
+
+                fs_write_string(receipt_path, receipt);
+                totals = add_doc(totals, copied_bytes, stats);
+                detail_report = detail_report
+                    + path_file_name(entry)
+                    + " | bytes="
+                    + to_string(copied_bytes)
+                    + " | lines="
+                    + to_string(stats.lines)
+                    + " | headings="
+                    + to_string(stats.headings)
+                    + " | action_items="
+                    + to_string(stats.action_items)
+                    + "\n";
+            } else {
+                totals = add_skipped(totals);
+            }
+        } else {
+            totals = add_skipped(totals);
+        }
+    }
+
+    let summary_path: string = path_join(snapshot_dir, "SUMMARY.txt");
+    let summary: string =
+        "source=" + path_resolve(source_dir)
+        + "\nsnapshot=" + path_resolve(snapshot_dir)
+        + "\nentries_seen=" + to_string(len(entries))
+        + "\ncopied_files=" + to_string(totals.copied_files)
+        + "\nskipped_entries=" + to_string(totals.skipped_entries)
+        + "\ncopied_bytes=" + to_string(totals.copied_bytes)
+        + "\nlines=" + to_string(totals.lines)
+        + "\nheadings=" + to_string(totals.headings)
+        + "\naction_items=" + to_string(totals.action_items)
+        + "\n\nfiles:\n"
+        + detail_report;
+
+    fs_write_string(summary_path, summary);
+    println("snapshotted=" + snapshot_dir);
+    return 0;
+}

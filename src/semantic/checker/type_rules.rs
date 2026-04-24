@@ -1,7 +1,7 @@
 use crate::diagnostics::Diagnostic;
 use crate::source::Span;
 
-use super::{type_mismatch_suggestion, Type, TypeChecker};
+use super::{Type, TypeChecker, type_mismatch_suggestion};
 
 impl<'a, 'b> TypeChecker<'a, 'b> {
     pub(super) fn expect_type_match(
@@ -17,8 +17,12 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
 
         if matches!(actual, Type::EmptyArrayLiteral) {
             let suggestion = match expected {
-                Type::Array { .. } => "use `[]` only where the expected type is a zero-length array like `[i32; 0]`",
-                _ => "give the empty array a zero-length array context like `[i32; 0]` before using `[]`",
+                Type::Array { .. } => {
+                    "use `[]` only where the expected type is a zero-length array like `[i32; 0]`"
+                }
+                _ => {
+                    "give the empty array a zero-length array context like `[i32; 0]` before using `[]`"
+                }
             };
 
             self.diagnostics.push(

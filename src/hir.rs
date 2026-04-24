@@ -481,18 +481,14 @@ impl<'a> LoweringContext<'a> {
             ast::ExprKind::Name { value } => PlaceKind::Local {
                 name: value.clone(),
             },
-            ast::ExprKind::Field { base, field } => {
-                PlaceKind::Field {
-                    base: Box::new(self.lower_place(base)?),
-                    field: field.clone(),
-                }
-            }
-            ast::ExprKind::Index { base, index } => {
-                PlaceKind::Index {
-                    base: Box::new(self.lower_place(base)?),
-                    index: self.lower_expr(index)?,
-                }
-            }
+            ast::ExprKind::Field { base, field } => PlaceKind::Field {
+                base: Box::new(self.lower_place(base)?),
+                field: field.clone(),
+            },
+            ast::ExprKind::Index { base, index } => PlaceKind::Index {
+                base: Box::new(self.lower_place(base)?),
+                index: self.lower_expr(index)?,
+            },
             _ => {
                 return Err(self.lowering_error(
                     "H0003",

@@ -15,6 +15,7 @@ pub struct Project {
     manifest_path: PathBuf,
     manifest_text: String,
     manifest: ProjectManifest,
+    source_paths: Vec<PathBuf>,
     entry_path: PathBuf,
 }
 
@@ -35,8 +36,26 @@ impl Project {
         &self.manifest.package.name
     }
 
+    pub fn source_paths(&self) -> &[PathBuf] {
+        &self.source_paths
+    }
+
+    pub fn has_additional_sources(&self) -> bool {
+        !self.source_paths.is_empty()
+    }
+
     pub fn entry_path(&self) -> &Path {
         &self.entry_path
+    }
+
+    pub fn program_source_paths(&self) -> Vec<&Path> {
+        let mut paths = self
+            .source_paths
+            .iter()
+            .map(PathBuf::as_path)
+            .collect::<Vec<_>>();
+        paths.push(self.entry_path.as_path());
+        paths
     }
 }
 
@@ -71,12 +90,7 @@ pub fn resolve_input(path: impl AsRef<Path>) -> Result<ResolvedInput, String> {
 
 pub fn resolve_project_from_manifest(manifest_path: &Path) -> Result<ResolvedInput, String> {
     let project = load_project(manifest_path)?;
-    let source = SourceFile::from_path(project.entry_path()).map_err(|error| {
-        format!(
-            "failed to read project entry {}: {error}",
-            project.entry_path().display()
-        )
-    })?;
+    let source = load_project_source(&project)?;
     Ok(ResolvedInput {
         source,
         project: Some(project),
@@ -137,45 +151,34 @@ fn load_project(manifest_path: &Path) -> Result<Project, String> {
         ));
     }
 
-    let entry_relative_path = Path::new(entry);
-    if entry_relative_path.is_absolute() {
-        return Err(format!(
-            "project entry `{entry}` in {} must be relative to the project root",
-            manifest_path.display()
-        ));
-    }
+    let entry_path = resolve_project_source_file_path(root_dir, manifest_path, entry, "entry")?;
+    let mut source_paths = Vec::new();
+    for source in &manifest.package.sources {
+        let source = source.trim();
+        if source.is_empty() {
+            return Err(format!(
+                "project manifest {} must not include an empty `[package].sources` entry",
+                manifest_path.display()
+            ));
+        }
 
-    if entry_relative_path
-        .components()
-        .any(|component| matches!(component, Component::ParentDir))
-    {
-        return Err(format!(
-            "project entry `{entry}` in {} cannot escape the project root",
-            manifest_path.display()
-        ));
-    }
-
-    if entry_relative_path.extension().and_then(|ext| ext.to_str()) != Some("ax") {
-        return Err(format!(
-            "project entry `{entry}` in {} must point to an `.ax` source file",
-            manifest_path.display()
-        ));
-    }
-
-    let entry_path = root_dir.join(entry_relative_path);
-    let metadata = fs::metadata(&entry_path).map_err(|error| {
-        format!(
-            "failed to access project entry {} declared in {}: {error}",
-            entry_path.display(),
-            manifest_path.display()
-        )
-    })?;
-    if !metadata.is_file() {
-        return Err(format!(
-            "project entry {} declared in {} must be a file",
-            entry_path.display(),
-            manifest_path.display()
-        ));
+        let expanded_paths = resolve_project_support_source_paths(root_dir, manifest_path, source)?;
+        for source_path in expanded_paths {
+            if source_path == entry_path {
+                return Err(format!(
+                    "project support source `{source}` in {} duplicates the configured entry file",
+                    manifest_path.display()
+                ));
+            }
+            if source_paths.iter().any(|existing| existing == &source_path) {
+                return Err(format!(
+                    "project support source `{source}` in {} expands to duplicate file {}",
+                    manifest_path.display(),
+                    source_path.display()
+                ));
+            }
+            source_paths.push(source_path);
+        }
     }
 
     Ok(Project {
@@ -183,8 +186,164 @@ fn load_project(manifest_path: &Path) -> Result<Project, String> {
         manifest_path: manifest_path.to_path_buf(),
         manifest_text,
         manifest,
+        source_paths,
         entry_path,
     })
+}
+
+fn load_project_source(project: &Project) -> Result<SourceFile, String> {
+    let mut segments = Vec::new();
+    for path in project.source_paths() {
+        let text = fs::read_to_string(path).map_err(|error| {
+            format!("failed to read project source {}: {error}", path.display())
+        })?;
+        segments.push((path.clone(), text));
+    }
+
+    let entry_text = fs::read_to_string(project.entry_path()).map_err(|error| {
+        format!(
+            "failed to read project entry {}: {error}",
+            project.entry_path().display()
+        )
+    })?;
+    segments.push((project.entry_path().to_path_buf(), entry_text));
+
+    Ok(SourceFile::from_segments(
+        project.entry_path().to_path_buf(),
+        segments,
+    ))
+}
+
+fn resolve_project_source_file_path(
+    root_dir: &Path,
+    manifest_path: &Path,
+    raw_path: &str,
+    label: &str,
+) -> Result<PathBuf, String> {
+    let path = resolve_project_relative_path(root_dir, manifest_path, raw_path, label)?;
+
+    if path.extension().and_then(|ext| ext.to_str()) != Some("ax") {
+        return Err(format!(
+            "project {label} `{raw_path}` in {} must point to an `.ax` source file",
+            manifest_path.display()
+        ));
+    }
+
+    let metadata = fs::metadata(&path).map_err(|error| {
+        format!(
+            "failed to access project {label} {} declared in {}: {error}",
+            path.display(),
+            manifest_path.display()
+        )
+    })?;
+    if !metadata.is_file() {
+        return Err(format!(
+            "project {label} {} declared in {} must be a file",
+            path.display(),
+            manifest_path.display()
+        ));
+    }
+
+    Ok(path)
+}
+
+fn resolve_project_support_source_paths(
+    root_dir: &Path,
+    manifest_path: &Path,
+    raw_path: &str,
+) -> Result<Vec<PathBuf>, String> {
+    let path = resolve_project_relative_path(root_dir, manifest_path, raw_path, "support source")?;
+    let metadata = fs::metadata(&path).map_err(|error| {
+        format!(
+            "failed to access project support source {} declared in {}: {error}",
+            path.display(),
+            manifest_path.display()
+        )
+    })?;
+
+    if metadata.is_file() {
+        if path.extension().and_then(|ext| ext.to_str()) != Some("ax") {
+            return Err(format!(
+                "project support source `{raw_path}` in {} must point to an `.ax` source file or directory",
+                manifest_path.display()
+            ));
+        }
+        return Ok(vec![path]);
+    }
+
+    if metadata.is_dir() {
+        let mut ax_files = collect_ax_files_recursively(&path).map_err(|error| {
+            format!(
+                "failed to read project support source directory {} declared in {}: {error}",
+                path.display(),
+                manifest_path.display()
+            )
+        })?;
+        ax_files.sort();
+
+        if ax_files.is_empty() {
+            return Err(format!(
+                "project support source directory {} declared in {} must contain at least one `.ax` source file",
+                path.display(),
+                manifest_path.display()
+            ));
+        }
+
+        return Ok(ax_files);
+    }
+
+    Err(format!(
+        "project support source {} declared in {} must be a file or directory",
+        path.display(),
+        manifest_path.display()
+    ))
+}
+
+fn resolve_project_relative_path(
+    root_dir: &Path,
+    manifest_path: &Path,
+    raw_path: &str,
+    label: &str,
+) -> Result<PathBuf, String> {
+    let relative_path = Path::new(raw_path);
+    if relative_path.is_absolute() {
+        return Err(format!(
+            "project {label} `{raw_path}` in {} must be relative to the project root",
+            manifest_path.display()
+        ));
+    }
+
+    if relative_path
+        .components()
+        .any(|component| matches!(component, Component::ParentDir))
+    {
+        return Err(format!(
+            "project {label} `{raw_path}` in {} cannot escape the project root",
+            manifest_path.display()
+        ));
+    }
+
+    Ok(root_dir.join(relative_path))
+}
+
+fn collect_ax_files_recursively(dir: &Path) -> Result<Vec<PathBuf>, std::io::Error> {
+    let mut entries = fs::read_dir(dir)?
+        .map(|entry| entry.map(|entry| entry.path()))
+        .collect::<Result<Vec<_>, _>>()?;
+    entries.sort();
+
+    let mut files = Vec::new();
+    for entry in entries {
+        let metadata = fs::metadata(&entry)?;
+        if metadata.is_dir() {
+            files.extend(collect_ax_files_recursively(&entry)?);
+        } else if metadata.is_file() && entry.extension().and_then(|ext| ext.to_str()) == Some("ax")
+        {
+            files.push(entry);
+        }
+    }
+
+    Ok(files)
 }
 
 fn is_valid_package_name(name: &str) -> bool {
@@ -205,6 +364,8 @@ struct PackageManifest {
     name: String,
     #[serde(default = "default_entry")]
     entry: String,
+    #[serde(default)]
+    sources: Vec<String>,
 }
 
 fn default_entry() -> String {
@@ -214,6 +375,7 @@ fn default_entry() -> String {
 #[cfg(test)]
 mod tests {
     use super::{PROJECT_MANIFEST_FILE, resolve_input};
+    use std::fs;
     use std::path::PathBuf;
 
     fn repo_root() -> PathBuf {
@@ -257,5 +419,112 @@ mod tests {
                 .replace('\\', "/")
                 .ends_with("examples/project_hello/src/main.ax")
         );
+    }
+
+    #[test]
+    fn resolves_support_sources_before_entry_file() {
+        let project_root = repo_root().join("target").join("project-resolve-test");
+        let _ = fs::remove_dir_all(&project_root);
+        fs::create_dir_all(project_root.join("src")).expect("project src directory should exist");
+        fs::write(
+            project_root.join(PROJECT_MANIFEST_FILE),
+            "\
+manifest_version = 1
+
+[package]
+name = \"project_supports\"
+entry = \"src/main.ax\"
+sources = [\"src/lib.ax\"]
+",
+        )
+        .expect("manifest should exist");
+        fs::write(
+            project_root.join("src").join("lib.ax"),
+            "fn helper() -> i32 { return 1; }\n",
+        )
+        .expect("lib.ax should exist");
+        fs::write(
+            project_root.join("src").join("main.ax"),
+            "fn main() -> i32 { return helper(); }\n",
+        )
+        .expect("main.ax should exist");
+
+        let resolved =
+            resolve_input(&project_root).expect("project with support sources should resolve");
+        let project = resolved.project.expect("project metadata should exist");
+        assert_eq!(project.source_paths().len(), 1);
+        assert!(
+            project.source_paths()[0]
+                .display()
+                .to_string()
+                .replace('\\', "/")
+                .ends_with("target/project-resolve-test/src/lib.ax")
+        );
+        assert!(resolved.source.text().contains("fn helper() -> i32"));
+        assert!(resolved.source.text().contains("fn main() -> i32"));
+
+        let _ = fs::remove_dir_all(&project_root);
+    }
+
+    #[test]
+    fn resolves_support_source_directories_in_sorted_recursive_path_order() {
+        let project_root = repo_root().join("target").join("project-resolve-dir-test");
+        let _ = fs::remove_dir_all(&project_root);
+        fs::create_dir_all(project_root.join("lib").join("nested"))
+            .expect("project lib directory should exist");
+        fs::create_dir_all(project_root.join("src")).expect("project src directory should exist");
+        fs::write(
+            project_root.join(PROJECT_MANIFEST_FILE),
+            "\
+manifest_version = 1
+
+[package]
+name = \"project_support_dir\"
+entry = \"src/main.ax\"
+sources = [\"lib\"]
+",
+        )
+        .expect("manifest should exist");
+        fs::write(
+            project_root.join("lib").join("z.ax"),
+            "fn helper_z() -> i32 { return 30; }\n",
+        )
+        .expect("z.ax should exist");
+        fs::write(
+            project_root.join("lib").join("a.ax"),
+            "fn helper_a() -> i32 { return 10; }\n",
+        )
+        .expect("a.ax should exist");
+        fs::write(
+            project_root.join("lib").join("nested").join("c.ax"),
+            "fn helper_c() -> i32 { return 20; }\n",
+        )
+        .expect("c.ax should exist");
+        fs::write(project_root.join("lib").join("notes.txt"), "ignore me\n")
+            .expect("notes.txt should exist");
+        fs::write(
+            project_root.join("src").join("main.ax"),
+            "fn main() -> i32 { return helper_a() + helper_c() + helper_z(); }\n",
+        )
+        .expect("main.ax should exist");
+
+        let resolved =
+            resolve_input(&project_root).expect("project with support directory should resolve");
+        let project = resolved.project.expect("project metadata should exist");
+        let source_paths = project
+            .source_paths()
+            .iter()
+            .map(|path| path.display().to_string().replace('\\', "/"))
+            .collect::<Vec<_>>();
+        assert_eq!(source_paths.len(), 3);
+        assert!(source_paths[0].ends_with("target/project-resolve-dir-test/lib/a.ax"));
+        assert!(source_paths[1].ends_with("target/project-resolve-dir-test/lib/nested/c.ax"));
+        assert!(source_paths[2].ends_with("target/project-resolve-dir-test/lib/z.ax"));
+        assert!(resolved.source.text().contains("fn helper_a() -> i32"));
+        assert!(resolved.source.text().contains("fn helper_c() -> i32"));
+        assert!(resolved.source.text().contains("fn helper_z() -> i32"));
+        assert!(resolved.source.text().contains("fn main() -> i32"));
+
+        let _ = fs::remove_dir_all(&project_root);
     }
 }

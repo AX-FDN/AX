@@ -20,9 +20,9 @@ pub(super) fn type_name_as_value_diagnostic(
     );
 
     match ty {
-        Type::Enum(enum_name) => {
-            diagnostic.with_suggestion(format!("use an enum variant like `{enum_name}.VariantName`"))
-        }
+        Type::Enum(enum_name) => diagnostic.with_suggestion(format!(
+            "use an enum variant like `{enum_name}.VariantName`"
+        )),
         Type::Struct(struct_name) => diagnostic.with_suggestion(format!(
             "construct `{struct_name}` with `{struct_name} {{ field: ... }}`",
         )),

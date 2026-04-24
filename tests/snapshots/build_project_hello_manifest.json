@@ -4,6 +4,10 @@
     "mir_json": "program.mir.json",
     "planned_executable": "bin/project_hello.exe",
     "project_manifest": "AX.toml",
+    "project_sources": [
+      "src/main.ax"
+    ],
+    "project_sources_dir": "project-sources",
     "source_copy": "source.ax"
   },
   "backend": {
@@ -17,6 +21,6 @@
     "Native executable emission will be added in the future backend stage."
   ],
   "output_dir": "<build-out>",
-  "schema_version": 2,
+  "schema_version": 3,
   "target_name": "project_hello"
 }

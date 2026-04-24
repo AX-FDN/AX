@@ -51,6 +51,19 @@ AX 不把自己建立在“贴合某个隐藏 tokenizer”这种无法验证的�
 
 而不是一句“这是下一代通用语言”。
 
+## Why Not Existing Language Subsets
+
+AX does not get to exist just because it has different syntax.
+The only serious case for AX is that four things are owned together and measured together:
+
+- canonical syntax
+- structured diagnostics
+- repair contract
+- benchmark evidence
+
+If those four do not produce measurable repair lift, then a constrained Rust / Go / Python subset is the simpler answer.
+The sharper version of that argument is in [`docs/why-not-language-subsets.md`](./docs/why-not-language-subsets.md).
+
 ## Why This Direction
 
 传统语言默认服务的是“人类自由书写”。
@@ -82,6 +95,76 @@ AX 已经不是纸上概念。当前仓库里已经有一条可以真实跑通�
 
 这意味着 AX 现在更像一个正在被工程化推进的编译器前端与协议实验，而不是单纯的“语言哲学”。
 
+## Quickstart
+
+Current tested install path: `Windows x86_64` + Rust stable GNU toolchain.
+If you want the shortest source-install path, start with [`docs/quickstart.md`](./docs/quickstart.md).
+
+```powershell
+rustup toolchain install stable-x86_64-pc-windows-gnu --profile minimal -c rustfmt
+.\scripts\cargo-gnu.ps1 build
+.\target\debug\axc.exe check examples\hello.ax
+.\target\debug\axc.exe check examples\slice_assignment.ax --json --ai
+.\target\debug\axc.exe run examples\extract_markdown_headings.ax -- README.md target\headings-demo.txt
+```
+
+## Medium Workload Examples
+
+AX now includes medium, end-to-end tool-style examples that exercise the current host boundary instead of only showing toy syntax fragments.
+
+- [`examples/workspace_audit.ax`](./examples/workspace_audit.ax)
+  Audits a workspace at top level plus one nested level and writes a report with file counts, bytes, lines, headings, and action items.
+- [`examples/docs_release_snapshot.ax`](./examples/docs_release_snapshot.ax)
+  Snapshots a docs directory, copies markdown files, emits per-file receipts, and writes a summary file for release review.
+- [`examples/workspace_search_report.ax`](./examples/workspace_search_report.ax)
+  Searches a workspace for a keyword and writes a report with matched files and matched line counts.
+
+```powershell
+.\target\debug\axc.exe run examples\workspace_audit.ax -- . target\workspace-audit.txt
+.\target\debug\axc.exe run examples\docs_release_snapshot.ax -- docs target\docs-release
+.\target\debug\axc.exe run examples\workspace_search_report.ax -- . repair target\workspace-search.txt
+```
+
+These are intentionally medium single-file programs rather than fake "large systems".
+The current ceiling is still module/import/library organization, so the right proof point today is useful 100-300 line workflows that actually check and run.
+
+## Multi-file Projects
+
+AX still does not support language-level `import` or `module` declarations.
+The current minimal code-organization mechanism is project-level source loading through `AX.toml`.
+
+```toml
+manifest_version = 1
+
+[package]
+name = "project_split"
+entry = "src/main.ax"
+sources = ["lib", "src/report.ax"]
+```
+
+When you run `axc check`, `axc run`, or `axc build` on a project directory such as [`examples/project_split`](./examples/project_split), AX loads the listed support sources first and then the entry file.
+Each `sources` entry may point to a support `.ax` file or a support directory. Directory entries expand recursively in deterministic path order.
+Diagnostics still point back to the original `.ax` file that triggered the failure.
+
+Current boundary:
+
+- This is a project-level composition feature, not a language keyword.
+- `axc fmt <project-root>` formats every configured support source plus the entry file in manifest order.
+- `axc build <project-root>` keeps the merged `source.ax` artifact and also copies the original project source tree into `project-sources/`.
+
+See also:
+
+- [`examples/project_split/`](./examples/project_split)
+  Minimal multi-file function split.
+- [`examples/project_foundation_report/`](./examples/project_foundation_report)
+  AX-side helper files under `lib/` plus a real entry that uses them to build a reusable text-report workflow.
+- [`examples/project_docs_release/`](./examples/project_docs_release)
+  A multi-file AX project version of the docs snapshot workflow, with helper files for filters, text stats, report rendering, and totals.
+- [`examples/project_workspace_audit/`](./examples/project_workspace_audit)
+  A multi-file AX project version of the workspace audit workflow, split into AX-side helpers for file typing, text stats, totals, report rendering, and file-level auditing.
+- [`examples/project_workspace_search_report/`](./examples/project_workspace_search_report)
+  A multi-file AX project version of the workspace search workflow, split into AX-side helpers for searchable file selection, line matching, totals, report rendering, and file-level search aggregation.
+
 ## How AX Should Be Evaluated
 
 AX 最终不该靠口号成立，而要靠证据成立。
@@ -96,6 +179,22 @@ AX 最终不该靠口号成立，而要靠证据成立。
 
 如果这些问题没有数据支撑，AX 就只是一个有想法的原型。
 如果这些问题能持续拿出证据，AX 才有资格被看成一套成立的 AI-oriented source protocol。
+
+## Start Here
+
+- [`docs/why-not-language-subsets.md`](./docs/why-not-language-subsets.md)
+  Why AX is not justified by syntax novelty alone, and why the project only makes sense if canonical syntax, structured diagnostics, repair contract, and benchmark evidence land together.
+- [`docs/killer-demo.md`](./docs/killer-demo.md)
+  A sharp demo built around the same bad example, the same single-round budget, and a cleaner repair chain.
+- [`docs/benchmark-showcase.md`](./docs/benchmark-showcase.md)
+  Current benchmark evidence with case-set breakdown, method table, failure sample, and reproduced results summary.
+- [`docs/quickstart.md`](./docs/quickstart.md)
+  The fastest install-from-source path and the smallest command sequence that proves the repo is working.
+
+Important boundary:
+
+- The current public evidence is a deterministic AX-internal benchmark and replay baseline.
+- The cross-language claim against Rust / Go / Python subsets is still a next-step benchmark target, not a completed result.
 
 ## What Makes AX Different
 
@@ -163,6 +262,15 @@ fn main() -> i32 {
   当前施工项、优先级和已完成记录。
 - [`docs/README.md`](./docs/README.md)
   稳定外部文档入口。
+
+- [`docs/benchmark-showcase.md`](./docs/benchmark-showcase.md)
+  Current benchmark evidence, with explicit separation between verified internal results and next public comparison targets.
+- [`docs/killer-demo.md`](./docs/killer-demo.md)
+  A concise demo script for showing AX's repair protocol and tool-script direction in a few minutes.
+- [`docs/why-not-language-subsets.md`](./docs/why-not-language-subsets.md)
+  The sharper positioning argument for why AX is trying to own a source protocol instead of only defining a constrained subset.
+- [`docs/quickstart.md`](./docs/quickstart.md)
+  Source install and a minimal sanity-check sequence for new users.
 
 ## Current Position
 

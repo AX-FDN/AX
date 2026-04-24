@@ -44,7 +44,8 @@ pub fn check_program(source: &SourceFile, program: &Program) -> Vec<Diagnostic> 
         } = &item.kind
         {
             let resolved_return_type = program_info.resolve_type_ref(return_type, &mut diagnostics);
-            let mut checker = TypeChecker::new(&program_info, resolved_return_type, &mut diagnostics);
+            let mut checker =
+                TypeChecker::new(&program_info, resolved_return_type, &mut diagnostics);
 
             for param in params {
                 let resolved_param_type =
@@ -199,7 +200,8 @@ fn main() -> i32 {
 
     #[test]
     fn accepts_empty_array_literal_in_zero_length_array_context() {
-        let codes = check("fn main() -> i32 { let values: [i32; 0] = []; println(values); return 0; }");
+        let codes =
+            check("fn main() -> i32 { let values: [i32; 0] = []; println(values); return 0; }");
         assert!(codes.is_empty(), "unexpected diagnostics: {codes:?}");
     }
 
@@ -235,7 +237,9 @@ fn main() -> i32 {
 
     #[test]
     fn reports_non_slice_base() {
-        let codes = check("fn main() -> i32 { let value: i32 = 1; let part: [i32] = value[0:1]; return 0; }");
+        let codes = check(
+            "fn main() -> i32 { let value: i32 = 1; let part: [i32] = value[0:1]; return 0; }",
+        );
         assert!(codes.iter().any(|code| code == "S0034"));
     }
 

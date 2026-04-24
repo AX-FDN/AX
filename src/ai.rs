@@ -249,7 +249,8 @@ fn note_contains(diagnostic: &Diagnostic, needle: &str) -> bool {
 }
 
 fn looks_like_function_argument_type_mismatch(diagnostic: &Diagnostic) -> bool {
-    diagnostic.message.starts_with("function `") && diagnostic.message.contains("expects argument `")
+    diagnostic.message.starts_with("function `")
+        && diagnostic.message.contains("expects argument `")
 }
 
 fn looks_like_len_builtin_type_mismatch(diagnostic: &Diagnostic) -> bool {
@@ -259,7 +260,9 @@ fn looks_like_len_builtin_type_mismatch(diagnostic: &Diagnostic) -> bool {
 }
 
 fn looks_like_return_type_mismatch(diagnostic: &Diagnostic) -> bool {
-    diagnostic.message.contains("return statement must produce `")
+    diagnostic
+        .message
+        .contains("return statement must produce `")
 }
 
 fn looks_like_condition_type_mismatch(diagnostic: &Diagnostic) -> bool {
@@ -1341,15 +1344,20 @@ fn push_unique_span(spans: &mut Vec<Span>, span: Span) {
 
 fn snippet_text(source: &SourceFile, span: Span, max_lines: usize) -> String {
     let (start_line, _) = source.line_col(span.start);
-    let mut end_offset = span.end;
+    let segment_end = source.segment_end(span.start);
+    let mut end_offset = span.end.min(segment_end);
     if end_offset == span.start {
-        end_offset = end_offset.saturating_add(1);
+        end_offset = end_offset.saturating_add(1).min(segment_end);
     }
-    let (end_line, _) = source.line_col(end_offset);
+    let safe_end_offset = end_offset
+        .saturating_sub(1)
+        .max(span.start)
+        .min(segment_end.saturating_sub(1));
+    let (end_line, _) = source.line_col(safe_end_offset);
     let stop = end_line.min(start_line + max_lines.saturating_sub(1));
     let mut lines = Vec::new();
     for line in start_line..=stop {
-        lines.push(source.line_text(line).to_string());
+        lines.push(source.line_text_for_offset(span.start, line).to_string());
     }
     if end_line > stop {
         lines.push("...".to_string());
@@ -1451,7 +1459,9 @@ mod tests {
             .iter()
             .find(|diagnostic| {
                 diagnostic.code == "S0022"
-                    && diagnostic.message.contains("expects argument `value` to be `i32`")
+                    && diagnostic
+                        .message
+                        .contains("expects argument `value` to be `i32`")
             })
             .expect("function argument diagnostic should exist");
         let ai = diagnostic.ai.as_ref().expect("ai payload should exist");
@@ -1492,7 +1502,8 @@ mod tests {
             .diagnostics
             .iter()
             .find(|diagnostic| {
-                diagnostic.code == "S0022" && diagnostic.message.contains("condition must be `bool`")
+                diagnostic.code == "S0022"
+                    && diagnostic.message.contains("condition must be `bool`")
             })
             .expect("condition type diagnostic should exist");
         let ai = diagnostic.ai.as_ref().expect("ai payload should exist");
@@ -1502,8 +1513,9 @@ mod tests {
 
     #[test]
     fn enhances_array_index_type_mismatch_with_specific_rule_card() {
-        let source =
-            SourceFile::anonymous("fn main() -> i32 { let values: [i32; 2] = [1, 2]; return values[true]; }");
+        let source = SourceFile::anonymous(
+            "fn main() -> i32 { let values: [i32; 2] = [1, 2]; return values[true]; }",
+        );
         let mut analysis = analyze(&source);
         enhance_diagnostics(&source, &analysis.program, &mut analysis.diagnostics, None)
             .expect("ai enhancement should succeed");
@@ -1512,7 +1524,8 @@ mod tests {
             .diagnostics
             .iter()
             .find(|diagnostic| {
-                diagnostic.code == "S0022" && diagnostic.message.contains("array index must be `i32`")
+                diagnostic.code == "S0022"
+                    && diagnostic.message.contains("array index must be `i32`")
             })
             .expect("array index type diagnostic should exist");
         let ai = diagnostic.ai.as_ref().expect("ai payload should exist");
@@ -1544,8 +1557,9 @@ mod tests {
 
     #[test]
     fn enhances_non_slice_base_with_specific_rule_card() {
-        let source =
-            SourceFile::anonymous("fn main() -> i32 { let count: i32 = 1; let view: [i32] = count[0:1]; return 0; }");
+        let source = SourceFile::anonymous(
+            "fn main() -> i32 { let count: i32 = 1; let view: [i32] = count[0:1]; return 0; }",
+        );
         let mut analysis = analyze(&source);
         enhance_diagnostics(&source, &analysis.program, &mut analysis.diagnostics, None)
             .expect("ai enhancement should succeed");
@@ -1704,8 +1718,7 @@ mod tests {
 
     #[test]
     fn enhances_runtime_integer_overflow_with_specific_rule_card() {
-        let source =
-            SourceFile::anonymous("fn main() -> i32 { return 2147483647 + 1; }");
+        let source = SourceFile::anonymous("fn main() -> i32 { return 2147483647 + 1; }");
         let analysis = analyze(&source);
         assert!(
             analysis.diagnostics.is_empty(),
@@ -1917,8 +1930,9 @@ mod tests {
             );
         }
 
-        let source =
-            SourceFile::anonymous("fn main() -> i32 { let values: [i32; 2] = [1, 2]; return values[2]; }");
+        let source = SourceFile::anonymous(
+            "fn main() -> i32 { let values: [i32; 2] = [1, 2]; return values[2]; }",
+        );
         let analysis = analyze(&source);
         let hir = analysis
             .hir
@@ -1952,8 +1966,7 @@ mod tests {
             .expect("runtime diagnostic should include ai payload");
         assert_eq!(ai.rule_id, "array_index_must_be_non_negative");
 
-        let source =
-            SourceFile::anonymous("fn main() -> i32 { return 2147483647 + 1; }");
+        let source = SourceFile::anonymous("fn main() -> i32 { return 2147483647 + 1; }");
         let analysis = analyze(&source);
         let hir = analysis
             .hir

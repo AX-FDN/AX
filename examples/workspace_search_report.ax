@@ -1,0 +1,198 @@
+struct SearchStats {
+    lines: i32,
+    matched_lines: i32,
+}
+
+struct SearchTotals {
+    searchable_files: i32,
+    matched_files: i32,
+    bytes: i32,
+    lines: i32,
+    matched_lines: i32,
+}
+
+fn zero_search_stats() -> SearchStats {
+    return SearchStats {
+        lines: 0,
+        matched_lines: 0,
+    };
+}
+
+fn zero_search_totals() -> SearchTotals {
+    return SearchTotals {
+        searchable_files: 0,
+        matched_files: 0,
+        bytes: 0,
+        lines: 0,
+        matched_lines: 0,
+    };
+}
+
+fn is_searchable_file(path: string) -> bool {
+    if (string_ends_with(path, ".ax")) {
+        return true;
+    }
+    if (string_ends_with(path, ".md")) {
+        return true;
+    }
+    if (string_ends_with(path, ".txt")) {
+        return true;
+    }
+    if (string_ends_with(path, ".json")) {
+        return true;
+    }
+    if (string_ends_with(path, ".toml")) {
+        return true;
+    }
+    if (string_ends_with(path, ".ps1")) {
+        return true;
+    }
+    if (string_ends_with(path, ".yml")) {
+        return true;
+    }
+    if (string_ends_with(path, ".yaml")) {
+        return true;
+    }
+    return false;
+}
+
+fn search_text(text: string, needle: string) -> SearchStats {
+    let lines: [string] = string_split_lines(text);
+    let mut stats: SearchStats = zero_search_stats();
+
+    for (let mut i: i32 = 0; i < len(lines); i = i + 1) {
+        stats.lines = stats.lines + 1;
+        if (string_contains(lines[i], needle)) {
+            stats.matched_lines = stats.matched_lines + 1;
+        }
+    }
+
+    return stats;
+}
+
+fn add_search_result(totals: SearchTotals, size: i32, stats: SearchStats) -> SearchTotals {
+    let mut next: SearchTotals = totals;
+    next.searchable_files = next.searchable_files + 1;
+    next.bytes = next.bytes + size;
+    next.lines = next.lines + stats.lines;
+    next.matched_lines = next.matched_lines + stats.matched_lines;
+
+    if (stats.matched_lines != 0) {
+        next.matched_files = next.matched_files + 1;
+    }
+
+    return next;
+}
+
+fn display_label(path: string, depth: i32) -> string {
+    if (depth == 0) {
+        return path_file_name(path);
+    }
+
+    return path_file_name(path_parent(path)) + "/" + path_file_name(path);
+}
+
+fn append_match_line(report: string, path: string, depth: i32, size: i32, stats: SearchStats) -> string {
+    let mut prefix: string = "";
+    if (depth != 0) {
+        prefix = "  ";
+    }
+
+    return report
+        + prefix
+        + display_label(path, depth)
+        + " | bytes="
+        + to_string(size)
+        + " | lines="
+        + to_string(stats.lines)
+        + " | matched_lines="
+        + to_string(stats.matched_lines)
+        + "\n";
+}
+
+fn main() -> i32 {
+    if (argv_len() < 3) {
+        println("usage: axc run examples/workspace_search_report.ax -- <root_dir> <needle> <output>");
+        return 1;
+    }
+
+    let root_dir: string = argv_get(0);
+    let needle: string = argv_get(1);
+    let output_path: string = argv_get(2);
+
+    if (!fs_is_dir(root_dir)) {
+        println("root dir is not a directory: " + root_dir);
+        return 2;
+    }
+
+    if (string_len(needle) == 0) {
+        println("needle must not be empty");
+        return 3;
+    }
+
+    let output_dir: string = path_parent(output_path);
+    if (string_len(output_dir) != 0) {
+        fs_create_dir_all(output_dir);
+    }
+
+    let entries: [string] = fs_read_dir(root_dir);
+    let mut totals: SearchTotals = zero_search_totals();
+    let mut match_report: string = "";
+
+    for (let mut i: i32 = 0; i < len(entries); i = i + 1) {
+        let entry: string = entries[i];
+
+        if (fs_is_file(entry)) {
+            if (is_searchable_file(entry)) {
+                let size: i32 = fs_file_size(entry);
+                let stats: SearchStats = search_text(fs_read_to_string(entry), needle);
+
+                totals = add_search_result(totals, size, stats);
+                if (stats.matched_lines != 0) {
+                    match_report = append_match_line(match_report, entry, 0, size, stats);
+                }
+            }
+        }
+
+        if (fs_is_dir(entry)) {
+            let children: [string] = fs_read_dir(entry);
+
+            for (let mut child_index: i32 = 0; child_index < len(children); child_index = child_index + 1) {
+                let child: string = children[child_index];
+
+                if (fs_is_file(child)) {
+                    if (is_searchable_file(child)) {
+                        let size: i32 = fs_file_size(child);
+                        let stats: SearchStats = search_text(fs_read_to_string(child), needle);
+
+                        totals = add_search_result(totals, size, stats);
+                        if (stats.matched_lines != 0) {
+                            match_report = append_match_line(match_report, child, 1, size, stats);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    let mut summary: string =
+        "root=" + path_resolve(root_dir)
+        + "\nneedle=" + needle
+        + "\nscope=top-level + one nested level"
+        + "\nsearchable_files=" + to_string(totals.searchable_files)
+        + "\nmatched_files=" + to_string(totals.matched_files)
+        + "\nbytes=" + to_string(totals.bytes)
+        + "\nlines=" + to_string(totals.lines)
+        + "\nmatched_lines=" + to_string(totals.matched_lines)
+        + "\n\nmatches:\n";
+
+    if (string_len(match_report) == 0) {
+        summary = summary + "(none)\n";
+    } else {
+        summary = summary + match_report;
+    }
+
+    fs_write_string(output_path, summary);
+    println("searched=" + output_path);
+    return 0;
+}

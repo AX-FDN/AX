@@ -1,0 +1,59 @@
+fn main() -> i32 {
+    if (argv_len() < 2) {
+        println("usage: axc run examples/project_docs_release -- <source_dir> <out_dir>");
+        return 1;
+    }
+
+    let source_dir: string = argv_get(0);
+    let out_dir: string = argv_get(1);
+
+    if (!fs_is_dir(source_dir)) {
+        println("source dir is not a directory: " + source_dir);
+        return 2;
+    }
+
+    fs_create_dir_all(out_dir);
+
+    let snapshot_dir: string = path_join(out_dir, "docs-snapshot");
+    if (fs_is_dir(snapshot_dir)) {
+        fs_remove_dir_all(snapshot_dir);
+    }
+    fs_create_dir_all(snapshot_dir);
+
+    let receipts_dir: string = path_join(snapshot_dir, "receipts");
+    fs_create_dir_all(receipts_dir);
+
+    let entries: [string] = fs_read_dir(source_dir);
+    let mut totals: SnapshotTotals = zero_snapshot_totals();
+    let mut detail_report: string = "";
+
+    for (let mut i: i32 = 0; i < len(entries); i = i + 1) {
+        let entry: string = entries[i];
+
+        if (fs_is_file(entry)) {
+            if (is_markdown_file(entry)) {
+                let text: string = fs_read_to_string(entry);
+                let stats: DocStats = analyze_doc(text);
+                let destination_path: string = path_join(snapshot_dir, path_file_name(entry));
+                let copied_bytes: i32 = fs_copy_file(entry, destination_path);
+                let receipt_path: string = path_join(receipts_dir, path_stem(entry) + ".receipt.txt");
+                let receipt: string = build_receipt(entry, destination_path, copied_bytes, stats);
+
+                fs_write_string(receipt_path, receipt);
+                totals = add_doc(totals, copied_bytes, stats);
+                detail_report = append_doc_detail(detail_report, entry, copied_bytes, stats);
+            } else {
+                totals = add_skipped(totals);
+            }
+        } else {
+            totals = add_skipped(totals);
+        }
+    }
+
+    let summary_path: string = path_join(snapshot_dir, "SUMMARY.txt");
+    let summary: string = build_summary(source_dir, snapshot_dir, len(entries), totals, detail_report);
+
+    fs_write_string(summary_path, summary);
+    println("snapshotted=" + snapshot_dir);
+    return 0;
+}

@@ -10,6 +10,7 @@ use crate::source::SourceFile;
 
 const BUILD_MANIFEST_FILE: &str = "build-manifest.json";
 const SOURCE_COPY_FILE: &str = "source.ax";
+const PROJECT_SOURCES_DIR: &str = "project-sources";
 const HIR_FILE: &str = "program.hir.json";
 const MIR_FILE: &str = "program.mir.json";
 
@@ -29,11 +30,24 @@ pub struct BuildInput {
     pub target_name: String,
     pub entry_file: String,
     pub project_manifest: Option<ProjectManifestArtifact>,
+    pub project_sources: Option<ProjectSourcesArtifact>,
 }
 
 #[derive(Debug, Clone)]
 pub struct ProjectManifestArtifact {
     pub file_name: String,
+    pub text: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct ProjectSourcesArtifact {
+    pub dir_name: String,
+    pub files: Vec<ProjectSourceArtifact>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ProjectSourceArtifact {
+    pub relative_path: String,
     pub text: String,
 }
 
@@ -62,6 +76,10 @@ pub struct BuildArtifacts {
     pub mir_json: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub project_manifest: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub project_sources_dir: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub project_sources: Option<Vec<String>>,
     pub planned_executable: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub executable: Option<String>,
@@ -96,10 +114,14 @@ pub fn build_input_from_source(source: &SourceFile) -> Result<BuildInput, String
         target_name: target_name_from_file(source.path())?,
         entry_file: source.display_path(),
         project_manifest: None,
+        project_sources: None,
     })
 }
 
-pub fn build_input_from_project(source: &SourceFile, project: &Project) -> BuildInput {
+pub fn build_input_from_project(
+    _source: &SourceFile,
+    project: &Project,
+) -> Result<BuildInput, String> {
     let file_name = project
         .manifest_path()
         .file_name()
@@ -107,14 +129,42 @@ pub fn build_input_from_project(source: &SourceFile, project: &Project) -> Build
         .unwrap_or("AX.toml")
         .to_string();
 
-    BuildInput {
+    let mut project_source_files = Vec::new();
+    for path in project.program_source_paths() {
+        let text = fs::read_to_string(path).map_err(|error| {
+            format!(
+                "failed to read project source {} for build packaging: {error}",
+                path.display()
+            )
+        })?;
+        let relative_path = path
+            .strip_prefix(project.root_dir())
+            .map_err(|error| {
+                format!(
+                    "failed to compute project-relative source path for {}: {error}",
+                    path.display()
+                )
+            })?
+            .to_string_lossy()
+            .replace('\\', "/");
+        project_source_files.push(ProjectSourceArtifact {
+            relative_path,
+            text,
+        });
+    }
+
+    Ok(BuildInput {
         target_name: project.target_name().to_string(),
-        entry_file: source.display_path(),
+        entry_file: project.entry_path().display().to_string(),
         project_manifest: Some(ProjectManifestArtifact {
             file_name,
             text: project.manifest_text().to_string(),
         }),
-    }
+        project_sources: Some(ProjectSourcesArtifact {
+            dir_name: PROJECT_SOURCES_DIR.to_string(),
+            files: project_source_files,
+        }),
+    })
 }
 
 pub fn build_program(
@@ -169,8 +219,36 @@ pub fn build_program(
         })?;
     }
 
+    if let Some(project_sources) = &input.project_sources {
+        let project_sources_dir = options.out_dir.join(&project_sources.dir_name);
+        fs::create_dir_all(&project_sources_dir).map_err(|error| {
+            format!(
+                "failed to create copied project sources directory {}: {error}",
+                project_sources_dir.display()
+            )
+        })?;
+
+        for project_source in &project_sources.files {
+            let copied_path = project_sources_dir.join(&project_source.relative_path);
+            if let Some(parent) = copied_path.parent() {
+                fs::create_dir_all(parent).map_err(|error| {
+                    format!(
+                        "failed to create copied project source directory {}: {error}",
+                        parent.display()
+                    )
+                })?;
+            }
+            fs::write(&copied_path, &project_source.text).map_err(|error| {
+                format!(
+                    "failed to write copied project source {}: {error}",
+                    copied_path.display()
+                )
+            })?;
+        }
+    }
+
     let manifest = BuildManifest {
-        schema_version: 2,
+        schema_version: 3,
         target_name: input.target_name.clone(),
         entry_file: input.entry_file.clone(),
         output_dir: options.out_dir.display().to_string(),
@@ -187,6 +265,17 @@ pub fn build_program(
                 .project_manifest
                 .as_ref()
                 .map(|artifact| artifact.file_name.clone()),
+            project_sources_dir: input
+                .project_sources
+                .as_ref()
+                .map(|artifact| artifact.dir_name.clone()),
+            project_sources: input.project_sources.as_ref().map(|artifact| {
+                artifact
+                    .files
+                    .iter()
+                    .map(|file| file.relative_path.clone())
+                    .collect()
+            }),
             planned_executable: format!("bin/{}{}", input.target_name, executable_suffix()),
             executable: None,
         },

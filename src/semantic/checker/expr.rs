@@ -1,7 +1,7 @@
 use crate::ast::{BinaryOp, Expr, ExprKind, UnaryOp};
 use crate::diagnostics::Diagnostic;
 
-use super::{binary_op_name, type_name_as_value_diagnostic, Type, TypeChecker};
+use super::{Type, TypeChecker, binary_op_name, type_name_as_value_diagnostic};
 
 impl<'a, 'b> TypeChecker<'a, 'b> {
     pub(super) fn check_expr(&mut self, expr: &Expr) -> Type {
@@ -205,9 +205,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     }
                 }
             }
-            ExprKind::Call { callee, arguments } => {
-                self.check_call_expr(expr, callee, arguments)
-            }
+            ExprKind::Call { callee, arguments } => self.check_call_expr(expr, callee, arguments),
             ExprKind::StructLiteral { name, fields } => {
                 self.check_struct_literal_expr(expr, name, fields)
             }

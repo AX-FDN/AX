@@ -1,0 +1,48 @@
+fn main() -> i32 {
+    if (argv_len() < 2) {
+        println("usage: axc run examples/project_workspace_audit -- <root_dir> <output>");
+        return 1;
+    }
+    let root_dir: string = argv_get(0);
+    let output_path: string = argv_get(1);
+    if (!fs_is_dir(root_dir)) {
+        println("root dir is not a directory: " + root_dir);
+        return 2;
+    }
+    let output_dir: string = path_parent(output_path);
+    if (string_len(output_dir) != 0) {
+        fs_create_dir_all(output_dir);
+    }
+    let entries: [string] = fs_read_dir(root_dir);
+    let mut totals: AuditTotals = zero_audit_totals();
+    let mut entry_report: string = "";
+    for (let mut i: i32 = 0; i < len(entries); i = i + 1) {
+        let entry: string = entries[i];
+        if (fs_is_dir(entry)) {
+            let children: [string] = fs_read_dir(entry);
+            totals = add_directory(totals);
+            entry_report = append_dir_line(entry_report, entry, 0, len(children));
+            for (let mut child_index: i32 = 0; child_index < len(children); child_index = child_index + 1) {
+                let child: string = children[child_index];
+                if (fs_is_dir(child)) {
+                    let nested_children: [string] = fs_read_dir(child);
+                    totals = add_directory(totals);
+                    entry_report = append_dir_line(entry_report, child, 1, len(nested_children));
+                }
+                if (fs_is_file(child)) {
+                    let audited: FileAudit = audit_file(entry_report, totals, child, 1);
+                    entry_report = audited.report;
+                    totals = audited.totals;
+                }
+            }
+        }
+        if (fs_is_file(entry)) {
+            let audited: FileAudit = audit_file(entry_report, totals, entry, 0);
+            entry_report = audited.report;
+            totals = audited.totals;
+        }
+    }
+    fs_write_string(output_path, build_summary(root_dir, len(entries), totals) + entry_report);
+    println("audited=" + output_path);
+    return 0;
+}

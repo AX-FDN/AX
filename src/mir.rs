@@ -132,18 +132,9 @@ pub struct Place {
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum PlaceKind {
-    Local {
-        local: u32,
-        name: String,
-    },
-    Field {
-        base: Box<Place>,
-        field: String,
-    },
-    Index {
-        base: Box<Place>,
-        index: Expr,
-    },
+    Local { local: u32, name: String },
+    Field { base: Box<Place>, field: String },
+    Index { base: Box<Place>, index: Expr },
 }
 
 #[derive(Debug, Clone, Serialize)]

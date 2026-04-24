@@ -94,7 +94,10 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     self.diagnostics.push(
                         Diagnostic::new(
                             "S0027",
-                            format!("struct `{struct_name}` does not have a field `{}`", field.name),
+                            format!(
+                                "struct `{struct_name}` does not have a field `{}`",
+                                field.name
+                            ),
                             self.info.source,
                             field.span,
                         )
@@ -113,9 +116,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                         self.info.source,
                         expr.span,
                     )
-                    .with_suggestion(format!(
-                        "provide `{field_name}: ...` in the struct literal",
-                    )),
+                    .with_suggestion(format!("provide `{field_name}: ...` in the struct literal",)),
                 );
             }
         }
@@ -184,7 +185,9 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                             self.diagnostics.push(
                                 Diagnostic::new(
                                     "S0020",
-                                    format!("struct `{struct_name}` does not have a field `{field}`"),
+                                    format!(
+                                        "struct `{struct_name}` does not have a field `{field}`"
+                                    ),
                                     self.info.source,
                                     expr.span,
                                 )
@@ -202,7 +205,10 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             other => {
                 self.diagnostics.push(Diagnostic::new(
                     "S0021",
-                    format!("field access expects a struct value, found `{}`", other.describe()),
+                    format!(
+                        "field access expects a struct value, found `{}`",
+                        other.describe()
+                    ),
                     self.info.source,
                     expr.span,
                 ));
@@ -218,7 +224,10 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             &Type::I32,
             &index_type,
             index.span,
-            format!("array index must be `i32`, found `{}`", index_type.describe()),
+            format!(
+                "array index must be `i32`, found `{}`",
+                index_type.describe()
+            ),
         );
 
         match base_type {
@@ -266,7 +275,10 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             &Type::I32,
             &end_type,
             end.span,
-            format!("slice end bound must be `i32`, found `{}`", end_type.describe()),
+            format!(
+                "slice end bound must be `i32`, found `{}`",
+                end_type.describe()
+            ),
         );
 
         match base_type {

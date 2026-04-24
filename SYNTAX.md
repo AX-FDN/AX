@@ -63,7 +63,12 @@ enum Flag {
 
 - 泛型
 - `Option` / `Result` 的完整表面语法
-- 模块与 import
+- 语言内的模块与 import
+
+补充说明：
+
+- AX 当前仍然没有语言关键字层的 `module`、命名空间和 `import` 声明。
+- 当前最小的代码组织方式是项目清单：可以在 `AX.toml` 里用 `[package].sources = ["src/lib.ax", "lib", ...]` 列出额外源文件或源目录，在 `check / run / build` 时与 `entry` 一起装载；目录项会递归展开为稳定路径顺序的 `.ax` 文件列表。
 
 ## 4. 语句
 
@@ -347,7 +352,7 @@ array_type        := "[" type_ref ";" INT "]"
 下面这些请不要在当前原型里使用：
 
 - `match`
-- import / module
+- 语言内的 import / module 声明
 - 异常
 - async / await
 - 泛型

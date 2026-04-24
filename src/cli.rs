@@ -189,7 +189,13 @@ fn run_build(args: Vec<String>) -> i32 {
     };
 
     let build_input = match input.project.as_ref() {
-        Some(project) => build_input_from_project(source, project),
+        Some(project) => match build_input_from_project(source, project) {
+            Ok(input) => input,
+            Err(error) => {
+                eprintln!("{error}");
+                return 1;
+            }
+        },
         None => match build_input_from_source(source) {
             Ok(input) => input,
             Err(error) => {
@@ -363,8 +369,34 @@ fn run_fmt(args: Vec<String>) -> i32 {
             return 1;
         }
     };
-    let source = &input.source;
 
+    if let Some(project) = input.project.as_ref() {
+        return format_project_sources(project.program_source_paths());
+    }
+
+    format_single_source(&input.source)
+}
+
+fn format_project_sources(paths: Vec<&Path>) -> i32 {
+    for path in paths {
+        let source = match crate::source::SourceFile::from_path(path) {
+            Ok(source) => source,
+            Err(error) => {
+                eprintln!("failed to read {}: {error}", path.display());
+                return 1;
+            }
+        };
+
+        let status = format_single_source(&source);
+        if status != 0 {
+            return status;
+        }
+    }
+
+    0
+}
+
+fn format_single_source(source: &crate::source::SourceFile) -> i32 {
     let formatted = match format_source(source) {
         Ok(formatted) => formatted,
         Err(diagnostics) => {
@@ -398,7 +430,7 @@ Commands:
   mir <path>               Print stable MIR JSON
   build <path> [--out-dir <path>]   Emit the build skeleton artifacts for the native backend stage
   run <path> [--json] [--ai] [--ai-session <path>] [-- <args...>]   Execute the minimal interpreter
-  fmt <path>               Rewrite the file to the canonical AX format
+  fmt <path>               Rewrite the file or project sources to the canonical AX format
 "
 }
 

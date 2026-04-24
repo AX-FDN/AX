@@ -1,7 +1,7 @@
 use crate::ast::{Block, Expr, Stmt, StmtKind};
 use crate::diagnostics::Diagnostic;
 
-use super::{return_type_message, Type, TypeChecker};
+use super::{Type, TypeChecker, return_type_message};
 
 impl<'a, 'b> TypeChecker<'a, 'b> {
     pub(super) fn check_break_statement(&mut self, statement: &Stmt) {
@@ -17,7 +17,9 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 statement.span,
             )
             .with_note("AX uses `break;` to exit the nearest enclosing loop early")
-            .with_suggestion("move `break;` into a loop body, or use `return ...;` to exit the function"),
+            .with_suggestion(
+                "move `break;` into a loop body, or use `return ...;` to exit the function",
+            ),
         );
     }
 

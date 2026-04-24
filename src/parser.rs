@@ -373,11 +373,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_break_statement(&mut self, start: usize) -> Stmt {
-        let end = self.expect(
-            TokenKind::Semicolon,
-            "expected `;` after `break`",
-            &["`;`"],
-        );
+        let end = self.expect(TokenKind::Semicolon, "expected `;` after `break`", &["`;`"]);
         Stmt {
             span: Span::new(start, end.span.end),
             kind: StmtKind::Break,

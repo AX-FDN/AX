@@ -22,10 +22,10 @@ mod statements;
 #[path = "checker/type_rules.rs"]
 mod type_rules;
 
+use super::helpers::return_type_message;
 pub(super) use super::helpers::{
     binary_op_name, type_mismatch_suggestion, type_name_as_value_diagnostic,
 };
-use super::helpers::return_type_message;
 use super::program_info::ProgramInfo;
 use super::types::Type;
 use names::Binding;

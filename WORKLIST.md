@@ -219,13 +219,16 @@
   - 回归保障：语义 / 解释器 / 接口测试、真实样例 smoke、repair benchmark 资产。
   - 不做范围：不一口气做大而全标准库，不先做网络、GUI、并发运行时或包生态。
 
-- [ ] `P1-11` 第二组真实工具样例与 backend 验证目标
+- [~] `P1-11` 第二组真实工具样例与 backend 验证目标
   - 目标：让后续 `axc build` 与更大语法决策建立在真实程序上，而不是建立在玩具样例上。
   - 输入：第一批宿主能力、现有 examples、benchmark 观察与 build 骨架现状。
   - 输出：2-4 个更接近真实任务的样例，覆盖 CLI、文本处理、批处理或构建辅助中的至少两类，并形成后续 native build 验证目标。
   - 通过条件：这些样例可 `check / run`，且能明确暴露“下一步补标准库、backend 还是语法”。
   - 回归保障：`examples/`、`tests/interface_snapshots.rs`、必要的 smoke。
   - 不做范围：不把样例扩成完整产品，不为了样例强行引入大表面积语法。
+  - 进展：2026-04-24 已新增 [`examples/workspace_audit.ax`](C:/Users/xwh/Desktop/AX-main-git/examples/workspace_audit.ax)、[`examples/docs_release_snapshot.ax`](C:/Users/xwh/Desktop/AX-main-git/examples/docs_release_snapshot.ax) 与 [`examples/workspace_search_report.ax`](C:/Users/xwh/Desktop/AX-main-git/examples/workspace_search_report.ax)，三者均已完成 `check / run` 验证。
+  - 进展：2026-04-24 已新增项目化样例 [`examples/project_split/`](C:/Users/xwh/Desktop/AX-main-git/examples/project_split)、[`examples/project_foundation_report/`](C:/Users/xwh/Desktop/AX-main-git/examples/project_foundation_report)、[`examples/project_docs_release/`](C:/Users/xwh/Desktop/AX-main-git/examples/project_docs_release)、[`examples/project_workspace_audit/`](C:/Users/xwh/Desktop/AX-main-git/examples/project_workspace_audit) 与 [`examples/project_workspace_search_report/`](C:/Users/xwh/Desktop/AX-main-git/examples/project_workspace_search_report)，并把 `AX.toml` 的 `sources` 扩到可指向 `lib/` 这类支持目录、把 `axc build` 扩到导出 `project-sources/` 原始项目源树快照，用于验证目录级多文件装载和 AX 侧 helper 库组织。
+  - 当前暴露的真实缺口：不是先继续堆大语法，而是模块/导入/库组织、更深目录遍历、可扩展集合能力，以及把这些样例接入 smoke 或后续 backend 验证目标。
 
 ## P2
 

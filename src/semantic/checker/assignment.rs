@@ -31,7 +31,9 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     self.info.source,
                     target.span,
                 )
-                .with_suggestion("assign through the original mutable array instead of a slice view"),
+                .with_suggestion(
+                    "assign through the original mutable array instead of a slice view",
+                ),
             );
             return;
         }
@@ -85,7 +87,9 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                                 self.diagnostics.push(
                                     Diagnostic::new(
                                         "S0020",
-                                        format!("struct `{struct_name}` does not have a field `{field}`"),
+                                        format!(
+                                            "struct `{struct_name}` does not have a field `{field}`"
+                                        ),
                                         self.info.source,
                                         target.span,
                                     )
@@ -124,7 +128,10 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     &Type::I32,
                     &index_type,
                     index.span,
-                    format!("array index must be `i32`, found `{}`", index_type.describe()),
+                    format!(
+                        "array index must be `i32`, found `{}`",
+                        index_type.describe()
+                    ),
                 );
 
                 match &base_place.ty {

@@ -28,7 +28,7 @@ impl Diagnostic {
         Self {
             code: code.into(),
             message: message.into(),
-            file: source.display_path(),
+            file: source.display_path_for_offset(span.start).to_string(),
             span,
             notes: Vec::new(),
             expected: Vec::new(),
@@ -68,7 +68,7 @@ pub fn render_diagnostics(source: &SourceFile, diagnostics: &[Diagnostic]) -> St
 
 fn render_diagnostic(source: &SourceFile, diagnostic: &Diagnostic) -> String {
     let (line, column) = source.line_col(diagnostic.span.start);
-    let line_text = source.line_text(line);
+    let line_text = source.line_text_for_offset(diagnostic.span.start, line);
     let underline_width = diagnostic
         .span
         .end
