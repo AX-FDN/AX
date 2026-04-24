@@ -48,6 +48,7 @@ enum Value {
     Bool(bool),
     String(String),
     Array(Vec<Value>),
+    Slice(Vec<Value>),
     Enum {
         name: String,
         variant: String,
@@ -78,6 +79,14 @@ impl Value {
             Self::Bool(value) => value.to_string(),
             Self::String(value) => value.clone(),
             Self::Array(elements) => {
+                let elements = elements
+                    .iter()
+                    .map(Value::display)
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                format!("[{elements}]")
+            }
+            Self::Slice(elements) => {
                 let elements = elements
                     .iter()
                     .map(Value::display)
@@ -380,6 +389,19 @@ impl<'a> Interpreter<'a> {
 
                     match &slot.value {
                         Value::Array(elements) => elements.len(),
+                        Value::Slice(_) => {
+                            return Err(self
+                                .runtime_error(
+                                    "R0036",
+                                    format!(
+                                        "cannot assign through slice variable `{base}` because slices are read-only"
+                                    ),
+                                    target.span,
+                                )
+                                .with_suggestion(
+                                    "assign through the original mutable array instead of a slice view",
+                                ));
+                        }
                         other => {
                             return Err(self.runtime_error(
                                 "R0028",
@@ -403,6 +425,17 @@ impl<'a> Interpreter<'a> {
                         elements[resolved_index] = next_value;
                         Ok(())
                     }
+                    Value::Slice(_) => Err(self
+                        .runtime_error(
+                            "R0036",
+                            format!(
+                                "cannot assign through slice variable `{base}` because slices are read-only"
+                            ),
+                            target.span,
+                        )
+                        .with_suggestion(
+                            "assign through the original mutable array instead of a slice view",
+                        )),
                     other => Err(self.runtime_error(
                         "R0028",
                         format!(
@@ -516,23 +549,52 @@ impl<'a> Interpreter<'a> {
             },
             ExprKind::Index { base, index } => {
                 let base_value = self.eval_expr(base, frame)?;
-
-                let Value::Array(elements) = base_value else {
-                    return Err(self.runtime_error(
-                        "R0028",
-                        format!(
-                            "index access requires an array value, got `{}`",
-                            base_value.display()
-                        ),
-                        expr.span,
-                    ));
-                };
+                let elements = self.indexable_elements(base_value, expr.span)?;
 
                 let index_value = self.eval_expr(index, frame)?;
                 let resolved =
                     self.resolve_array_index(index_value, index.span, elements.len(), expr.span)?;
                 Ok(elements[resolved].clone())
             }
+            ExprKind::Slice { base, start, end } => {
+                let base_value = self.eval_expr(base, frame)?;
+                let elements = self.indexable_elements(base_value, expr.span)?;
+                let start_value = self.eval_expr(start, frame)?;
+                let end_value = self.eval_expr(end, frame)?;
+                let start_index =
+                    self.resolve_slice_bound(start_value, start.span, elements.len(), "start")?;
+                let end_index =
+                    self.resolve_slice_bound(end_value, end.span, elements.len(), "end")?;
+
+                if start_index > end_index {
+                    return Err(self
+                        .runtime_error(
+                            "R0035",
+                            format!(
+                                "slice start `{start_index}` cannot be greater than slice end `{end_index}`"
+                            ),
+                            expr.span,
+                        )
+                        .with_note("AX slice ranges are half-open: `values[start:end]` includes `start` and excludes `end`")
+                        .with_suggestion("ensure the start bound is less than or equal to the end bound"));
+                }
+
+                Ok(Value::Slice(elements[start_index..end_index].to_vec()))
+            }
+        }
+    }
+
+    fn indexable_elements(&self, value: Value, span: Span) -> Result<Vec<Value>, Diagnostic> {
+        match value {
+            Value::Array(elements) | Value::Slice(elements) => Ok(elements),
+            other => Err(self.runtime_error(
+                "R0028",
+                format!(
+                    "index access requires an array or slice value, got `{}`",
+                    other.display()
+                ),
+                span,
+            )),
         }
     }
 
@@ -585,6 +647,57 @@ impl<'a> Interpreter<'a> {
         }
 
         Ok(index)
+    }
+
+    fn resolve_slice_bound(
+        &self,
+        bound_value: Value,
+        bound_span: Span,
+        array_len: usize,
+        label: &str,
+    ) -> Result<usize, Diagnostic> {
+        let Value::I32(bound) = bound_value else {
+            return Err(self
+                .runtime_error(
+                    "R0032",
+                    format!(
+                        "slice {label} bound must evaluate to `i32`, got `{}`",
+                        bound_value.display()
+                    ),
+                    bound_span,
+                )
+                .with_note("AX slice bounds currently use `i32` values")
+                .with_suggestion("compute or convert an `i32` bound before slicing"));
+        };
+
+        if bound < 0 {
+            return Err(self
+                .runtime_error(
+                    "R0033",
+                    format!("slice {label} bound cannot be negative, got `{bound}`"),
+                    bound_span,
+                )
+                .with_note("AX slice bounds use zero-based positions")
+                .with_suggestion("use a bound in the range `0..len`"));
+        }
+
+        let bound = usize::try_from(bound).expect("non-negative i32 should fit in usize");
+        if bound > array_len {
+            return Err(self
+                .runtime_error(
+                    "R0034",
+                    format!(
+                        "slice {label} bound `{bound}` is out of bounds for length {array_len}"
+                    ),
+                    bound_span,
+                )
+                .with_note(format!(
+                    "slice bounds may range from 0 up to the collection length {array_len}"
+                ))
+                .with_suggestion("change the slice bounds so they stay within `0..len`"));
+        }
+
+        Ok(bound)
     }
 
     fn eval_binary(
@@ -896,6 +1009,29 @@ fn main() -> i32 {
         let output = run_program(&source, &hir).expect("program should run");
         assert_eq!(output.exit_code, 4);
         assert_eq!(output.stdout, vec!["[1, 4, 3]"]);
+    }
+
+    #[test]
+    fn runs_slice_reads_and_slice_parameters() {
+        let (source, hir) = analyzed_hir(
+            "\
+fn second(values: [i32]) -> i32 {
+    println(values);
+    return values[1];
+}
+
+fn main() -> i32 {
+    let values: [i32; 4] = [1, 2, 3, 4];
+    let window: [i32] = values[1:3];
+    println(window);
+    return second(window);
+}
+",
+        );
+
+        let output = run_program(&source, &hir).expect("program should run");
+        assert_eq!(output.exit_code, 3);
+        assert_eq!(output.stdout, vec!["[2, 3]", "[2, 3]"]);
     }
 
     #[test]

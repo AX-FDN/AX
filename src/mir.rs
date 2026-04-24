@@ -206,6 +206,11 @@ pub enum ExprKind {
         base: Box<Expr>,
         index: Box<Expr>,
     },
+    Slice {
+        base: Box<Expr>,
+        start: Box<Expr>,
+        end: Box<Expr>,
+    },
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -546,6 +551,11 @@ impl FunctionLowerer {
             hir::ExprKind::Index { base, index } => ExprKind::Index {
                 base: Box::new(self.lower_expr(base)?),
                 index: Box::new(self.lower_expr(index)?),
+            },
+            hir::ExprKind::Slice { base, start, end } => ExprKind::Slice {
+                base: Box::new(self.lower_expr(base)?),
+                start: Box::new(self.lower_expr(start)?),
+                end: Box::new(self.lower_expr(end)?),
             },
         };
 

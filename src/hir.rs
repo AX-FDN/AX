@@ -72,6 +72,7 @@ pub enum Type {
     I32,
     F32,
     String,
+    Slice { element: Box<Type> },
     Array { element: Box<Type>, length: usize },
     Struct { name: String },
     Enum { name: String },
@@ -195,6 +196,11 @@ pub enum ExprKind {
         base: Box<Expr>,
         index: Box<Expr>,
     },
+    Slice {
+        base: Box<Expr>,
+        start: Box<Expr>,
+        end: Box<Expr>,
+    },
 }
 
 pub fn lower_program(source: &SourceFile, program: &ast::Program) -> Result<Program, Diagnostic> {
@@ -313,6 +319,9 @@ impl<'a> LoweringContext<'a> {
                     ty.span,
                 )),
             },
+            (None, Some(element), None) => Ok(Type::Slice {
+                element: Box::new(self.lower_type_ref(element)?),
+            }),
             (None, Some(element), Some(length)) => Ok(Type::Array {
                 element: Box::new(self.lower_type_ref(element)?),
                 length,
@@ -604,6 +613,11 @@ impl<'a> LoweringContext<'a> {
                 base: Box::new(self.lower_expr(base)?),
                 index: Box::new(self.lower_expr(index)?),
             },
+            ast::ExprKind::Slice { base, start, end } => ExprKind::Slice {
+                base: Box::new(self.lower_expr(base)?),
+                start: Box::new(self.lower_expr(start)?),
+                end: Box::new(self.lower_expr(end)?),
+            },
             ast::ExprKind::Error => {
                 return Err(self.lowering_error(
                     "H0007",
@@ -770,6 +784,51 @@ fn main() -> i32 {
             panic!("expected return statement");
         };
         assert!(matches!(value.kind, ExprKind::Index { .. }));
+    }
+
+    #[test]
+    fn lowers_slice_types_and_expressions() {
+        let program = lower(
+            "\
+fn window(values: [i32]) -> i32 {
+    let head: [i32] = values[0:2];
+    return head[1];
+}
+
+fn main() -> i32 {
+    let values: [i32; 3] = [1, 2, 3];
+    return window(values);
+}
+",
+        );
+
+        let ItemKind::Function {
+            params,
+            return_type,
+            body,
+            ..
+        } = &program.items[0].kind
+        else {
+            panic!("expected function");
+        };
+
+        assert!(matches!(
+            params[0].ty,
+            Type::Slice { ref element } if **element == Type::I32
+        ));
+        assert!(matches!(return_type, Type::I32));
+
+        let StmtKind::Let {
+            ty, initializer, ..
+        } = &body.statements[0].kind
+        else {
+            panic!("expected let");
+        };
+        assert!(matches!(
+            ty,
+            Type::Slice { element } if **element == Type::I32
+        ));
+        assert!(matches!(initializer.kind, ExprKind::Slice { .. }));
     }
 
     #[test]

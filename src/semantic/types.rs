@@ -6,6 +6,7 @@ pub(super) enum Type {
     I32,
     F32,
     String,
+    Slice { element: Box<Type> },
     Array { element: Box<Type>, length: usize },
     Struct(String),
     Enum(String),
@@ -20,6 +21,7 @@ impl Type {
             Self::I32 => "i32".to_string(),
             Self::F32 => "f32".to_string(),
             Self::String => "string".to_string(),
+            Self::Slice { element } => format!("[{}]", element.describe()),
             Self::Array { element, length } => format!("[{}; {}]", element.describe(), length),
             Self::Struct(name) | Self::Enum(name) => name.clone(),
             Self::Void => "<void>".to_string(),
@@ -33,6 +35,15 @@ impl Type {
 
     pub(super) fn is_error(&self) -> bool {
         matches!(self, Self::Error)
+    }
+
+    pub(super) fn is_assignable_to(&self, expected: &Type) -> bool {
+        self == expected
+            || matches!(
+                (expected, self),
+                (Self::Slice { element: expected_element }, Self::Array { element: actual_element, .. })
+                    if expected_element.as_ref() == actual_element.as_ref()
+            )
     }
 
     fn is_comparable_primitive(&self) -> bool {

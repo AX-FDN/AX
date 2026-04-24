@@ -53,13 +53,13 @@ enum Flag {
 - `i32`
 - `f32`
 - `string`
+- 只读切片：`[Type]`
 - 固定长度数组：`[Type; N]`
 - 用户声明的 `struct` 名
 - 用户声明的 `enum` 名
 
 当前没有：
 
-- 切片
 - 泛型
 - `Option` / `Result` 的完整表面语法
 - 模块与 import
@@ -190,6 +190,12 @@ point.x
 values[1]
 ```
 
+切片表达式：
+
+```ax
+values[1:3]
+```
+
 枚举值：
 
 ```ax
@@ -239,10 +245,11 @@ expr_stmt         := expr ";"
 expr              := binary_expr
 binary_expr       := unary_expr (BINARY_OP unary_expr)*
 unary_expr        := ("-" | "!") unary_expr | postfix_expr
-postfix_expr      := primary_expr (call_suffix | field_suffix | index_suffix)*
+postfix_expr      := primary_expr (call_suffix | field_suffix | index_suffix | slice_suffix)*
 call_suffix       := "(" arg_list? ")"
 field_suffix      := "." IDENT
 index_suffix      := "[" expr "]"
+slice_suffix      := "[" expr ":" expr "]"
 arg_list          := expr ("," expr)*
 
 primary_expr      := INT
@@ -261,8 +268,9 @@ struct_init       := IDENT ":" expr
 array_literal     := "[" array_item_list? "]"
 array_item_list   := expr ("," expr)* ","?
 
-type_ref          := named_type | array_type
+type_ref          := named_type | slice_type | array_type
 named_type        := "bool" | "i32" | "f32" | "string" | IDENT
+slice_type        := "[" type_ref "]"
 array_type        := "[" type_ref ";" INT "]"
 ```
 
@@ -282,6 +290,7 @@ array_type        := "[" type_ref ";" INT "]"
 `axc run` 当前已经可以执行：
 
 - `main`
+- 只读切片类型、切片表达式与切片索引读取
 - 局部变量
 - 变量赋值
 - 结构体字段赋值
@@ -302,7 +311,6 @@ array_type        := "[" type_ref ";" INT "]"
 下面这些请不要在当前原型里使用：
 
 - `match`
-- 切片
 - 空数组字面量：`[]`
 - import / module
 - 异常
@@ -325,9 +333,10 @@ Rules:
 - Enum values must use EnumName.Variant.
 - Construct structs with TypeName { field: expr, ... }.
 - Use for loops only as for (init; condition; step) { ... }.
+- Read-only slices are allowed as [Type] and values[start:end].
 - Fixed-size arrays are allowed as [Type; N], [a, b, c], and values[index].
 - Direct array element assignment is allowed as values[index] = expr; when the array variable is mutable.
 - Direct field assignment is allowed only as name.field = expr; and only when name is a mutable struct variable.
-- Do not use match, slices, empty array literals, modules, imports, exceptions, async, or generics.
+- Do not use match, empty array literals, modules, imports, exceptions, async, or generics.
 - Return 0 from main on success unless a different exit code is explicitly needed.
 ```

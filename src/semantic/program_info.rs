@@ -179,11 +179,14 @@ impl<'a> ProgramInfo<'a> {
                             ty.span,
                         )
                         .with_suggestion(
-                            "use a builtin type, `[Type; N]`, or declare the type before referencing it",
+                            "use a builtin type, `[Type]`, `[Type; N]`, or declare the type before referencing it",
                         ),
                     );
                     Type::Error
                 }
+            },
+            (None, Some(element), None) => Type::Slice {
+                element: Box::new(self.resolve_type_ref(element, diagnostics)),
             },
             (None, Some(element), Some(length)) => Type::Array {
                 element: Box::new(self.resolve_type_ref(element, diagnostics)),
@@ -192,7 +195,9 @@ impl<'a> ProgramInfo<'a> {
             _ => {
                 diagnostics.push(
                     Diagnostic::new("S0006", "invalid type syntax", self.source, ty.span)
-                        .with_suggestion("use a named type or an array type like `[i32; 3]`"),
+                        .with_suggestion(
+                            "use a named type, a slice type like `[i32]`, or an array type like `[i32; 3]`",
+                        ),
                 );
                 Type::Error
             }

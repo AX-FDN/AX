@@ -255,13 +255,28 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                             ),
                         );
                     }
+                    Type::Slice { .. } => {
+                        self.diagnostics.push(
+                            Diagnostic::new(
+                                "S0035",
+                                format!(
+                                    "cannot assign through slice variable `{base_name}` because slices are read-only",
+                                ),
+                                self.info.source,
+                                target_span,
+                            )
+                            .with_suggestion(
+                                "assign through the original mutable array instead of a slice view",
+                            ),
+                        );
+                    }
                     Type::Error => {}
                     other => {
                         self.diagnostics.push(
                             Diagnostic::new(
                                 "S0033",
                                 format!(
-                                    "array element assignment requires an array value, found `{}`",
+                                    "indexed assignment requires an array value, found `{}`",
                                     other.describe()
                                 ),
                                 self.info.source,

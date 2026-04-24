@@ -90,6 +90,15 @@ impl TypeRef {
         }
     }
 
+    pub fn slice(element: TypeRef, span: Span) -> Self {
+        Self {
+            name: None,
+            element: Some(Box::new(element)),
+            length: None,
+            span,
+        }
+    }
+
     pub fn direct_name(&self) -> Option<&str> {
         self.name.as_deref()
     }
@@ -97,6 +106,7 @@ impl TypeRef {
     pub fn describe(&self) -> String {
         match (&self.name, &self.element, self.length) {
             (Some(name), None, None) => name.clone(),
+            (None, Some(element), None) => format!("[{}]", element.describe()),
             (None, Some(element), Some(length)) => format!("[{}; {}]", element.describe(), length),
             _ => "<invalid-type>".to_string(),
         }
@@ -207,6 +217,11 @@ pub enum ExprKind {
     Index {
         base: Box<Expr>,
         index: Box<Expr>,
+    },
+    Slice {
+        base: Box<Expr>,
+        start: Box<Expr>,
+        end: Box<Expr>,
     },
     Error,
 }

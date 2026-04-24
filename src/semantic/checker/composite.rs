@@ -231,17 +231,68 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
         );
 
         match base_type {
-            Type::Array { element, .. } => *element,
+            Type::Array { element, .. } | Type::Slice { element } => *element,
             Type::Error => Type::Error,
             other => {
                 self.diagnostics.push(
                     Diagnostic::new(
                         "S0033",
-                        format!("index access expects an array value, found `{}`", other.describe()),
+                        format!(
+                            "index access expects an array or slice value, found `{}`",
+                            other.describe()
+                        ),
                         self.info.source,
                         expr.span,
                     )
-                    .with_suggestion("index into an array value like `values[0]`"),
+                    .with_suggestion("index into an array or slice value like `values[0]`"),
+                );
+                Type::Error
+            }
+        }
+    }
+
+    pub(super) fn check_slice_expr(
+        &mut self,
+        expr: &Expr,
+        base: &Expr,
+        start: &Expr,
+        end: &Expr,
+    ) -> Type {
+        let base_type = self.check_expr(base);
+        let start_type = self.check_expr(start);
+        let end_type = self.check_expr(end);
+
+        self.expect_type_match(
+            &Type::I32,
+            &start_type,
+            start.span,
+            format!(
+                "slice start bound must be `i32`, found `{}`",
+                start_type.describe()
+            ),
+        );
+        self.expect_type_match(
+            &Type::I32,
+            &end_type,
+            end.span,
+            format!("slice end bound must be `i32`, found `{}`", end_type.describe()),
+        );
+
+        match base_type {
+            Type::Array { element, .. } | Type::Slice { element } => Type::Slice { element },
+            Type::Error => Type::Error,
+            other => {
+                self.diagnostics.push(
+                    Diagnostic::new(
+                        "S0034",
+                        format!(
+                            "slice expression expects an array or slice value, found `{}`",
+                            other.describe()
+                        ),
+                        self.info.source,
+                        expr.span,
+                    )
+                    .with_suggestion("slice an array or slice value like `values[start:end]`"),
                 );
                 Type::Error
             }

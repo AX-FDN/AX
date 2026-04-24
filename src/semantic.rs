@@ -198,9 +198,33 @@ fn main() -> i32 {
     }
 
     #[test]
+    fn accepts_slice_params_and_slice_expressions() {
+        let codes = check(
+            "\
+fn second(values: [i32]) -> i32 {
+    return values[1];
+}
+
+fn main() -> i32 {
+    let values: [i32; 3] = [1, 2, 3];
+    let head: [i32] = values[0:2];
+    return second(head);
+}
+",
+        );
+        assert!(codes.is_empty(), "unexpected diagnostics: {codes:?}");
+    }
+
+    #[test]
     fn reports_non_array_index_base() {
         let codes = check("fn main() -> i32 { let value: i32 = 1; return value[0]; }");
         assert!(codes.iter().any(|code| code == "S0033"));
+    }
+
+    #[test]
+    fn reports_non_slice_base() {
+        let codes = check("fn main() -> i32 { let value: i32 = 1; let part: [i32] = value[0:1]; return 0; }");
+        assert!(codes.iter().any(|code| code == "S0034"));
     }
 
     #[test]
@@ -209,6 +233,21 @@ fn main() -> i32 {
             "fn main() -> i32 { let mut values: [i32; 2] = [1, 2]; values[0] = 3; return values[0]; }",
         );
         assert!(codes.is_empty(), "unexpected diagnostics: {codes:?}");
+    }
+
+    #[test]
+    fn reports_slice_assignment_as_read_only() {
+        let codes = check(
+            "\
+fn main() -> i32 {
+    let values: [i32; 3] = [1, 2, 3];
+    let mut head: [i32] = values[0:2];
+    head[0] = 9;
+    return 0;
+}
+",
+        );
+        assert!(codes.iter().any(|code| code == "S0035"));
     }
 
     #[test]

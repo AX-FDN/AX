@@ -1219,6 +1219,11 @@ fn collect_expr_names(expr: &Expr, names: &mut BTreeSet<String>) {
             collect_expr_names(base, names);
             collect_expr_names(index, names);
         }
+        ExprKind::Slice { base, start, end } => {
+            collect_expr_names(base, names);
+            collect_expr_names(start, names);
+            collect_expr_names(end, names);
+        }
         ExprKind::Int { .. }
         | ExprKind::Float { .. }
         | ExprKind::Bool { .. }
@@ -1232,7 +1237,9 @@ fn collect_type_ref_names(ty: &TypeRef, names: &mut BTreeSet<String>) {
         (Some(name), None, None) => {
             names.insert(name.clone());
         }
-        (None, Some(element), Some(_)) => collect_type_ref_names(element, names),
+        (None, Some(element), None) | (None, Some(element), Some(_)) => {
+            collect_type_ref_names(element, names)
+        }
         _ => {}
     }
 }

@@ -195,35 +195,39 @@ impl<'a> Parser<'a> {
         if self.matches(&[TokenKind::LBracket]) {
             let start = self.previous().span.start;
             let element = self.parse_type();
-            self.expect(
-                TokenKind::Semicolon,
-                "expected `;` after array element type",
-                &["`;`"],
-            );
-            let length_token = self.expect(
-                TokenKind::IntLiteral,
-                "expected an integer array length",
-                &["integer literal"],
-            );
-            let length = length_token.lexeme.parse::<usize>().unwrap_or_else(|_| {
-                self.diagnostics.push(
-                    Diagnostic::new(
-                        "P0002",
-                        "expected a valid non-negative array length",
-                        self.source,
-                        length_token.span,
-                    )
-                    .with_expected("non-negative integer literal")
-                    .with_suggestion("use an array length like `[i32; 3]`"),
+            if self.matches(&[TokenKind::Semicolon]) {
+                let length_token = self.expect(
+                    TokenKind::IntLiteral,
+                    "expected an integer array length",
+                    &["integer literal"],
                 );
-                0
-            });
+                let length = length_token.lexeme.parse::<usize>().unwrap_or_else(|_| {
+                    self.diagnostics.push(
+                        Diagnostic::new(
+                            "P0002",
+                            "expected a valid non-negative array length",
+                            self.source,
+                            length_token.span,
+                        )
+                        .with_expected("non-negative integer literal")
+                        .with_suggestion("use an array length like `[i32; 3]`"),
+                    );
+                    0
+                });
+                let close = self.expect(
+                    TokenKind::RBracket,
+                    "expected `]` after array type",
+                    &["`]`"],
+                );
+                return TypeRef::array(element, length, Span::new(start, close.span.end));
+            }
+
             let close = self.expect(
                 TokenKind::RBracket,
-                "expected `]` after array type",
+                "expected `]` after slice type",
                 &["`]`"],
             );
-            return TypeRef::array(element, length, Span::new(start, close.span.end));
+            return TypeRef::slice(element, Span::new(start, close.span.end));
         }
 
         let token = if self.check(TokenKind::Identifier) {
@@ -620,19 +624,36 @@ impl<'a> Parser<'a> {
             }
 
             if self.matches(&[TokenKind::LBracket]) {
-                let index = self.parse_expression();
-                let close = self.expect(
-                    TokenKind::RBracket,
-                    "expected `]` after array index",
-                    &["`]`"],
-                );
-                expr = Expr {
-                    span: Span::new(expr.span.start, close.span.end),
-                    kind: ExprKind::Index {
-                        base: Box::new(expr),
-                        index: Box::new(index),
-                    },
-                };
+                let first = self.parse_expression();
+                if self.matches(&[TokenKind::Colon]) {
+                    let end = self.parse_expression();
+                    let close = self.expect(
+                        TokenKind::RBracket,
+                        "expected `]` after slice expression",
+                        &["`]`"],
+                    );
+                    expr = Expr {
+                        span: Span::new(expr.span.start, close.span.end),
+                        kind: ExprKind::Slice {
+                            base: Box::new(expr),
+                            start: Box::new(first),
+                            end: Box::new(end),
+                        },
+                    };
+                } else {
+                    let close = self.expect(
+                        TokenKind::RBracket,
+                        "expected `]` after array index",
+                        &["`]`"],
+                    );
+                    expr = Expr {
+                        span: Span::new(expr.span.start, close.span.end),
+                        kind: ExprKind::Index {
+                            base: Box::new(expr),
+                            index: Box::new(first),
+                        },
+                    };
+                }
                 continue;
             }
 
@@ -875,7 +896,9 @@ fn enrich_parse_error(mut diagnostic: Diagnostic, token: &Token, message: &str) 
 
     if message.contains("expected `]`") {
         return diagnostic
-            .with_note("AX closes array literals, array types, and index expressions with `]`")
+            .with_note(
+                "AX closes array literals, slice types, array types, index expressions, and slice expressions with `]`",
+            )
             .with_suggestion("insert `]` to close the current bracketed construct");
     }
 
@@ -891,7 +914,7 @@ fn enrich_parse_error(mut diagnostic: Diagnostic, token: &Token, message: &str) 
 
     if message == "expected a type name" {
         return diagnostic.with_suggestion(
-            "use `bool`, `i32`, `f32`, `string`, `[Type; N]`, or a previously declared type name",
+            "use `bool`, `i32`, `f32`, `string`, `[Type]`, `[Type; N]`, or a previously declared type name",
         );
     }
 
@@ -1052,6 +1075,43 @@ fn main() -> i32 {
     }
 
     #[test]
+    fn parses_slice_types_and_expressions() {
+        let source = SourceFile::anonymous(
+            "fn read(values: [i32]) -> i32 { let head: [i32] = values[0:2]; return head[1]; }",
+        );
+        let tokens = tokenize(&source).tokens;
+        let output = parse(&source, tokens);
+        assert!(output.diagnostics.is_empty(), "{:?}", output.diagnostics);
+
+        let ItemKind::Function {
+            params,
+            return_type,
+            body,
+            ..
+        } = &output.program.items[0].kind
+        else {
+            panic!("expected function");
+        };
+
+        assert_eq!(params[0].ty.describe(), "[i32]");
+        assert_eq!(return_type.describe(), "i32");
+
+        let StmtKind::Let {
+            ty, initializer, ..
+        } = &body.statements[0].kind
+        else {
+            panic!("expected let statement");
+        };
+        assert_eq!(ty.describe(), "[i32]");
+        assert!(matches!(initializer.kind, ExprKind::Slice { .. }));
+
+        let StmtKind::Return { value: Some(expr) } = &body.statements[1].kind else {
+            panic!("expected return");
+        };
+        assert!(matches!(expr.kind, ExprKind::Index { .. }));
+    }
+
+    #[test]
     fn enriches_missing_semicolon_diagnostic() {
         let source = SourceFile::anonymous("fn main() -> i32 { let value: i32 = 1 return value; }");
         let tokens = tokenize(&source).tokens;
@@ -1121,7 +1181,7 @@ fn main() -> i32 {
             diagnostic
                 .notes
                 .iter()
-                .any(|note| note.contains("array literals, array types, and index expressions"))
+                .any(|note| note.contains("slice types"))
         );
         assert_eq!(
             diagnostic.suggestion.as_deref(),

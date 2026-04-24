@@ -192,6 +192,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             ExprKind::ArrayLiteral { elements } => self.check_array_literal_expr(expr, elements),
             ExprKind::Field { base, field } => self.check_field_expr(expr, base, field),
             ExprKind::Index { base, index } => self.check_index_expr(expr, base, index),
+            ExprKind::Slice { base, start, end } => self.check_slice_expr(expr, base, start, end),
             ExprKind::Error => Type::Error,
         }
     }

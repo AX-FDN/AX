@@ -348,6 +348,12 @@ fn format_expr_with_min_precedence(expr: &Expr, min_precedence: u8) -> String {
             let index_text = format_expr(index);
             format!("{base_text}[{index_text}]")
         }
+        ExprKind::Slice { base, start, end } => {
+            let base_text = format_expr_with_min_precedence(base, PREC_POSTFIX);
+            let start_text = format_expr(start);
+            let end_text = format_expr(end);
+            format!("{base_text}[{start_text}:{end_text}]")
+        }
         ExprKind::Error => "<error>".to_string(),
     };
 
@@ -374,6 +380,7 @@ fn format_struct_literal_fields(fields: &[StructLiteralField]) -> String {
 fn format_type_ref(ty: &TypeRef) -> String {
     match (&ty.name, &ty.element, ty.length) {
         (Some(name), None, None) => name.clone(),
+        (None, Some(element), None) => format!("[{}]", format_type_ref(element)),
         (None, Some(element), Some(length)) => {
             format!("[{}; {}]", format_type_ref(element), length)
         }
@@ -385,7 +392,10 @@ fn expr_precedence(expr: &Expr) -> u8 {
     match &expr.kind {
         ExprKind::Binary { op, .. } => binary_precedence(*op),
         ExprKind::Unary { .. } => PREC_UNARY,
-        ExprKind::Call { .. } | ExprKind::Field { .. } | ExprKind::Index { .. } => PREC_POSTFIX,
+        ExprKind::Call { .. }
+        | ExprKind::Field { .. }
+        | ExprKind::Index { .. }
+        | ExprKind::Slice { .. } => PREC_POSTFIX,
         ExprKind::Int { .. }
         | ExprKind::Float { .. }
         | ExprKind::Bool { .. }
@@ -509,6 +519,24 @@ mod tests {
         let second =
             format_source(&SourceFile::anonymous(first.clone())).expect("source should reformat");
         assert_eq!(first, second);
+    }
+
+    #[test]
+    fn formats_slice_types_and_expressions() {
+        let source = SourceFile::anonymous(
+            "fn take(window:[i32])->i32{let head:[i32]=window[0:2];return head[1];}",
+        );
+
+        let formatted = format_source(&source).expect("source should format");
+        assert_eq!(
+            formatted,
+            concat!(
+                "fn take(window: [i32]) -> i32 {\n",
+                "    let head: [i32] = window[0:2];\n",
+                "    return head[1];\n",
+                "}\n"
+            )
+        );
     }
 
     #[test]

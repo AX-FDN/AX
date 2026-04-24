@@ -1,6 +1,6 @@
 # AX Worklist
 
-最后更新：2026-04-23
+最后更新：2026-04-24
 
 状态说明：
 
@@ -115,7 +115,15 @@
 
 ## P1
 
-- [ ] `P1-1` 切片路线
+- [x] `P1-1` 切片路线
+  - 目标：把只读 slice 从语法、语义、解释执行和文档一路打通，解除固定长度数组对真实工具样例的硬绑定。
+  - 输入：[`能力缺口排序.md`](C:/Users/xiaoy/Desktop/A语言/AX/能力缺口排序.md) 的第一优先级结论、现有数组链路、tool-style examples。
+  - 输出：`[Type]` 切片类型、`values[start:end]` 切片表达式、数组到切片形参的兼容、解释器切片读取、示例与测试。
+  - 通过条件：slice 全链路可 `check` / `run` / `fmt` / `hir` / `mir`；数组可传给 slice 参数；slice 保持只读；接口与示例测试稳定。
+  - 回归保障：parser / semantic / hir / mir / interpreter / formatter 单测，`tests/interface_snapshots.rs` 新增 `examples/slices.ax` 运行回归。
+  - 不做范围：不引入可变 slice、borrow 系统、可省略边界的切片语法或集合泛型。
+  - 完成于：2026-04-24
+  - 备注：第一版收敛为只读切片；当前已支持 `[Type]`、`values[start:end]`、slice 索引读取和数组传 slice 形参，新增 [`examples/slices.ax`](C:/Users/xiaoy/Desktop/A语言/AX/examples/slices.ax)。
 - [ ] `P1-1a` 空数组字面量策略
 - [ ] `P1-2` 更实用的字符串处理
 - [ ] `P1-3` 更贴近工具链代码的遍历能力

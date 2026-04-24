@@ -11,7 +11,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
         span: Span,
         message: String,
     ) {
-        if expected.is_error() || actual.is_error() || expected == actual {
+        if expected.is_error() || actual.is_error() || actual.is_assignable_to(expected) {
             return;
         }
 

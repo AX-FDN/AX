@@ -75,6 +75,10 @@ pub(super) fn type_mismatch_suggestion(expected: &Type, actual: &Type) -> String
             "make the expression produce `string`, or change the declared type if `{}` is intended",
             actual.describe()
         ),
+        Type::Slice { .. } => format!(
+            "make the expression produce `{}`, or pass/slice an array so the expected view type matches",
+            expected.describe()
+        ),
         other => format!(
             "make the expression produce `{}`, or change the surrounding declaration so both sides agree",
             other.describe()
