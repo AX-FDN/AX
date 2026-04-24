@@ -151,7 +151,15 @@
   - 不做范围：不引入 `for item in values`、迭代器协议、可变切片或完整集合库。
   - 完成于：2026-04-24
   - 备注：第一版收敛为统一 `len(value)`；当前已支持 `len(string)`、`len([T; N])` 与 `len([T])`，新增 [`examples/traversal.ax`](C:/Users/xiaoy/Desktop/A语言/AX/examples/traversal.ax) 展示基于切片的遍历模式。
-- [ ] `P1-4` 更多高价值错误的 AI 教学规则
+- [x] `P1-4` 更多高价值错误的 AI 教学规则
+  - 目标：把切片与统一长度 helper 相关的高频错误也纳入稳定 `rule_id`，让新补的语言能力同样具备可回归的 AI 修复反馈。
+  - 输入：现有 `src/ai.rs` 规则表、切片/遍历能力、repair benchmark manifest。
+  - 输出：新增高价值 AI 规则、对应坏例子、repair benchmark case 与稳定性测试。
+  - 通过条件：`len` 参数类型错误、非序列切片、切片写入三类错误都能稳定映射到专用 `rule_id`；manifest 回归测试通过。
+  - 回归保障：`src/ai.rs` 单测、`tests/interface_snapshots.rs` 的 repair manifest 断言、`benchmarks/repair-cases.json`。
+  - 不做范围：不引入厂商特定 prompt 文案，不追求一次覆盖所有剩余诊断码。
+  - 完成于：2026-04-24
+  - 备注：已新增 `len_builtin_requires_countable_value`、`slice_base_must_be_array_or_slice`、`slice_values_are_read_only` 三个稳定规则，并补充 [`examples/len_non_countable.ax`](C:/Users/xiaoy/Desktop/A语言/AX/examples/len_non_countable.ax)、[`examples/non_slice_base.ax`](C:/Users/xiaoy/Desktop/A语言/AX/examples/non_slice_base.ax)、[`examples/slice_assignment.ax`](C:/Users/xiaoy/Desktop/A语言/AX/examples/slice_assignment.ax) 进入 repair case 集。
 - [ ] `P1-5` 更多工具风格坏例子与修复样例
 
 ## P2

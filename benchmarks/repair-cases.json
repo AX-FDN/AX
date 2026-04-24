@@ -154,6 +154,33 @@
       "expected_ai_rule_ids": ["non_empty_array_literal_required"],
       "repair_goal": "Use an explicit zero-length array type like [i32; 0] for [], or provide elements when the target length is non-zero.",
       "notes": "Empty array literals are only valid in explicit zero-length array context; non-zero-length targets still fail with S0032."
+    },
+    {
+      "id": "len_builtin_non_countable_value",
+      "file": "examples/len_non_countable.ax",
+      "category": "semantic",
+      "expected_codes": ["S0022"],
+      "expected_ai_rule_ids": ["len_builtin_requires_countable_value"],
+      "repair_goal": "Call len only with a string, fixed-size array, or slice value.",
+      "notes": "Covers the unified length helper added for traversal-oriented code."
+    },
+    {
+      "id": "slice_base_not_sequence",
+      "file": "examples/non_slice_base.ax",
+      "category": "semantic",
+      "expected_codes": ["S0034"],
+      "expected_ai_rule_ids": ["slice_base_must_be_array_or_slice"],
+      "repair_goal": "Slice an array or slice value instead of a scalar.",
+      "notes": "Covers a common traversal mistake where a non-sequence value is sliced."
+    },
+    {
+      "id": "slice_assignment_read_only",
+      "file": "examples/slice_assignment.ax",
+      "category": "semantic",
+      "expected_codes": ["S0035"],
+      "expected_ai_rule_ids": ["slice_values_are_read_only"],
+      "repair_goal": "Rewrite the write to target the original mutable array instead of the slice view.",
+      "notes": "Covers the current prototype rule that slices are read-only views."
     }
   ]
 }

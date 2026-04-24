@@ -1,0 +1,5 @@
+fn main() -> i32 {
+    let count: i32 = 1;
+    let view: [i32] = count[0:1];
+    return 0;
+}

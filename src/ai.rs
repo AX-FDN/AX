@@ -207,6 +207,9 @@ fn match_rule(source: &SourceFile, diagnostic: &Diagnostic) -> Option<RuleTempla
         "S0018" | "S0019" => Some(RULE_CALL_TARGET_MUST_BE_FUNCTION_NAME),
         "S0020" | "S0027" => Some(RULE_STRUCT_FIELD_MUST_EXIST),
         "S0021" => Some(RULE_FIELD_ACCESS_REQUIRES_STRUCT_VALUE),
+        "S0022" if looks_like_len_builtin_type_mismatch(diagnostic) => {
+            Some(RULE_LEN_BUILTIN_REQUIRES_COUNTABLE_VALUE)
+        }
         "S0022" if looks_like_function_argument_type_mismatch(diagnostic) => {
             Some(RULE_FUNCTION_ARGUMENT_TYPE_MUST_MATCH)
         }
@@ -230,10 +233,13 @@ fn match_rule(source: &SourceFile, diagnostic: &Diagnostic) -> Option<RuleTempla
         "S0031" => Some(RULE_FOR_HEADER_CLAUSE_SUPPORTED),
         "S0032" => Some(RULE_NON_EMPTY_ARRAY_LITERAL_REQUIRED),
         "S0033" => Some(RULE_INDEX_BASE_MUST_BE_ARRAY),
+        "S0034" => Some(RULE_SLICE_BASE_MUST_BE_ARRAY_OR_SLICE),
+        "S0035" => Some(RULE_SLICE_VALUES_ARE_READ_ONLY),
         "R0012" | "R0018" | "R0019" | "R0020" | "R0022" => Some(RULE_INTEGER_ARITHMETIC_IN_RANGE),
         "R0021" => Some(RULE_DIVISION_BY_ZERO),
         "R0030" => Some(RULE_ARRAY_INDEX_NON_NEGATIVE),
         "R0031" => Some(RULE_ARRAY_INDEX_IN_BOUNDS),
+        "R0040" => Some(RULE_LEN_BUILTIN_REQUIRES_COUNTABLE_VALUE),
         _ => None,
     }
 }
@@ -244,6 +250,12 @@ fn note_contains(diagnostic: &Diagnostic, needle: &str) -> bool {
 
 fn looks_like_function_argument_type_mismatch(diagnostic: &Diagnostic) -> bool {
     diagnostic.message.starts_with("function `") && diagnostic.message.contains("expects argument `")
+}
+
+fn looks_like_len_builtin_type_mismatch(diagnostic: &Diagnostic) -> bool {
+    diagnostic
+        .message
+        .contains("function `len` expects argument `value`")
 }
 
 fn looks_like_return_type_mismatch(diagnostic: &Diagnostic) -> bool {
@@ -614,8 +626,8 @@ const RULE_NON_EMPTY_ARRAY_LITERAL_REQUIRED: RuleTemplate = RuleTemplate {
 const RULE_INDEX_BASE_MUST_BE_ARRAY: RuleTemplate = RuleTemplate {
     rule_id: "index_base_must_be_array",
     normalized_pattern: "index_base_must_be_array",
-    repair_goal: "Use `expr[index]` only when the base expression evaluates to a fixed-size array.",
-    summary: "AX indexing with `[]` only works on fixed-size arrays, both for reads and element writes.",
+    repair_goal: "Use `expr[index]` only when the base expression evaluates to an array or slice for reads, or to a mutable array for writes.",
+    summary: "AX indexing with `[]` reads from arrays and slice views, but only mutable arrays can be write targets.",
     pattern: "let value: i32 = values[0];",
     minimal_example: "let mut values: [i32; 2] = [1, 2]; values[1] = values[0];",
     anti_pattern: Some("let value: i32 = number[0];"),
@@ -626,11 +638,44 @@ const RULE_ARRAY_INDEX_MUST_BE_I32: RuleTemplate = RuleTemplate {
     rule_id: "array_index_must_be_i32",
     normalized_pattern: "array_index_must_be_i32",
     repair_goal: "Rewrite the index expression so it produces an `i32` value.",
-    summary: "AX array indexing accepts only `i32` index expressions before runtime bounds checks run.",
+    summary: "AX array and slice indexing accepts only `i32` index expressions before runtime bounds checks run.",
     pattern: "let value: i32 = values[index];",
     minimal_example: "let index: i32 = 1; return values[index];",
     anti_pattern: Some("return values[true];"),
     default_fixit: "change the index expression to an `i32` value",
+};
+
+const RULE_SLICE_BASE_MUST_BE_ARRAY_OR_SLICE: RuleTemplate = RuleTemplate {
+    rule_id: "slice_base_must_be_array_or_slice",
+    normalized_pattern: "slice_base_must_be_array_or_slice",
+    repair_goal: "Use `base[start:end]` only when `base` is already an array or slice value.",
+    summary: "AX slice expressions create read-only views from arrays or existing slices; scalars and structs cannot be sliced.",
+    pattern: "let window: [i32] = values[1:3];",
+    minimal_example: "let values: [i32; 4] = [1, 2, 3, 4]; let head: [i32] = values[0:2];",
+    anti_pattern: Some("let window: [i32] = count[0:1];"),
+    default_fixit: "slice an array or slice value instead of a scalar or struct",
+};
+
+const RULE_SLICE_VALUES_ARE_READ_ONLY: RuleTemplate = RuleTemplate {
+    rule_id: "slice_values_are_read_only",
+    normalized_pattern: "slice_values_are_read_only",
+    repair_goal: "Write through the original mutable array instead of trying to assign through a slice view.",
+    summary: "Current AX slices are read-only views, so `slice[index] = expr;` is not allowed even if the slice binding itself is `mut`.",
+    pattern: "let window: [i32] = values[0:2]; println(window[0]);",
+    minimal_example: "let mut values: [i32; 3] = [1, 2, 3]; values[0] = 9;",
+    anti_pattern: Some("let mut window: [i32] = values[0:2]; window[0] = 9;"),
+    default_fixit: "rewrite the assignment to target the original mutable array",
+};
+
+const RULE_LEN_BUILTIN_REQUIRES_COUNTABLE_VALUE: RuleTemplate = RuleTemplate {
+    rule_id: "len_builtin_requires_countable_value",
+    normalized_pattern: "len_builtin_requires_countable_value",
+    repair_goal: "Call `len(value)` only with a `string`, fixed-size array, or slice value.",
+    summary: "AX uses `len(value)` as the unified length helper for strings and sequence-like values that already have a stable length in the prototype.",
+    pattern: "let size: i32 = len(values);",
+    minimal_example: "let values: [i32; 3] = [1, 2, 3]; return len(values);",
+    anti_pattern: Some("return len(true);"),
+    default_fixit: "pass a string, array, or slice to `len(...)`",
 };
 
 const RULE_ARRAY_INDEX_IN_BOUNDS: RuleTemplate = RuleTemplate {
@@ -1475,6 +1520,63 @@ mod tests {
     }
 
     #[test]
+    fn enhances_len_argument_type_mismatch_with_specific_rule_card() {
+        let source = SourceFile::anonymous("fn main() -> i32 { return len(true); }");
+        let mut analysis = analyze(&source);
+        enhance_diagnostics(&source, &analysis.program, &mut analysis.diagnostics, None)
+            .expect("ai enhancement should succeed");
+
+        let diagnostic = analysis
+            .diagnostics
+            .iter()
+            .find(|diagnostic| {
+                diagnostic.code == "S0022"
+                    && diagnostic
+                        .message
+                        .contains("function `len` expects argument `value`")
+            })
+            .expect("len type diagnostic should exist");
+        let ai = diagnostic.ai.as_ref().expect("ai payload should exist");
+        assert_eq!(ai.rule_id, "len_builtin_requires_countable_value");
+        assert_eq!(ai.teaching_level, TeachingLevel::L1);
+    }
+
+    #[test]
+    fn enhances_non_slice_base_with_specific_rule_card() {
+        let source =
+            SourceFile::anonymous("fn main() -> i32 { let count: i32 = 1; let view: [i32] = count[0:1]; return 0; }");
+        let mut analysis = analyze(&source);
+        enhance_diagnostics(&source, &analysis.program, &mut analysis.diagnostics, None)
+            .expect("ai enhancement should succeed");
+
+        let diagnostic = analysis
+            .diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.code == "S0034")
+            .expect("slice base diagnostic should exist");
+        let ai = diagnostic.ai.as_ref().expect("ai payload should exist");
+        assert_eq!(ai.rule_id, "slice_base_must_be_array_or_slice");
+    }
+
+    #[test]
+    fn enhances_slice_assignment_with_specific_rule_card() {
+        let source = SourceFile::anonymous(
+            "fn main() -> i32 { let values: [i32; 3] = [1, 2, 3]; let mut view: [i32] = values[0:2]; view[0] = 9; return 0; }",
+        );
+        let mut analysis = analyze(&source);
+        enhance_diagnostics(&source, &analysis.program, &mut analysis.diagnostics, None)
+            .expect("ai enhancement should succeed");
+
+        let diagnostic = analysis
+            .diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.code == "S0035")
+            .expect("slice assignment diagnostic should exist");
+        let ai = diagnostic.ai.as_ref().expect("ai payload should exist");
+        assert_eq!(ai.rule_id, "slice_values_are_read_only");
+    }
+
+    #[test]
     fn adds_import_guidance_for_unsupported_feature_attempts() {
         let source = SourceFile::anonymous("import math\nfn main() -> i32 { return 0; }");
         let mut analysis = analyze(&source);
@@ -1747,11 +1849,32 @@ mod tests {
                 expected_rule_id: "array_index_must_be_i32",
             },
             RuleCase {
+                name: "len_argument_type",
+                source: "fn main() -> i32 { return len(true); }",
+                diagnostic_code: "S0022",
+                message_fragment: "function `len` expects argument `value`",
+                expected_rule_id: "len_builtin_requires_countable_value",
+            },
+            RuleCase {
                 name: "missing_return",
                 source: "fn helper(flag: bool) -> i32 { if (flag) { return 1; } }\nfn main() -> i32 { return helper(true); }",
                 diagnostic_code: "S0023",
                 message_fragment: "may complete without returning",
                 expected_rule_id: "all_paths_must_return",
+            },
+            RuleCase {
+                name: "slice_base",
+                source: "fn main() -> i32 { let count: i32 = 1; let view: [i32] = count[0:1]; return 0; }",
+                diagnostic_code: "S0034",
+                message_fragment: "slice expression expects an array or slice value",
+                expected_rule_id: "slice_base_must_be_array_or_slice",
+            },
+            RuleCase {
+                name: "slice_assignment",
+                source: "fn main() -> i32 { let values: [i32; 3] = [1, 2, 3]; let mut view: [i32] = values[0:2]; view[0] = 9; return 0; }",
+                diagnostic_code: "S0035",
+                message_fragment: "slices are read-only",
+                expected_rule_id: "slice_values_are_read_only",
             },
         ];
 
