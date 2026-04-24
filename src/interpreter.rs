@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, HashMap};
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 use crate::diagnostics::Diagnostic;
 use crate::hir::{
@@ -636,6 +637,121 @@ impl<'a> Interpreter<'a> {
             return Ok(Value::String(
                 self.host.current_dir.to_string_lossy().into_owned(),
             ));
+        }
+
+        if name == "process_run" {
+            if arguments.len() != 1 {
+                return Err(self.runtime_error(
+                    "R0088",
+                    format!(
+                        "function `process_run` expected 1 argument(s), got {}",
+                        arguments.len()
+                    ),
+                    span,
+                ));
+            }
+
+            let command_text = arguments
+                .into_iter()
+                .next()
+                .expect("process_run argument should exist");
+            return match command_text {
+                Value::String(command_text) => self
+                    .host_shell_command(&command_text)
+                    .status()
+                    .map(|status| Value::I32(status.code().unwrap_or(-1)))
+                    .map_err(|error| {
+                        self.runtime_error(
+                            "R0090",
+                            format!("failed to run `{command_text}`: {error}"),
+                            span,
+                        )
+                        .with_suggestion(
+                            "pass a valid shell command string like `process_run(\"echo ready\")`",
+                        )
+                    }),
+                other => Err(self
+                    .runtime_error(
+                        "R0089",
+                        format!(
+                            "function `process_run` requires a `string` command, got `{}`",
+                            other.display()
+                        ),
+                        span,
+                    )
+                    .with_suggestion(
+                        "call `process_run` with a string value like `process_run(command)`",
+                    )),
+            };
+        }
+
+        if name == "process_capture" {
+            if arguments.len() != 1 {
+                return Err(self.runtime_error(
+                    "R0091",
+                    format!(
+                        "function `process_capture` expected 1 argument(s), got {}",
+                        arguments.len()
+                    ),
+                    span,
+                ));
+            }
+
+            let command_text = arguments
+                .into_iter()
+                .next()
+                .expect("process_capture argument should exist");
+            return match command_text {
+                Value::String(command_text) => {
+                    let output = self
+                        .host_shell_command(&command_text)
+                        .output()
+                        .map_err(|error| {
+                            self.runtime_error(
+                                "R0093",
+                                format!("failed to capture `{command_text}`: {error}"),
+                                span,
+                            )
+                            .with_suggestion(
+                                "pass a valid shell command string like `process_capture(\"echo ready\")`",
+                            )
+                        })?;
+
+                    if !output.status.success() {
+                        let exit_code = output.status.code().unwrap_or(-1);
+                        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+                        let mut diagnostic = self
+                            .runtime_error(
+                                "R0094",
+                                format!("command `{command_text}` exited with status {exit_code}"),
+                                span,
+                            )
+                            .with_suggestion(
+                                "use `process_run(command)` when you need to inspect a failing exit code without raising a runtime error",
+                            );
+                        if !stderr.is_empty() {
+                            diagnostic = diagnostic.with_note(format!("stderr: {stderr}"));
+                        }
+                        return Err(diagnostic);
+                    }
+
+                    Ok(Value::String(
+                        String::from_utf8_lossy(&output.stdout).into_owned(),
+                    ))
+                }
+                other => Err(self
+                    .runtime_error(
+                        "R0092",
+                        format!(
+                            "function `process_capture` requires a `string` command, got `{}`",
+                            other.display()
+                        ),
+                        span,
+                    )
+                    .with_suggestion(
+                        "call `process_capture` with a string value like `process_capture(command)`",
+                    )),
+            };
         }
 
         if name == "path_join" {
@@ -1716,6 +1832,21 @@ impl<'a> Interpreter<'a> {
         } else {
             path.to_path_buf()
         }
+    }
+
+    fn host_shell_command(&self, command_text: &str) -> Command {
+        let mut command = if cfg!(windows) {
+            let mut command = Command::new("cmd");
+            command.arg("/C").arg(command_text);
+            command
+        } else {
+            let mut command = Command::new("sh");
+            command.arg("-lc").arg(command_text);
+            command
+        };
+        command.current_dir(&self.host.current_dir);
+        command.envs(&self.host.env);
+        command
     }
 
     fn runtime_error(&self, code: &str, message: impl Into<String>, span: Span) -> Diagnostic {

@@ -1,0 +1,25 @@
+fn main() -> i32 {
+    if (argv_len() < 2) {
+        println("usage: axc run examples/capture_command.ax -- <command> <output>");
+        return 1;
+    }
+
+    let command: string = argv_get(0);
+    let output_path: string = argv_get(1);
+    let output: string = process_capture(command);
+
+    let output_dir: string = path_parent(output_path);
+    if (string_len(output_dir) != 0) {
+        fs_create_dir_all(output_dir);
+    }
+
+    let report: string =
+        "command=" + command
+        + "\nworking_dir=" + process_cwd()
+        + "\nbytes=" + to_string(string_len(output))
+        + "\noutput=\n" + output;
+
+    fs_write_string(output_path, report);
+    println("captured=" + output_path);
+    return 0;
+}
