@@ -63,6 +63,8 @@ Stable behavior:
 
 This keeps the base run diagnostic shape intact and may add an optional `ai` field when a run failure matches a registered AI rule.
 
+This is also the stable diagnostic contract used when a repair benchmark case chooses `diagnostic_command: "run"`.
+
 ## Base Diagnostic Object
 
 Current JSON shape:

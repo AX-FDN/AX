@@ -65,6 +65,7 @@ function New-RepairPrompt {
     param(
         [string] $CaseId,
         [string] $FeedbackMode,
+        [string] $DiagnosticCommand,
         [string] $RepairGoal,
         [string] $Notes,
         [string] $SourceText,
@@ -87,6 +88,13 @@ $DiagnosticsJson
 "@
     }
 
+    $runtimeRepairBlock = ""
+    if ($DiagnosticCommand -eq "run") {
+        $runtimeRepairBlock = @"
+- The program already gets far enough to execute, so repair the runtime failure without introducing new check-time diagnostics.
+"@
+    }
+
     @"
 You are repairing a broken AX program.
 
@@ -101,11 +109,14 @@ AX constraints:
 - Enum values use EnumName.Variant.
 - Struct literals use TypeName { field: expr, ... }.
 - let, assignment, expression, and return statements must end with ;.
-- Do not introduce unsupported features such as match, slices, empty array literals, modules or imports, generics, exceptions, or async.
+- Slices are supported, and empty array literals are only valid with explicit zero-length array types such as [i32; 0].
+- Do not introduce unsupported features such as match, modules or imports, generics, exceptions, or async.
 
 Case id: $CaseId
 Feedback mode: $FeedbackMode
+Diagnostic command: axc $DiagnosticCommand --json
 Repair goal: $RepairGoal
+$runtimeRepairBlock
 $notesBlock
 Broken AX source:
 ~~~ax
@@ -165,6 +176,25 @@ function Read-Manifest {
     }
 
     return $manifest
+}
+
+function Resolve-DiagnosticCommand {
+    param(
+        [string] $CaseId,
+        [object] $Case
+    )
+
+    $diagnosticCommand = [string] $Case.diagnostic_command
+    if ([string]::IsNullOrWhiteSpace($diagnosticCommand)) {
+        return "check"
+    }
+
+    $diagnosticCommand = $diagnosticCommand.ToLowerInvariant()
+    if ($diagnosticCommand -ne "check" -and $diagnosticCommand -ne "run") {
+        Write-Error "Case '$CaseId' uses unsupported diagnostic_command '$diagnosticCommand'. Expected 'check' or 'run'."
+    }
+
+    return $diagnosticCommand
 }
 
 function Read-DiagnosticsJson {
@@ -230,6 +260,7 @@ foreach ($case in @($manifest.cases)) {
     $caseId = [string] $case.id
     $relativeFile = [string] $case.file
     $sourcePath = Join-Path $repoRoot $relativeFile
+    $diagnosticCommand = Resolve-DiagnosticCommand -CaseId $caseId -Case $case
 
     if ([string]::IsNullOrWhiteSpace($caseId)) {
         Write-Error "Encountered repair benchmark case with empty id."
@@ -244,12 +275,12 @@ foreach ($case in @($manifest.cases)) {
 
     $sourceText = Get-Content $sourcePath -Raw -Encoding utf8
 
-    $baseResult = Invoke-Axc -BinaryPath $binary -Arguments @("check", $relativeFile, "--json")
+    $baseResult = Invoke-Axc -BinaryPath $binary -Arguments @($diagnosticCommand, $relativeFile, "--json")
     if ($baseResult.ExitCode -ne 0 -and $baseResult.ExitCode -ne 1) {
         Write-Error "Base diagnostics failed for case '$caseId' with exit code $($baseResult.ExitCode)."
     }
 
-    $aiResult = Invoke-Axc -BinaryPath $binary -Arguments @("check", $relativeFile, "--json", "--ai")
+    $aiResult = Invoke-Axc -BinaryPath $binary -Arguments @($diagnosticCommand, $relativeFile, "--json", "--ai")
     if ($aiResult.ExitCode -ne 0 -and $aiResult.ExitCode -ne 1) {
         Write-Error "AI diagnostics failed for case '$caseId' with exit code $($aiResult.ExitCode)."
     }
@@ -291,6 +322,7 @@ foreach ($case in @($manifest.cases)) {
         schema_version       = 1
         case_id              = $caseId
         feedback_mode        = "cold_prompt"
+        diagnostic_command   = $diagnosticCommand
         file                 = $relativeFile
         category             = [string] $case.category
         repair_goal          = [string] $case.repair_goal
@@ -305,6 +337,7 @@ foreach ($case in @($manifest.cases)) {
         schema_version       = 1
         case_id              = $caseId
         feedback_mode        = "base_json"
+        diagnostic_command   = $diagnosticCommand
         file                 = $relativeFile
         category             = [string] $case.category
         repair_goal          = [string] $case.repair_goal
@@ -319,6 +352,7 @@ foreach ($case in @($manifest.cases)) {
         schema_version       = 1
         case_id              = $caseId
         feedback_mode        = "ai_json"
+        diagnostic_command   = $diagnosticCommand
         file                 = $relativeFile
         category             = [string] $case.category
         repair_goal          = [string] $case.repair_goal
@@ -335,14 +369,15 @@ foreach ($case in @($manifest.cases)) {
     Write-Utf8File -Path $coldBundleArtifact -Text (Format-JsonText -Value $coldBundle)
     Write-Utf8File -Path $baseBundleArtifact -Text (Format-JsonText -Value $baseBundle)
     Write-Utf8File -Path $aiBundleArtifact -Text (Format-JsonText -Value $aiBundle)
-    Write-Utf8File -Path $coldPromptArtifact -Text (New-RepairPrompt -CaseId $caseId -FeedbackMode "cold_prompt" -RepairGoal ([string] $case.repair_goal) -Notes ([string] $case.notes) -SourceText $sourceText -DiagnosticsJson "")
-    Write-Utf8File -Path $basePromptArtifact -Text (New-RepairPrompt -CaseId $caseId -FeedbackMode "base_json" -RepairGoal ([string] $case.repair_goal) -Notes ([string] $case.notes) -SourceText $sourceText -DiagnosticsJson $baseDiagnosticsText)
-    Write-Utf8File -Path $aiPromptArtifact -Text (New-RepairPrompt -CaseId $caseId -FeedbackMode "ai_json" -RepairGoal ([string] $case.repair_goal) -Notes ([string] $case.notes) -SourceText $sourceText -DiagnosticsJson $aiDiagnosticsText)
+    Write-Utf8File -Path $coldPromptArtifact -Text (New-RepairPrompt -CaseId $caseId -FeedbackMode "cold_prompt" -DiagnosticCommand $diagnosticCommand -RepairGoal ([string] $case.repair_goal) -Notes ([string] $case.notes) -SourceText $sourceText -DiagnosticsJson "")
+    Write-Utf8File -Path $basePromptArtifact -Text (New-RepairPrompt -CaseId $caseId -FeedbackMode "base_json" -DiagnosticCommand $diagnosticCommand -RepairGoal ([string] $case.repair_goal) -Notes ([string] $case.notes) -SourceText $sourceText -DiagnosticsJson $baseDiagnosticsText)
+    Write-Utf8File -Path $aiPromptArtifact -Text (New-RepairPrompt -CaseId $caseId -FeedbackMode "ai_json" -DiagnosticCommand $diagnosticCommand -RepairGoal ([string] $case.repair_goal) -Notes ([string] $case.notes) -SourceText $sourceText -DiagnosticsJson $aiDiagnosticsText)
 
     $caseSummary = [ordered]@{
         id                   = $caseId
         file                 = $relativeFile
         category             = [string] $case.category
+        diagnostic_command   = $diagnosticCommand
         repair_goal          = [string] $case.repair_goal
         notes                = [string] $case.notes
         expected_codes       = $expectedCodes
@@ -388,6 +423,7 @@ Write-Host "Exported repair benchmark artifacts:"
 $exportedCases |
     Select-Object `
         @{ Name = "Id"; Expression = { $_.id } }, `
+        @{ Name = "Command"; Expression = { $_.diagnostic_command } }, `
         @{ Name = "Category"; Expression = { $_.category } }, `
         @{ Name = "Codes"; Expression = { ($_.observed.base_codes -join ", ") } }, `
         @{ Name = "AI Rules"; Expression = { ($_.observed.ai_rule_ids -join ", ") } } |

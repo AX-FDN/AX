@@ -13,7 +13,7 @@ The script measures the relative cost of:
 - `axc check <file> --json`
 - `axc check <file> --json --ai`
 
-over a stable manifest of broken AX programs.
+over the subset of benchmark manifest cases whose `diagnostic_command` is omitted or set to `check`.
 
 It does not define:
 
@@ -65,6 +65,7 @@ Stable top-level fields:
   ISO-8601 timestamp for when the report was written.
 - `manifest_path: string`
   Resolved benchmark manifest path.
+- Runtime-oriented repair cases are intentionally skipped by the diagnostics benchmark so the timings continue to compare the `check` path only.
 - `output_dir: string`
   Resolved benchmark output directory.
 - `iterations: integer`

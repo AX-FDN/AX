@@ -66,6 +66,26 @@
       "notes": "CI smoke read-only slice assignment case."
     },
     {
+      "id": "index_out_of_bounds_runtime",
+      "file": "examples/index_out_of_bounds.ax",
+      "category": "runtime",
+      "diagnostic_command": "run",
+      "expected_codes": ["R0031"],
+      "expected_ai_rule_ids": ["array_index_must_stay_in_bounds"],
+      "repair_goal": "Keep the array index within the declared fixed-size array bounds.",
+      "notes": "CI smoke runtime bounds case."
+    },
+    {
+      "id": "division_by_zero_runtime",
+      "file": "examples/division_by_zero.ax",
+      "category": "runtime",
+      "diagnostic_command": "run",
+      "expected_codes": ["R0021"],
+      "expected_ai_rule_ids": ["division_by_zero_must_be_avoided"],
+      "repair_goal": "Guard the divisor or rewrite the calculation so the runtime divisor cannot be zero.",
+      "notes": "CI smoke runtime division case."
+    },
+    {
       "id": "import_declaration_unsupported",
       "file": "examples/import_unsupported.ax",
       "category": "unsupported",

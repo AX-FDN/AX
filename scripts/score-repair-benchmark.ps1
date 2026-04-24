@@ -166,6 +166,84 @@ function Read-DiagnosticsArray {
     }
 }
 
+function Resolve-DiagnosticCommand {
+    param([object] $Case)
+
+    $diagnosticCommand = [string] $Case.diagnostic_command
+    if ([string]::IsNullOrWhiteSpace($diagnosticCommand)) {
+        return "check"
+    }
+
+    $diagnosticCommand = $diagnosticCommand.ToLowerInvariant()
+    if ($diagnosticCommand -ne "check" -and $diagnosticCommand -ne "run") {
+        Write-Error "Case '$([string] $Case.id)' uses unsupported diagnostic_command '$diagnosticCommand'. Expected 'check' or 'run'."
+    }
+
+    return $diagnosticCommand
+}
+
+function Try-ReadDiagnosticsArray {
+    param([string] $Text)
+
+    if ([string]::IsNullOrWhiteSpace($Text)) {
+        return [pscustomobject]@{
+            Parsed      = $false
+            Diagnostics = @()
+        }
+    }
+
+    try {
+        $value = $Text | ConvertFrom-Json
+    } catch {
+        return [pscustomobject]@{
+            Parsed      = $false
+            Diagnostics = @()
+        }
+    }
+
+    if ($null -eq $value) {
+        return [pscustomobject]@{
+            Parsed      = $true
+            Diagnostics = @()
+        }
+    }
+
+    if ($value -isnot [System.Array]) {
+        return [pscustomobject]@{
+            Parsed      = $false
+            Diagnostics = @()
+        }
+    }
+
+    $diagnostics = @($value)
+    if ($diagnostics.Count -eq 0) {
+        return [pscustomobject]@{
+            Parsed      = $true
+            Diagnostics = @()
+        }
+    }
+
+    $looksLikeDiagnostics = $true
+    foreach ($diagnostic in $diagnostics) {
+        if ($null -eq $diagnostic.PSObject.Properties["code"]) {
+            $looksLikeDiagnostics = $false
+            break
+        }
+    }
+
+    if (-not $looksLikeDiagnostics) {
+        return [pscustomobject]@{
+            Parsed      = $false
+            Diagnostics = @()
+        }
+    }
+
+    return [pscustomobject]@{
+        Parsed      = $true
+        Diagnostics = $diagnostics
+    }
+}
+
 function Resolve-CandidatePath {
     param(
         [string] $Root,
@@ -206,6 +284,7 @@ $results = @()
 
 foreach ($case in @($benchmarkIndex.cases)) {
     $caseId = [string] $case.id
+    $diagnosticCommand = Resolve-DiagnosticCommand -Case $case
     $caseOutputDir = Join-Path $OutputDir $caseId
     New-Item -ItemType Directory -Force -Path $caseOutputDir | Out-Null
 
@@ -242,7 +321,27 @@ foreach ($case in @($benchmarkIndex.cases)) {
     $status = if ($success) { "passed" } else { "failed" }
 
     $runInfo = $null
-    if ($RunPrograms -and $success) {
+    if ($diagnosticCommand -eq "run" -and $success) {
+        $runResult = Invoke-Axc -BinaryPath $binary -Arguments @("run", $candidatePath, "--json")
+        $runtimeDiagnosticsResult = Try-ReadDiagnosticsArray -Text $runResult.StdOut
+        $runtimeDiagnostics = @($runtimeDiagnosticsResult.Diagnostics)
+        $runtimeRemainingCodes = @($runtimeDiagnostics | ForEach-Object { [string] $_.code })
+
+        $runInfo = [pscustomobject][ordered]@{
+            command            = "run --json"
+            command_exit_code  = $runResult.ExitCode
+            stdout             = $runResult.StdOut.TrimEnd()
+            stderr             = $runResult.StdErr.TrimEnd()
+            parsed_diagnostics = [bool] $runtimeDiagnosticsResult.Parsed
+            diagnostics        = $runtimeDiagnostics
+            remaining_codes    = $runtimeRemainingCodes
+        }
+
+        if ($runResult.ExitCode -eq 2 -or ($runtimeDiagnosticsResult.Parsed -and $runtimeRemainingCodes.Count -gt 0)) {
+            $success = $false
+            $status = "failed"
+        }
+    } elseif ($RunPrograms -and $success) {
         $runResult = Invoke-Axc -BinaryPath $binary -Arguments @("run", $candidatePath)
         $runInfo = [pscustomobject][ordered]@{
             command_exit_code = $runResult.ExitCode
@@ -255,6 +354,7 @@ foreach ($case in @($benchmarkIndex.cases)) {
 
     $result = [pscustomobject][ordered]@{
         id              = $caseId
+        diagnostic_command = $diagnosticCommand
         status          = $status
         success         = $success
         candidate_path  = $candidatePath
