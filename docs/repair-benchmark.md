@@ -193,6 +193,97 @@ The runner also supports stdout-only adapters: if the child exits `0` and leaves
 
 `-SkipScore` is useful when you want to validate only the runner contract itself, for example when checking whether a new adapter writes `OutputPath` correctly or returns the repaired source on stdout without hanging.
 
+Current `run-summary.json` shape:
+
+```json
+{
+  "schema_version": 1,
+  "generated_at": "2026-04-24T12:34:56.0000000+08:00",
+  "feedback_mode": "ai",
+  "benchmark_index": "C:\\repo\\.ax-ai\\repair-benchmark\\20260424-123456\\index.json",
+  "benchmark_root": "C:\\repo\\.ax-ai\\repair-benchmark\\20260424-123456",
+  "runner_script": "C:\\repo\\scripts\\replay-repair-adapter.ps1",
+  "runner_extra_args": [],
+  "candidates_dir": "C:\\repo\\.ax-ai\\repair-runs\\20260424-123500\\candidates",
+  "output_dir": "C:\\repo\\.ax-ai\\repair-runs\\20260424-123500",
+  "totals": {
+    "total": 10,
+    "ok": 10,
+    "failed": 0,
+    "timed_out": 0
+  },
+  "score": {
+    "skipped": false,
+    "summary_path": "C:\\repo\\.ax-ai\\repair-runs\\20260424-123500\\score\\summary.json",
+    "exit_code": 0
+  },
+  "cases": [
+    {
+      "id": "missing_semicolon_basic",
+      "feedback_mode": "ai",
+      "prompt_path": "C:\\repo\\.ax-ai\\repair-benchmark\\20260424-123456\\missing_semicolon_basic\\prompt.ai.md",
+      "bundle_path": "C:\\repo\\.ax-ai\\repair-benchmark\\20260424-123456\\missing_semicolon_basic\\bundle.ai.json",
+      "output_path": "C:\\repo\\.ax-ai\\repair-runs\\20260424-123500\\candidates\\missing_semicolon_basic.ax",
+      "status": "ok",
+      "timed_out": false,
+      "exit_code": 0,
+      "stdout_log": "C:\\repo\\.ax-ai\\repair-runs\\20260424-123500\\invocations\\missing_semicolon_basic\\stdout.txt",
+      "stderr_log": "C:\\repo\\.ax-ai\\repair-runs\\20260424-123500\\invocations\\missing_semicolon_basic\\stderr.txt"
+    }
+  ]
+}
+```
+
+Stable top-level fields:
+
+- `schema_version: integer`
+  Current run summary schema version. The repository currently emits `1`.
+- `generated_at: string`
+  ISO-8601 generation timestamp.
+- `feedback_mode: "cold" | "base" | "ai"`
+  Branch used when selecting prompts and bundles.
+- `benchmark_index: string`
+  Absolute path to the exported benchmark `index.json` used for this run.
+- `benchmark_root: string`
+  Absolute path to the parent directory of `benchmark_index`.
+- `runner_script: string`
+  Absolute path to the adapter script that was invoked for every case.
+- `runner_extra_args: string[]`
+  Extra adapter arguments appended after the required runner contract parameters.
+- `candidates_dir: string`
+  Absolute path to the directory where repaired candidates are written.
+- `output_dir: string`
+  Absolute path to the run root.
+- `totals`
+  Object with `total`, `ok`, `failed`, and `timed_out`.
+- `score`
+  Object with:
+  `skipped: bool`, `summary_path: string | null`, `exit_code: integer | null`.
+- `cases`
+  Ordered per-case invocation records.
+
+Stable per-case run fields:
+
+- `id: string`
+  Stable benchmark case id.
+- `feedback_mode: "cold" | "base" | "ai"`
+  Experiment branch used for this invocation.
+- `prompt_path: string`
+  Absolute path to the prompt passed to the runner.
+- `bundle_path: string`
+  Absolute path to the structured repair bundle passed to the runner.
+- `output_path: string`
+  Preferred candidate output path for this case.
+- `status: "ok" | "failed" | "timed_out"`
+  Final runner outcome for the case.
+- `timed_out: bool`
+  Convenience flag mirroring the timeout branch.
+- `exit_code: integer | null`
+  Runner exit code, or `null` when the process timed out before exit.
+- `stdout_log: string`
+- `stderr_log: string`
+  Absolute paths to the recorded adapter logs for the case.
+
 ## Score Step
 
 Use [`../scripts/score-repair-benchmark.ps1`](../scripts/score-repair-benchmark.ps1) to validate repaired candidates:
@@ -237,6 +328,87 @@ Important files:
   Remaining diagnostics for failed repairs.
 
 Like export, scoring also honors `AXC_BINARY` and `CARGO_BIN_EXE_axc`. Pair either variable with `-SkipBuild` when you want to score against a prebuilt binary without rebuilding the workspace.
+
+Current `summary.json` shape:
+
+```json
+{
+  "schema_version": 1,
+  "generated_at": "2026-04-24T12:35:10.0000000+08:00",
+  "benchmark_dir": "C:\\repo\\.ax-ai\\repair-benchmark\\20260424-123456",
+  "benchmark_index": "C:\\repo\\.ax-ai\\repair-benchmark\\20260424-123456\\index.json",
+  "candidates_dir": "C:\\repo\\.ax-ai\\repair-runs\\20260424-123500\\candidates",
+  "output_dir": "C:\\repo\\.ax-ai\\repair-runs\\20260424-123500\\score",
+  "totals": {
+    "total": 10,
+    "passed": 10,
+    "failed": 0,
+    "missing": 0
+  },
+  "cases": [
+    {
+      "id": "index_out_of_bounds_runtime",
+      "diagnostic_command": "run",
+      "status": "passed",
+      "success": true,
+      "candidate_path": "C:\\repo\\.ax-ai\\repair-runs\\20260424-123500\\candidates\\index_out_of_bounds_runtime.ax",
+      "remaining_codes": [],
+      "diagnostics": [],
+      "check_exit_code": 0,
+      "run": {
+        "command": "run --json",
+        "command_exit_code": 0,
+        "parsed_diagnostics": true,
+        "diagnostics": [],
+        "remaining_codes": []
+      }
+    }
+  ]
+}
+```
+
+Stable top-level score fields:
+
+- `schema_version: integer`
+  Current score summary schema version. The repository currently emits `1`.
+- `generated_at: string`
+  ISO-8601 generation timestamp.
+- `benchmark_dir: string`
+  Absolute path to the benchmark root that contains `index.json`.
+- `benchmark_index: string`
+  Absolute path to the benchmark `index.json`.
+- `candidates_dir: string`
+  Absolute path to the candidate directory being scored.
+- `output_dir: string`
+  Absolute path to the score output root.
+- `totals`
+  Object with `total`, `passed`, `failed`, and `missing`.
+- `cases`
+  Ordered per-case score results.
+
+Stable per-case score fields:
+
+- `id: string`
+  Stable benchmark case id.
+- `diagnostic_command: "check" | "run"`
+  Validation path expected for that benchmark case.
+- `status: "passed" | "failed" | "missing"`
+  Final score outcome.
+- `success: bool`
+  Convenience success flag.
+- `candidate_path: string | null`
+  Absolute path to the candidate used for scoring, or `null` for missing cases.
+- `benchmark_case: object`
+  Embedded benchmark case metadata copied from `index.json`.
+- `remaining_codes: string[]`
+  Diagnostic codes still present after scoring.
+- `diagnostics: object[]`
+  Parsed `axc check --json` diagnostics that remain after repair.
+- `check_exit_code: integer | null`
+  Exit code returned by `axc check --json`.
+- `run?: object`
+  Present only for runtime validation cases or when `-RunPrograms` executes the repaired program.
+  For runtime benchmark cases this object keeps `command`, `command_exit_code`, `parsed_diagnostics`, `diagnostics`, and `remaining_codes`.
 
 ## Compare Step
 
@@ -285,11 +457,84 @@ Comparison metrics:
 - `absolute_lift_pp`
   Pass-rate gain in percentage points.
 - `relative_lift_pct`
-  Relative gain over the base passed-case count when base is non-zero.
+  Relative gain over the base passed-case count when base is non-zero, otherwise `null`.
 - `improved_cases`
   Case ids that failed in base and passed in AI.
 - `regressed_cases`
   Case ids that passed in base and failed in AI.
+
+Current `comparison.json` shape for `compare-repair-feedback.ps1`:
+
+```json
+{
+  "schema_version": 1,
+  "generated_at": "2026-04-24T12:36:00.0000000+08:00",
+  "benchmark_index": "C:\\repo\\.ax-ai\\repair-benchmark\\20260424-123456\\index.json",
+  "runner_script": "C:\\repo\\scripts\\replay-repair-adapter.ps1",
+  "runner_extra_args": [],
+  "output_dir": "C:\\repo\\.ax-ai\\repair-comparisons\\20260424-123600",
+  "modes": {
+    "base": {
+      "exit_code": 1,
+      "timed_out": false,
+      "stdout_log": "C:\\repo\\.ax-ai\\repair-comparisons\\20260424-123600\\base.stdout.txt",
+      "stderr_log": "C:\\repo\\.ax-ai\\repair-comparisons\\20260424-123600\\base.stderr.txt",
+      "run_summary_path": "C:\\repo\\.ax-ai\\repair-comparisons\\20260424-123600\\base\\run-summary.json",
+      "score_summary_path": "C:\\repo\\.ax-ai\\repair-comparisons\\20260424-123600\\base\\score\\summary.json",
+      "invocation_totals": { "total": 10, "ok": 10, "failed": 0, "timed_out": 0 },
+      "score_totals": { "total": 10, "passed": 5, "failed": 5, "missing": 0 }
+    },
+    "ai": {
+      "exit_code": 0,
+      "timed_out": false,
+      "stdout_log": "C:\\repo\\.ax-ai\\repair-comparisons\\20260424-123600\\ai.stdout.txt",
+      "stderr_log": "C:\\repo\\.ax-ai\\repair-comparisons\\20260424-123600\\ai.stderr.txt",
+      "run_summary_path": "C:\\repo\\.ax-ai\\repair-comparisons\\20260424-123600\\ai\\run-summary.json",
+      "score_summary_path": "C:\\repo\\.ax-ai\\repair-comparisons\\20260424-123600\\ai\\score\\summary.json",
+      "invocation_totals": { "total": 10, "ok": 10, "failed": 0, "timed_out": 0 },
+      "score_totals": { "total": 10, "passed": 10, "failed": 0, "missing": 0 }
+    }
+  },
+  "comparison": {
+    "total_cases": 10,
+    "base_passed": 5,
+    "ai_passed": 10,
+    "base_pass_rate": 50,
+    "ai_pass_rate": 100,
+    "absolute_lift_cases": 5,
+    "absolute_lift_pp": 50,
+    "relative_lift_pct": 100,
+    "improved_cases": [],
+    "regressed_cases": [],
+    "unchanged_cases": []
+  },
+  "categories": [],
+  "cases": []
+}
+```
+
+Stable top-level comparison fields:
+
+- `schema_version: integer`
+  Current comparison schema version. The repository currently emits `1`.
+- `generated_at: string`
+  ISO-8601 generation timestamp.
+- `benchmark_index: string`
+  Absolute path to the benchmark `index.json` shared by both runs.
+- `runner_script: string`
+  Absolute path to the adapter script used in both modes.
+- `runner_extra_args: string[]`
+  Extra adapter arguments applied to both modes.
+- `output_dir: string`
+  Absolute path to the comparison root.
+- `modes.base` and `modes.ai`
+  Each keeps `exit_code`, `timed_out`, `stdout_log`, `stderr_log`, `run_summary_path`, `score_summary_path`, `invocation_totals`, and `score_totals`.
+- `comparison`
+  Summary object with `total_cases`, passed counts, pass rates, lift metrics, and `improved_cases` / `regressed_cases` / `unchanged_cases`. `relative_lift_pct` is `null` when the baseline passed-case count is zero.
+- `categories`
+  Per-category aggregates. Each category keeps counts, pass rates, lift, and improved/regressed case id arrays.
+- `cases`
+  Per-case deltas. Each case keeps `base_status`, `ai_status`, `base_success`, `ai_success`, `delta`, and remaining-code arrays for both modes.
 
 ## Smoke Workflow
 
@@ -344,6 +589,24 @@ For the three-mode report, use [`../scripts/compare-repair-modes.ps1`](../script
 ```
 
 This adds a fixed `cold` -> `base` -> `ai` ladder on top of the same exported benchmark snapshot and writes a three-mode `comparison.json` under `.ax-ai\repair-mode-comparisons\<timestamp>\`.
+
+The three-mode `comparison.json` keeps the same outer contract style with these additions:
+
+- `mode_order: string[]`
+  Stable current mode order. The repository currently emits `["cold", "base", "ai"]`.
+- `modes.cold`
+  Same shape as `modes.base` and `modes.ai`.
+- `summary`
+  Three-mode aggregate object with pass counts, pass rates, and `pairwise_comparisons`.
+- `summary.pairwise_comparisons.<pair>`
+  Each pair currently keeps:
+  `from_mode`, `to_mode`, `from_passed`, `to_passed`, `from_pass_rate`, `to_pass_rate`,
+  `absolute_lift_cases`, `absolute_lift_pp`, `relative_lift_pct`, `improved_cases`,
+  `regressed_cases`, and `unchanged_cases`. `relative_lift_pct` is `null` when `from_passed` is zero.
+- `cases`
+  Per-case deltas now keep `cold_to_base_delta`, `base_to_ai_delta`, and `cold_to_ai_delta`.
+- `categories`
+  Per-category aggregates now keep `cold_passed`, `base_passed`, `ai_passed`, the corresponding pass rates, and nested `pairwise_lifts`.
 
 For CI contract checks of that three-mode ladder, use [`../scripts/smoke-compare-repair-modes.ps1`](../scripts/smoke-compare-repair-modes.ps1). It replays the committed `cold`, `base`, and shared candidate sets and asserts the stable 10-case `comparison.json` contract, including pairwise lift totals and runtime category counts.
 

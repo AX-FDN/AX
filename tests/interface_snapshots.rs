@@ -147,9 +147,19 @@ fn assert_json_f64(value: &Value, expected: f64, label: &str) {
         .as_f64()
         .unwrap_or_else(|| panic!("{label} should be a JSON number"));
     assert!(
-        (actual - expected).abs() < f64::EPSILON,
+        (actual - expected).abs() < 1e-9,
         "{label} expected {expected}, got {actual}"
     );
+}
+
+fn assert_json_path_exists(value: &Value, label: &str) -> PathBuf {
+    let path = PathBuf::from(
+        value
+            .as_str()
+            .unwrap_or_else(|| panic!("{label} should be a JSON string path")),
+    );
+    assert!(path.exists(), "{label} should exist at `{}`", path.display());
+    path
 }
 
 fn export_repair_benchmark(temp: &TempDir, manifest_path: &Path) -> PathBuf {
@@ -1003,6 +1013,37 @@ fn repair_benchmark_run_accepts_large_stdout_only_adapter_output_without_timeout
         read_json_file(&output_dir.join("run-summary.json"), "stdout-only runner summary");
     assert_eq!(run_summary["schema_version"], Value::from(1));
     assert_eq!(run_summary["feedback_mode"], Value::from("ai"));
+    assert_eq!(
+        assert_json_path_exists(&run_summary["benchmark_index"], "stdout-only benchmark_index"),
+        benchmark_dir.join("index.json")
+    );
+    assert_eq!(
+        assert_json_path_exists(&run_summary["benchmark_root"], "stdout-only benchmark_root"),
+        benchmark_dir
+    );
+    assert_eq!(
+        PathBuf::from(
+            run_summary["runner_script"]
+                .as_str()
+                .expect("stdout-only runner summary should include runner_script"),
+        ),
+        runner_script
+    );
+    assert_eq!(
+        json_string_array(
+            &run_summary["runner_extra_args"],
+            "stdout-only runner summary runner_extra_args",
+        ),
+        Vec::<String>::new()
+    );
+    assert_eq!(
+        assert_json_path_exists(&run_summary["candidates_dir"], "stdout-only candidates_dir"),
+        output_dir.join("candidates")
+    );
+    assert_eq!(
+        assert_json_path_exists(&run_summary["output_dir"], "stdout-only output_dir"),
+        output_dir
+    );
     assert_eq!(run_summary["totals"]["total"], Value::from(1));
     assert_eq!(run_summary["totals"]["ok"], Value::from(1));
     assert_eq!(run_summary["totals"]["failed"], Value::from(0));
@@ -1015,9 +1056,15 @@ fn repair_benchmark_run_accepts_large_stdout_only_adapter_output_without_timeout
         .as_array()
         .expect("stdout-only runner summary should include cases");
     assert_eq!(cases.len(), 1);
+    assert_eq!(cases[0]["id"], Value::from("missing_semicolon_basic"));
+    assert_eq!(cases[0]["feedback_mode"], Value::from("ai"));
     assert_eq!(cases[0]["status"], Value::from("ok"));
     assert_eq!(cases[0]["timed_out"], Value::from(false));
     assert_eq!(cases[0]["exit_code"], Value::from(0));
+    assert_json_path_exists(&cases[0]["prompt_path"], "stdout-only prompt_path");
+    assert_json_path_exists(&cases[0]["bundle_path"], "stdout-only bundle_path");
+    assert_json_path_exists(&cases[0]["stdout_log"], "stdout-only stdout_log");
+    assert_json_path_exists(&cases[0]["stderr_log"], "stdout-only stderr_log");
 
     let candidate_path = PathBuf::from(
         cases[0]["output_path"]
@@ -1074,6 +1121,37 @@ fn repair_benchmark_run_rejects_zero_exit_without_file_or_stdout() {
     let run_summary =
         read_json_file(&output_dir.join("run-summary.json"), "silent runner summary");
     assert_eq!(run_summary["schema_version"], Value::from(1));
+    assert_eq!(
+        assert_json_path_exists(&run_summary["benchmark_index"], "silent benchmark_index"),
+        benchmark_dir.join("index.json")
+    );
+    assert_eq!(
+        assert_json_path_exists(&run_summary["benchmark_root"], "silent benchmark_root"),
+        benchmark_dir
+    );
+    assert_eq!(
+        PathBuf::from(
+            run_summary["runner_script"]
+                .as_str()
+                .expect("silent runner summary should include runner_script"),
+        ),
+        runner_script
+    );
+    assert_eq!(
+        json_string_array(
+            &run_summary["runner_extra_args"],
+            "silent runner summary runner_extra_args",
+        ),
+        Vec::<String>::new()
+    );
+    assert_eq!(
+        assert_json_path_exists(&run_summary["candidates_dir"], "silent candidates_dir"),
+        output_dir.join("candidates")
+    );
+    assert_eq!(
+        assert_json_path_exists(&run_summary["output_dir"], "silent output_dir"),
+        output_dir
+    );
     assert_eq!(run_summary["totals"]["total"], Value::from(1));
     assert_eq!(run_summary["totals"]["ok"], Value::from(0));
     assert_eq!(run_summary["totals"]["failed"], Value::from(1));
@@ -1084,9 +1162,15 @@ fn repair_benchmark_run_rejects_zero_exit_without_file_or_stdout() {
         .as_array()
         .expect("silent runner summary should include cases");
     assert_eq!(cases.len(), 1);
+    assert_eq!(cases[0]["id"], Value::from("missing_semicolon_basic"));
+    assert_eq!(cases[0]["feedback_mode"], Value::from("ai"));
     assert_eq!(cases[0]["status"], Value::from("failed"));
     assert_eq!(cases[0]["timed_out"], Value::from(false));
     assert_eq!(cases[0]["exit_code"], Value::from(0));
+    assert_json_path_exists(&cases[0]["prompt_path"], "silent prompt_path");
+    assert_json_path_exists(&cases[0]["bundle_path"], "silent bundle_path");
+    assert_json_path_exists(&cases[0]["stdout_log"], "silent stdout_log");
+    assert_json_path_exists(&cases[0]["stderr_log"], "silent stderr_log");
 
     let candidate_path = PathBuf::from(
         cases[0]["output_path"]
@@ -1147,6 +1231,34 @@ fn repair_benchmark_run_keeps_smoke_run_and_score_contracts_without_rebuild() {
 
     assert_eq!(run_summary["schema_version"], Value::from(1));
     assert_eq!(run_summary["feedback_mode"], Value::from("ai"));
+    assert_eq!(
+        assert_json_path_exists(&run_summary["benchmark_index"], "run summary benchmark_index"),
+        benchmark_dir.join("index.json")
+    );
+    assert_eq!(
+        assert_json_path_exists(&run_summary["benchmark_root"], "run summary benchmark_root"),
+        benchmark_dir.clone()
+    );
+    assert_eq!(
+        PathBuf::from(
+            run_summary["runner_script"]
+                .as_str()
+                .expect("run summary should include runner_script"),
+        ),
+        runner_script
+    );
+    assert_eq!(
+        json_string_array(&run_summary["runner_extra_args"], "run summary runner_extra_args"),
+        Vec::<String>::new()
+    );
+    assert_eq!(
+        assert_json_path_exists(&run_summary["candidates_dir"], "run summary candidates_dir"),
+        output_dir.join("candidates")
+    );
+    assert_eq!(
+        assert_json_path_exists(&run_summary["output_dir"], "run summary output_dir"),
+        output_dir
+    );
     assert_eq!(run_summary["totals"]["total"], Value::from(10));
     assert_eq!(run_summary["totals"]["ok"], Value::from(10));
     assert_eq!(run_summary["totals"]["failed"], Value::from(0));
@@ -1163,13 +1275,47 @@ fn repair_benchmark_run_keeps_smoke_run_and_score_contracts_without_rebuild() {
         reported_score_summary_path.exists(),
         "run summary should point at an existing score summary"
     );
+    assert_eq!(reported_score_summary_path, score_summary_path);
 
     let run_cases = run_summary["cases"]
         .as_array()
         .expect("run summary should include cases");
     assert_eq!(run_cases.len(), 10);
+    for case in run_cases {
+        assert_eq!(case["feedback_mode"], Value::from("ai"));
+        assert_eq!(case["status"], Value::from("ok"));
+        assert_eq!(case["timed_out"], Value::from(false));
+        assert_eq!(case["exit_code"], Value::from(0));
+        assert_json_path_exists(&case["prompt_path"], "run case prompt_path");
+        assert_json_path_exists(&case["bundle_path"], "run case bundle_path");
+        assert_json_path_exists(&case["output_path"], "run case output_path");
+        assert_json_path_exists(&case["stdout_log"], "run case stdout_log");
+        assert_json_path_exists(&case["stderr_log"], "run case stderr_log");
+    }
 
     assert_eq!(score_summary["schema_version"], Value::from(1));
+    assert_eq!(
+        assert_json_path_exists(&score_summary["benchmark_dir"], "score summary benchmark_dir"),
+        benchmark_dir.clone()
+    );
+    assert_eq!(
+        assert_json_path_exists(
+            &score_summary["benchmark_index"],
+            "score summary benchmark_index",
+        ),
+        benchmark_dir.join("index.json")
+    );
+    assert_eq!(
+        assert_json_path_exists(
+            &score_summary["candidates_dir"],
+            "score summary candidates_dir",
+        ),
+        output_dir.join("candidates")
+    );
+    assert_eq!(
+        assert_json_path_exists(&score_summary["output_dir"], "score summary output_dir"),
+        output_dir.join("score")
+    );
     assert_eq!(score_summary["totals"]["total"], Value::from(10));
     assert_eq!(score_summary["totals"]["passed"], Value::from(10));
     assert_eq!(score_summary["totals"]["failed"], Value::from(0));
@@ -1179,6 +1325,12 @@ fn repair_benchmark_run_keeps_smoke_run_and_score_contracts_without_rebuild() {
         .as_array()
         .expect("score summary should include cases");
     assert_eq!(score_cases.len(), 10);
+    for case in score_cases {
+        assert_eq!(case["status"], Value::from("passed"));
+        assert_eq!(case["success"], Value::from(true));
+        assert_eq!(case["check_exit_code"], Value::from(0));
+        assert_json_path_exists(&case["candidate_path"], "score case candidate_path");
+    }
 
     let runtime_cases: Vec<&Value> = score_cases
         .iter()
@@ -1228,6 +1380,12 @@ fn repair_benchmark_run_keeps_smoke_run_and_score_contracts_without_rebuild() {
                 .expect("runtime smoke case should expose remaining runtime codes")
                 .is_empty(),
             "runtime smoke case `{case_id}` should clear remaining runtime diagnostics"
+        );
+    }
+    for check_case in check_cases {
+        assert!(
+            check_case.get("run").is_none(),
+            "check-only smoke case should not include runtime validation details"
         );
     }
 }
@@ -1284,6 +1442,32 @@ fn repair_feedback_comparison_keeps_smoke_contract_without_rebuild() {
         "repair feedback comparison summary",
     );
     assert_eq!(comparison["schema_version"], Value::from(1));
+    assert_eq!(
+        assert_json_path_exists(
+            &comparison["benchmark_index"],
+            "feedback comparison benchmark_index",
+        ),
+        benchmark_dir.join("index.json")
+    );
+    assert_eq!(
+        PathBuf::from(
+            comparison["runner_script"]
+                .as_str()
+                .expect("feedback comparison should include runner_script"),
+        ),
+        runner_script
+    );
+    assert_eq!(
+        json_string_array(
+            &comparison["runner_extra_args"],
+            "feedback comparison runner_extra_args",
+        ),
+        Vec::<String>::new()
+    );
+    assert_eq!(
+        assert_json_path_exists(&comparison["output_dir"], "feedback comparison output_dir"),
+        output_dir
+    );
     assert_eq!(comparison["comparison"]["total_cases"], Value::from(10));
     assert_eq!(comparison["comparison"]["base_passed"], Value::from(5));
     assert_eq!(comparison["comparison"]["ai_passed"], Value::from(10));
@@ -1293,12 +1477,39 @@ fn repair_feedback_comparison_keeps_smoke_contract_without_rebuild() {
         50.0,
         "comparison absolute_lift_pp",
     );
+    assert_json_f64(
+        &comparison["comparison"]["relative_lift_pct"],
+        100.0,
+        "comparison relative_lift_pct",
+    );
     assert_eq!(comparison["modes"]["base"]["invocation_totals"]["ok"], Value::from(10));
     assert_eq!(comparison["modes"]["ai"]["invocation_totals"]["ok"], Value::from(10));
     assert_eq!(comparison["modes"]["base"]["score_totals"]["failed"], Value::from(5));
     assert_eq!(comparison["modes"]["ai"]["score_totals"]["failed"], Value::from(0));
+    assert_eq!(comparison["modes"]["base"]["exit_code"], Value::from(1));
+    assert_eq!(comparison["modes"]["ai"]["exit_code"], Value::from(0));
     assert_eq!(comparison["modes"]["base"]["timed_out"], Value::from(false));
     assert_eq!(comparison["modes"]["ai"]["timed_out"], Value::from(false));
+    assert_json_path_exists(&comparison["modes"]["base"]["stdout_log"], "base stdout_log");
+    assert_json_path_exists(&comparison["modes"]["base"]["stderr_log"], "base stderr_log");
+    assert_json_path_exists(
+        &comparison["modes"]["base"]["run_summary_path"],
+        "base run_summary_path",
+    );
+    assert_json_path_exists(
+        &comparison["modes"]["base"]["score_summary_path"],
+        "base score_summary_path",
+    );
+    assert_json_path_exists(&comparison["modes"]["ai"]["stdout_log"], "ai stdout_log");
+    assert_json_path_exists(&comparison["modes"]["ai"]["stderr_log"], "ai stderr_log");
+    assert_json_path_exists(
+        &comparison["modes"]["ai"]["run_summary_path"],
+        "ai run_summary_path",
+    );
+    assert_json_path_exists(
+        &comparison["modes"]["ai"]["score_summary_path"],
+        "ai score_summary_path",
+    );
     assert_eq!(
         json_string_array(
             &comparison["comparison"]["improved_cases"],
@@ -1319,6 +1530,41 @@ fn repair_feedback_comparison_keeps_smoke_contract_without_rebuild() {
         ),
         Vec::<String>::new()
     );
+    assert_eq!(
+        comparison["comparison"]["unchanged_cases"]
+            .as_array()
+            .expect("comparison unchanged_cases should be an array")
+            .len(),
+        5
+    );
+
+    let case_deltas = comparison["cases"]
+        .as_array()
+        .expect("comparison should include per-case deltas");
+    assert_eq!(case_deltas.len(), 10);
+    let runtime_case = case_deltas
+        .iter()
+        .find(|case| case["id"].as_str() == Some("index_out_of_bounds_runtime"))
+        .expect("comparison should include runtime case delta");
+    assert_eq!(runtime_case["base_status"], Value::from("failed"));
+    assert_eq!(runtime_case["ai_status"], Value::from("passed"));
+    assert_eq!(runtime_case["base_success"], Value::from(false));
+    assert_eq!(runtime_case["ai_success"], Value::from(true));
+    assert_eq!(runtime_case["delta"], Value::from("improved"));
+    assert_eq!(
+        json_string_array(
+            &runtime_case["base_remaining_codes"],
+            "runtime_case base_remaining_codes",
+        ),
+        vec!["R0031".to_string()]
+    );
+    assert_eq!(
+        json_string_array(
+            &runtime_case["ai_remaining_codes"],
+            "runtime_case ai_remaining_codes",
+        ),
+        Vec::<String>::new()
+    );
 
     let categories = comparison["categories"]
         .as_array()
@@ -1332,6 +1578,24 @@ fn repair_feedback_comparison_keeps_smoke_contract_without_rebuild() {
     assert_eq!(semantic["ai_passed"], Value::from(6));
     assert_eq!(semantic["improved"], Value::from(3));
     assert_eq!(semantic["regressed"], Value::from(0));
+    assert_eq!(
+        json_string_array(
+            &semantic["improved_case_ids"],
+            "semantic improved_case_ids",
+        ),
+        vec![
+            "type_mismatch_bool_from_int".to_string(),
+            "missing_struct_literal_field".to_string(),
+            "slice_assignment_read_only".to_string(),
+        ]
+    );
+    assert_eq!(
+        json_string_array(
+            &semantic["regressed_case_ids"],
+            "semantic regressed_case_ids",
+        ),
+        Vec::<String>::new()
+    );
 
     let runtime = categories
         .iter()
@@ -1342,6 +1606,23 @@ fn repair_feedback_comparison_keeps_smoke_contract_without_rebuild() {
     assert_eq!(runtime["ai_passed"], Value::from(2));
     assert_eq!(runtime["improved"], Value::from(2));
     assert_eq!(runtime["regressed"], Value::from(0));
+    assert_eq!(
+        json_string_array(
+            &runtime["improved_case_ids"],
+            "runtime improved_case_ids",
+        ),
+        vec![
+            "index_out_of_bounds_runtime".to_string(),
+            "division_by_zero_runtime".to_string(),
+        ]
+    );
+    assert_eq!(
+        json_string_array(
+            &runtime["regressed_case_ids"],
+            "runtime regressed_case_ids",
+        ),
+        Vec::<String>::new()
+    );
 }
 
 #[test]
@@ -1401,16 +1682,75 @@ fn repair_mode_comparison_keeps_smoke_contract_without_rebuild() {
     );
     assert_eq!(comparison["schema_version"], Value::from(1));
     assert_eq!(
+        assert_json_path_exists(
+            &comparison["benchmark_index"],
+            "mode comparison benchmark_index",
+        ),
+        benchmark_dir.join("index.json")
+    );
+    assert_eq!(
+        PathBuf::from(
+            comparison["runner_script"]
+                .as_str()
+                .expect("mode comparison should include runner_script"),
+        ),
+        runner_script
+    );
+    assert_eq!(
+        json_string_array(
+            &comparison["runner_extra_args"],
+            "mode comparison runner_extra_args",
+        ),
+        Vec::<String>::new()
+    );
+    assert_eq!(
         json_string_array(&comparison["mode_order"], "mode comparison mode_order"),
         vec!["cold".to_string(), "base".to_string(), "ai".to_string()]
+    );
+    assert_eq!(
+        assert_json_path_exists(&comparison["output_dir"], "mode comparison output_dir"),
+        output_dir
     );
     assert_eq!(comparison["summary"]["total_cases"], Value::from(10));
     assert_eq!(comparison["summary"]["cold_passed"], Value::from(3));
     assert_eq!(comparison["summary"]["base_passed"], Value::from(5));
     assert_eq!(comparison["summary"]["ai_passed"], Value::from(10));
+    assert_eq!(comparison["modes"]["cold"]["exit_code"], Value::from(1));
+    assert_eq!(comparison["modes"]["base"]["exit_code"], Value::from(1));
+    assert_eq!(comparison["modes"]["ai"]["exit_code"], Value::from(0));
     assert_eq!(comparison["modes"]["cold"]["score_totals"]["failed"], Value::from(7));
     assert_eq!(comparison["modes"]["base"]["score_totals"]["failed"], Value::from(5));
     assert_eq!(comparison["modes"]["ai"]["score_totals"]["failed"], Value::from(0));
+    assert_json_path_exists(&comparison["modes"]["cold"]["stdout_log"], "cold stdout_log");
+    assert_json_path_exists(&comparison["modes"]["cold"]["stderr_log"], "cold stderr_log");
+    assert_json_path_exists(
+        &comparison["modes"]["cold"]["run_summary_path"],
+        "cold run_summary_path",
+    );
+    assert_json_path_exists(
+        &comparison["modes"]["cold"]["score_summary_path"],
+        "cold score_summary_path",
+    );
+    assert_json_path_exists(&comparison["modes"]["base"]["stdout_log"], "base stdout_log");
+    assert_json_path_exists(&comparison["modes"]["base"]["stderr_log"], "base stderr_log");
+    assert_json_path_exists(
+        &comparison["modes"]["base"]["run_summary_path"],
+        "base run_summary_path",
+    );
+    assert_json_path_exists(
+        &comparison["modes"]["base"]["score_summary_path"],
+        "base score_summary_path",
+    );
+    assert_json_path_exists(&comparison["modes"]["ai"]["stdout_log"], "ai stdout_log");
+    assert_json_path_exists(&comparison["modes"]["ai"]["stderr_log"], "ai stderr_log");
+    assert_json_path_exists(
+        &comparison["modes"]["ai"]["run_summary_path"],
+        "ai run_summary_path",
+    );
+    assert_json_path_exists(
+        &comparison["modes"]["ai"]["score_summary_path"],
+        "ai score_summary_path",
+    );
     assert_eq!(
         comparison["summary"]["pairwise_comparisons"]["cold_to_base"]["absolute_lift_cases"],
         Value::from(2)
@@ -1440,6 +1780,21 @@ fn repair_mode_comparison_keeps_smoke_contract_without_rebuild() {
             .as_f64()
             .expect("cold_to_ai.absolute_lift_pp should be numeric"),
         70.0
+    );
+    assert_json_f64(
+        &comparison["summary"]["pairwise_comparisons"]["cold_to_base"]["relative_lift_pct"],
+        66.67,
+        "cold_to_base relative_lift_pct",
+    );
+    assert_json_f64(
+        &comparison["summary"]["pairwise_comparisons"]["base_to_ai"]["relative_lift_pct"],
+        100.0,
+        "base_to_ai relative_lift_pct",
+    );
+    assert_json_f64(
+        &comparison["summary"]["pairwise_comparisons"]["cold_to_ai"]["relative_lift_pct"],
+        233.33,
+        "cold_to_ai relative_lift_pct",
     );
     assert_eq!(
         json_string_array(
@@ -1486,6 +1841,39 @@ fn repair_mode_comparison_keeps_smoke_contract_without_rebuild() {
         ),
         Vec::<String>::new()
     );
+    assert_eq!(
+        comparison["summary"]["pairwise_comparisons"]["cold_to_base"]["unchanged_cases"]
+            .as_array()
+            .expect("cold_to_base unchanged_cases should be an array")
+            .len(),
+        8
+    );
+    assert_eq!(
+        comparison["summary"]["pairwise_comparisons"]["base_to_ai"]["unchanged_cases"]
+            .as_array()
+            .expect("base_to_ai unchanged_cases should be an array")
+            .len(),
+        5
+    );
+    assert_eq!(
+        comparison["summary"]["pairwise_comparisons"]["cold_to_ai"]["unchanged_cases"]
+            .as_array()
+            .expect("cold_to_ai unchanged_cases should be an array")
+            .len(),
+        3
+    );
+
+    let case_deltas = comparison["cases"]
+        .as_array()
+        .expect("mode comparison should include per-case deltas");
+    assert_eq!(case_deltas.len(), 10);
+    let cold_to_base_case = case_deltas
+        .iter()
+        .find(|case| case["id"].as_str() == Some("unknown_type_missing"))
+        .expect("mode comparison should include unknown_type_missing");
+    assert_eq!(cold_to_base_case["cold_to_base_delta"], Value::from("improved"));
+    assert_eq!(cold_to_base_case["base_to_ai_delta"], Value::from("both_pass"));
+    assert_eq!(cold_to_base_case["cold_to_ai_delta"], Value::from("improved"));
 
     let categories = comparison["categories"]
         .as_array()
