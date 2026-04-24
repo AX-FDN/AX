@@ -354,6 +354,20 @@ fn write_single_runtime_case_manifest(temp: &TempDir, name: &str) -> PathBuf {
     )
 }
 
+fn write_utf8_bom_candidate(path: &Path, text: &str) {
+    let mut bytes = vec![0xEF, 0xBB, 0xBF];
+    bytes.extend_from_slice(text.as_bytes());
+    fs::write(path, bytes).expect("failed to write UTF-8 BOM candidate");
+}
+
+fn write_utf16le_bom_candidate(path: &Path, text: &str) {
+    let mut bytes = vec![0xFF, 0xFE];
+    for unit in text.encode_utf16() {
+        bytes.extend_from_slice(&unit.to_le_bytes());
+    }
+    fs::write(path, bytes).expect("failed to write UTF-16 LE BOM candidate");
+}
+
 fn diagnostic_codes(value: &Value) -> Vec<String> {
     value
         .as_array()
@@ -1021,7 +1035,7 @@ fn repair_benchmark_run_accepts_large_stdout_only_adapter_output_without_timeout
             OsStr::new("-SkipBuild"),
             OsStr::new("-SkipScore"),
             OsStr::new("-TimeoutSeconds"),
-            OsStr::new("2"),
+            OsStr::new("5"),
         ],
     );
     assert_eq!(
@@ -1130,7 +1144,7 @@ fn repair_benchmark_run_rejects_zero_exit_without_file_or_stdout() {
             OsStr::new("-SkipBuild"),
             OsStr::new("-SkipScore"),
             OsStr::new("-TimeoutSeconds"),
-            OsStr::new("2"),
+            OsStr::new("5"),
         ],
     );
     assert_eq!(
@@ -1277,6 +1291,170 @@ fn main() -> i32 {
             "runtime exit run.remaining_codes",
         ),
         Vec::<String>::new()
+    );
+}
+
+#[test]
+fn repair_benchmark_score_normalizes_utf8_bom_candidates() {
+    let temp = TempDir::new("repair-benchmark-bom-candidate");
+    let manifest_path = write_single_case_manifest(&temp, "single-case-manifest.json");
+    let benchmark_dir = export_repair_benchmark(&temp, &manifest_path);
+    let candidates_dir = temp.join("candidates");
+    fs::create_dir_all(&candidates_dir).expect("failed to create BOM candidates directory");
+
+    let candidate_path = candidates_dir.join("missing_semicolon_basic.ax");
+    write_utf8_bom_candidate(
+        &candidate_path,
+        "\
+fn main() -> i32 {
+    let value: i32 = 1;
+    return value;
+}
+",
+    );
+
+    let output_dir = temp.join("score");
+    let script_path = repo_root().join("scripts").join("score-repair-benchmark.ps1");
+    let output = run_powershell_script(
+        &script_path,
+        [
+            OsStr::new("-BenchmarkDir"),
+            benchmark_dir.as_os_str(),
+            OsStr::new("-CandidatesDir"),
+            candidates_dir.as_os_str(),
+            OsStr::new("-OutputDir"),
+            output_dir.as_os_str(),
+            OsStr::new("-SkipBuild"),
+        ],
+    );
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "UTF-8 BOM candidate should be normalized before scoring\nstdout:\n{}\nstderr:\n{}",
+        string_output(&output.stdout),
+        string_output(&output.stderr)
+    );
+    assert_clean_stderr(&output);
+
+    let summary = read_json_file(&output_dir.join("summary.json"), "BOM candidate score summary");
+    assert_eq!(summary["totals"]["total"], Value::from(1));
+    assert_eq!(summary["totals"]["passed"], Value::from(1));
+    assert_eq!(summary["totals"]["failed"], Value::from(0));
+    assert_eq!(summary["totals"]["missing"], Value::from(0));
+
+    let cases = summary["cases"]
+        .as_array()
+        .expect("BOM candidate score summary should include cases");
+    assert_eq!(cases.len(), 1);
+    assert_eq!(cases[0]["id"], Value::from("missing_semicolon_basic"));
+    assert_eq!(cases[0]["status"], Value::from("passed"));
+    assert_eq!(cases[0]["success"], Value::from(true));
+    assert_eq!(
+        PathBuf::from(
+            cases[0]["candidate_path"]
+                .as_str()
+                .expect("BOM candidate summary should preserve the original path"),
+        ),
+        candidate_path
+    );
+    assert_eq!(cases[0]["check_exit_code"], Value::from(0));
+    assert_eq!(
+        json_string_array(&cases[0]["remaining_codes"], "BOM candidate remaining_codes"),
+        Vec::<String>::new()
+    );
+
+    let normalized_copy = fs::read(output_dir.join("missing_semicolon_basic").join("candidate.ax"))
+        .expect("scorer should emit a normalized candidate copy");
+    assert!(
+        !normalized_copy.starts_with(&[0xEF, 0xBB, 0xBF]),
+        "normalized candidate copy should strip the UTF-8 BOM"
+    );
+}
+
+#[test]
+fn repair_benchmark_score_normalizes_utf16le_bom_candidates() {
+    let temp = TempDir::new("repair-benchmark-utf16le-bom-candidate");
+    let manifest_path = write_single_case_manifest(&temp, "single-case-manifest.json");
+    let benchmark_dir = export_repair_benchmark(&temp, &manifest_path);
+    let candidates_dir = temp.join("candidates");
+    fs::create_dir_all(&candidates_dir).expect("failed to create UTF-16 BOM candidates directory");
+
+    let candidate_path = candidates_dir.join("missing_semicolon_basic.ax");
+    write_utf16le_bom_candidate(
+        &candidate_path,
+        "\
+fn main() -> i32 {
+    let value: i32 = 1;
+    return value;
+}
+",
+    );
+
+    let output_dir = temp.join("score");
+    let script_path = repo_root().join("scripts").join("score-repair-benchmark.ps1");
+    let output = run_powershell_script(
+        &script_path,
+        [
+            OsStr::new("-BenchmarkDir"),
+            benchmark_dir.as_os_str(),
+            OsStr::new("-CandidatesDir"),
+            candidates_dir.as_os_str(),
+            OsStr::new("-OutputDir"),
+            output_dir.as_os_str(),
+            OsStr::new("-SkipBuild"),
+        ],
+    );
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "UTF-16 LE BOM candidate should be normalized before scoring\nstdout:\n{}\nstderr:\n{}",
+        string_output(&output.stdout),
+        string_output(&output.stderr)
+    );
+    assert_clean_stderr(&output);
+
+    let summary = read_json_file(
+        &output_dir.join("summary.json"),
+        "UTF-16 BOM candidate score summary",
+    );
+    assert_eq!(summary["totals"]["total"], Value::from(1));
+    assert_eq!(summary["totals"]["passed"], Value::from(1));
+    assert_eq!(summary["totals"]["failed"], Value::from(0));
+    assert_eq!(summary["totals"]["missing"], Value::from(0));
+
+    let cases = summary["cases"]
+        .as_array()
+        .expect("UTF-16 BOM candidate score summary should include cases");
+    assert_eq!(cases.len(), 1);
+    assert_eq!(cases[0]["id"], Value::from("missing_semicolon_basic"));
+    assert_eq!(cases[0]["status"], Value::from("passed"));
+    assert_eq!(cases[0]["success"], Value::from(true));
+    assert_eq!(
+        PathBuf::from(
+            cases[0]["candidate_path"]
+                .as_str()
+                .expect("UTF-16 BOM candidate summary should preserve the original path"),
+        ),
+        candidate_path
+    );
+    assert_eq!(cases[0]["check_exit_code"], Value::from(0));
+    assert_eq!(
+        json_string_array(
+            &cases[0]["remaining_codes"],
+            "UTF-16 BOM candidate remaining_codes",
+        ),
+        Vec::<String>::new()
+    );
+
+    let normalized_copy = fs::read(output_dir.join("missing_semicolon_basic").join("candidate.ax"))
+        .expect("scorer should emit a normalized UTF-16 candidate copy");
+    assert!(
+        !normalized_copy.starts_with(&[0xFF, 0xFE]),
+        "normalized candidate copy should strip the UTF-16 LE BOM"
+    );
+    assert!(
+        !normalized_copy.starts_with(&[0xEF, 0xBB, 0xBF]),
+        "normalized candidate copy should stay BOM-free after UTF-16 normalization"
     );
 }
 

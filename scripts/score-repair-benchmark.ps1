@@ -118,6 +118,17 @@ function Write-Utf8File {
     [System.IO.File]::WriteAllText($Path, $Text, $encoding)
 }
 
+function Read-TextFileWithBomDetection {
+    param([string] $Path)
+
+    $reader = New-Object System.IO.StreamReader($Path, [System.Text.Encoding]::UTF8, $true)
+    try {
+        return $reader.ReadToEnd()
+    } finally {
+        $reader.Dispose()
+    }
+}
+
 function Invoke-Axc {
     param(
         [string] $BinaryPath,
@@ -321,10 +332,11 @@ foreach ($case in @($benchmarkIndex.cases)) {
         continue
     }
 
-    $candidateText = Get-Content $candidatePath -Raw -Encoding utf8
-    Write-Utf8File -Path (Join-Path $caseOutputDir "candidate.ax") -Text $candidateText
+    $candidateText = Read-TextFileWithBomDetection -Path $candidatePath
+    $scoredCandidatePath = Join-Path $caseOutputDir "candidate.ax"
+    Write-Utf8File -Path $scoredCandidatePath -Text $candidateText
 
-    $checkResult = Invoke-Axc -BinaryPath $binary -Arguments @("check", $candidatePath, "--json")
+    $checkResult = Invoke-Axc -BinaryPath $binary -Arguments @("check", $scoredCandidatePath, "--json")
     if ($checkResult.ExitCode -ne 0 -and $checkResult.ExitCode -ne 1) {
         Write-Error "Repair check failed for case '$caseId' with exit code $($checkResult.ExitCode)."
     }
@@ -340,7 +352,7 @@ foreach ($case in @($benchmarkIndex.cases)) {
 
     $runInfo = $null
     if ($diagnosticCommand -eq "run" -and $success) {
-        $runResult = Invoke-Axc -BinaryPath $binary -Arguments @("run", $candidatePath, "--json")
+        $runResult = Invoke-Axc -BinaryPath $binary -Arguments @("run", $scoredCandidatePath, "--json")
         $runtimeDiagnosticsResult = Try-ReadDiagnosticsArray -Text $runResult.StdOut
         $runtimeDiagnostics = @($runtimeDiagnosticsResult.Diagnostics)
         $runtimeRemainingCodes = @($runtimeDiagnostics | ForEach-Object { [string] $_.code })
@@ -360,7 +372,7 @@ foreach ($case in @($benchmarkIndex.cases)) {
             $status = "failed"
         }
     } elseif ($RunPrograms -and $success) {
-        $runResult = Invoke-Axc -BinaryPath $binary -Arguments @("run", $candidatePath)
+        $runResult = Invoke-Axc -BinaryPath $binary -Arguments @("run", $scoredCandidatePath)
         $runInfo = [pscustomobject][ordered]@{
             command_exit_code = $runResult.ExitCode
             stdout            = $runResult.StdOut.TrimEnd()

@@ -101,6 +101,7 @@ Accepted success forms:
 
 The benchmark runner prefers `OutputPath`, but if the file does not exist and `stdout` is non-empty, it will capture stdout into the candidate file.
 This stdout-only success path is part of the stable runner contract and is intended for adapters that cannot or do not want to write files directly.
+Benchmark scoring normalizes BOM-marked text input into a BOM-free UTF-8 working copy before validation, but adapters should still prefer plain UTF-8 AX source without a BOM for portability.
 
 Failure contract:
 

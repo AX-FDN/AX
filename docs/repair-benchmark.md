@@ -304,6 +304,9 @@ The scorer runs:
 - `axc run <candidate> --json` for cases whose `diagnostic_command` is `run`
 - optionally `axc run <candidate>` when `-RunPrograms` is enabled for `check`-based cases that already passed `check`
 
+Before invoking `axc`, the scorer rewrites each candidate into its per-case output directory as BOM-free UTF-8.
+That keeps Windows-authored replay files stable even when an adapter writes UTF-8 with a leading BOM or a BOM-marked UTF-16 file.
+
 Per-case score status is:
 
 - `passed`
