@@ -1,0 +1,23 @@
+struct SearchTotals {
+    searchable_files: i32,
+    matched_files: i32,
+    bytes: i32,
+    lines: i32,
+    matched_lines: i32,
+}
+
+fn zero_search_totals() -> SearchTotals {
+    return SearchTotals { searchable_files: 0, matched_files: 0, bytes: 0, lines: 0, matched_lines: 0 };
+}
+
+fn add_search_result(totals: SearchTotals, size: i32, stats: SearchStats) -> SearchTotals {
+    let mut next: SearchTotals = totals;
+    next.searchable_files = next.searchable_files + 1;
+    next.bytes = next.bytes + size;
+    next.lines = next.lines + stats.lines;
+    next.matched_lines = next.matched_lines + stats.matched_lines;
+    if (stats.matched_lines != 0) {
+        next.matched_files = next.matched_files + 1;
+    }
+    return next;
+}

@@ -1,0 +1,15 @@
+struct FileAudit {
+    report: string,
+    totals: AuditTotals,
+}
+
+fn audit_file(report: string, totals: AuditTotals, path: string, depth: i32) -> FileAudit {
+    let size: i32 = fs_file_size(path);
+    let mut text_stats: TextStats = zero_text_stats();
+    let mut counted_as_text: bool = false;
+    if (is_text_file(path)) {
+        counted_as_text = true;
+        text_stats = analyze_text(fs_read_to_string(path));
+    }
+    return FileAudit { report: append_file_line(report, path, depth, size, counted_as_text, text_stats), totals: add_file(totals, size, text_stats, counted_as_text) };
+}

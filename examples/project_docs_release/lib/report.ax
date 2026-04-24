@@ -1,0 +1,38 @@
+fn build_receipt(source_path: string, destination_path: string, copied_bytes: i32, stats: TextStats) -> string {
+    let mut report: string = "";
+    report = append_string_stat(report, "source", path_resolve(source_path));
+    report = append_string_stat(report, "destination", path_resolve(destination_path));
+    report = append_int_stat(report, "bytes", copied_bytes);
+    report = append_int_stat(report, "lines", stats.lines);
+    report = append_int_stat(report, "headings", stats.headings);
+    report = append_int_stat(report, "action_items", stats.action_items);
+    return report + "\n";
+}
+
+fn append_doc_detail(report: string, path: string, copied_bytes: i32, stats: TextStats) -> string {
+    return report
+        + path_file_name(path)
+        + " | bytes="
+        + to_string(copied_bytes)
+        + " | lines="
+        + to_string(stats.lines)
+        + " | headings="
+        + to_string(stats.headings)
+        + " | action_items="
+        + to_string(stats.action_items)
+        + "\n";
+}
+
+fn build_summary(source_dir: string, snapshot_dir: string, entries_seen: i32, totals: SnapshotTotals, detail_report: string) -> string {
+    let mut report: string = "";
+    report = append_string_stat(report, "source", path_resolve(source_dir));
+    report = append_string_stat(report, "snapshot", path_resolve(snapshot_dir));
+    report = append_int_stat(report, "entries_seen", entries_seen);
+    report = append_int_stat(report, "copied_files", totals.copied_files);
+    report = append_int_stat(report, "skipped_entries", totals.skipped_entries);
+    report = append_int_stat(report, "copied_bytes", totals.copied_bytes);
+    report = append_int_stat(report, "lines", totals.lines);
+    report = append_int_stat(report, "headings", totals.headings);
+    report = append_int_stat(report, "action_items", totals.action_items);
+    return report + "\n\nfiles:\n" + detail_report;
+}

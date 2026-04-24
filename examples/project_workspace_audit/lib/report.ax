@@ -1,0 +1,42 @@
+fn display_label(path: string, depth: i32) -> string {
+    if (depth == 0) {
+        return path_file_name(path);
+    }
+    return path_file_name(path_parent(path)) + "/" + path_file_name(path);
+}
+
+fn append_dir_line(report: string, path: string, depth: i32, child_count: i32) -> string {
+    let mut prefix: string = "";
+    if (depth != 0) {
+        prefix = "  ";
+    }
+    return report + prefix + display_label(path, depth) + " | dir | children=" + to_string(child_count) + "\n";
+}
+
+fn append_file_line(report: string, path: string, depth: i32, size: i32, counted_as_text: bool, text_stats: TextStats) -> string {
+    let mut prefix: string = "";
+    if (depth != 0) {
+        prefix = "  ";
+    }
+    let mut line: string = prefix + display_label(path, depth) + " | file | bytes=" + to_string(size);
+    if (counted_as_text) {
+        line = line + " | lines=" + to_string(text_stats.lines) + " | nonempty=" + to_string(text_stats.nonempty) + " | headings=" + to_string(text_stats.headings) + " | action_items=" + to_string(text_stats.action_items);
+    }
+    return report + line + "\n";
+}
+
+fn build_summary(root_dir: string, entry_count: i32, totals: AuditTotals) -> string {
+    let mut report: string = "";
+    report = append_string_stat(report, "root", path_resolve(root_dir));
+    report = append_string_stat(report, "scope", "top-level + one nested level");
+    report = append_int_stat(report, "top_level_entries", entry_count);
+    report = append_int_stat(report, "directories", totals.directories);
+    report = append_int_stat(report, "files", totals.files);
+    report = append_int_stat(report, "text_files", totals.text_files);
+    report = append_int_stat(report, "bytes", totals.bytes);
+    report = append_int_stat(report, "lines", totals.lines);
+    report = append_int_stat(report, "nonempty", totals.nonempty);
+    report = append_int_stat(report, "headings", totals.headings);
+    report = append_int_stat(report, "action_items", totals.action_items);
+    return report + "\n\nentries:\n";
+}

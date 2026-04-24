@@ -1,0 +1,34 @@
+struct AuditTotals {
+    directories: i32,
+    files: i32,
+    text_files: i32,
+    bytes: i32,
+    lines: i32,
+    nonempty: i32,
+    headings: i32,
+    action_items: i32,
+}
+
+fn zero_audit_totals() -> AuditTotals {
+    return AuditTotals { directories: 0, files: 0, text_files: 0, bytes: 0, lines: 0, nonempty: 0, headings: 0, action_items: 0 };
+}
+
+fn add_directory(totals: AuditTotals) -> AuditTotals {
+    let mut next: AuditTotals = totals;
+    next.directories = next.directories + 1;
+    return next;
+}
+
+fn add_file(totals: AuditTotals, size: i32, text_stats: TextStats, counted_as_text: bool) -> AuditTotals {
+    let mut next: AuditTotals = totals;
+    next.files = next.files + 1;
+    next.bytes = next.bytes + size;
+    if (counted_as_text) {
+        next.text_files = next.text_files + 1;
+        next.lines = next.lines + text_stats.lines;
+        next.nonempty = next.nonempty + text_stats.nonempty;
+        next.headings = next.headings + text_stats.headings;
+        next.action_items = next.action_items + text_stats.action_items;
+    }
+    return next;
+}

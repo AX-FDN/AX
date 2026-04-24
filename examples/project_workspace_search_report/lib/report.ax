@@ -1,0 +1,27 @@
+fn display_label(path: string, depth: i32) -> string {
+    if (depth == 0) {
+        return path_file_name(path);
+    }
+    return path_file_name(path_parent(path)) + "/" + path_file_name(path);
+}
+
+fn append_match_line(report: string, path: string, depth: i32, size: i32, stats: SearchStats) -> string {
+    let mut prefix: string = "";
+    if (depth != 0) {
+        prefix = "  ";
+    }
+    return report + prefix + display_label(path, depth) + " | bytes=" + to_string(size) + " | lines=" + to_string(stats.lines) + " | matched_lines=" + to_string(stats.matched_lines) + "\n";
+}
+
+fn build_summary(root_dir: string, needle: string, totals: SearchTotals) -> string {
+    let mut report: string = "";
+    report = append_string_stat(report, "root", path_resolve(root_dir));
+    report = append_string_stat(report, "needle", needle);
+    report = append_string_stat(report, "scope", "top-level + one nested level");
+    report = append_int_stat(report, "searchable_files", totals.searchable_files);
+    report = append_int_stat(report, "matched_files", totals.matched_files);
+    report = append_int_stat(report, "bytes", totals.bytes);
+    report = append_int_stat(report, "lines", totals.lines);
+    report = append_int_stat(report, "matched_lines", totals.matched_lines);
+    return report + "\n\nmatches:\n";
+}

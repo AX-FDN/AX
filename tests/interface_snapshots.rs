@@ -4243,6 +4243,15 @@ fn project_workspace_search_report_build_copies_real_example_source_tree() {
             .exists(),
         "build should copy the example helper sources"
     );
+    assert!(
+        out_dir
+            .join("project-sources")
+            .join("external")
+            .join("foundation")
+            .join("cli.ax")
+            .exists(),
+        "build should copy shared sibling foundation sources"
+    );
 
     let manifest: Value = serde_json::from_str(
         &fs::read_to_string(out_dir.join("build-manifest.json"))
@@ -4252,6 +4261,9 @@ fn project_workspace_search_report_build_copies_real_example_source_tree() {
     assert_eq!(
         json_string_array(&manifest["artifacts"]["project_sources"], "project sources"),
         vec![
+            "external/foundation/cli.ax".to_string(),
+            "external/foundation/report.ax".to_string(),
+            "external/foundation/text.ax".to_string(),
             "lib/file_kind.ax".to_string(),
             "lib/file_search.ax".to_string(),
             "lib/report.ax".to_string(),

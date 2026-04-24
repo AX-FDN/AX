@@ -1,5 +1,5 @@
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 use serde::Serialize;
 
@@ -137,16 +137,7 @@ pub fn build_input_from_project(
                 path.display()
             )
         })?;
-        let relative_path = path
-            .strip_prefix(project.root_dir())
-            .map_err(|error| {
-                format!(
-                    "failed to compute project-relative source path for {}: {error}",
-                    path.display()
-                )
-            })?
-            .to_string_lossy()
-            .replace('\\', "/");
+        let relative_path = build_project_source_artifact_path(project.root_dir(), path)?;
         project_source_files.push(ProjectSourceArtifact {
             relative_path,
             text,
@@ -165,6 +156,54 @@ pub fn build_input_from_project(
             files: project_source_files,
         }),
     })
+}
+
+fn build_project_source_artifact_path(
+    project_root: &Path,
+    source_path: &Path,
+) -> Result<String, String> {
+    if let Ok(relative_path) = source_path.strip_prefix(project_root) {
+        return Ok(relative_path.to_string_lossy().replace('\\', "/"));
+    }
+
+    let project_components = project_root.components().collect::<Vec<_>>();
+    let source_components = source_path.components().collect::<Vec<_>>();
+    let mut common_len = 0;
+    while common_len < project_components.len()
+        && common_len < source_components.len()
+        && project_components[common_len] == source_components[common_len]
+    {
+        common_len += 1;
+    }
+
+    let mut artifact_path = PathBuf::from("external");
+    for component in &source_components[common_len..] {
+        match component {
+            Component::Normal(part) => artifact_path.push(part),
+            Component::CurDir => {}
+            Component::ParentDir => {
+                return Err(format!(
+                    "failed to package project source {}: normalized source path still contains parent traversal",
+                    source_path.display()
+                ));
+            }
+            Component::Prefix(_) | Component::RootDir => {
+                return Err(format!(
+                    "failed to package project source {}: source path does not share a copyable root with the project",
+                    source_path.display()
+                ));
+            }
+        }
+    }
+
+    if artifact_path == PathBuf::from("external") {
+        return Err(format!(
+            "failed to package project source {}: could not derive a relative artifact path",
+            source_path.display()
+        ));
+    }
+
+    Ok(artifact_path.to_string_lossy().replace('\\', "/"))
 }
 
 pub fn build_program(
@@ -307,8 +346,9 @@ fn executable_suffix() -> &'static str {
 
 #[cfg(test)]
 mod tests {
-    use super::{default_output_dir, target_name_from_file};
-    use std::path::Path;
+    use super::{build_input_from_project, default_output_dir, target_name_from_file};
+    use crate::project::resolve_input;
+    use std::path::{Path, PathBuf};
 
     #[test]
     fn derives_target_name_from_input_path() {
@@ -324,5 +364,37 @@ mod tests {
         let output_dir = default_output_dir("hello").expect("default output dir should resolve");
         let rendered = output_dir.display().to_string().replace('\\', "/");
         assert!(rendered.ends_with("/build/hello"));
+    }
+
+    #[test]
+    fn packages_shared_sibling_support_sources_under_external_prefix() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let resolved = resolve_input(
+            repo_root
+                .join("examples")
+                .join("project_workspace_search_report"),
+        )
+        .expect("project input should resolve");
+        let project = resolved
+            .project
+            .as_ref()
+            .expect("project metadata should be available");
+
+        let build_input = build_input_from_project(&resolved.source, project)
+            .expect("build input should package project sources");
+        let project_sources = build_input
+            .project_sources
+            .expect("project sources artifact should exist");
+        let relative_paths = project_sources
+            .files
+            .into_iter()
+            .map(|file| file.relative_path)
+            .collect::<Vec<_>>();
+
+        assert!(relative_paths.contains(&"external/foundation/cli.ax".to_string()));
+        assert!(relative_paths.contains(&"external/foundation/report.ax".to_string()));
+        assert!(relative_paths.contains(&"external/foundation/text.ax".to_string()));
+        assert!(relative_paths.contains(&"lib/file_search.ax".to_string()));
+        assert!(relative_paths.contains(&"src/main.ax".to_string()));
     }
 }

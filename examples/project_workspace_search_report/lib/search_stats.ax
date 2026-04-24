@@ -1,0 +1,20 @@
+struct SearchStats {
+    lines: i32,
+    matched_lines: i32,
+}
+
+fn zero_search_stats() -> SearchStats {
+    return SearchStats { lines: 0, matched_lines: 0 };
+}
+
+fn search_text(text: string, needle: string) -> SearchStats {
+    let lines: [string] = string_split_lines(text);
+    let mut stats: SearchStats = zero_search_stats();
+    for (let mut i: i32 = 0; i < len(lines); i = i + 1) {
+        stats.lines = stats.lines + 1;
+        if (string_contains(lines[i], needle)) {
+            stats.matched_lines = stats.matched_lines + 1;
+        }
+    }
+    return stats;
+}

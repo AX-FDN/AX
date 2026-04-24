@@ -1,0 +1,14 @@
+struct FileSearch {
+    report: string,
+    totals: SearchTotals,
+}
+
+fn search_file(report: string, totals: SearchTotals, path: string, depth: i32, needle: string) -> FileSearch {
+    let size: i32 = fs_file_size(path);
+    let stats: SearchStats = search_text(fs_read_to_string(path), needle);
+    let mut next_report: string = report;
+    if (stats.matched_lines != 0) {
+        next_report = append_match_line(report, path, depth, size, stats);
+    }
+    return FileSearch { report: next_report, totals: add_search_result(totals, size, stats) };
+}

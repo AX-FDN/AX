@@ -1,0 +1,35 @@
+struct SnapshotTotals {
+    copied_files: i32,
+    copied_bytes: i32,
+    lines: i32,
+    headings: i32,
+    action_items: i32,
+    skipped_entries: i32,
+}
+
+fn zero_snapshot_totals() -> SnapshotTotals {
+    return SnapshotTotals {
+        copied_files: 0,
+        copied_bytes: 0,
+        lines: 0,
+        headings: 0,
+        action_items: 0,
+        skipped_entries: 0,
+    };
+}
+
+fn add_doc(totals: SnapshotTotals, copied_bytes: i32, stats: TextStats) -> SnapshotTotals {
+    let mut next: SnapshotTotals = totals;
+    next.copied_files = next.copied_files + 1;
+    next.copied_bytes = next.copied_bytes + copied_bytes;
+    next.lines = next.lines + stats.lines;
+    next.headings = next.headings + stats.headings;
+    next.action_items = next.action_items + stats.action_items;
+    return next;
+}
+
+fn add_skipped(totals: SnapshotTotals) -> SnapshotTotals {
+    let mut next: SnapshotTotals = totals;
+    next.skipped_entries = next.skipped_entries + 1;
+    return next;
+}

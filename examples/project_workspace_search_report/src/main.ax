@@ -1,23 +1,17 @@
 fn main() -> i32 {
     if (argv_len() < 3) {
-        println("usage: axc run examples/project_workspace_search_report -- <root_dir> <needle> <output>");
-        return 1;
+        return usage_error("examples/project_workspace_search_report", "<root_dir> <needle> <output>");
     }
     let root_dir: string = argv_get(0);
     let needle: string = argv_get(1);
     let output_path: string = argv_get(2);
     if (!fs_is_dir(root_dir)) {
-        println("root dir is not a directory: " + root_dir);
-        return 2;
+        return exit_with_message("root dir is not a directory: " + root_dir, 2);
     }
     if (string_len(needle) == 0) {
-        println("needle must not be empty");
-        return 3;
+        return exit_with_message("needle must not be empty", 3);
     }
-    let output_dir: string = path_parent(output_path);
-    if (string_len(output_dir) != 0) {
-        fs_create_dir_all(output_dir);
-    }
+    ensure_output_parent(output_path);
     let entries: [string] = fs_read_dir(root_dir);
     let mut totals: SearchTotals = zero_search_totals();
     let mut match_report: string = "";
