@@ -294,6 +294,127 @@ impl<'a> Interpreter<'a> {
             };
         }
 
+        if name == "string_starts_with" {
+            if arguments.len() != 2 {
+                return Err(self.runtime_error(
+                    "R0062",
+                    format!(
+                        "function `string_starts_with` expected 2 argument(s), got {}",
+                        arguments.len()
+                    ),
+                    span,
+                ));
+            }
+
+            let mut arguments = arguments.into_iter();
+            let text = arguments
+                .next()
+                .expect("string_starts_with text argument should exist");
+            let prefix = arguments
+                .next()
+                .expect("string_starts_with prefix argument should exist");
+            return match (text, prefix) {
+                (Value::String(text), Value::String(prefix)) => {
+                    Ok(Value::Bool(text.starts_with(&prefix)))
+                }
+                (text, prefix) => Err(self
+                    .runtime_error(
+                        "R0063",
+                        format!(
+                            "function `string_starts_with` requires `string` arguments, got `{}` and `{}`",
+                            text.display(),
+                            prefix.display()
+                        ),
+                        span,
+                    )
+                    .with_suggestion(
+                        "call `string_starts_with` like `string_starts_with(text, prefix)`",
+                    )),
+            };
+        }
+
+        if name == "string_ends_with" {
+            if arguments.len() != 2 {
+                return Err(self.runtime_error(
+                    "R0064",
+                    format!(
+                        "function `string_ends_with` expected 2 argument(s), got {}",
+                        arguments.len()
+                    ),
+                    span,
+                ));
+            }
+
+            let mut arguments = arguments.into_iter();
+            let text = arguments
+                .next()
+                .expect("string_ends_with text argument should exist");
+            let suffix = arguments
+                .next()
+                .expect("string_ends_with suffix argument should exist");
+            return match (text, suffix) {
+                (Value::String(text), Value::String(suffix)) => {
+                    Ok(Value::Bool(text.ends_with(&suffix)))
+                }
+                (text, suffix) => Err(self
+                    .runtime_error(
+                        "R0065",
+                        format!(
+                            "function `string_ends_with` requires `string` arguments, got `{}` and `{}`",
+                            text.display(),
+                            suffix.display()
+                        ),
+                        span,
+                    )
+                    .with_suggestion(
+                        "call `string_ends_with` like `string_ends_with(text, suffix)`",
+                    )),
+            };
+        }
+
+        if name == "string_replace" {
+            if arguments.len() != 3 {
+                return Err(self.runtime_error(
+                    "R0066",
+                    format!(
+                        "function `string_replace` expected 3 argument(s), got {}",
+                        arguments.len()
+                    ),
+                    span,
+                ));
+            }
+
+            let mut arguments = arguments.into_iter();
+            let text = arguments
+                .next()
+                .expect("string_replace text argument should exist");
+            let from = arguments
+                .next()
+                .expect("string_replace from argument should exist");
+            let to = arguments
+                .next()
+                .expect("string_replace to argument should exist");
+            return match (text, from, to) {
+                (Value::String(text), Value::String(from), Value::String(to)) => {
+                    Ok(Value::String(text.replace(&from, &to)))
+                }
+                (text, from, to) => Err(self
+                    .runtime_error(
+                        "R0067",
+                        format!(
+                            "function `string_replace` requires `string` arguments, got `{}`, `{}`, and `{}`",
+                            text.display(),
+                            from.display(),
+                            to.display()
+                        ),
+                        span,
+                    )
+                    .with_suggestion(
+                        "call `string_replace` like `string_replace(text, from, to)`",
+                    )),
+            };
+        }
+
         if name == "len" {
             if arguments.len() != 1 {
                 return Err(self.runtime_error(
@@ -556,6 +677,45 @@ impl<'a> Interpreter<'a> {
             };
         }
 
+        if name == "path_parent" {
+            if arguments.len() != 1 {
+                return Err(self.runtime_error(
+                    "R0068",
+                    format!(
+                        "function `path_parent` expected 1 argument(s), got {}",
+                        arguments.len()
+                    ),
+                    span,
+                ));
+            }
+
+            let path = arguments
+                .into_iter()
+                .next()
+                .expect("path_parent argument should exist");
+            return match path {
+                Value::String(path) => {
+                    let parent = Path::new(&path)
+                        .parent()
+                        .map(|value| value.to_string_lossy().into_owned())
+                        .unwrap_or_default();
+                    Ok(Value::String(parent))
+                }
+                other => Err(self
+                    .runtime_error(
+                        "R0069",
+                        format!(
+                            "function `path_parent` requires a `string` path, got `{}`",
+                            other.display()
+                        ),
+                        span,
+                    )
+                    .with_suggestion(
+                        "call `path_parent` with a string value like `path_parent(path)`",
+                    )),
+            };
+        }
+
         if name == "fs_exists" {
             if arguments.len() != 1 {
                 return Err(self.runtime_error(
@@ -585,6 +745,55 @@ impl<'a> Interpreter<'a> {
                     )
                     .with_suggestion(
                         "call `fs_exists` with a string value like `fs_exists(path)`",
+                    )),
+            };
+        }
+
+        if name == "fs_create_dir_all" {
+            if arguments.len() != 1 {
+                return Err(self.runtime_error(
+                    "R0070",
+                    format!(
+                        "function `fs_create_dir_all` expected 1 argument(s), got {}",
+                        arguments.len()
+                    ),
+                    span,
+                ));
+            }
+
+            let path = arguments
+                .into_iter()
+                .next()
+                .expect("fs_create_dir_all argument should exist");
+            return match path {
+                Value::String(path) => {
+                    if path.is_empty() {
+                        return Ok(Value::Void);
+                    }
+
+                    let resolved = self.resolve_host_path(&path);
+                    fs::create_dir_all(&resolved).map(|_| Value::Void).map_err(|error| {
+                        self.runtime_error(
+                            "R0072",
+                            format!("failed to create directory `{}`: {error}", resolved.display()),
+                            span,
+                        )
+                        .with_suggestion(
+                            "pass a writable directory path or check the parent path before creating it",
+                        )
+                    })
+                }
+                other => Err(self
+                    .runtime_error(
+                        "R0071",
+                        format!(
+                            "function `fs_create_dir_all` requires a `string` path, got `{}`",
+                            other.display()
+                        ),
+                        span,
+                    )
+                    .with_suggestion(
+                        "call `fs_create_dir_all` with a string value like `fs_create_dir_all(path)`",
                     )),
             };
         }
@@ -630,6 +839,55 @@ impl<'a> Interpreter<'a> {
                     )
                     .with_suggestion(
                         "call `fs_read_to_string` with a string value like `fs_read_to_string(path)`",
+                    )),
+            };
+        }
+
+        if name == "fs_write_string" {
+            if arguments.len() != 2 {
+                return Err(self.runtime_error(
+                    "R0073",
+                    format!(
+                        "function `fs_write_string` expected 2 argument(s), got {}",
+                        arguments.len()
+                    ),
+                    span,
+                ));
+            }
+
+            let mut arguments = arguments.into_iter();
+            let path = arguments
+                .next()
+                .expect("fs_write_string path argument should exist");
+            let text = arguments
+                .next()
+                .expect("fs_write_string text argument should exist");
+            return match (path, text) {
+                (Value::String(path), Value::String(text)) => {
+                    let resolved = self.resolve_host_path(&path);
+                    fs::write(&resolved, text).map(|_| Value::Void).map_err(|error| {
+                        self.runtime_error(
+                            "R0075",
+                            format!("failed to write `{}`: {error}", resolved.display()),
+                            span,
+                        )
+                        .with_suggestion(
+                            "create the parent directory first with `fs_create_dir_all(path_parent(path))` or choose a writable path",
+                        )
+                    })
+                }
+                (path, text) => Err(self
+                    .runtime_error(
+                        "R0074",
+                        format!(
+                            "function `fs_write_string` requires `string` arguments, got `{}` and `{}`",
+                            path.display(),
+                            text.display()
+                        ),
+                        span,
+                    )
+                    .with_suggestion(
+                        "call `fs_write_string` like `fs_write_string(path, text)`",
                     )),
             };
         }

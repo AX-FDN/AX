@@ -1,0 +1,44 @@
+fn main() -> i32 {
+    if (argv_len() < 2) {
+        println("usage: axc run examples/normalize_text.ax -- <input> <output>");
+        return 1;
+    }
+
+    let input_path: string = argv_get(0);
+    let output_path: string = argv_get(1);
+
+    if (!fs_exists(input_path)) {
+        println("missing input: " + input_path);
+        return 2;
+    }
+
+    let source: string = fs_read_to_string(input_path);
+    let mut normalized: string = string_replace(source, "\t", "    ");
+
+    if (!string_ends_with(normalized, "\n")) {
+        normalized = normalized + "\n";
+    }
+
+    let output_dir: string = path_parent(output_path);
+    if (string_len(output_dir) != 0) {
+    fs_create_dir_all(output_dir);
+    }
+
+    fs_write_string(output_path, normalized);
+
+    let changed: bool = normalized != source;
+    let has_heading: bool = string_starts_with(normalized, "#");
+    let report: string =
+        "input="
+        + input_path
+        + ", output="
+        + output_path
+        + ", changed="
+        + to_string(changed)
+        + ", starts_with_heading="
+        + to_string(has_heading)
+        + ", bytes="
+        + to_string(string_len(normalized));
+    println(report);
+    return 0;
+}
