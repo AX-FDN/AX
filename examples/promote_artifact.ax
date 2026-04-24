@@ -1,0 +1,40 @@
+fn main() -> i32 {
+    if (argv_len() < 2) {
+        println("usage: axc run examples/promote_artifact.ax -- <input> <release_dir>");
+        return 1;
+    }
+
+    let input_path: string = argv_get(0);
+    let release_dir: string = argv_get(1);
+
+    if (!fs_is_file(input_path)) {
+        println("input is not a file: " + input_path);
+        return 2;
+    }
+
+    fs_create_dir_all(release_dir);
+
+    let resolved_input: string = path_resolve(input_path);
+    let file_name: string = path_file_name(resolved_input);
+    let promoted_path: string = path_join(release_dir, file_name);
+
+    if (fs_exists(promoted_path)) {
+        fs_remove_file(promoted_path);
+    }
+
+    fs_rename(input_path, promoted_path);
+
+    let receipt_path: string = path_join(release_dir, path_stem(file_name) + ".receipt.txt");
+    let receipt: string =
+        "source=" + resolved_input
+        + "\npromoted=" + path_resolve(promoted_path)
+        + "\nrelease_is_dir=" + to_string(fs_is_dir(release_dir))
+        + "\npromoted_is_file=" + to_string(fs_is_file(promoted_path))
+        + "\nextension=" + path_extension(promoted_path)
+        + "\nsize=" + to_string(fs_file_size(promoted_path))
+        + "\n";
+
+    fs_write_string(receipt_path, receipt);
+    println("promoted=" + promoted_path);
+    return 0;
+}

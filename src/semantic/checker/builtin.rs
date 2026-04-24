@@ -514,6 +514,36 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 );
                 Some(Type::String)
             }
+            "path_resolve" => {
+                let argument_types = arguments
+                    .iter()
+                    .map(|argument| self.check_expr(argument))
+                    .collect::<Vec<_>>();
+
+                if argument_types.len() != 1 {
+                    self.diagnostics.push(Diagnostic::new(
+                        "S0017",
+                        format!(
+                            "function `path_resolve` expects 1 argument(s), found {}",
+                            argument_types.len()
+                        ),
+                        self.info.source,
+                        expr.span,
+                    ));
+                    return Some(Type::Error);
+                }
+
+                self.expect_type_match(
+                    &Type::String,
+                    &argument_types[0],
+                    expr.span,
+                    format!(
+                        "function `path_resolve` expects argument `path` to be `string`, found `{}`",
+                        argument_types[0].describe()
+                    ),
+                );
+                Some(Type::String)
+            }
             "path_file_name" => {
                 let argument_types = arguments
                     .iter()
@@ -634,6 +664,66 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 );
                 Some(Type::Bool)
             }
+            "fs_is_file" => {
+                let argument_types = arguments
+                    .iter()
+                    .map(|argument| self.check_expr(argument))
+                    .collect::<Vec<_>>();
+
+                if argument_types.len() != 1 {
+                    self.diagnostics.push(Diagnostic::new(
+                        "S0017",
+                        format!(
+                            "function `fs_is_file` expects 1 argument(s), found {}",
+                            argument_types.len()
+                        ),
+                        self.info.source,
+                        expr.span,
+                    ));
+                    return Some(Type::Error);
+                }
+
+                self.expect_type_match(
+                    &Type::String,
+                    &argument_types[0],
+                    expr.span,
+                    format!(
+                        "function `fs_is_file` expects argument `path` to be `string`, found `{}`",
+                        argument_types[0].describe()
+                    ),
+                );
+                Some(Type::Bool)
+            }
+            "fs_is_dir" => {
+                let argument_types = arguments
+                    .iter()
+                    .map(|argument| self.check_expr(argument))
+                    .collect::<Vec<_>>();
+
+                if argument_types.len() != 1 {
+                    self.diagnostics.push(Diagnostic::new(
+                        "S0017",
+                        format!(
+                            "function `fs_is_dir` expects 1 argument(s), found {}",
+                            argument_types.len()
+                        ),
+                        self.info.source,
+                        expr.span,
+                    ));
+                    return Some(Type::Error);
+                }
+
+                self.expect_type_match(
+                    &Type::String,
+                    &argument_types[0],
+                    expr.span,
+                    format!(
+                        "function `fs_is_dir` expects argument `path` to be `string`, found `{}`",
+                        argument_types[0].describe()
+                    ),
+                );
+                Some(Type::Bool)
+            }
             "fs_exists" => {
                 let argument_types = arguments
                     .iter()
@@ -663,6 +753,36 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     ),
                 );
                 Some(Type::Bool)
+            }
+            "fs_file_size" => {
+                let argument_types = arguments
+                    .iter()
+                    .map(|argument| self.check_expr(argument))
+                    .collect::<Vec<_>>();
+
+                if argument_types.len() != 1 {
+                    self.diagnostics.push(Diagnostic::new(
+                        "S0017",
+                        format!(
+                            "function `fs_file_size` expects 1 argument(s), found {}",
+                            argument_types.len()
+                        ),
+                        self.info.source,
+                        expr.span,
+                    ));
+                    return Some(Type::Error);
+                }
+
+                self.expect_type_match(
+                    &Type::String,
+                    &argument_types[0],
+                    expr.span,
+                    format!(
+                        "function `fs_file_size` expects argument `path` to be `string`, found `{}`",
+                        argument_types[0].describe()
+                    ),
+                );
+                Some(Type::I32)
             }
             "fs_copy_file" => {
                 let argument_types = arguments
@@ -703,6 +823,45 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 );
                 Some(Type::I32)
             }
+            "fs_rename" => {
+                let argument_types = arguments
+                    .iter()
+                    .map(|argument| self.check_expr(argument))
+                    .collect::<Vec<_>>();
+
+                if argument_types.len() != 2 {
+                    self.diagnostics.push(Diagnostic::new(
+                        "S0017",
+                        format!(
+                            "function `fs_rename` expects 2 argument(s), found {}",
+                            argument_types.len()
+                        ),
+                        self.info.source,
+                        expr.span,
+                    ));
+                    return Some(Type::Error);
+                }
+
+                self.expect_type_match(
+                    &Type::String,
+                    &argument_types[0],
+                    expr.span,
+                    format!(
+                        "function `fs_rename` expects argument `source_path` to be `string`, found `{}`",
+                        argument_types[0].describe()
+                    ),
+                );
+                self.expect_type_match(
+                    &Type::String,
+                    &argument_types[1],
+                    expr.span,
+                    format!(
+                        "function `fs_rename` expects argument `destination_path` to be `string`, found `{}`",
+                        argument_types[1].describe()
+                    ),
+                );
+                Some(Type::Void)
+            }
             "fs_create_dir_all" => {
                 let argument_types = arguments
                     .iter()
@@ -728,6 +887,36 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     expr.span,
                     format!(
                         "function `fs_create_dir_all` expects argument `path` to be `string`, found `{}`",
+                        argument_types[0].describe()
+                    ),
+                );
+                Some(Type::Void)
+            }
+            "fs_remove_file" => {
+                let argument_types = arguments
+                    .iter()
+                    .map(|argument| self.check_expr(argument))
+                    .collect::<Vec<_>>();
+
+                if argument_types.len() != 1 {
+                    self.diagnostics.push(Diagnostic::new(
+                        "S0017",
+                        format!(
+                            "function `fs_remove_file` expects 1 argument(s), found {}",
+                            argument_types.len()
+                        ),
+                        self.info.source,
+                        expr.span,
+                    ));
+                    return Some(Type::Error);
+                }
+
+                self.expect_type_match(
+                    &Type::String,
+                    &argument_types[0],
+                    expr.span,
+                    format!(
+                        "function `fs_remove_file` expects argument `path` to be `string`, found `{}`",
                         argument_types[0].describe()
                     ),
                 );

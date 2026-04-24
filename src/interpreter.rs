@@ -793,6 +793,41 @@ impl<'a> Interpreter<'a> {
             };
         }
 
+        if name == "path_resolve" {
+            if arguments.len() != 1 {
+                return Err(self.runtime_error(
+                    "R0095",
+                    format!(
+                        "function `path_resolve` expected 1 argument(s), got {}",
+                        arguments.len()
+                    ),
+                    span,
+                ));
+            }
+
+            let path = arguments
+                .into_iter()
+                .next()
+                .expect("path_resolve argument should exist");
+            return match path {
+                Value::String(path) => Ok(Value::String(
+                    self.resolve_host_path(&path).to_string_lossy().into_owned(),
+                )),
+                other => Err(self
+                    .runtime_error(
+                        "R0096",
+                        format!(
+                            "function `path_resolve` requires a `string` path, got `{}`",
+                            other.display()
+                        ),
+                        span,
+                    )
+                    .with_suggestion(
+                        "call `path_resolve` with a string value like `path_resolve(path)`",
+                    )),
+            };
+        }
+
         if name == "path_parent" {
             if arguments.len() != 1 {
                 return Err(self.runtime_error(
@@ -982,6 +1017,72 @@ impl<'a> Interpreter<'a> {
             };
         }
 
+        if name == "fs_is_file" {
+            if arguments.len() != 1 {
+                return Err(self.runtime_error(
+                    "R0097",
+                    format!(
+                        "function `fs_is_file` expected 1 argument(s), got {}",
+                        arguments.len()
+                    ),
+                    span,
+                ));
+            }
+
+            let path = arguments
+                .into_iter()
+                .next()
+                .expect("fs_is_file argument should exist");
+            return match path {
+                Value::String(path) => Ok(Value::Bool(self.resolve_host_path(&path).is_file())),
+                other => Err(self
+                    .runtime_error(
+                        "R0098",
+                        format!(
+                            "function `fs_is_file` requires a `string` path, got `{}`",
+                            other.display()
+                        ),
+                        span,
+                    )
+                    .with_suggestion(
+                        "call `fs_is_file` with a string value like `fs_is_file(path)`",
+                    )),
+            };
+        }
+
+        if name == "fs_is_dir" {
+            if arguments.len() != 1 {
+                return Err(self.runtime_error(
+                    "R0099",
+                    format!(
+                        "function `fs_is_dir` expected 1 argument(s), got {}",
+                        arguments.len()
+                    ),
+                    span,
+                ));
+            }
+
+            let path = arguments
+                .into_iter()
+                .next()
+                .expect("fs_is_dir argument should exist");
+            return match path {
+                Value::String(path) => Ok(Value::Bool(self.resolve_host_path(&path).is_dir())),
+                other => Err(self
+                    .runtime_error(
+                        "R0100",
+                        format!(
+                            "function `fs_is_dir` requires a `string` path, got `{}`",
+                            other.display()
+                        ),
+                        span,
+                    )
+                    .with_suggestion(
+                        "call `fs_is_dir` with a string value like `fs_is_dir(path)`",
+                    )),
+            };
+        }
+
         if name == "fs_exists" {
             if arguments.len() != 1 {
                 return Err(self.runtime_error(
@@ -1011,6 +1112,67 @@ impl<'a> Interpreter<'a> {
                     )
                     .with_suggestion(
                         "call `fs_exists` with a string value like `fs_exists(path)`",
+                    )),
+            };
+        }
+
+        if name == "fs_file_size" {
+            if arguments.len() != 1 {
+                return Err(self.runtime_error(
+                    "R0101",
+                    format!(
+                        "function `fs_file_size` expected 1 argument(s), got {}",
+                        arguments.len()
+                    ),
+                    span,
+                ));
+            }
+
+            let path = arguments
+                .into_iter()
+                .next()
+                .expect("fs_file_size argument should exist");
+            return match path {
+                Value::String(path) => {
+                    let resolved = self.resolve_host_path(&path);
+                    fs::metadata(&resolved)
+                        .map_err(|error| {
+                            self.runtime_error(
+                                "R0103",
+                                format!("failed to read metadata for `{}`: {error}", resolved.display()),
+                                span,
+                            )
+                            .with_suggestion(
+                                "pass an existing file path or guard with `fs_is_file(path)` first",
+                            )
+                        })
+                        .and_then(|metadata| {
+                            i32::try_from(metadata.len()).map(Value::I32).map_err(|_| {
+                                self.runtime_error(
+                                    "R0104",
+                                    format!(
+                                        "file `{}` is too large to report as `i32` bytes",
+                                        resolved.display()
+                                    ),
+                                    span,
+                                )
+                                .with_suggestion(
+                                    "handle smaller files or widen the AX file-size contract before processing multi-gigabyte assets",
+                                )
+                            })
+                        })
+                }
+                other => Err(self
+                    .runtime_error(
+                        "R0102",
+                        format!(
+                            "function `fs_file_size` requires a `string` path, got `{}`",
+                            other.display()
+                        ),
+                        span,
+                    )
+                    .with_suggestion(
+                        "call `fs_file_size` with a string value like `fs_file_size(path)`",
                     )),
             };
         }
@@ -1085,6 +1247,62 @@ impl<'a> Interpreter<'a> {
             };
         }
 
+        if name == "fs_rename" {
+            if arguments.len() != 2 {
+                return Err(self.runtime_error(
+                    "R0105",
+                    format!(
+                        "function `fs_rename` expected 2 argument(s), got {}",
+                        arguments.len()
+                    ),
+                    span,
+                ));
+            }
+
+            let mut arguments = arguments.into_iter();
+            let source_path = arguments
+                .next()
+                .expect("fs_rename source argument should exist");
+            let destination_path = arguments
+                .next()
+                .expect("fs_rename destination argument should exist");
+            return match (source_path, destination_path) {
+                (Value::String(source_path), Value::String(destination_path)) => {
+                    let resolved_source = self.resolve_host_path(&source_path);
+                    let resolved_destination = self.resolve_host_path(&destination_path);
+                    fs::rename(&resolved_source, &resolved_destination)
+                        .map(|_| Value::Void)
+                        .map_err(|error| {
+                            self.runtime_error(
+                                "R0107",
+                                format!(
+                                    "failed to rename `{}` to `{}`: {error}",
+                                    resolved_source.display(),
+                                    resolved_destination.display()
+                                ),
+                                span,
+                            )
+                            .with_suggestion(
+                                "ensure the source exists and the destination path is writable before calling `fs_rename`",
+                            )
+                        })
+                }
+                (source_path, destination_path) => Err(self
+                    .runtime_error(
+                        "R0106",
+                        format!(
+                            "function `fs_rename` requires `string` arguments, got `{}` and `{}`",
+                            source_path.display(),
+                            destination_path.display()
+                        ),
+                        span,
+                    )
+                    .with_suggestion(
+                        "call `fs_rename` like `fs_rename(source_path, destination_path)`",
+                    )),
+            };
+        }
+
         if name == "fs_create_dir_all" {
             if arguments.len() != 1 {
                 return Err(self.runtime_error(
@@ -1130,6 +1348,51 @@ impl<'a> Interpreter<'a> {
                     )
                     .with_suggestion(
                         "call `fs_create_dir_all` with a string value like `fs_create_dir_all(path)`",
+                    )),
+            };
+        }
+
+        if name == "fs_remove_file" {
+            if arguments.len() != 1 {
+                return Err(self.runtime_error(
+                    "R0108",
+                    format!(
+                        "function `fs_remove_file` expected 1 argument(s), got {}",
+                        arguments.len()
+                    ),
+                    span,
+                ));
+            }
+
+            let path = arguments
+                .into_iter()
+                .next()
+                .expect("fs_remove_file argument should exist");
+            return match path {
+                Value::String(path) => {
+                    let resolved = self.resolve_host_path(&path);
+                    fs::remove_file(&resolved).map(|_| Value::Void).map_err(|error| {
+                        self.runtime_error(
+                            "R0110",
+                            format!("failed to remove `{}`: {error}", resolved.display()),
+                            span,
+                        )
+                        .with_suggestion(
+                            "guard with `fs_exists(path)` before removing or pass an existing writable file path",
+                        )
+                    })
+                }
+                other => Err(self
+                    .runtime_error(
+                        "R0109",
+                        format!(
+                            "function `fs_remove_file` requires a `string` path, got `{}`",
+                            other.display()
+                        ),
+                        span,
+                    )
+                    .with_suggestion(
+                        "call `fs_remove_file` with a string value like `fs_remove_file(path)`",
                     )),
             };
         }
