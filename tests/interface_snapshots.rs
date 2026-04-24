@@ -372,6 +372,38 @@ fn write_single_runtime_case_manifest(temp: &TempDir, name: &str) -> PathBuf {
     )
 }
 
+fn json_path_literal(path: &Path) -> String {
+    path.to_string_lossy().replace('\\', "\\\\")
+}
+
+fn write_single_project_case_manifest(
+    temp: &TempDir,
+    name: &str,
+    project_path: &Path,
+    target_file_path: &Path,
+) -> PathBuf {
+    let manifest = serde_json::json!({
+        "version": 1,
+        "description": "Single-case project-context benchmark.",
+        "cases": [
+            {
+                "id": "project_missing_semicolon",
+                "file": json_path_literal(target_file_path),
+                "project": json_path_literal(project_path),
+                "category": "syntax",
+                "diagnostic_command": "check",
+                "expected_codes": ["P0001"],
+                "expected_ai_rule_ids": ["statement_terminator_required"],
+                "repair_goal": "Insert the missing semicolon in the project helper file.",
+                "notes": "Project-context contract-only benchmark case."
+            }
+        ]
+    });
+    let text =
+        serde_json::to_string_pretty(&manifest).expect("project manifest should serialize") + "\n";
+    temp.write(name, &text)
+}
+
 fn write_utf8_bom_candidate(path: &Path, text: &str) {
     let mut bytes = vec![0xEF, 0xBB, 0xBF];
     bytes.extend_from_slice(text.as_bytes());
@@ -1105,6 +1137,153 @@ fn repair_benchmark_export_keeps_cold_base_ai_artifact_contracts() {
 }
 
 #[test]
+fn repair_benchmark_export_supports_project_context_cases() {
+    let temp = TempDir::new("repair-benchmark-project-export");
+    let project_dir = temp.join("project");
+    fs::create_dir_all(project_dir.join("lib")).expect("project lib directory should exist");
+    fs::create_dir_all(project_dir.join("src")).expect("project src directory should exist");
+
+    fs::write(
+        project_dir.join("AX.toml"),
+        "\
+manifest_version = 1
+
+[package]
+name = \"repair_project_case\"
+entry = \"src/main.ax\"
+sources = [\"lib\"]
+",
+    )
+    .expect("project manifest should exist");
+    fs::write(
+        project_dir.join("lib").join("helper.ax"),
+        "\
+fn helper() -> i32 {
+    let value: i32 = 1
+    return value;
+}
+",
+    )
+    .expect("broken helper should exist");
+    fs::write(
+        project_dir.join("src").join("main.ax"),
+        "\
+fn main() -> i32 {
+    return helper();
+}
+",
+    )
+    .expect("entry source should exist");
+
+    let manifest_path = write_single_project_case_manifest(
+        &temp,
+        "single-project-case-manifest.json",
+        &project_dir,
+        &project_dir.join("lib").join("helper.ax"),
+    );
+    let output_dir = export_repair_benchmark(&temp, &manifest_path);
+
+    let index = read_json_file(
+        &output_dir.join("index.json"),
+        "project repair benchmark index",
+    );
+    let cases = index["cases"]
+        .as_array()
+        .expect("project repair benchmark export should include cases");
+    assert_eq!(cases.len(), 1);
+
+    let case_summary = &cases[0];
+    assert_eq!(
+        case_summary["project_target_relative_path"],
+        Value::from("lib/helper.ax")
+    );
+    assert_eq!(
+        json_string_array(
+            &case_summary["project_source_relative_paths"],
+            "project source relative paths",
+        ),
+        vec!["lib/helper.ax".to_string(), "src/main.ax".to_string()]
+    );
+    assert_eq!(
+        case_summary["artifacts"]["project_root"],
+        Value::from("project_missing_semicolon/project")
+    );
+    assert!(
+        output_dir
+            .join("project_missing_semicolon")
+            .join("project")
+            .join("AX.toml")
+            .exists(),
+        "project export should include AX.toml"
+    );
+    assert!(
+        output_dir
+            .join("project_missing_semicolon")
+            .join("project")
+            .join("lib")
+            .join("helper.ax")
+            .exists(),
+        "project export should include the target helper source"
+    );
+    assert!(
+        output_dir
+            .join("project_missing_semicolon")
+            .join("project")
+            .join("src")
+            .join("main.ax")
+            .exists(),
+        "project export should include the read-only project context files"
+    );
+
+    let cold_bundle = read_json_file(
+        &output_dir
+            .join("project_missing_semicolon")
+            .join("bundle.cold.json"),
+        "project cold bundle",
+    );
+    assert_eq!(
+        cold_bundle["project_root"],
+        Value::from("project_missing_semicolon/project")
+    );
+    assert_eq!(
+        cold_bundle["project_manifest_relative_path"],
+        Value::from("AX.toml")
+    );
+    assert_eq!(
+        cold_bundle["project_target_relative_path"],
+        Value::from("lib/helper.ax")
+    );
+    assert_eq!(
+        json_string_array(
+            &cold_bundle["project_source_relative_paths"],
+            "project bundle source relative paths",
+        ),
+        vec!["lib/helper.ax".to_string(), "src/main.ax".to_string()]
+    );
+
+    let prompt = normalize_text(
+        &fs::read_to_string(
+            output_dir
+                .join("project_missing_semicolon")
+                .join("prompt.base.md"),
+        )
+        .expect("project prompt should be readable"),
+    );
+    assert!(
+        prompt.contains("Broken AX source (target file: lib/helper.ax):"),
+        "project prompt should identify the target file explicitly"
+    );
+    assert!(
+        prompt.contains("Project manifest:"),
+        "project prompt should include the manifest as read-only context"
+    );
+    assert!(
+        prompt.contains("Read-only project file: src/main.ax"),
+        "project prompt should include supporting project source context"
+    );
+}
+
+#[test]
 fn repair_benchmark_run_accepts_large_stdout_only_adapter_output_without_timeout() {
     let temp = TempDir::new("repair-benchmark-stdout-only");
     let manifest_path = write_single_case_manifest(&temp, "single-case-manifest.json");
@@ -1577,6 +1756,133 @@ fn main() -> i32 {
     assert!(
         !normalized_copy.starts_with(&[0xEF, 0xBB, 0xBF]),
         "normalized candidate copy should stay BOM-free after UTF-16 normalization"
+    );
+}
+
+#[test]
+fn repair_benchmark_score_supports_project_context_cases() {
+    let temp = TempDir::new("repair-benchmark-project-score");
+    let project_dir = temp.join("project");
+    fs::create_dir_all(project_dir.join("lib")).expect("project lib directory should exist");
+    fs::create_dir_all(project_dir.join("src")).expect("project src directory should exist");
+
+    fs::write(
+        project_dir.join("AX.toml"),
+        "\
+manifest_version = 1
+
+[package]
+name = \"repair_project_case\"
+entry = \"src/main.ax\"
+sources = [\"lib\"]
+",
+    )
+    .expect("project manifest should exist");
+    fs::write(
+        project_dir.join("lib").join("helper.ax"),
+        "\
+fn helper() -> i32 {
+    let value: i32 = 1
+    return value;
+}
+",
+    )
+    .expect("broken helper should exist");
+    fs::write(
+        project_dir.join("src").join("main.ax"),
+        "\
+fn main() -> i32 {
+    return helper();
+}
+",
+    )
+    .expect("entry source should exist");
+
+    let manifest_path = write_single_project_case_manifest(
+        &temp,
+        "single-project-case-manifest.json",
+        &project_dir,
+        &project_dir.join("lib").join("helper.ax"),
+    );
+    let benchmark_dir = export_repair_benchmark(&temp, &manifest_path);
+
+    let candidates_dir = temp.join("candidates");
+    fs::create_dir_all(&candidates_dir).expect("project candidates directory should exist");
+    fs::write(
+        candidates_dir.join("project_missing_semicolon.ax"),
+        "\
+fn helper() -> i32 {
+    let value: i32 = 1;
+    return value;
+}
+",
+    )
+    .expect("project candidate should exist");
+
+    let output_dir = temp.join("score");
+    let script_path = repo_root()
+        .join("scripts")
+        .join("score-repair-benchmark.ps1");
+    let output = run_powershell_script(
+        &script_path,
+        [
+            OsStr::new("-BenchmarkDir"),
+            benchmark_dir.as_os_str(),
+            OsStr::new("-CandidatesDir"),
+            candidates_dir.as_os_str(),
+            OsStr::new("-OutputDir"),
+            output_dir.as_os_str(),
+            OsStr::new("-SkipBuild"),
+        ],
+    );
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "project-context score should succeed\nstdout:\n{}\nstderr:\n{}",
+        string_output(&output.stdout),
+        string_output(&output.stderr)
+    );
+    assert_clean_stderr(&output);
+
+    let summary = read_json_file(&output_dir.join("summary.json"), "project score summary");
+    let cases = summary["cases"]
+        .as_array()
+        .expect("project score summary should include cases");
+    assert_eq!(cases.len(), 1);
+    assert_eq!(cases[0]["status"], Value::from("passed"));
+    assert_eq!(cases[0]["check_exit_code"], Value::from(0));
+    assert_eq!(
+        json_string_array(&cases[0]["remaining_codes"], "project remaining codes"),
+        Vec::<String>::new()
+    );
+
+    let working_helper = normalize_text(
+        &fs::read_to_string(
+            output_dir
+                .join("project_missing_semicolon")
+                .join("project")
+                .join("lib")
+                .join("helper.ax"),
+        )
+        .expect("score should reconstruct the project helper file"),
+    );
+    assert_eq!(
+        working_helper,
+        "\
+fn helper() -> i32 {
+    let value: i32 = 1;
+    return value;
+}
+"
+    );
+    assert!(
+        output_dir
+            .join("project_missing_semicolon")
+            .join("project")
+            .join("src")
+            .join("main.ax")
+            .exists(),
+        "score should keep the read-only project context files in the working tree"
     );
 }
 

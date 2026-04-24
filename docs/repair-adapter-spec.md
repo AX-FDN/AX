@@ -83,7 +83,16 @@ The stable bundle fields today are:
 - `source_file`
 - `diagnostics`
 
+Project-backed cases add these optional fields:
+
+- `project`
+- `project_root`
+- `project_manifest_relative_path`
+- `project_target_relative_path`
+- `project_source_relative_paths`
+
 `diagnostic_command` tells the adapter whether the exported failure came from `axc check --json` or `axc run --json`. Adapters do not need to execute that command themselves, but they may use it to tailor prompts or repair strategy.
+When the optional project fields are present, `source_file` still points to the broken target source copy, while `project_root` points at the exported read-only project snapshot and the relative-path fields describe paths inside that snapshot.
 
 Adapters should treat the prompt and bundle as read-only inputs.
 
@@ -115,6 +124,7 @@ The runner records stdout and stderr either way. A zero exit with no file and no
 The repository expects the final repair to be:
 
 - the full AX source, not a patch
+- for project-backed cases, the full AX source of the target file named in the bundle, not a multi-file archive or an edited project tree
 - plain source code, not Markdown fences
 - compatible with the currently implemented AX prototype
 

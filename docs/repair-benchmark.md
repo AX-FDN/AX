@@ -39,6 +39,7 @@ The full manifest schema is:
     {
       "id": "missing_semicolon_basic",
       "file": "examples/missing_semicolon.ax",
+      "project": "examples/project_name",
       "category": "syntax",
       "diagnostic_command": "check",
       "expected_codes": ["P0001"],
@@ -59,7 +60,9 @@ Field meanings:
 - `cases[].id`
   Stable case identifier used in artifacts, candidate lookup, and reports.
 - `cases[].file`
-  Repository-relative path to the broken AX source.
+  Path to the broken AX source that the adapter should rewrite. Repository-relative paths are the normal form, but the current scripts also accept absolute paths for local contract tests.
+- `cases[].project`
+  Optional AX project root or `AX.toml` path. When present, diagnostics are exported from the whole project while `cases[].file` still names the specific AX source file that should be repaired.
 - `cases[].category`
   Stable grouping key such as `syntax`, `semantic`, or `unsupported`.
 - `cases[].diagnostic_command`
@@ -90,7 +93,9 @@ By default it writes to:
 Each case directory contains:
 
 - `source.ax`
-  Broken source copied from the manifest input.
+  Broken target source copied from `cases[].file`.
+- `project\`
+  Present only for project-backed cases. Keeps a read-only AX project snapshot containing `AX.toml` plus the `.ax` files needed to re-run `check` or `run` against the whole project.
 - `diagnostics.base.json`
   Output of `axc <diagnostic_command> <file> --json`.
 - `diagnostics.ai.json`
@@ -125,6 +130,7 @@ The export script validates the benchmark as it exports it:
 If any case drifts, export fails immediately.
 
 For `run`-based cases, the exported prompts also include an explicit runtime-repair note so adapters know the failure already passed `check` and should be repaired without introducing new check-time diagnostics.
+For project-backed cases, the exported prompts additionally include the project manifest and the other AX source files as read-only context, while keeping the broken target file as the only file the adapter is expected to rewrite.
 For stable replay baselines, prefer repaired runtime candidates whose `main` returns `0` after the fix so benchmark evidence does not depend on the program's business result becoming the process exit code.
 
 ## Run Step
@@ -303,6 +309,8 @@ Candidate lookup supports two layouts:
 
 - `.ax-ai\repair-candidates\demo\<case-id>.ax`
 - `.ax-ai\repair-candidates\demo\<case-id>\repaired.ax`
+
+For project-backed benchmark cases, the candidate is still one repaired AX file. The scorer reconstructs the exported `project\` snapshot, overwrites the target file named by the benchmark metadata, and then runs `axc check` / `axc run` against that working project root.
 
 The scorer runs:
 

@@ -129,6 +129,24 @@ function Read-TextFileWithBomDetection {
     }
 }
 
+function Copy-DirectorySnapshot {
+    param(
+        [string] $SourceRoot,
+        [string] $DestinationRoot
+    )
+
+    New-Item -ItemType Directory -Force -Path $DestinationRoot | Out-Null
+
+    $sourcePrefix = [System.IO.Path]::GetFullPath($SourceRoot).TrimEnd('\', '/')
+    $files = Get-ChildItem -Path $SourceRoot -Recurse -File | Sort-Object FullName
+    foreach ($file in $files) {
+        $fullPath = [System.IO.Path]::GetFullPath($file.FullName)
+        $relativePath = $fullPath.Substring($sourcePrefix.Length).TrimStart('\', '/')
+        $text = Read-TextFileWithBomDetection -Path $file.FullName
+        Write-Utf8File -Path (Join-Path $DestinationRoot $relativePath) -Text $text
+    }
+}
+
 function Invoke-Axc {
     param(
         [string] $BinaryPath,
@@ -333,10 +351,30 @@ foreach ($case in @($benchmarkIndex.cases)) {
     }
 
     $candidateText = Read-TextFileWithBomDetection -Path $candidatePath
-    $scoredCandidatePath = Join-Path $caseOutputDir "candidate.ax"
-    Write-Utf8File -Path $scoredCandidatePath -Text $candidateText
+    $projectRootArtifact = $case.artifacts.project_root
+    $projectTargetRelativePath = [string] $case.project_target_relative_path
+    $scoredCandidatePath = $null
+    $validationInputPath = $null
 
-    $checkResult = Invoke-Axc -BinaryPath $binary -Arguments @("check", $scoredCandidatePath, "--json")
+    if (($null -ne $projectRootArtifact) -and (-not [string]::IsNullOrWhiteSpace($projectTargetRelativePath))) {
+        $benchmarkProjectRoot = Join-Path $benchmarkDirPath ([string] $projectRootArtifact)
+        if (-not (Test-Path $benchmarkProjectRoot)) {
+            Write-Error "Exported benchmark project root not found for case '$caseId': $benchmarkProjectRoot"
+        }
+
+        $workingProjectRoot = Join-Path $caseOutputDir "project"
+        Copy-DirectorySnapshot -SourceRoot $benchmarkProjectRoot -DestinationRoot $workingProjectRoot
+
+        $scoredCandidatePath = Join-Path $workingProjectRoot $projectTargetRelativePath
+        Write-Utf8File -Path $scoredCandidatePath -Text $candidateText
+        $validationInputPath = $workingProjectRoot
+    } else {
+        $scoredCandidatePath = Join-Path $caseOutputDir "candidate.ax"
+        Write-Utf8File -Path $scoredCandidatePath -Text $candidateText
+        $validationInputPath = $scoredCandidatePath
+    }
+
+    $checkResult = Invoke-Axc -BinaryPath $binary -Arguments @("check", $validationInputPath, "--json")
     if ($checkResult.ExitCode -ne 0 -and $checkResult.ExitCode -ne 1) {
         Write-Error "Repair check failed for case '$caseId' with exit code $($checkResult.ExitCode)."
     }
@@ -352,7 +390,7 @@ foreach ($case in @($benchmarkIndex.cases)) {
 
     $runInfo = $null
     if ($diagnosticCommand -eq "run" -and $success) {
-        $runResult = Invoke-Axc -BinaryPath $binary -Arguments @("run", $scoredCandidatePath, "--json")
+        $runResult = Invoke-Axc -BinaryPath $binary -Arguments @("run", $validationInputPath, "--json")
         $runtimeDiagnosticsResult = Try-ReadDiagnosticsArray -Text $runResult.StdOut
         $runtimeDiagnostics = @($runtimeDiagnosticsResult.Diagnostics)
         $runtimeRemainingCodes = @($runtimeDiagnostics | ForEach-Object { [string] $_.code })
@@ -372,7 +410,7 @@ foreach ($case in @($benchmarkIndex.cases)) {
             $status = "failed"
         }
     } elseif ($RunPrograms -and $success) {
-        $runResult = Invoke-Axc -BinaryPath $binary -Arguments @("run", $scoredCandidatePath)
+        $runResult = Invoke-Axc -BinaryPath $binary -Arguments @("run", $validationInputPath)
         $runInfo = [pscustomobject][ordered]@{
             command_exit_code = $runResult.ExitCode
             stdout            = $runResult.StdOut.TrimEnd()

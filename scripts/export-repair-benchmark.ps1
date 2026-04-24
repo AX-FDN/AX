@@ -14,9 +14,17 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 $cargoScript = Join-Path $PSScriptRoot "cargo-gnu.ps1"
 $repoCargoConfig = Join-Path $repoRoot ".cargo\\config.toml"
 
-if (-not [System.IO.Path]::IsPathRooted($ManifestPath)) {
-    $ManifestPath = Join-Path $repoRoot $ManifestPath
+function Resolve-RepoPath {
+    param([string] $Path)
+
+    if ([System.IO.Path]::IsPathRooted($Path)) {
+        return $Path
+    }
+
+    return Join-Path $repoRoot $Path
 }
+
+$ManifestPath = Resolve-RepoPath -Path $ManifestPath
 
 if ([string]::IsNullOrWhiteSpace($OutputDir)) {
     $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
@@ -74,6 +82,110 @@ function Write-Utf8File {
     [System.IO.File]::WriteAllText($Path, $Text, $encoding)
 }
 
+function Get-NormalizedFullPath {
+    param([string] $Path)
+
+    return [System.IO.Path]::GetFullPath($Path)
+}
+
+function Get-ProjectRelativePath {
+    param(
+        [string] $RootPath,
+        [string] $Path
+    )
+
+    $normalizedRoot = Get-NormalizedFullPath -Path $RootPath
+    $normalizedPath = Get-NormalizedFullPath -Path $Path
+    $rootPrefix = $normalizedRoot.TrimEnd('\', '/')
+
+    if ($normalizedPath -eq $rootPrefix) {
+        return ""
+    }
+
+    $comparison = [System.StringComparison]::OrdinalIgnoreCase
+    if (-not $normalizedPath.StartsWith($rootPrefix + [System.IO.Path]::DirectorySeparatorChar, $comparison)) {
+        Write-Error "Path $normalizedPath does not live under project root $normalizedRoot"
+    }
+
+    return $normalizedPath.Substring($rootPrefix.Length).TrimStart('\', '/').Replace('\', '/')
+}
+
+function Resolve-ProjectInput {
+    param([string] $Path)
+
+    $resolvedPath = Resolve-RepoPath -Path $Path
+    if (-not (Test-Path $resolvedPath)) {
+        Write-Error "AX project input not found: $Path"
+    }
+
+    $item = Get-Item $resolvedPath
+    if ($item.PSIsContainer) {
+        $rootDir = $item.FullName
+        $manifestPath = Join-Path $rootDir "AX.toml"
+        if (-not (Test-Path $manifestPath)) {
+            Write-Error "AX project directory $resolvedPath does not contain AX.toml"
+        }
+
+        return [pscustomobject]@{
+            InputPath     = $rootDir
+            RootDir       = $rootDir
+            ManifestPath  = $manifestPath
+            ManifestLabel = $Path
+        }
+    }
+
+    if ($item.Name -ne "AX.toml") {
+        Write-Error "AX project input $resolvedPath must be a project directory or AX.toml"
+    }
+
+    return [pscustomobject]@{
+        InputPath     = $item.FullName
+        RootDir       = Split-Path -Parent $item.FullName
+        ManifestPath  = $item.FullName
+        ManifestLabel = $Path
+    }
+}
+
+function Export-ProjectSnapshot {
+    param(
+        [string] $ProjectRoot,
+        [string] $DestinationRoot
+    )
+
+    New-Item -ItemType Directory -Force -Path $DestinationRoot | Out-Null
+
+    $manifestPath = Join-Path $ProjectRoot "AX.toml"
+    if (-not (Test-Path $manifestPath)) {
+        Write-Error "AX project root $ProjectRoot does not contain AX.toml"
+    }
+
+    $manifestText = Get-Content $manifestPath -Raw -Encoding utf8
+    Write-Utf8File -Path (Join-Path $DestinationRoot "AX.toml") -Text $manifestText
+
+    $sourceFiles = Get-ChildItem -Path $ProjectRoot -Recurse -File -Filter *.ax |
+        Sort-Object FullName
+    $relativePaths = New-Object System.Collections.Generic.List[string]
+    $contextFiles = New-Object System.Collections.Generic.List[object]
+
+    foreach ($sourceFile in $sourceFiles) {
+        $relativePath = Get-ProjectRelativePath -RootPath $ProjectRoot -Path $sourceFile.FullName
+        $sourceText = Get-Content $sourceFile.FullName -Raw -Encoding utf8
+        Write-Utf8File -Path (Join-Path $DestinationRoot $relativePath) -Text $sourceText
+        $relativePaths.Add($relativePath)
+        $contextFiles.Add([pscustomobject]@{
+            relative_path = $relativePath
+            text          = $sourceText
+        })
+    }
+
+    return [pscustomobject]@{
+        manifest_text          = $manifestText
+        manifest_relative_path = "AX.toml"
+        source_relative_paths  = $relativePaths.ToArray()
+        context_files          = $contextFiles.ToArray()
+    }
+}
+
 function Format-JsonText {
     param([object] $Value)
 
@@ -88,7 +200,10 @@ function New-RepairPrompt {
         [string] $RepairGoal,
         [string] $Notes,
         [string] $SourceText,
-        [string] $DiagnosticsJson
+        [string] $DiagnosticsJson,
+        [string] $TargetFile = "",
+        [string] $ProjectManifestText = "",
+        [object[]] $ProjectContextFiles = @()
     )
 
     $notesBlock = ""
@@ -114,6 +229,43 @@ $DiagnosticsJson
 "@
     }
 
+    $sourceHeader = "Broken AX source:"
+    if (-not [string]::IsNullOrWhiteSpace($TargetFile)) {
+        $sourceHeader = "Broken AX source (target file: $TargetFile):"
+    }
+
+    $projectContextBlock = ""
+    if (-not [string]::IsNullOrWhiteSpace($ProjectManifestText) -or $ProjectContextFiles.Count -gt 0) {
+        $projectContextBlock = @"
+
+Project context:
+- Repair only the target file shown above.
+- Treat the remaining project files as read-only context.
+"@
+
+        if (-not [string]::IsNullOrWhiteSpace($ProjectManifestText)) {
+            $projectContextBlock += @"
+
+Project manifest:
+~~~toml
+$ProjectManifestText
+~~~
+"@
+        }
+
+        foreach ($contextFile in @($ProjectContextFiles)) {
+            $contextPath = [string] $contextFile.relative_path
+            $contextText = [string] $contextFile.text
+            $projectContextBlock += @"
+
+Read-only project file: $contextPath
+~~~ax
+$contextText
+~~~
+"@
+        }
+    }
+
     @"
 You are repairing a broken AX program.
 
@@ -137,10 +289,11 @@ Diagnostic command: axc $DiagnosticCommand --json
 Repair goal: $RepairGoal
 $runtimeRepairBlock
 $notesBlock
-Broken AX source:
+$sourceHeader
 ~~~ax
 $SourceText
 ~~~
+$projectContextBlock
 $diagnosticsBlock
 "@
 }
@@ -277,8 +430,13 @@ $exportedCases = New-Object System.Collections.Generic.List[object]
 foreach ($case in @($manifest.cases)) {
     $caseId = [string] $case.id
     $relativeFile = [string] $case.file
-    $sourcePath = Join-Path $repoRoot $relativeFile
+    $sourcePath = Resolve-RepoPath -Path $relativeFile
     $diagnosticCommand = Resolve-DiagnosticCommand -CaseId $caseId -Case $case
+    $projectPathLabel = [string] $case.project
+    $projectInput = $null
+    $projectSnapshot = $null
+    $projectTargetRelativePath = ""
+    $diagnosticTarget = $relativeFile
 
     if ([string]::IsNullOrWhiteSpace($caseId)) {
         Write-Error "Encountered repair benchmark case with empty id."
@@ -293,12 +451,19 @@ foreach ($case in @($manifest.cases)) {
 
     $sourceText = Get-Content $sourcePath -Raw -Encoding utf8
 
-    $baseResult = Invoke-Axc -BinaryPath $binary -Arguments @($diagnosticCommand, $relativeFile, "--json")
+    if (-not [string]::IsNullOrWhiteSpace($projectPathLabel)) {
+        $projectInput = Resolve-ProjectInput -Path $projectPathLabel
+        $projectTargetRelativePath = Get-ProjectRelativePath -RootPath $projectInput.RootDir -Path $sourcePath
+        $diagnosticTarget = $projectInput.ManifestLabel
+        $projectSnapshot = Export-ProjectSnapshot -ProjectRoot $projectInput.RootDir -DestinationRoot (Join-Path $caseDir "project")
+    }
+
+    $baseResult = Invoke-Axc -BinaryPath $binary -Arguments @($diagnosticCommand, $diagnosticTarget, "--json")
     if ($baseResult.ExitCode -ne 0 -and $baseResult.ExitCode -ne 1) {
         Write-Error "Base diagnostics failed for case '$caseId' with exit code $($baseResult.ExitCode)."
     }
 
-    $aiResult = Invoke-Axc -BinaryPath $binary -Arguments @($diagnosticCommand, $relativeFile, "--json", "--ai")
+    $aiResult = Invoke-Axc -BinaryPath $binary -Arguments @($diagnosticCommand, $diagnosticTarget, "--json", "--ai")
     if ($aiResult.ExitCode -ne 0 -and $aiResult.ExitCode -ne 1) {
         Write-Error "AI diagnostics failed for case '$caseId' with exit code $($aiResult.ExitCode)."
     }
@@ -332,6 +497,10 @@ foreach ($case in @($manifest.cases)) {
     $basePromptArtifact = Join-Path $caseDir "prompt.base.md"
     $aiPromptArtifact = Join-Path $caseDir "prompt.ai.md"
     $caseArtifact = Join-Path $caseDir "case.json"
+    $projectRootArtifact = $null
+    if ($projectInput) {
+        $projectRootArtifact = Join-Path $caseDir "project"
+    }
 
     $baseDiagnosticsText = Format-JsonText -Value (@($baseDiagnostics))
     $aiDiagnosticsText = Format-JsonText -Value (@($aiDiagnostics))
@@ -381,15 +550,32 @@ foreach ($case in @($manifest.cases)) {
         diagnostics          = @($aiDiagnostics)
     }
 
+    if ($projectInput) {
+        $projectRootArtifactPath = "$caseId/project"
+        $projectContextFiles = @($projectSnapshot.context_files)
+        $contextFilesWithoutTarget = @($projectContextFiles | Where-Object {
+            [string] $_.relative_path -ne $projectTargetRelativePath
+        })
+        foreach ($bundle in @($coldBundle, $baseBundle, $aiBundle)) {
+            $bundle.project = $projectPathLabel
+            $bundle.project_root = $projectRootArtifactPath
+            $bundle.project_manifest_relative_path = [string] $projectSnapshot.manifest_relative_path
+            $bundle.project_target_relative_path = $projectTargetRelativePath
+            $bundle.project_source_relative_paths = @($projectSnapshot.source_relative_paths)
+        }
+    } else {
+        $contextFilesWithoutTarget = @()
+    }
+
     Write-Utf8File -Path $sourceArtifact -Text $sourceText
     Write-Utf8File -Path $baseArtifact -Text $baseDiagnosticsText
     Write-Utf8File -Path $aiArtifact -Text $aiDiagnosticsText
     Write-Utf8File -Path $coldBundleArtifact -Text (Format-JsonText -Value $coldBundle)
     Write-Utf8File -Path $baseBundleArtifact -Text (Format-JsonText -Value $baseBundle)
     Write-Utf8File -Path $aiBundleArtifact -Text (Format-JsonText -Value $aiBundle)
-    Write-Utf8File -Path $coldPromptArtifact -Text (New-RepairPrompt -CaseId $caseId -FeedbackMode "cold_prompt" -DiagnosticCommand $diagnosticCommand -RepairGoal ([string] $case.repair_goal) -Notes ([string] $case.notes) -SourceText $sourceText -DiagnosticsJson "")
-    Write-Utf8File -Path $basePromptArtifact -Text (New-RepairPrompt -CaseId $caseId -FeedbackMode "base_json" -DiagnosticCommand $diagnosticCommand -RepairGoal ([string] $case.repair_goal) -Notes ([string] $case.notes) -SourceText $sourceText -DiagnosticsJson $baseDiagnosticsText)
-    Write-Utf8File -Path $aiPromptArtifact -Text (New-RepairPrompt -CaseId $caseId -FeedbackMode "ai_json" -DiagnosticCommand $diagnosticCommand -RepairGoal ([string] $case.repair_goal) -Notes ([string] $case.notes) -SourceText $sourceText -DiagnosticsJson $aiDiagnosticsText)
+    Write-Utf8File -Path $coldPromptArtifact -Text (New-RepairPrompt -CaseId $caseId -FeedbackMode "cold_prompt" -DiagnosticCommand $diagnosticCommand -RepairGoal ([string] $case.repair_goal) -Notes ([string] $case.notes) -SourceText $sourceText -DiagnosticsJson "" -TargetFile $projectTargetRelativePath -ProjectManifestText ([string] $projectSnapshot.manifest_text) -ProjectContextFiles $contextFilesWithoutTarget)
+    Write-Utf8File -Path $basePromptArtifact -Text (New-RepairPrompt -CaseId $caseId -FeedbackMode "base_json" -DiagnosticCommand $diagnosticCommand -RepairGoal ([string] $case.repair_goal) -Notes ([string] $case.notes) -SourceText $sourceText -DiagnosticsJson $baseDiagnosticsText -TargetFile $projectTargetRelativePath -ProjectManifestText ([string] $projectSnapshot.manifest_text) -ProjectContextFiles $contextFilesWithoutTarget)
+    Write-Utf8File -Path $aiPromptArtifact -Text (New-RepairPrompt -CaseId $caseId -FeedbackMode "ai_json" -DiagnosticCommand $diagnosticCommand -RepairGoal ([string] $case.repair_goal) -Notes ([string] $case.notes) -SourceText $sourceText -DiagnosticsJson $aiDiagnosticsText -TargetFile $projectTargetRelativePath -ProjectManifestText ([string] $projectSnapshot.manifest_text) -ProjectContextFiles $contextFilesWithoutTarget)
 
     $caseSummary = [ordered]@{
         id                   = $caseId
@@ -418,6 +604,14 @@ foreach ($case in @($manifest.cases)) {
             ai_codes       = $observedAiCodes
             ai_rule_ids    = $observedAiRuleIds
         }
+    }
+
+    if ($projectInput) {
+        $caseSummary.project = $projectPathLabel
+        $caseSummary.project_manifest_relative_path = [string] $projectSnapshot.manifest_relative_path
+        $caseSummary.project_target_relative_path = $projectTargetRelativePath
+        $caseSummary.project_source_relative_paths = @($projectSnapshot.source_relative_paths)
+        $caseSummary.artifacts.project_root = "$caseId/project"
     }
 
     Write-Utf8File -Path $caseArtifact -Text (($caseSummary | ConvertTo-Json -Depth 100) + "`n")
