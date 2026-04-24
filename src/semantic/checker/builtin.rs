@@ -212,6 +212,68 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 );
                 Some(Type::String)
             }
+            "string_trim" => {
+                let argument_types = arguments
+                    .iter()
+                    .map(|argument| self.check_expr(argument))
+                    .collect::<Vec<_>>();
+
+                if argument_types.len() != 1 {
+                    self.diagnostics.push(Diagnostic::new(
+                        "S0017",
+                        format!(
+                            "function `string_trim` expects 1 argument(s), found {}",
+                            argument_types.len()
+                        ),
+                        self.info.source,
+                        expr.span,
+                    ));
+                    return Some(Type::Error);
+                }
+
+                self.expect_type_match(
+                    &Type::String,
+                    &argument_types[0],
+                    expr.span,
+                    format!(
+                        "function `string_trim` expects argument `text` to be `string`, found `{}`",
+                        argument_types[0].describe()
+                    ),
+                );
+                Some(Type::String)
+            }
+            "string_split_lines" => {
+                let argument_types = arguments
+                    .iter()
+                    .map(|argument| self.check_expr(argument))
+                    .collect::<Vec<_>>();
+
+                if argument_types.len() != 1 {
+                    self.diagnostics.push(Diagnostic::new(
+                        "S0017",
+                        format!(
+                            "function `string_split_lines` expects 1 argument(s), found {}",
+                            argument_types.len()
+                        ),
+                        self.info.source,
+                        expr.span,
+                    ));
+                    return Some(Type::Error);
+                }
+
+                self.expect_type_match(
+                    &Type::String,
+                    &argument_types[0],
+                    expr.span,
+                    format!(
+                        "function `string_split_lines` expects argument `text` to be `string`, found `{}`",
+                        argument_types[0].describe()
+                    ),
+                );
+                Some(Type::Slice {
+                    element: Box::new(Type::String),
+                })
+            }
             "len" => {
                 let argument_types = arguments
                     .iter()

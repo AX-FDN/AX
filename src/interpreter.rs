@@ -416,6 +416,76 @@ impl<'a> Interpreter<'a> {
             };
         }
 
+        if name == "string_trim" {
+            if arguments.len() != 1 {
+                return Err(self.runtime_error(
+                    "R0124",
+                    format!(
+                        "function `string_trim` expected 1 argument(s), got {}",
+                        arguments.len()
+                    ),
+                    span,
+                ));
+            }
+
+            let text = arguments
+                .into_iter()
+                .next()
+                .expect("string_trim argument should exist");
+            return match text {
+                Value::String(text) => Ok(Value::String(text.trim().to_string())),
+                other => Err(self
+                    .runtime_error(
+                        "R0125",
+                        format!(
+                            "function `string_trim` requires a `string` argument, got `{}`",
+                            other.display()
+                        ),
+                        span,
+                    )
+                    .with_suggestion(
+                        "call `string_trim` with a string value like `string_trim(text)`",
+                    )),
+            };
+        }
+
+        if name == "string_split_lines" {
+            if arguments.len() != 1 {
+                return Err(self.runtime_error(
+                    "R0126",
+                    format!(
+                        "function `string_split_lines` expected 1 argument(s), got {}",
+                        arguments.len()
+                    ),
+                    span,
+                ));
+            }
+
+            let text = arguments
+                .into_iter()
+                .next()
+                .expect("string_split_lines argument should exist");
+            return match text {
+                Value::String(text) => Ok(Value::Slice(
+                    text.lines()
+                        .map(|line| Value::String(line.to_string()))
+                        .collect(),
+                )),
+                other => Err(self
+                    .runtime_error(
+                        "R0127",
+                        format!(
+                            "function `string_split_lines` requires a `string` argument, got `{}`",
+                            other.display()
+                        ),
+                        span,
+                    )
+                    .with_suggestion(
+                        "call `string_split_lines` with a string value like `string_split_lines(text)`",
+                    )),
+            };
+        }
+
         if name == "len" {
             if arguments.len() != 1 {
                 return Err(self.runtime_error(
