@@ -234,6 +234,36 @@ impl<'a> Interpreter<'a> {
             };
         }
 
+        if name == "to_string" {
+            if arguments.len() != 1 {
+                return Err(self.runtime_error(
+                    "R0041",
+                    format!(
+                        "function `to_string` expected 1 argument(s), got {}",
+                        arguments.len()
+                    ),
+                    span,
+                ));
+            }
+
+            let value = arguments
+                .into_iter()
+                .next()
+                .expect("to_string argument should exist");
+            return match value {
+                Value::Void => Err(self
+                    .runtime_error(
+                        "R0042",
+                        "function `to_string` requires a concrete runtime value, got `<void>`",
+                        span,
+                    )
+                    .with_suggestion(
+                        "call `to_string` on a string, number, bool, enum, struct, array, or slice value",
+                    )),
+                other => Ok(Value::String(other.display())),
+            };
+        }
+
         let function = self.functions.get(name).copied().ok_or_else(|| {
             self.runtime_error("R0003", format!("call to unknown function `{name}`"), span)
         })?;
@@ -1156,5 +1186,36 @@ fn main() -> i32 {
         let output = run_program(&source, &hir).expect("program should run");
         assert_eq!(output.exit_code, 15);
         assert_eq!(output.stdout, vec!["2", "5", "3", "9"]);
+    }
+
+    #[test]
+    fn runs_to_string_for_tool_style_reports() {
+        let (source, hir) = analyzed_hir(
+            "\
+struct Summary {
+    count: i32,
+    ready: bool,
+}
+
+fn build_report(summary: Summary, values: [i32]) -> string {
+    let mut report: string = \"count=\" + to_string(summary.count);
+    report = report + \", ready=\" + to_string(summary.ready);
+    report = report + \", values=\" + to_string(values);
+    return report;
+}
+
+fn main() -> i32 {
+    let summary: Summary = Summary { count: 3, ready: true };
+    let values: [i32; 3] = [2, 4, 6];
+    let report: string = build_report(summary, values[0:2]);
+    println(report);
+    return string_len(report);
+}
+",
+        );
+
+        let output = run_program(&source, &hir).expect("program should run");
+        assert_eq!(output.exit_code, 34);
+        assert_eq!(output.stdout, vec!["count=3, ready=true, values=[2, 4]"]);
     }
 }

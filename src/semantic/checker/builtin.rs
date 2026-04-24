@@ -90,6 +90,64 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     }
                 }
             }
+            "to_string" => {
+                let argument_types = arguments
+                    .iter()
+                    .map(|argument| self.check_expr(argument))
+                    .collect::<Vec<_>>();
+
+                if argument_types.len() != 1 {
+                    self.diagnostics.push(Diagnostic::new(
+                        "S0017",
+                        format!(
+                            "function `to_string` expects 1 argument(s), found {}",
+                            argument_types.len()
+                        ),
+                        self.info.source,
+                        expr.span,
+                    ));
+                    return Some(Type::Error);
+                }
+
+                match &argument_types[0] {
+                    Type::Error => Some(Type::Error),
+                    Type::Void => {
+                        self.diagnostics.push(
+                            Diagnostic::new(
+                                "S0022",
+                                "function `to_string` expects argument `value` to be a concrete runtime value, found `<void>`",
+                                self.info.source,
+                                expr.span,
+                            )
+                            .with_note(
+                                "`to_string` formats an existing runtime value; `println(...)` does not produce one",
+                            )
+                            .with_suggestion(
+                                "call `to_string` on a string, number, bool, enum, struct, array, or slice value",
+                            ),
+                        );
+                        Some(Type::Error)
+                    }
+                    Type::EmptyArrayLiteral => {
+                        self.diagnostics.push(
+                            Diagnostic::new(
+                                "S0022",
+                                "function `to_string` expects argument `value` to have a concrete runtime type, found `[]`",
+                                self.info.source,
+                                expr.span,
+                            )
+                            .with_note(
+                                "an empty array literal must first be placed in an explicit zero-length array context",
+                            )
+                            .with_suggestion(
+                                "bind `[]` as something like `[i32; 0]` before converting it with `to_string`",
+                            ),
+                        );
+                        Some(Type::Error)
+                    }
+                    _ => Some(Type::String),
+                }
+            }
             _ => None,
         }
     }

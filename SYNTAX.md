@@ -202,6 +202,7 @@ values[1:3]
 "AX " + "report"
 string_len("AX report")
 len("AX report")
+to_string(42)
 ```
 
 枚举值：
@@ -312,6 +313,7 @@ array_type        := "[" type_ref ";" INT "]"
 - 递归
 - 内置 `string_len`
 - 内置 `len`
+- 内置 `to_string`
 - 结构体字面量与字段读取
 - 枚举值比较
 - 内置 `println`
@@ -345,7 +347,7 @@ Rules:
 - main must be exactly: fn main() -> i32 { ... }.
 - End let/assignment/expression/return statements with semicolons.
 - Supported primitive types are bool, i32, f32, string.
-- Builtin helpers are println(...), string_len(text), and len(value).
+- Builtin helpers are println(...), string_len(text), len(value), and to_string(value).
 - Enum values must use EnumName.Variant.
 - Construct structs with TypeName { field: expr, ... }.
 - Use for loops only as for (init; condition; step) { ... }.

@@ -1,0 +1,19 @@
+struct Summary {
+    count: i32,
+    ready: bool,
+}
+
+fn build_report(summary: Summary, values: [i32]) -> string {
+    let mut report: string = "count=" + to_string(summary.count);
+    report = report + ", ready=" + to_string(summary.ready);
+    report = report + ", values=" + to_string(values);
+    return report;
+}
+
+fn main() -> i32 {
+    let summary: Summary = Summary { count: 3, ready: true };
+    let values: [i32; 3] = [2, 4, 6];
+    let report: string = build_report(summary, values[0:2]);
+    println(report);
+    return string_len(report);
+}

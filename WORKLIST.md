@@ -169,10 +169,42 @@
   - 不做范围：不接入新的模型供应商，不引入新的语言特性，只补 benchmark 与修复资产。
   - 完成于：2026-04-24
   - 备注：已把 [`examples/len_non_countable.ax`](C:/Users/xiaoy/Desktop/A语言/AX/examples/len_non_countable.ax)、[`examples/non_slice_base.ax`](C:/Users/xiaoy/Desktop/A语言/AX/examples/non_slice_base.ax)、[`examples/slice_assignment.ax`](C:/Users/xiaoy/Desktop/A语言/AX/examples/slice_assignment.ax) 接入 full/smoke manifest，并补齐 [`benchmarks/repair-candidates/smoke`](C:/Users/xiaoy/Desktop/A语言/AX/benchmarks/repair-candidates/smoke)、[`benchmarks/repair-candidates/compare/base`](C:/Users/xiaoy/Desktop/A语言/AX/benchmarks/repair-candidates/compare/base) 与 [`benchmarks/repair-candidates/compare/cold`](C:/Users/xiaoy/Desktop/A语言/AX/benchmarks/repair-candidates/compare/cold) 的 replay 资产；compare smoke 现稳定验证 8 个 case、`cold -> base -> ai` 三模式差异。
+- [x] `P1-6` 最小格式化能力
+  - 目标：在不引入完整格式化 DSL 的前提下，先让 AX 能把运行时值稳定转成字符串，支撑工具式报告和摘要拼接。
+  - 输入：现有 `string + string`、`len(value)`、运行时 `display` 逻辑与工具风格样例需求。
+  - 输出：统一内置 `to_string(value)`、工具风格示例、语义/解释器/接口回归测试。
+  - 通过条件：`to_string` 可用于具体运行时值并返回 `string`；工具示例能拼出结构化报告；现有链路不回退。
+  - 回归保障：`src/semantic.rs`、`src/interpreter.rs`、`tests/interface_snapshots.rs`、[`examples/format_report.ax`](C:/Users/xiaoy/Desktop/A语言/AX/examples/format_report.ax)。
+  - 不做范围：不引入格式化模板、占位符语法、字符串插值或完整文本库。
+  - 完成于：2026-04-24
+  - 备注：当前已支持 `to_string(value)` 把数字、布尔、枚举、结构体、数组和切片等具体运行时值转为 `string`；新增 [`examples/format_report.ax`](C:/Users/xiaoy/Desktop/A语言/AX/examples/format_report.ax) 作为最小工具报告样例。
 
 ## P2
 
 - [ ] `P2-1` 更大语法扩展
+  - 进入条件：当前工具风格样例和 repair benchmark 已经能稳定指出“下一批最值钱的语法缺口”，而不是靠感觉扩语法。
+  - 目标：只扩那些能明确提升工具代码表达力、benchmark 修复率或后续自举准备效率的语法能力。
+  - 必须产物：每个新特性的 parser / semantic / interpreter 或 backend / diagnostics / AI guidance / docs / tests 全链路补齐包。
+  - 通过条件：新特性带来可证明收益；`check/json/ai`、AST/HIR/MIR 快照和 repair benchmark 不回退。
+  - 不做范围：不为了“像完整语言”而堆 `match`、泛型、async、宏系统等大表面积特性。
+
 - [ ] `P2-2` 原生后端深化
+  - 进入条件：语言前中端、diagnostics 和 benchmark 主线已基本稳定，`axc build` 骨架不再频繁变形。
+  - 目标：让 `axc build` 从导出骨架产物走向真实可执行的 native backend 路线。
+  - 必须产物：更稳定的 MIR 语义、后端接入点、构建失败的结构化诊断、一组真实样例的 native build 结果。
+  - 通过条件：至少一组工具风格样例可原生编译并运行；构建失败有结构化错误；耗时与资源开销进入可接受范围。
+  - 不做范围：不把当前 `build` 骨架包装成“已经成熟的编译后端”。
+
 - [ ] `P2-3` 更完整标准库
+  - 进入条件：已有样例和 benchmark 已经明确暴露出 `io/fs/path/env/process/string` 这类库缺口，且补库比继续补语法更值。
+  - 目标：形成一套足以支撑真实工具程序的最小标准库面，而不是一次做大而全运行时。
+  - 必须产物：稳定的库接口设计、语义与执行支持、错误与 AI 反馈、示例和文档。
+  - 通过条件：新用户可用标准库写出一批真实工具风格程序；repair benchmark 和样例能覆盖这些 API 的常见误用。
+  - 不做范围：不引入庞大生态叙事，不先做网络、GUI、并发运行时等高膨胀方向。
+
 - [ ] `P2-4` AX 局部重写前端子集
+  - 进入条件：Rust 种子编译器已经足够稳定，AX 语言面和工具链能力已能承载一部分编译器风格逻辑。
+  - 目标：用 AX 重写编译器的局部前端子集，验证它是否真的适合承载自身工具链。
+  - 必须产物：AX 版子模块、双实现对照流程、输入输出一致性验证、能力缺口清单。
+  - 通过条件：AX 子实现可稳定运行，且与 Rust 基线对照结果可重复；不会压垮当前主线开发效率。
+  - 不做范围：不提前追求“一口气自举整个编译器”，不为了自举重排当前所有工作。

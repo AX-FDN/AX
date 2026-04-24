@@ -294,6 +294,24 @@ fn main() -> i32 {
     }
 
     #[test]
+    fn accepts_to_string_for_concrete_runtime_values() {
+        let codes = check(
+            "\
+struct Summary { count: i32, ready: bool }
+
+fn main() -> i32 {
+    let summary: Summary = Summary { count: 3, ready: true };
+    let values: [i32; 3] = [1, 2, 3];
+    let text: string = to_string(summary) + to_string(values[0:2]);
+    println(text);
+    return string_len(text);
+}
+",
+        );
+        assert!(codes.is_empty(), "unexpected diagnostics: {codes:?}");
+    }
+
+    #[test]
     fn reports_non_string_argument_to_string_len() {
         let codes = check("fn main() -> i32 { return string_len(1); }");
         assert!(codes.iter().any(|code| code == "S0022"));
@@ -302,6 +320,12 @@ fn main() -> i32 {
     #[test]
     fn reports_invalid_argument_to_len() {
         let codes = check("fn main() -> i32 { return len(true); }");
+        assert!(codes.iter().any(|code| code == "S0022"));
+    }
+
+    #[test]
+    fn reports_invalid_argument_to_to_string() {
+        let codes = check("fn main() -> i32 { return string_len(to_string(println(1))); }");
         assert!(codes.iter().any(|code| code == "S0022"));
     }
 

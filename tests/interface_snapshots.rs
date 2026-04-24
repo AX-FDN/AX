@@ -688,6 +688,17 @@ fn traversal_example_runs() {
 }
 
 #[test]
+fn format_report_example_runs() {
+    let output = run_axc([OsStr::new("run"), OsStr::new("examples/format_report.ax")]);
+    assert_eq!(output.status.code(), Some(34));
+    assert_clean_stderr(&output);
+    assert_eq!(
+        normalize_text(&string_output(&output.stdout)),
+        "count=3, ready=true, values=[2, 4]\n"
+    );
+}
+
+#[test]
 fn empty_array_example_runs() {
     let output = run_axc([OsStr::new("run"), OsStr::new("examples/empty_array.ax")]);
     assert_eq!(output.status.code(), Some(0));
