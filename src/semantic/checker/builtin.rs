@@ -47,6 +47,45 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 );
                 Some(Type::I32)
             }
+            "string_contains" => {
+                let argument_types = arguments
+                    .iter()
+                    .map(|argument| self.check_expr(argument))
+                    .collect::<Vec<_>>();
+
+                if argument_types.len() != 2 {
+                    self.diagnostics.push(Diagnostic::new(
+                        "S0017",
+                        format!(
+                            "function `string_contains` expects 2 argument(s), found {}",
+                            argument_types.len()
+                        ),
+                        self.info.source,
+                        expr.span,
+                    ));
+                    return Some(Type::Error);
+                }
+
+                self.expect_type_match(
+                    &Type::String,
+                    &argument_types[0],
+                    expr.span,
+                    format!(
+                        "function `string_contains` expects argument `text` to be `string`, found `{}`",
+                        argument_types[0].describe()
+                    ),
+                );
+                self.expect_type_match(
+                    &Type::String,
+                    &argument_types[1],
+                    expr.span,
+                    format!(
+                        "function `string_contains` expects argument `needle` to be `string`, found `{}`",
+                        argument_types[1].describe()
+                    ),
+                );
+                Some(Type::Bool)
+            }
             "len" => {
                 let argument_types = arguments
                     .iter()
@@ -89,6 +128,235 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                         Some(Type::Error)
                     }
                 }
+            }
+            "argv_len" => {
+                for argument in arguments {
+                    self.check_expr(argument);
+                }
+
+                if !arguments.is_empty() {
+                    self.diagnostics.push(Diagnostic::new(
+                        "S0017",
+                        format!(
+                            "function `argv_len` expects 0 argument(s), found {}",
+                            arguments.len()
+                        ),
+                        self.info.source,
+                        expr.span,
+                    ));
+                    return Some(Type::Error);
+                }
+
+                Some(Type::I32)
+            }
+            "argv_get" => {
+                let argument_types = arguments
+                    .iter()
+                    .map(|argument| self.check_expr(argument))
+                    .collect::<Vec<_>>();
+
+                if argument_types.len() != 1 {
+                    self.diagnostics.push(Diagnostic::new(
+                        "S0017",
+                        format!(
+                            "function `argv_get` expects 1 argument(s), found {}",
+                            argument_types.len()
+                        ),
+                        self.info.source,
+                        expr.span,
+                    ));
+                    return Some(Type::Error);
+                }
+
+                self.expect_type_match(
+                    &Type::I32,
+                    &argument_types[0],
+                    expr.span,
+                    format!(
+                        "function `argv_get` expects argument `index` to be `i32`, found `{}`",
+                        argument_types[0].describe()
+                    ),
+                );
+                Some(Type::String)
+            }
+            "env_has" => {
+                let argument_types = arguments
+                    .iter()
+                    .map(|argument| self.check_expr(argument))
+                    .collect::<Vec<_>>();
+
+                if argument_types.len() != 1 {
+                    self.diagnostics.push(Diagnostic::new(
+                        "S0017",
+                        format!(
+                            "function `env_has` expects 1 argument(s), found {}",
+                            argument_types.len()
+                        ),
+                        self.info.source,
+                        expr.span,
+                    ));
+                    return Some(Type::Error);
+                }
+
+                self.expect_type_match(
+                    &Type::String,
+                    &argument_types[0],
+                    expr.span,
+                    format!(
+                        "function `env_has` expects argument `name` to be `string`, found `{}`",
+                        argument_types[0].describe()
+                    ),
+                );
+                Some(Type::Bool)
+            }
+            "env_get" => {
+                let argument_types = arguments
+                    .iter()
+                    .map(|argument| self.check_expr(argument))
+                    .collect::<Vec<_>>();
+
+                if argument_types.len() != 1 {
+                    self.diagnostics.push(Diagnostic::new(
+                        "S0017",
+                        format!(
+                            "function `env_get` expects 1 argument(s), found {}",
+                            argument_types.len()
+                        ),
+                        self.info.source,
+                        expr.span,
+                    ));
+                    return Some(Type::Error);
+                }
+
+                self.expect_type_match(
+                    &Type::String,
+                    &argument_types[0],
+                    expr.span,
+                    format!(
+                        "function `env_get` expects argument `name` to be `string`, found `{}`",
+                        argument_types[0].describe()
+                    ),
+                );
+                Some(Type::String)
+            }
+            "process_cwd" => {
+                for argument in arguments {
+                    self.check_expr(argument);
+                }
+
+                if !arguments.is_empty() {
+                    self.diagnostics.push(Diagnostic::new(
+                        "S0017",
+                        format!(
+                            "function `process_cwd` expects 0 argument(s), found {}",
+                            arguments.len()
+                        ),
+                        self.info.source,
+                        expr.span,
+                    ));
+                    return Some(Type::Error);
+                }
+
+                Some(Type::String)
+            }
+            "path_join" => {
+                let argument_types = arguments
+                    .iter()
+                    .map(|argument| self.check_expr(argument))
+                    .collect::<Vec<_>>();
+
+                if argument_types.len() != 2 {
+                    self.diagnostics.push(Diagnostic::new(
+                        "S0017",
+                        format!(
+                            "function `path_join` expects 2 argument(s), found {}",
+                            argument_types.len()
+                        ),
+                        self.info.source,
+                        expr.span,
+                    ));
+                    return Some(Type::Error);
+                }
+
+                self.expect_type_match(
+                    &Type::String,
+                    &argument_types[0],
+                    expr.span,
+                    format!(
+                        "function `path_join` expects argument `left` to be `string`, found `{}`",
+                        argument_types[0].describe()
+                    ),
+                );
+                self.expect_type_match(
+                    &Type::String,
+                    &argument_types[1],
+                    expr.span,
+                    format!(
+                        "function `path_join` expects argument `right` to be `string`, found `{}`",
+                        argument_types[1].describe()
+                    ),
+                );
+                Some(Type::String)
+            }
+            "fs_exists" => {
+                let argument_types = arguments
+                    .iter()
+                    .map(|argument| self.check_expr(argument))
+                    .collect::<Vec<_>>();
+
+                if argument_types.len() != 1 {
+                    self.diagnostics.push(Diagnostic::new(
+                        "S0017",
+                        format!(
+                            "function `fs_exists` expects 1 argument(s), found {}",
+                            argument_types.len()
+                        ),
+                        self.info.source,
+                        expr.span,
+                    ));
+                    return Some(Type::Error);
+                }
+
+                self.expect_type_match(
+                    &Type::String,
+                    &argument_types[0],
+                    expr.span,
+                    format!(
+                        "function `fs_exists` expects argument `path` to be `string`, found `{}`",
+                        argument_types[0].describe()
+                    ),
+                );
+                Some(Type::Bool)
+            }
+            "fs_read_to_string" => {
+                let argument_types = arguments
+                    .iter()
+                    .map(|argument| self.check_expr(argument))
+                    .collect::<Vec<_>>();
+
+                if argument_types.len() != 1 {
+                    self.diagnostics.push(Diagnostic::new(
+                        "S0017",
+                        format!(
+                            "function `fs_read_to_string` expects 1 argument(s), found {}",
+                            argument_types.len()
+                        ),
+                        self.info.source,
+                        expr.span,
+                    ));
+                    return Some(Type::Error);
+                }
+
+                self.expect_type_match(
+                    &Type::String,
+                    &argument_types[0],
+                    expr.span,
+                    format!(
+                        "function `fs_read_to_string` expects argument `path` to be `string`, found `{}`",
+                        argument_types[0].describe()
+                    ),
+                );
+                Some(Type::String)
             }
             "to_string" => {
                 let argument_types = arguments

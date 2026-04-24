@@ -1,4 +1,6 @@
 use std::collections::{BTreeMap, HashMap};
+use std::fs;
+use std::path::{Path, PathBuf};
 
 use crate::diagnostics::Diagnostic;
 use crate::hir::{
@@ -13,14 +15,50 @@ pub struct RunOutput {
     pub stdout: Vec<String>,
 }
 
+#[derive(Debug, Clone)]
+pub struct RunContext {
+    pub argv: Vec<String>,
+    pub env: BTreeMap<String, String>,
+    pub current_dir: PathBuf,
+}
+
+impl Default for RunContext {
+    fn default() -> Self {
+        Self {
+            argv: Vec::new(),
+            env: BTreeMap::new(),
+            current_dir: PathBuf::from("."),
+        }
+    }
+}
+
+impl RunContext {
+    pub fn from_host(argv: Vec<String>) -> std::io::Result<Self> {
+        Ok(Self {
+            argv,
+            env: std::env::vars().collect(),
+            current_dir: std::env::current_dir()?,
+        })
+    }
+}
+
 pub fn run_program(source: &SourceFile, program: &Program) -> Result<RunOutput, Diagnostic> {
-    Interpreter::new(source, program)?.run_main()
+    run_program_with_context(source, program, RunContext::default())
+}
+
+pub fn run_program_with_context(
+    source: &SourceFile,
+    program: &Program,
+    context: RunContext,
+) -> Result<RunOutput, Diagnostic> {
+    Interpreter::new(source, program, context)?.run_main()
 }
 
 struct Interpreter<'a> {
     source: &'a SourceFile,
     functions: HashMap<String, FunctionDef<'a>>,
     stdout: Vec<String>,
+    host: RunContext,
 }
 
 #[derive(Clone, Copy)]
@@ -110,7 +148,11 @@ impl Value {
 }
 
 impl<'a> Interpreter<'a> {
-    fn new(source: &'a SourceFile, program: &'a Program) -> Result<Self, Diagnostic> {
+    fn new(
+        source: &'a SourceFile,
+        program: &'a Program,
+        host: RunContext,
+    ) -> Result<Self, Diagnostic> {
         let mut functions = HashMap::new();
 
         for item in &program.items {
@@ -145,6 +187,7 @@ impl<'a> Interpreter<'a> {
             source,
             functions,
             stdout: Vec::new(),
+            host,
         })
     }
 
@@ -191,7 +234,10 @@ impl<'a> Interpreter<'a> {
                 ));
             }
 
-            let text = arguments.into_iter().next().expect("string_len argument should exist");
+            let text = arguments
+                .into_iter()
+                .next()
+                .expect("string_len argument should exist");
             return match text {
                 Value::String(text) => Ok(Value::I32(text.chars().count() as i32)),
                 other => Err(self
@@ -203,7 +249,48 @@ impl<'a> Interpreter<'a> {
                         ),
                         span,
                     )
-                    .with_suggestion("call `string_len` with a string value like `string_len(message)`")),
+                    .with_suggestion(
+                        "call `string_len` with a string value like `string_len(message)`",
+                    )),
+            };
+        }
+
+        if name == "string_contains" {
+            if arguments.len() != 2 {
+                return Err(self.runtime_error(
+                    "R0043",
+                    format!(
+                        "function `string_contains` expected 2 argument(s), got {}",
+                        arguments.len()
+                    ),
+                    span,
+                ));
+            }
+
+            let mut arguments = arguments.into_iter();
+            let text = arguments
+                .next()
+                .expect("string_contains text argument should exist");
+            let needle = arguments
+                .next()
+                .expect("string_contains needle argument should exist");
+            return match (text, needle) {
+                (Value::String(text), Value::String(needle)) => {
+                    Ok(Value::Bool(text.contains(&needle)))
+                }
+                (text, needle) => Err(self
+                    .runtime_error(
+                        "R0044",
+                        format!(
+                            "function `string_contains` requires `string` arguments, got `{}` and `{}`",
+                            text.display(),
+                            needle.display()
+                        ),
+                        span,
+                    )
+                    .with_suggestion(
+                        "call `string_contains` like `string_contains(text, needle)`",
+                    )),
             };
         }
 
@@ -211,12 +298,18 @@ impl<'a> Interpreter<'a> {
             if arguments.len() != 1 {
                 return Err(self.runtime_error(
                     "R0039",
-                    format!("function `len` expected 1 argument(s), got {}", arguments.len()),
+                    format!(
+                        "function `len` expected 1 argument(s), got {}",
+                        arguments.len()
+                    ),
                     span,
                 ));
             }
 
-            let value = arguments.into_iter().next().expect("len argument should exist");
+            let value = arguments
+                .into_iter()
+                .next()
+                .expect("len argument should exist");
             return match value {
                 Value::String(text) => Ok(Value::I32(text.chars().count() as i32)),
                 Value::Array(elements) | Value::Slice(elements) => {
@@ -265,6 +358,282 @@ impl<'a> Interpreter<'a> {
             };
         }
 
+        if name == "argv_len" {
+            if !arguments.is_empty() {
+                return Err(self.runtime_error(
+                    "R0045",
+                    format!(
+                        "function `argv_len` expected 0 argument(s), got {}",
+                        arguments.len()
+                    ),
+                    span,
+                ));
+            }
+
+            return Ok(Value::I32(self.host.argv.len() as i32));
+        }
+
+        if name == "argv_get" {
+            if arguments.len() != 1 {
+                return Err(self.runtime_error(
+                    "R0046",
+                    format!(
+                        "function `argv_get` expected 1 argument(s), got {}",
+                        arguments.len()
+                    ),
+                    span,
+                ));
+            }
+
+            let index = arguments
+                .into_iter()
+                .next()
+                .expect("argv_get argument should exist");
+            return match index {
+                Value::I32(index) if index < 0 => Err(self
+                    .runtime_error(
+                        "R0048",
+                        format!("argv index `{index}` must be non-negative"),
+                        span,
+                    )
+                    .with_note("AX argv positions use zero-based `i32` indices")
+                    .with_suggestion(
+                        "check the length first with `argv_len()` before calling `argv_get(index)`",
+                    )),
+                Value::I32(index) => {
+                    let index = index as usize;
+                    self.host.argv.get(index).cloned().map(Value::String).ok_or_else(|| {
+                        self.runtime_error(
+                            "R0048",
+                            format!("argv index `{index}` is out of bounds"),
+                            span,
+                        )
+                        .with_note(format!(
+                            "the current AX runtime was started with {} argument(s)",
+                            self.host.argv.len()
+                        ))
+                        .with_suggestion(
+                            "check the length first with `argv_len()` before calling `argv_get(index)`",
+                        )
+                    })
+                }
+                other => Err(self
+                    .runtime_error(
+                        "R0047",
+                        format!(
+                            "function `argv_get` requires an `i32` index, got `{}`",
+                            other.display()
+                        ),
+                        span,
+                    )
+                    .with_suggestion("call `argv_get` with an `i32` value like `argv_get(0)`")),
+            };
+        }
+
+        if name == "env_has" {
+            if arguments.len() != 1 {
+                return Err(self.runtime_error(
+                    "R0049",
+                    format!(
+                        "function `env_has` expected 1 argument(s), got {}",
+                        arguments.len()
+                    ),
+                    span,
+                ));
+            }
+
+            let name = arguments
+                .into_iter()
+                .next()
+                .expect("env_has argument should exist");
+            return match name {
+                Value::String(name) => Ok(Value::Bool(self.host.env.contains_key(&name))),
+                other => Err(self
+                    .runtime_error(
+                        "R0050",
+                        format!(
+                            "function `env_has` requires a `string` name, got `{}`",
+                            other.display()
+                        ),
+                        span,
+                    )
+                    .with_suggestion(
+                        "call `env_has` with a string value like `env_has(\"HOME\")`",
+                    )),
+            };
+        }
+
+        if name == "env_get" {
+            if arguments.len() != 1 {
+                return Err(self.runtime_error(
+                    "R0051",
+                    format!(
+                        "function `env_get` expected 1 argument(s), got {}",
+                        arguments.len()
+                    ),
+                    span,
+                ));
+            }
+
+            let name = arguments
+                .into_iter()
+                .next()
+                .expect("env_get argument should exist");
+            return match name {
+                Value::String(name) => self.host.env.get(&name).cloned().map(Value::String).ok_or_else(|| {
+                    self.runtime_error(
+                        "R0053",
+                        format!("environment variable `{name}` is not available"),
+                        span,
+                    )
+                    .with_suggestion(
+                        "check the variable first with `env_has(name)` or set it in the host environment",
+                    )
+                }),
+                other => Err(self
+                    .runtime_error(
+                        "R0052",
+                        format!("function `env_get` requires a `string` name, got `{}`", other.display()),
+                        span,
+                    )
+                    .with_suggestion("call `env_get` with a string value like `env_get(\"HOME\")`")),
+            };
+        }
+
+        if name == "process_cwd" {
+            if !arguments.is_empty() {
+                return Err(self.runtime_error(
+                    "R0054",
+                    format!(
+                        "function `process_cwd` expected 0 argument(s), got {}",
+                        arguments.len()
+                    ),
+                    span,
+                ));
+            }
+
+            return Ok(Value::String(
+                self.host.current_dir.to_string_lossy().into_owned(),
+            ));
+        }
+
+        if name == "path_join" {
+            if arguments.len() != 2 {
+                return Err(self.runtime_error(
+                    "R0055",
+                    format!(
+                        "function `path_join` expected 2 argument(s), got {}",
+                        arguments.len()
+                    ),
+                    span,
+                ));
+            }
+
+            let mut arguments = arguments.into_iter();
+            let left = arguments
+                .next()
+                .expect("path_join left argument should exist");
+            let right = arguments
+                .next()
+                .expect("path_join right argument should exist");
+            return match (left, right) {
+                (Value::String(left), Value::String(right)) => {
+                    let mut path = PathBuf::from(left);
+                    path.push(right);
+                    Ok(Value::String(path.to_string_lossy().into_owned()))
+                }
+                (left, right) => Err(self
+                    .runtime_error(
+                        "R0056",
+                        format!(
+                            "function `path_join` requires `string` arguments, got `{}` and `{}`",
+                            left.display(),
+                            right.display()
+                        ),
+                        span,
+                    )
+                    .with_suggestion("call `path_join` like `path_join(base, child)`")),
+            };
+        }
+
+        if name == "fs_exists" {
+            if arguments.len() != 1 {
+                return Err(self.runtime_error(
+                    "R0057",
+                    format!(
+                        "function `fs_exists` expected 1 argument(s), got {}",
+                        arguments.len()
+                    ),
+                    span,
+                ));
+            }
+
+            let path = arguments
+                .into_iter()
+                .next()
+                .expect("fs_exists argument should exist");
+            return match path {
+                Value::String(path) => Ok(Value::Bool(self.resolve_host_path(&path).exists())),
+                other => Err(self
+                    .runtime_error(
+                        "R0058",
+                        format!(
+                            "function `fs_exists` requires a `string` path, got `{}`",
+                            other.display()
+                        ),
+                        span,
+                    )
+                    .with_suggestion(
+                        "call `fs_exists` with a string value like `fs_exists(path)`",
+                    )),
+            };
+        }
+
+        if name == "fs_read_to_string" {
+            if arguments.len() != 1 {
+                return Err(self.runtime_error(
+                    "R0059",
+                    format!(
+                        "function `fs_read_to_string` expected 1 argument(s), got {}",
+                        arguments.len()
+                    ),
+                    span,
+                ));
+            }
+
+            let path = arguments
+                .into_iter()
+                .next()
+                .expect("fs_read_to_string argument should exist");
+            return match path {
+                Value::String(path) => {
+                    let resolved = self.resolve_host_path(&path);
+                    fs::read_to_string(&resolved).map(Value::String).map_err(|error| {
+                        self.runtime_error(
+                            "R0061",
+                            format!("failed to read `{}`: {error}", resolved.display()),
+                            span,
+                        )
+                        .with_suggestion(
+                            "pass an existing readable text file path or guard with `fs_exists(path)` first",
+                        )
+                    })
+                }
+                other => Err(self
+                    .runtime_error(
+                        "R0060",
+                        format!(
+                            "function `fs_read_to_string` requires a `string` path, got `{}`",
+                            other.display()
+                        ),
+                        span,
+                    )
+                    .with_suggestion(
+                        "call `fs_read_to_string` with a string value like `fs_read_to_string(path)`",
+                    )),
+            };
+        }
+
         let function = self.functions.get(name).copied().ok_or_else(|| {
             self.runtime_error("R0003", format!("call to unknown function `{name}`"), span)
         })?;
@@ -303,11 +672,18 @@ impl<'a> Interpreter<'a> {
             ControlFlow::Break => Err(self
                 .runtime_error(
                     "R0005",
-                    format!("function `{}` completed without returning a value", function.name),
+                    format!(
+                        "function `{}` completed without returning a value",
+                        function.name
+                    ),
                     function.span,
                 )
-                .with_note("runtime reached the end of the function body after an unexpected `break`")
-                .with_suggestion("keep `break;` inside loops and ensure the function still returns a value")),
+                .with_note(
+                    "runtime reached the end of the function body after an unexpected `break`",
+                )
+                .with_suggestion(
+                    "keep `break;` inside loops and ensure the function still returns a value",
+                )),
             ControlFlow::Continue => Err(self
                 .runtime_error(
                     "R0005",
@@ -855,6 +1231,15 @@ impl<'a> Interpreter<'a> {
         }
     }
 
+    fn resolve_host_path(&self, path_text: &str) -> PathBuf {
+        let path = Path::new(path_text);
+        if path.is_relative() {
+            self.host.current_dir.join(path)
+        } else {
+            path.to_path_buf()
+        }
+    }
+
     fn runtime_error(&self, code: &str, message: impl Into<String>, span: Span) -> Diagnostic {
         Diagnostic::new(code, message.into(), self.source, span)
     }
@@ -1173,10 +1558,7 @@ fn main() -> i32 {
 
         let output = run_program(&source, &hir).expect("program should run");
         assert_eq!(output.exit_code, 12);
-        assert_eq!(
-            output.stdout,
-            vec!["Outer { inner: Inner { value: 12 } }"]
-        );
+        assert_eq!(output.stdout, vec!["Outer { inner: Inner { value: 12 } }"]);
     }
 
     #[test]

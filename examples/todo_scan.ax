@@ -1,0 +1,25 @@
+fn main() -> i32 {
+    if (argv_len() == 0) {
+        println("usage: axc run examples/todo_scan.ax -- <path>");
+        return 1;
+    }
+
+    let target: string = argv_get(0);
+    if (!fs_exists(target)) {
+        println("missing file: " + target);
+        return 2;
+    }
+
+    let text: string = fs_read_to_string(target);
+    let cwd: string = process_cwd();
+    let full_path: string = path_join(cwd, target);
+    let has_profile: bool = env_has("USERPROFILE");
+
+    let mut report: string = "path=" + full_path;
+    report = report + ", size=" + to_string(string_len(text));
+    report = report + ", has_todo=" + to_string(string_contains(text, "TODO"));
+    report = report + ", profile_set=" + to_string(has_profile);
+
+    println(report);
+    return 0;
+}

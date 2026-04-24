@@ -9,7 +9,7 @@ use crate::build::{
 use crate::diagnostics::render_diagnostics;
 use crate::formatter::format_source;
 use crate::frontend::analyze;
-use crate::interpreter::run_program;
+use crate::interpreter::{RunContext, run_program_with_context};
 use crate::project::{ResolvedInput, resolve_input};
 
 pub fn run_cli(args: Vec<String>) -> i32 {
@@ -260,7 +260,7 @@ fn run_run(args: Vec<String>) -> i32 {
         Ok(options) => options,
         Err(error) => {
             eprintln!(
-                "{error}\nusage: axc run <path> [--json] [--ai] [--ai-session <path>]"
+                "{error}\nusage: axc run <path> [--json] [--ai] [--ai-session <path>] [-- <args...>]"
             );
             return 2;
         }
@@ -306,7 +306,15 @@ fn run_run(args: Vec<String>) -> i32 {
         return 1;
     };
 
-    match run_program(source, hir) {
+    let run_context = match RunContext::from_host(options.argv.clone()) {
+        Ok(context) => context,
+        Err(error) => {
+            eprintln!("failed to capture host context: {error}");
+            return 1;
+        }
+    };
+
+    match run_program_with_context(source, hir, run_context) {
         Ok(result) => {
             for line in result.stdout {
                 println!("{line}");
@@ -389,7 +397,7 @@ Commands:
   hir <path>               Print stable HIR JSON
   mir <path>               Print stable MIR JSON
   build <path> [--out-dir <path>]   Emit the build skeleton artifacts for the native backend stage
-  run <path> [--json] [--ai] [--ai-session <path>]   Execute the minimal interpreter
+  run <path> [--json] [--ai] [--ai-session <path>] [-- <args...>]   Execute the minimal interpreter
   fmt <path>               Rewrite the file to the canonical AX format
 "
 }
@@ -422,6 +430,7 @@ struct RunOptions {
     json: bool,
     ai: bool,
     ai_session: Option<PathBuf>,
+    argv: Vec<String>,
 }
 
 fn parse_check_args(args: Vec<String>) -> Result<CheckOptions, String> {
@@ -491,12 +500,17 @@ fn parse_run_args(args: Vec<String>) -> Result<RunOptions, String> {
     let mut json = false;
     let mut ai = false;
     let mut ai_session = None;
+    let mut argv = Vec::new();
     let mut file = None;
     let mut index = 0;
 
     while index < args.len() {
         let arg = &args[index];
         match arg.as_str() {
+            "--" => {
+                argv.extend(args[index + 1..].iter().cloned());
+                break;
+            }
             "--json" => {
                 json = true;
             }
@@ -547,6 +561,7 @@ fn parse_run_args(args: Vec<String>) -> Result<RunOptions, String> {
         json,
         ai,
         ai_session,
+        argv,
     })
 }
 
@@ -689,6 +704,29 @@ mod tests {
                 json: true,
                 ai: true,
                 ai_session: Some(PathBuf::from(".ax-ai-session.json")),
+                argv: Vec::new(),
+            }
+        );
+    }
+
+    #[test]
+    fn parses_run_options_with_program_args() {
+        let options = parse_run_args(vec![
+            "examples/hello.ax".to_string(),
+            "--".to_string(),
+            "alpha".to_string(),
+            "beta".to_string(),
+        ])
+        .expect("run arguments should parse");
+
+        assert_eq!(
+            options,
+            RunOptions {
+                file: PathBuf::from("examples/hello.ax"),
+                json: false,
+                ai: false,
+                ai_session: None,
+                argv: vec!["alpha".to_string(), "beta".to_string()],
             }
         );
     }
