@@ -4,6 +4,23 @@ use crate::diagnostics::Diagnostic;
 use super::{return_type_message, Type, TypeChecker};
 
 impl<'a, 'b> TypeChecker<'a, 'b> {
+    pub(super) fn check_break_statement(&mut self, statement: &Stmt) {
+        if self.loop_depth > 0 {
+            return;
+        }
+
+        self.diagnostics.push(
+            Diagnostic::new(
+                "S0036",
+                "`break` may only be used inside `while` or `for` loops",
+                self.info.source,
+                statement.span,
+            )
+            .with_note("AX uses `break;` to exit the nearest enclosing loop early")
+            .with_suggestion("move `break;` into a loop body, or use `return ...;` to exit the function"),
+        );
+    }
+
     pub(super) fn check_return_statement(&mut self, statement: &Stmt, value: Option<&Expr>) {
         let actual_type = match value {
             Some(expr) => self.check_expr(expr),
@@ -32,7 +49,9 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
 
     pub(super) fn check_while_statement(&mut self, condition: &Expr, body: &Block) {
         self.check_condition("while", condition);
+        self.loop_depth += 1;
         self.check_block(body);
+        self.loop_depth -= 1;
     }
 
     pub(super) fn check_for_statement(
@@ -52,7 +71,9 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             self.check_condition("for", condition);
         }
 
+        self.loop_depth += 1;
         self.check_block(body);
+        self.loop_depth -= 1;
 
         if let Some(statement) = step {
             self.check_for_header_statement(statement);

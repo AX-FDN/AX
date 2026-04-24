@@ -34,6 +34,7 @@ pub(super) struct TypeChecker<'a, 'b> {
     info: &'a ProgramInfo<'a>,
     return_type: Type,
     scopes: Vec<HashMap<String, Binding>>,
+    loop_depth: usize,
     diagnostics: &'b mut Vec<Diagnostic>,
 }
 
@@ -47,6 +48,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             info,
             return_type,
             scopes: vec![HashMap::new()],
+            loop_depth: 0,
             diagnostics,
         }
     }

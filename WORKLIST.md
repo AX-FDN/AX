@@ -188,6 +188,15 @@
   - 不做范围：不引入可变切片、借用系统、引用类型或更大集合抽象。
   - 完成于：2026-04-24
   - 备注：当前已支持 `name.field.other = expr;`、`name[index] = expr;` 与 `name[index].field = expr;` 三类递归可写路径；新增 [`examples/token_rewrite.ax`](C:/Users/xiaoy/Desktop/A语言/AX/examples/token_rewrite.ax) 作为最小工具式数据重写样例。
+- [x] `P1-8` 最小循环提前退出
+  - 目标：补上最小但高频的循环控制，让工具代码不再依赖 `index = limit;` 这类机械退出写法。
+  - 输入：现有 `while` / `for`、解释器控制流、HIR/MIR lowering 与工具风格样例中的循环退出痛点。
+  - 输出：`break;` 语法、循环内语义检查、HIR/MIR/解释器支持、示例与回归测试。
+  - 通过条件：`break;` 可在 `while` 和 `for` 中稳定提前退出；循环外使用稳定报错；现有 `for -> while` lowering 与接口测试不回退。
+  - 回归保障：`src/lexer.rs`、`src/parser.rs`、`src/formatter.rs`、`src/semantic.rs`、`src/hir.rs`、`src/mir.rs`、`src/interpreter.rs` 单测与 `.\scripts\cargo-gnu.ps1 test` 全量回归。
+  - 不做范围：本轮不引入 `continue;`，因为当前 `for` lowering 下如果硬上会把 step 语义做错。
+  - 完成于：2026-04-24
+  - 备注：当前已支持 `break;` 提前退出最近一层 `while` 或 `for`；新增 [`examples/break_loop.ax`](C:/Users/xiaoy/Desktop/A语言/AX/examples/break_loop.ax)，并把 [`examples/bootstrap_block_summary.ax`](C:/Users/xiaoy/Desktop/A语言/AX/examples/bootstrap_block_summary.ax) 的机械退出写法替换为真实 `break;`。
 
 ## P2
 

@@ -145,6 +145,7 @@ pub enum StmtKind {
     Return {
         value: Option<Expr>,
     },
+    Break,
     If {
         condition: Expr,
         then_branch: Block,

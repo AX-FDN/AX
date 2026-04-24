@@ -1196,6 +1196,7 @@ fn collect_statement_names(statement: &Stmt, names: &mut BTreeSet<String>) {
                 collect_expr_names(expr, names);
             }
         }
+        StmtKind::Break => {}
         StmtKind::If {
             condition,
             then_branch,

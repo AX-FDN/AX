@@ -280,6 +280,7 @@ struct FunctionLowerer {
     locals: Vec<Local>,
     scopes: Vec<HashMap<String, u32>>,
     blocks: Vec<BasicBlockBuilder>,
+    loop_stack: Vec<LoopTargets>,
 }
 
 struct BasicBlockBuilder {
@@ -289,12 +290,18 @@ struct BasicBlockBuilder {
     terminator: Option<Terminator>,
 }
 
+#[derive(Clone, Copy)]
+struct LoopTargets {
+    break_target: u32,
+}
+
 impl FunctionLowerer {
     fn new() -> Self {
         Self {
             locals: Vec::new(),
             scopes: vec![HashMap::new()],
             blocks: Vec::new(),
+            loop_stack: Vec::new(),
         }
     }
 
@@ -369,6 +376,13 @@ impl FunctionLowerer {
                     },
                 );
                 Ok(current)
+            }
+            hir::StmtKind::Break => {
+                let Some(loop_targets) = self.loop_stack.last().copied() else {
+                    return Err("internal MIR lowering error: `break` used outside loop".into());
+                };
+                self.set_terminator(current, goto(loop_targets.break_target, statement.span));
+                Ok(self.new_block(statement.span))
             }
             hir::StmtKind::Expr { expr } => {
                 self.push_statement(
@@ -453,7 +467,11 @@ impl FunctionLowerer {
                     },
                 );
 
+                self.loop_stack.push(LoopTargets {
+                    break_target: exit_block,
+                });
                 let body_exit = self.lower_block(body, body_block)?;
+                self.loop_stack.pop();
                 if !self.block_is_terminated(body_exit) {
                     self.set_terminator(body_exit, goto(condition_block, body.span));
                 }
@@ -897,5 +915,40 @@ fn main() -> i32 {
             }
             _ => panic!("expected nested field assignment place"),
         }
+    }
+
+    #[test]
+    fn lowers_break_to_loop_exit_block() {
+        let program = lower(
+            "\
+fn main() -> i32 {
+    while (true) {
+        break;
+    }
+    return 0;
+}
+",
+        );
+
+        let ItemKind::Function { blocks, .. } = &program.items[0].kind else {
+            panic!("expected function item");
+        };
+
+        assert!(matches!(
+            blocks[0].terminator.kind,
+            TerminatorKind::Goto { target: 1 }
+        ));
+        assert!(matches!(
+            blocks[1].terminator.kind,
+            TerminatorKind::Branch {
+                then_block: 2,
+                else_block: 3,
+                ..
+            }
+        ));
+        assert!(matches!(
+            blocks[2].terminator.kind,
+            TerminatorKind::Goto { target: 3 }
+        ));
     }
 }

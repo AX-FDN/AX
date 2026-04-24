@@ -190,6 +190,7 @@ impl Formatter {
                     self.out.push_str("return;");
                 }
             }
+            StmtKind::Break => self.out.push_str("break;"),
             StmtKind::If {
                 condition,
                 then_branch,
@@ -473,7 +474,7 @@ mod tests {
     #[test]
     fn formats_current_prototype_syntax() {
         let source = SourceFile::anonymous(
-            "struct Point{x:i32,y:i32} enum Flag{On,Off} fn main()->i32{let mut point:Point=Point{x:1,y:2};let values:[i32;3]=[1,2,3];if(point.x==1){println(\"ready\");}else if(point.x==2){println(values[1]);}else{println(\"other\");}for(let mut i:i32=0;i<2;i=i+1){point.x=point.x+i;}return values[0];}",
+            "struct Point{x:i32,y:i32} enum Flag{On,Off} fn main()->i32{let mut point:Point=Point{x:1,y:2};let values:[i32;3]=[1,2,3];if(point.x==1){println(\"ready\");}else if(point.x==2){println(values[1]);}else{println(\"other\");}for(let mut i:i32=0;i<2;i=i+1){if(i==1){break;}point.x=point.x+i;}return values[0];}",
         );
 
         let formatted = format_source(&source).expect("source should format");
@@ -501,6 +502,9 @@ mod tests {
                 "        println(\"other\");\n",
                 "    }\n",
                 "    for (let mut i: i32 = 0; i < 2; i = i + 1) {\n",
+                "        if (i == 1) {\n",
+                "            break;\n",
+                "        }\n",
                 "        point.x = point.x + i;\n",
                 "    }\n",
                 "    return values[0];\n",

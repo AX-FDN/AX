@@ -296,6 +296,10 @@ impl<'a> Parser<'a> {
                 let start = self.advance().span.start;
                 Some(self.parse_return_statement(start))
             }
+            TokenKind::BreakKw => {
+                let start = self.advance().span.start;
+                Some(self.parse_break_statement(start))
+            }
             TokenKind::IfKw => {
                 let start = self.advance().span.start;
                 Some(self.parse_if_statement(start))
@@ -365,6 +369,18 @@ impl<'a> Parser<'a> {
         Stmt {
             span: Span::new(start, end.span.end),
             kind: StmtKind::Return { value },
+        }
+    }
+
+    fn parse_break_statement(&mut self, start: usize) -> Stmt {
+        let end = self.expect(
+            TokenKind::Semicolon,
+            "expected `;` after `break`",
+            &["`;`"],
+        );
+        Stmt {
+            span: Span::new(start, end.span.end),
+            kind: StmtKind::Break,
         }
     }
 
@@ -797,6 +813,7 @@ impl<'a> Parser<'a> {
             match self.peek().kind {
                 TokenKind::LetKw
                 | TokenKind::ReturnKw
+                | TokenKind::BreakKw
                 | TokenKind::IfKw
                 | TokenKind::WhileKw
                 | TokenKind::ForKw
@@ -1041,6 +1058,36 @@ fn main() -> i32 {
                     assert!(step.is_some());
                 }
                 _ => panic!("expected for statement"),
+            },
+            _ => panic!("expected function"),
+        }
+    }
+
+    #[test]
+    fn parses_break_statement() {
+        let source = SourceFile::anonymous(
+            "\
+fn main() -> i32 {
+    while (true) {
+        break;
+    }
+    return 0;
+}
+",
+        );
+        let tokens = tokenize(&source).tokens;
+        let output = parse(&source, tokens);
+        assert!(
+            output.diagnostics.is_empty(),
+            "unexpected diagnostics: {:?}",
+            output.diagnostics
+        );
+        match &output.program.items[0].kind {
+            ItemKind::Function { body, .. } => match &body.statements[0].kind {
+                StmtKind::While { body, .. } => {
+                    assert!(matches!(body.statements[0].kind, StmtKind::Break));
+                }
+                _ => panic!("expected while statement"),
             },
             _ => panic!("expected function"),
         }

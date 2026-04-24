@@ -40,10 +40,10 @@ fn summarize(tokens: [TokenKind; 10]) -> Summary {
         }
 
         if (tokens[index] == TokenKind.End) {
-            index = 10;
-        } else {
-            index = index + 1;
+            break;
         }
+
+        index = index + 1;
     }
 
     if (depth != 0) {

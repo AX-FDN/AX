@@ -104,6 +104,7 @@ pub enum StmtKind {
         target: Place,
         value: Expr,
     },
+    Break,
     Expr {
         expr: Expr,
     },
@@ -362,6 +363,7 @@ impl<'a> LoweringContext<'a> {
                 target: self.lower_place(target)?,
                 value: self.lower_expr(value)?,
             },
+            ast::StmtKind::Break => StmtKind::Break,
             ast::StmtKind::Expr { expr } => StmtKind::Expr {
                 expr: self.lower_expr(expr)?,
             },
@@ -868,5 +870,29 @@ fn main() -> i32 {
             }
             _ => panic!("expected nested field assignment place"),
         }
+    }
+
+    #[test]
+    fn lowers_break_statements() {
+        let program = lower(
+            "\
+fn main() -> i32 {
+    while (true) {
+        break;
+    }
+    return 0;
+}
+",
+        );
+
+        let ItemKind::Function { body, .. } = &program.items[0].kind else {
+            panic!("expected function item");
+        };
+
+        let StmtKind::While { body, .. } = &body.statements[0].kind else {
+            panic!("expected while statement");
+        };
+
+        assert!(matches!(body.statements[0].kind, StmtKind::Break));
     }
 }

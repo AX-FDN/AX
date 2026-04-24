@@ -29,6 +29,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 let value_type = self.check_expr(value);
                 self.check_assignment_target(target, &value_type, value.span);
             }
+            StmtKind::Break => self.check_break_statement(statement),
             StmtKind::Expr { expr } => {
                 self.check_expr(expr);
             }

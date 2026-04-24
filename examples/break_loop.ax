@@ -1,0 +1,13 @@
+fn main() -> i32 {
+    let mut count: i32 = 0;
+
+    while (true) {
+        count = count + 1;
+        if (count == 3) {
+            break;
+        }
+    }
+
+    println(count);
+    return 0;
+}

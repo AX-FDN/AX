@@ -62,6 +62,7 @@ enum Value {
 
 enum ControlFlow {
     Continue,
+    Break,
     Return(Value),
 }
 
@@ -299,6 +300,14 @@ impl<'a> Interpreter<'a> {
 
         match self.exec_block(function.body, &mut frame)? {
             ControlFlow::Return(value) => Ok(value),
+            ControlFlow::Break => Err(self
+                .runtime_error(
+                    "R0005",
+                    format!("function `{}` completed without returning a value", function.name),
+                    function.span,
+                )
+                .with_note("runtime reached the end of the function body after an unexpected `break`")
+                .with_suggestion("keep `break;` inside loops and ensure the function still returns a value")),
             ControlFlow::Continue => Err(self
                 .runtime_error(
                     "R0005",
@@ -320,6 +329,10 @@ impl<'a> Interpreter<'a> {
         for statement in &block.statements {
             match self.exec_statement(statement, frame)? {
                 ControlFlow::Continue => {}
+                ControlFlow::Break => {
+                    frame.scopes.pop();
+                    return Ok(ControlFlow::Break);
+                }
                 ControlFlow::Return(value) => {
                     frame.scopes.pop();
                     return Ok(ControlFlow::Return(value));
@@ -357,6 +370,7 @@ impl<'a> Interpreter<'a> {
                 self.assign_target(frame, target, next_value)?;
                 Ok(ControlFlow::Continue)
             }
+            StmtKind::Break => Ok(ControlFlow::Break),
             StmtKind::Expr { expr } => {
                 self.eval_expr(expr, frame)?;
                 Ok(ControlFlow::Continue)
@@ -382,6 +396,7 @@ impl<'a> Interpreter<'a> {
                 while self.eval_condition(condition, frame)? {
                     match self.exec_block(body, frame)? {
                         ControlFlow::Continue => {}
+                        ControlFlow::Break => break,
                         ControlFlow::Return(value) => {
                             return Ok(ControlFlow::Return(value));
                         }
@@ -1041,6 +1056,27 @@ fn main() -> i32 {
         let output = run_program(&source, &hir).expect("program should run");
         assert_eq!(output.exit_code, 6);
         assert_eq!(output.stdout, vec!["6"]);
+    }
+
+    #[test]
+    fn runs_break_inside_loops() {
+        let (source, hir) = analyzed_hir(
+            "\
+fn main() -> i32 {
+    let mut count: i32 = 0;
+    while (true) {
+        count = count + 1;
+        break;
+    }
+    println(count);
+    return count;
+}
+",
+        );
+
+        let output = run_program(&source, &hir).expect("program should run");
+        assert_eq!(output.exit_code, 1);
+        assert_eq!(output.stdout, vec!["1"]);
     }
 
     #[test]
