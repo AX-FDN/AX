@@ -1,0 +1,4 @@
+fn main() -> i32 {
+    let text: string = "AX";
+    return len(text);
+}

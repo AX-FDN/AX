@@ -1,0 +1,6 @@
+fn main() -> i32 {
+    let values: [i32; 2] = [1, 2];
+    let view: [i32] = values[0:1];
+    println(view);
+    return 0;
+}

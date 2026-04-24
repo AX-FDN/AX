@@ -160,7 +160,15 @@
   - 不做范围：不引入厂商特定 prompt 文案，不追求一次覆盖所有剩余诊断码。
   - 完成于：2026-04-24
   - 备注：已新增 `len_builtin_requires_countable_value`、`slice_base_must_be_array_or_slice`、`slice_values_are_read_only` 三个稳定规则，并补充 [`examples/len_non_countable.ax`](C:/Users/xiaoy/Desktop/A语言/AX/examples/len_non_countable.ax)、[`examples/non_slice_base.ax`](C:/Users/xiaoy/Desktop/A语言/AX/examples/non_slice_base.ax)、[`examples/slice_assignment.ax`](C:/Users/xiaoy/Desktop/A语言/AX/examples/slice_assignment.ax) 进入 repair case 集。
-- [ ] `P1-5` 更多工具风格坏例子与修复样例
+- [x] `P1-5` 更多工具风格坏例子与修复样例
+  - 目标：把新落地的切片、`len(value)` 和只读视图规则补进 repair benchmark 资产，而不是只停留在单个示例文件。
+  - 输入：现有工具风格样例、repair manifest、replay candidate 目录和 smoke 脚本。
+  - 输出：更多工具风格坏例子、对应修复候选、更新后的 smoke manifest 与 compare smoke 基线。
+  - 通过条件：新 case 能进入 full/smoke manifest；shared/base/cold replay 资产齐全；repair smoke 与 compare smoke 稳定通过。
+  - 回归保障：`benchmarks/repair-cases*.json`、`benchmarks/repair-candidates/**`、`scripts/smoke-*.ps1`、`.\scripts\cargo-gnu.ps1 test`。
+  - 不做范围：不接入新的模型供应商，不引入新的语言特性，只补 benchmark 与修复资产。
+  - 完成于：2026-04-24
+  - 备注：已把 [`examples/len_non_countable.ax`](C:/Users/xiaoy/Desktop/A语言/AX/examples/len_non_countable.ax)、[`examples/non_slice_base.ax`](C:/Users/xiaoy/Desktop/A语言/AX/examples/non_slice_base.ax)、[`examples/slice_assignment.ax`](C:/Users/xiaoy/Desktop/A语言/AX/examples/slice_assignment.ax) 接入 full/smoke manifest，并补齐 [`benchmarks/repair-candidates/smoke`](C:/Users/xiaoy/Desktop/A语言/AX/benchmarks/repair-candidates/smoke)、[`benchmarks/repair-candidates/compare/base`](C:/Users/xiaoy/Desktop/A语言/AX/benchmarks/repair-candidates/compare/base) 与 [`benchmarks/repair-candidates/compare/cold`](C:/Users/xiaoy/Desktop/A语言/AX/benchmarks/repair-candidates/compare/cold) 的 replay 资产；compare smoke 现稳定验证 8 个 case、`cold -> base -> ai` 三模式差异。
 
 ## P2
 
