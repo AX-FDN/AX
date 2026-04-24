@@ -73,6 +73,7 @@ The stable bundle fields today are:
 - `schema_version`
 - `case_id`
 - `feedback_mode`
+- `diagnostic_command`
 - `file`
 - `category`
 - `repair_goal`
@@ -81,6 +82,8 @@ The stable bundle fields today are:
 - `expected_ai_rule_ids`
 - `source_file`
 - `diagnostics`
+
+`diagnostic_command` tells the adapter whether the exported failure came from `axc check --json` or `axc run --json`. Adapters do not need to execute that command themselves, but they may use it to tailor prompts or repair strategy.
 
 Adapters should treat the prompt and bundle as read-only inputs.
 

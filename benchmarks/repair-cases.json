@@ -48,6 +48,24 @@
       "notes": "Validates exact-type diagnostics."
     },
     {
+      "id": "function_argument_type_mismatch",
+      "file": "examples/function_argument_type_mismatch.ax",
+      "category": "semantic",
+      "expected_codes": ["S0022"],
+      "expected_ai_rule_ids": ["function_argument_type_must_match"],
+      "repair_goal": "Make each call argument produce the exact type declared by the target parameter.",
+      "notes": "Extends repair coverage to call-site type mismatches with a dedicated AI rule card."
+    },
+    {
+      "id": "non_bool_condition",
+      "file": "examples/non_bool_condition.ax",
+      "category": "semantic",
+      "expected_codes": ["S0022"],
+      "expected_ai_rule_ids": ["condition_expression_must_be_bool"],
+      "repair_goal": "Make the condition expression evaluate to bool.",
+      "notes": "Covers control-flow conditions that incorrectly rely on implicit truthiness."
+    },
+    {
       "id": "undefined_variable_total",
       "file": "examples/undefined_variable.ax",
       "category": "semantic",
@@ -127,6 +145,26 @@
       "expected_ai_rule_ids": ["unique_definition_required"],
       "repair_goal": "Remove or rename the duplicate local definition.",
       "notes": "Provides a stable duplicate-definition repair target."
+    },
+    {
+      "id": "index_out_of_bounds_runtime",
+      "file": "examples/index_out_of_bounds.ax",
+      "category": "runtime",
+      "diagnostic_command": "run",
+      "expected_codes": ["R0031"],
+      "expected_ai_rule_ids": ["array_index_must_stay_in_bounds"],
+      "repair_goal": "Keep the array index within the declared fixed-size array bounds.",
+      "notes": "Covers runtime array bounds failures while keeping the static program valid."
+    },
+    {
+      "id": "division_by_zero_runtime",
+      "file": "examples/division_by_zero.ax",
+      "category": "runtime",
+      "diagnostic_command": "run",
+      "expected_codes": ["R0021"],
+      "expected_ai_rule_ids": ["division_by_zero_must_be_avoided"],
+      "repair_goal": "Guard the divisor or rewrite the calculation so the runtime divisor cannot be zero.",
+      "notes": "Extends the repair benchmark from static diagnostics into runtime failures."
     },
     {
       "id": "import_declaration_unsupported",

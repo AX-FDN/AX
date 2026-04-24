@@ -108,8 +108,15 @@ struct RepairCaseManifest {
 struct RepairCaseEntry {
     id: String,
     file: String,
+    diagnostic_command: Option<String>,
     expected_codes: Vec<String>,
     expected_ai_rule_ids: Vec<String>,
+}
+
+impl RepairCaseEntry {
+    fn diagnostic_command(&self) -> &str {
+        self.diagnostic_command.as_deref().unwrap_or("check")
+    }
 }
 
 #[test]
@@ -408,7 +415,7 @@ fn diagnostics_ai_rule_ids_match_repair_manifest_cases() {
 
     for case in manifest.cases {
         let output = run_axc([
-            OsStr::new("check"),
+            OsStr::new(case.diagnostic_command()),
             OsStr::new(case.file.as_str()),
             OsStr::new("--json"),
             OsStr::new("--ai"),
@@ -416,8 +423,9 @@ fn diagnostics_ai_rule_ids_match_repair_manifest_cases() {
         assert_eq!(
             output.status.code(),
             Some(1),
-            "case `{}` should emit diagnostics",
-            case.id
+            "case `{}` should emit diagnostics via `{}`",
+            case.id,
+            case.diagnostic_command()
         );
         assert_clean_stderr(&output);
 

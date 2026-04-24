@@ -74,9 +74,17 @@ function Get-ManifestFiles {
     }
 
     $manifest = Get-Content $Path -Raw -Encoding utf8 | ConvertFrom-Json
-    $files = @($manifest.cases | ForEach-Object { [string] $_.file })
+    $files = @(
+        $manifest.cases |
+            Where-Object {
+                $diagnosticCommand = [string] $_.diagnostic_command
+                [string]::IsNullOrWhiteSpace($diagnosticCommand) -or
+                $diagnosticCommand.ToLowerInvariant() -eq "check"
+            } |
+            ForEach-Object { [string] $_.file }
+    )
     if ($files.Count -eq 0) {
-        Write-Error "Benchmark manifest contains no case files: $Path"
+        Write-Error "Benchmark manifest contains no check-based case files: $Path"
     }
 
     return $files

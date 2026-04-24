@@ -38,6 +38,7 @@ The full manifest schema is:
       "id": "missing_semicolon_basic",
       "file": "examples/missing_semicolon.ax",
       "category": "syntax",
+      "diagnostic_command": "check",
       "expected_codes": ["P0001"],
       "expected_ai_rule_ids": ["statement_terminator_required"],
       "repair_goal": "Insert the missing semicolon after the let binding.",
@@ -59,6 +60,8 @@ Field meanings:
   Repository-relative path to the broken AX source.
 - `cases[].category`
   Stable grouping key such as `syntax`, `semantic`, or `unsupported`.
+- `cases[].diagnostic_command`
+  Optional source of the exported diagnostics. Current values are `check` and `run`. When omitted, the scripts default to `check`.
 - `cases[].expected_codes`
   Exact diagnostic code sequence expected from both base and AI-enhanced checks.
 - `cases[].expected_ai_rule_ids`
@@ -87,9 +90,9 @@ Each case directory contains:
 - `source.ax`
   Broken source copied from the manifest input.
 - `diagnostics.base.json`
-  Output of `axc check <file> --json`.
+  Output of `axc <diagnostic_command> <file> --json`.
 - `diagnostics.ai.json`
-  Output of `axc check <file> --json --ai`.
+  Output of `axc <diagnostic_command> <file> --json --ai`.
 - `bundle.base.json`
   Structured repair bundle for base feedback.
 - `bundle.ai.json`
@@ -109,6 +112,7 @@ The export root also contains:
 The export script validates the benchmark as it exports it:
 
 - source file must exist
+- `diagnostic_command` must be `check` or `run`
 - `expected_codes` must match observed compiler output exactly
 - `expected_ai_rule_ids` must match observed AI-enhanced output exactly
 
@@ -192,14 +196,15 @@ Candidate lookup supports two layouts:
 The scorer runs:
 
 - `axc check <candidate> --json`
-- optionally `axc run <candidate>` when `-RunPrograms` is enabled and the candidate passes `check`
+- `axc run <candidate> --json` for cases whose `diagnostic_command` is `run`
+- optionally `axc run <candidate>` when `-RunPrograms` is enabled for `check`-based cases that already passed `check`
 
 Per-case score status is:
 
 - `passed`
-  `axc check` succeeded and emitted no diagnostics.
+  `axc check` succeeded and emitted no diagnostics, and for `run`-based cases the repaired program also produced no runtime diagnostics under `axc run --json`.
 - `failed`
-  Candidate existed but still failed `check`.
+  Candidate existed but still failed `check`, or it still failed the required runtime validation for a `run`-based case.
 - `missing`
   No candidate file was found for that case.
 
