@@ -11,291 +11,236 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
         value_type: &Type,
         value_span: Span,
     ) {
-        match &target.kind {
-            ExprKind::Name { value: name } => {
-                self.check_variable_assignment(name, target.span, value_span, value_type);
-            }
-            ExprKind::Field { base, field } => {
-                self.check_field_assignment(base, field, target.span, value_span, value_type);
-            }
-            ExprKind::Index { base, index } => {
-                self.check_array_assignment(base, index, target.span, value_span, value_type);
-            }
-            _ => {
-                self.diagnostics.push(
-                    Diagnostic::new(
-                        "S0008",
-                        "assignment target must be a mutable variable, direct mutable struct field, or direct mutable array element",
-                        self.info.source,
-                        target.span,
-                    )
-                    .with_suggestion(
-                        "assign to `value = expr;`, `point.x = expr;`, or `values[index] = expr;`",
-                    ),
-                );
-                self.check_expr(target);
-            }
-        }
-    }
-
-    fn check_variable_assignment(
-        &mut self,
-        name: &str,
-        target_span: Span,
-        value_span: Span,
-        value_type: &Type,
-    ) {
-        match self.lookup(name) {
-            Some(binding) if binding.mutable => {
-                self.expect_type_match(
-                    &binding.ty,
-                    value_type,
-                    value_span,
-                    format!(
-                        "cannot assign `{}` to `{name}` of type `{}`",
-                        value_type.describe(),
-                        binding.ty.describe()
-                    ),
-                );
-            }
-            Some(binding) => {
-                let (line, column) = self.info.source.line_col(binding.start);
-                self.diagnostics.push(
-                    Diagnostic::new(
-                        "S0003",
-                        format!("cannot assign to immutable variable `{name}`"),
-                        self.info.source,
-                        target_span,
-                    )
-                    .with_note(format!(
-                        "`{name}` was declared immutable at {line}:{column}"
-                    ))
-                    .with_note("AX fixes local mutability at the declaration site; later assignments require `let mut`")
-                    .with_suggestion(format!("declare `{name}` with `let mut`")),
-                );
-            }
-            None => {
-                self.diagnostics.push(self.undefined_variable_diagnostic(
-                    name,
-                    target_span,
-                    format!("declare `{name}` before assigning to it"),
-                ));
-            }
-        }
-    }
-
-    fn check_field_assignment(
-        &mut self,
-        base: &Expr,
-        field: &str,
-        target_span: Span,
-        value_span: Span,
-        value_type: &Type,
-    ) {
-        let ExprKind::Name { value: base_name } = &base.kind else {
-            self.diagnostics.push(
-                Diagnostic::new(
-                    "S0008",
-                    "assignment target must be a mutable variable or direct mutable struct field",
-                    self.info.source,
-                    target_span,
-                )
-                .with_suggestion("use a direct field write like `point.x = expr;`"),
-            );
-            self.check_expr(base);
+        let Some(place) = self.resolve_assignment_place(target) else {
             return;
         };
 
-        match self.lookup(base_name) {
-            Some(binding) if !binding.mutable => {
-                let (line, column) = self.info.source.line_col(binding.start);
-                self.diagnostics.push(
-                    Diagnostic::new(
-                        "S0030",
-                        format!(
-                            "cannot assign to field `{field}` on immutable variable `{base_name}`"
-                        ),
-                        self.info.source,
-                        target_span,
-                    )
-                    .with_note(format!(
-                        "`{base_name}` was declared immutable at {line}:{column}"
-                    ))
-                    .with_suggestion(format!(
-                        "declare `{base_name}` with `let mut` before assigning to `{base_name}.{field}`"
-                    )),
-                );
+        if !place.root_mutable {
+            self.report_immutable_assignment_target(target, &place.root_name, place.root_start);
+            return;
+        }
+
+        if place.through_slice {
+            self.diagnostics.push(
+                Diagnostic::new(
+                    "S0035",
+                    format!(
+                        "cannot assign through slice variable `{}` because slices are read-only",
+                        place.root_name
+                    ),
+                    self.info.source,
+                    target.span,
+                )
+                .with_suggestion("assign through the original mutable array instead of a slice view"),
+            );
+            return;
+        }
+
+        self.expect_type_match(
+            &place.ty,
+            value_type,
+            value_span,
+            format!(
+                "cannot assign `{}` to target of type `{}`",
+                value_type.describe(),
+                place.ty.describe()
+            ),
+        );
+    }
+
+    fn resolve_assignment_place(&mut self, target: &Expr) -> Option<ResolvedAssignmentPlace> {
+        match &target.kind {
+            ExprKind::Name { value } => {
+                let binding = match self.lookup(value) {
+                    Some(binding) => binding,
+                    None => {
+                        self.diagnostics.push(self.undefined_variable_diagnostic(
+                            value,
+                            target.span,
+                            format!("declare `{value}` before assigning to it"),
+                        ));
+                        return None;
+                    }
+                };
+
+                Some(ResolvedAssignmentPlace {
+                    ty: binding.ty.clone(),
+                    root_name: value.clone(),
+                    root_mutable: binding.mutable,
+                    root_start: binding.start,
+                    through_slice: false,
+                })
             }
-            Some(binding) => match binding.ty {
-                Type::Struct(struct_name) => {
-                    let struct_info = self.info.structs.get(&struct_name).cloned();
-                    match struct_info {
-                        Some(struct_info) => match struct_info.fields.get(field) {
-                            Some(field_info) => {
-                                self.expect_type_match(
-                                    &field_info.ty,
-                                    value_type,
-                                    value_span,
-                                    format!(
-                                        "cannot assign `{}` to field `{field}` of `{struct_name}` because the field has type `{}`",
-                                        value_type.describe(),
-                                        field_info.ty.describe()
-                                    ),
-                                );
-                            }
+            ExprKind::Field { base, field } => {
+                let base_place = self.resolve_assignment_place(base)?;
+                match &base_place.ty {
+                    Type::Struct(struct_name) => {
+                        let struct_info = self.info.structs.get(struct_name).cloned();
+                        match struct_info.and_then(|info| info.fields.get(field).cloned()) {
+                            Some(field_info) => Some(ResolvedAssignmentPlace {
+                                ty: field_info.ty,
+                                ..base_place
+                            }),
                             None => {
                                 self.diagnostics.push(
                                     Diagnostic::new(
                                         "S0020",
-                                        format!(
-                                            "struct `{struct_name}` does not have a field `{field}`",
-                                        ),
+                                        format!("struct `{struct_name}` does not have a field `{field}`"),
                                         self.info.source,
-                                        target_span,
+                                        target.span,
                                     )
                                     .with_suggestion(
                                         "use an existing field name from the struct declaration",
                                     ),
                                 );
+                                None
                             }
-                        },
-                        None => {}
+                        }
+                    }
+                    Type::Error => None,
+                    other => {
+                        self.diagnostics.push(
+                            Diagnostic::new(
+                                "S0021",
+                                format!(
+                                    "field access expects a struct value, found `{}`",
+                                    other.describe()
+                                ),
+                                self.info.source,
+                                target.span,
+                            )
+                            .with_suggestion(
+                                "use `.field` only after a struct value or a struct element selected from an array",
+                            ),
+                        );
+                        None
                     }
                 }
-                Type::Error => {}
-                other => {
-                    self.diagnostics.push(
-                        Diagnostic::new(
-                            "S0030",
-                            format!(
-                                "field assignment requires a mutable struct variable, found `{}`",
-                                other.describe()
-                            ),
-                            self.info.source,
-                            target_span,
-                        )
-                        .with_suggestion(
-                            "assign to a field on a mutable struct variable like `point.x = expr;`",
-                        ),
-                    );
-                }
-            },
-            None => {
-                self.diagnostics.push(self.undefined_variable_diagnostic(
-                    base_name,
-                    base.span,
-                    format!("declare `{base_name}` before assigning to its field"),
-                ));
             }
-        }
-    }
-
-    fn check_array_assignment(
-        &mut self,
-        base: &Expr,
-        index: &Expr,
-        target_span: Span,
-        value_span: Span,
-        value_type: &Type,
-    ) {
-        let ExprKind::Name { value: base_name } = &base.kind else {
-            self.diagnostics.push(
-                Diagnostic::new(
-                    "S0008",
-                    "assignment target must be a mutable variable, direct mutable struct field, or direct mutable array element",
-                    self.info.source,
-                    target_span,
-                )
-                .with_suggestion("use a direct array write like `values[index] = expr;`"),
-            );
-            self.check_expr(base);
-            self.check_expr(index);
-            return;
-        };
-
-        match self.lookup(base_name) {
-            Some(binding) if !binding.mutable => {
-                let (line, column) = self.info.source.line_col(binding.start);
-                self.diagnostics.push(
-                    Diagnostic::new(
-                        "S0003",
-                        format!("cannot assign through immutable array variable `{base_name}`"),
-                        self.info.source,
-                        target_span,
-                    )
-                    .with_note(format!(
-                        "`{base_name}` was declared immutable at {line}:{column}"
-                    ))
-                    .with_note("AX fixes local mutability at the declaration site; array element writes require `let mut`")
-                    .with_suggestion(format!("declare `{base_name}` with `let mut`")),
-                );
-            }
-            Some(binding) => {
+            ExprKind::Index { base, index } => {
+                let base_place = self.resolve_assignment_place(base)?;
                 let index_type = self.check_expr(index);
                 self.expect_type_match(
                     &Type::I32,
                     &index_type,
                     index.span,
-                    format!(
-                        "array index must be `i32`, found `{}`",
-                        index_type.describe()
-                    ),
+                    format!("array index must be `i32`, found `{}`", index_type.describe()),
                 );
 
-                match binding.ty {
-                    Type::Array { element, .. } => {
-                        self.expect_type_match(
-                            element.as_ref(),
-                            value_type,
-                            value_span,
-                            format!(
-                                "cannot assign `{}` to an array element of type `{}`",
-                                value_type.describe(),
-                                element.describe()
-                            ),
-                        );
-                    }
-                    Type::Slice { .. } => {
-                        self.diagnostics.push(
-                            Diagnostic::new(
-                                "S0035",
-                                format!(
-                                    "cannot assign through slice variable `{base_name}` because slices are read-only",
-                                ),
-                                self.info.source,
-                                target_span,
-                            )
-                            .with_suggestion(
-                                "assign through the original mutable array instead of a slice view",
-                            ),
-                        );
-                    }
-                    Type::Error => {}
+                match &base_place.ty {
+                    Type::Array { element, .. } => Some(ResolvedAssignmentPlace {
+                        ty: element.as_ref().clone(),
+                        ..base_place
+                    }),
+                    Type::Slice { element } => Some(ResolvedAssignmentPlace {
+                        ty: element.as_ref().clone(),
+                        through_slice: true,
+                        ..base_place
+                    }),
+                    Type::Error => None,
                     other => {
                         self.diagnostics.push(
                             Diagnostic::new(
                                 "S0033",
                                 format!(
-                                    "indexed assignment requires an array value, found `{}`",
+                                    "indexed assignment requires an array or slice value, found `{}`",
                                     other.describe()
                                 ),
                                 self.info.source,
-                                target_span,
+                                target.span,
                             )
                             .with_suggestion(
-                                "assign through a mutable array variable like `values[index] = expr;`",
+                                "assign through an array element like `values[index] = expr;` or a field selected from one",
                             ),
                         );
+                        None
                     }
                 }
             }
-            None => {
-                self.diagnostics.push(self.undefined_variable_diagnostic(
-                    base_name,
-                    base.span,
-                    format!("declare `{base_name}` before assigning to its elements"),
-                ));
+            _ => {
+                self.diagnostics.push(
+                    Diagnostic::new(
+                        "S0008",
+                        "assignment target must be a mutable variable, field path, or array element path",
+                        self.info.source,
+                        target.span,
+                    )
+                    .with_suggestion(
+                        "assign to `value = expr;`, `point.x = expr;`, `values[index] = expr;`, or `values[index].field = expr;`",
+                    ),
+                );
+                self.check_expr(target);
+                None
             }
         }
     }
+
+    fn report_immutable_assignment_target(
+        &mut self,
+        target: &Expr,
+        root_name: &str,
+        root_start: usize,
+    ) {
+        let (line, column) = self.info.source.line_col(root_start);
+        match &target.kind {
+            ExprKind::Name { .. } => {
+                self.diagnostics.push(
+                    Diagnostic::new(
+                        "S0003",
+                        format!("cannot assign to immutable variable `{root_name}`"),
+                        self.info.source,
+                        target.span,
+                    )
+                    .with_note(format!(
+                        "`{root_name}` was declared immutable at {line}:{column}"
+                    ))
+                    .with_note("AX fixes local mutability at the declaration site; later assignments require `let mut`")
+                    .with_suggestion(format!("declare `{root_name}` with `let mut`")),
+                );
+            }
+            ExprKind::Index { .. } => {
+                self.diagnostics.push(
+                    Diagnostic::new(
+                        "S0003",
+                        format!("cannot assign through immutable variable `{root_name}`"),
+                        self.info.source,
+                        target.span,
+                    )
+                    .with_note(format!(
+                        "`{root_name}` was declared immutable at {line}:{column}"
+                    ))
+                    .with_note("AX fixes local mutability at the declaration site; later assignments require `let mut`")
+                    .with_suggestion(format!("declare `{root_name}` with `let mut`")),
+                );
+            }
+            ExprKind::Field { field, .. } => {
+                self.diagnostics.push(
+                    Diagnostic::new(
+                        "S0030",
+                        format!(
+                            "cannot assign to field `{field}` on immutable variable `{root_name}`"
+                        ),
+                        self.info.source,
+                        target.span,
+                    )
+                    .with_note(format!(
+                        "`{root_name}` was declared immutable at {line}:{column}"
+                    ))
+                    .with_suggestion(format!(
+                        "declare `{root_name}` with `let mut` before assigning through this field path"
+                    )),
+                );
+            }
+            _ => {}
+        }
+    }
+}
+
+#[derive(Clone)]
+struct ResolvedAssignmentPlace {
+    ty: Type,
+    root_name: String,
+    root_mutable: bool,
+    root_start: usize,
+    through_slice: bool,
 }

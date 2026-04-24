@@ -179,6 +179,16 @@
   - 完成于：2026-04-24
   - 备注：当前已支持 `to_string(value)` 把数字、布尔、枚举、结构体、数组和切片等具体运行时值转为 `string`；新增 [`examples/format_report.ax`](C:/Users/xiaoy/Desktop/A语言/AX/examples/format_report.ax) 作为最小工具报告样例。
 
+- [x] `P1-7` 嵌套可写路径
+  - 目标：把“可变变量 / 字段 / 数组元素”这三种分散写法收敛成真正可用的可写路径，让 AX 能表达 `outer.inner.value = expr;` 和 `tokens[index].value = expr;` 这类工具代码常见更新逻辑。
+  - 输入：现有结构体、固定长度数组、只读切片、HIR/MIR place lowering 与解释器赋值链路。
+  - 输出：递归 place lowering、嵌套赋值语义检查、解释器嵌套写入支持、工具风格样例与回归测试。
+  - 通过条件：嵌套字段路径和“数组元素中的字段”路径都可 `check` / `run`；只读切片上的嵌套写入继续稳定拒绝；现有 AI 规则与接口测试不回退。
+  - 回归保障：`src/hir.rs`、`src/mir.rs`、`src/semantic.rs`、`src/interpreter.rs` 单测与 `.\scripts\cargo-gnu.ps1 test` 全量回归。
+  - 不做范围：不引入可变切片、借用系统、引用类型或更大集合抽象。
+  - 完成于：2026-04-24
+  - 备注：当前已支持 `name.field.other = expr;`、`name[index] = expr;` 与 `name[index].field = expr;` 三类递归可写路径；新增 [`examples/token_rewrite.ax`](C:/Users/xiaoy/Desktop/A语言/AX/examples/token_rewrite.ax) 作为最小工具式数据重写样例。
+
 ## P2
 
 - [ ] `P2-1` 更大语法扩展

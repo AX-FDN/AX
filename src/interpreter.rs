@@ -399,125 +399,97 @@ impl<'a> Interpreter<'a> {
         target: &Place,
         next_value: Value,
     ) -> Result<(), Diagnostic> {
-        match &target.kind {
+        let root_name = place_root_name(target);
+        let root_slot = lookup_slot(frame, root_name).ok_or_else(|| {
+            self.runtime_error(
+                "R0006",
+                format!("assignment to unknown variable `{root_name}`"),
+                target.span,
+            )
+        })?;
+
+        if !root_slot.mutable {
+            return match &target.kind {
+                PlaceKind::Local { .. } => Err(self.runtime_error(
+                    "R0007",
+                    format!("cannot assign to immutable variable `{root_name}`"),
+                    target.span,
+                )),
+                PlaceKind::Field { field, .. } => Err(self.runtime_error(
+                    "R0025",
+                    format!("cannot assign to field `{field}` on immutable variable `{root_name}`"),
+                    target.span,
+                )),
+                PlaceKind::Index { .. } => Err(self.runtime_error(
+                    "R0007",
+                    format!("cannot assign through immutable array variable `{root_name}`"),
+                    target.span,
+                )),
+            };
+        }
+
+        let target_value = self.resolve_place_value_mut(frame, target)?;
+        *target_value = next_value;
+        Ok(())
+    }
+
+    fn resolve_place_value_mut<'f>(
+        &mut self,
+        frame: &'f mut Frame,
+        place: &Place,
+    ) -> Result<&'f mut Value, Diagnostic> {
+        match &place.kind {
             PlaceKind::Local { name } => {
                 let slot = lookup_slot_mut(frame, name).ok_or_else(|| {
                     self.runtime_error(
                         "R0006",
                         format!("assignment to unknown variable `{name}`"),
-                        target.span,
+                        place.span,
                     )
                 })?;
-                if !slot.mutable {
-                    return Err(self.runtime_error(
-                        "R0007",
-                        format!("cannot assign to immutable variable `{name}`"),
-                        target.span,
-                    ));
-                }
-                slot.value = next_value;
-                Ok(())
+                Ok(&mut slot.value)
             }
             PlaceKind::Field { base, field } => {
-                let slot = lookup_slot_mut(frame, base).ok_or_else(|| {
-                    self.runtime_error(
-                        "R0006",
-                        format!("assignment to unknown variable `{base}`"),
-                        target.span,
-                    )
-                })?;
-                if !slot.mutable {
-                    return Err(self.runtime_error(
-                        "R0025",
-                        format!("cannot assign to field `{field}` on immutable variable `{base}`"),
-                        target.span,
-                    ));
-                }
-
-                match &mut slot.value {
-                    Value::Struct { fields, .. } => {
-                        let existing = fields.get_mut(field).ok_or_else(|| {
-                            self.runtime_error(
-                                "R0026",
-                                format!("struct value does not contain field `{field}`"),
-                                target.span,
-                            )
-                        })?;
-                        *existing = next_value;
-                        Ok(())
-                    }
+                let base_value = self.resolve_place_value_mut(frame, base)?;
+                match base_value {
+                    Value::Struct { fields, .. } => fields.get_mut(field).ok_or_else(|| {
+                        self.runtime_error(
+                            "R0026",
+                            format!("struct value does not contain field `{field}`"),
+                            place.span,
+                        )
+                    }),
                     other => Err(self.runtime_error(
                         "R0027",
                         format!(
                             "field assignment requires a struct value, got `{}`",
                             other.display()
                         ),
-                        target.span,
+                        place.span,
                     )),
                 }
             }
             PlaceKind::Index { base, index } => {
-                let array_len = {
-                    let slot = lookup_slot(frame, base).ok_or_else(|| {
-                        self.runtime_error(
-                            "R0006",
-                            format!("assignment to unknown variable `{base}`"),
-                            target.span,
-                        )
-                    })?;
-                    if !slot.mutable {
-                        return Err(self.runtime_error(
-                            "R0007",
-                            format!("cannot assign through immutable array variable `{base}`"),
-                            target.span,
-                        ));
-                    }
-
-                    match &slot.value {
-                        Value::Array(elements) => elements.len(),
-                        Value::Slice(_) => {
-                            return Err(self
-                                .runtime_error(
-                                    "R0036",
-                                    format!(
-                                        "cannot assign through slice variable `{base}` because slices are read-only"
-                                    ),
-                                    target.span,
-                                )
-                                .with_suggestion(
-                                    "assign through the original mutable array instead of a slice view",
-                                ));
-                        }
-                        other => {
-                            return Err(self.runtime_error(
-                                "R0028",
-                                format!(
-                                    "array element assignment requires an array value, got `{}`",
-                                    other.display()
-                                ),
-                                target.span,
-                            ));
-                        }
-                    }
-                };
-
                 let index_value = self.eval_expr(index, frame)?;
-                let resolved_index =
-                    self.resolve_array_index(index_value, index.span, array_len, target.span)?;
-
-                let slot = lookup_slot_mut(frame, base).expect("array slot should still exist");
-                match &mut slot.value {
+                let base_value = self.resolve_place_value_mut(frame, base)?;
+                match base_value {
                     Value::Array(elements) => {
-                        elements[resolved_index] = next_value;
-                        Ok(())
+                        let resolved_index = self.resolve_array_index(
+                            index_value,
+                            index.span,
+                            elements.len(),
+                            place.span,
+                        )?;
+                        Ok(&mut elements[resolved_index])
                     }
                     Value::Slice(_) => Err(self
                         .runtime_error(
                             "R0036",
                             format!(
-                                "cannot assign through slice variable `{base}` because slices are read-only"
+                                "cannot assign through slice variable `{}` because slices are read-only",
+                                place_root_name(base)
                             ),
-                            target.span,
+                            place.span,
                         )
                         .with_suggestion(
                             "assign through the original mutable array instead of a slice view",
@@ -528,7 +500,7 @@ impl<'a> Interpreter<'a> {
                             "array element assignment requires an array value, got `{}`",
                             other.display()
                         ),
-                        target.span,
+                        place.span,
                     )),
                 }
             }
@@ -885,6 +857,13 @@ fn lookup_slot_mut<'a>(frame: &'a mut Frame, name: &str) -> Option<&'a mut Slot>
         .find_map(|scope| scope.get_mut(name))
 }
 
+fn place_root_name<'a>(place: &'a Place) -> &'a str {
+    match &place.kind {
+        PlaceKind::Local { name } => name.as_str(),
+        PlaceKind::Field { base, .. } | PlaceKind::Index { base, .. } => place_root_name(base),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::run_program;
@@ -1098,6 +1077,70 @@ fn main() -> i32 {
         let output = run_program(&source, &hir).expect("program should run");
         assert_eq!(output.exit_code, 4);
         assert_eq!(output.stdout, vec!["[1, 4, 3]"]);
+    }
+
+    #[test]
+    fn runs_nested_assignment_through_array_elements_and_fields() {
+        let (source, hir) = analyzed_hir(
+            "\
+struct Token {
+    value: i32,
+}
+
+fn main() -> i32 {
+    let mut tokens: [Token; 3] = [
+        Token { value: 1 },
+        Token { value: 2 },
+        Token { value: 3 },
+    ];
+
+    let mut index: i32 = 0;
+    while (index < len(tokens)) {
+        tokens[index].value = tokens[index].value + 10;
+        index = index + 1;
+    }
+
+    println(tokens);
+    return tokens[0].value + tokens[2].value;
+}
+",
+        );
+
+        let output = run_program(&source, &hir).expect("program should run");
+        assert_eq!(output.exit_code, 24);
+        assert_eq!(
+            output.stdout,
+            vec!["[Token { value: 11 }, Token { value: 12 }, Token { value: 13 }]"]
+        );
+    }
+
+    #[test]
+    fn runs_nested_struct_field_assignment_paths() {
+        let (source, hir) = analyzed_hir(
+            "\
+struct Inner {
+    value: i32,
+}
+
+struct Outer {
+    inner: Inner,
+}
+
+fn main() -> i32 {
+    let mut outer: Outer = Outer { inner: Inner { value: 5 } };
+    outer.inner.value = outer.inner.value + 7;
+    println(outer);
+    return outer.inner.value;
+}
+",
+        );
+
+        let output = run_program(&source, &hir).expect("program should run");
+        assert_eq!(output.exit_code, 12);
+        assert_eq!(
+            output.stdout,
+            vec!["Outer { inner: Inner { value: 12 } }"]
+        );
     }
 
     #[test]

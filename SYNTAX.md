@@ -15,7 +15,7 @@
 - `let`、赋值、表达式语句、`return` 必须带分号
 - `if`、`while`、`for` 必须写成 `if (cond) { ... }`、`while (cond) { ... }`、`for (init; cond; step) { ... }`
 - 枚举值必须写成 `EnumName.Variant`
-- 结构体字段写入当前只支持直接形式：`point.x = expr;`
+- 可写目标当前支持嵌套路径：`point.x = expr;`、`outer.inner.value = expr;`、`tokens[index].value = expr;`
 
 ## 2. 顶层声明
 
@@ -86,11 +86,21 @@ let mut point: Point = Point { x: 1, y: 2 };
 point.x = point.x + 1;
 ```
 
+```ax
+let mut outer: Outer = Outer { inner: Inner { value: 1 } };
+outer.inner.value = outer.inner.value + 1;
+```
+
 数组元素写入：
 
 ```ax
 let mut values: [i32; 3] = [1, 2, 3];
 values[1] = values[0] + values[2];
+```
+
+```ax
+let mut tokens: [Token; 2] = [Token { value: 1 }, Token { value: 2 }];
+tokens[1].value = tokens[0].value + 4;
 ```
 
 返回：
@@ -285,10 +295,11 @@ array_type        := "[" type_ref ";" INT "]"
 
 补充说明：
 
-- `assign_stmt` 在语法层允许 `expr = expr;`，但语义层当前只接受三种目标：
+- `assign_stmt` 在语法层允许 `expr = expr;`，但语义层当前只接受从可变根绑定出发的可写路径：
 - 变量赋值：`name = expr;`
-- 结构体字段赋值：`name.field = expr;`
-- 数组元素赋值：`name[index] = expr;`
+- 结构体字段路径赋值：`name.field = expr;`、`name.field.other = expr;`
+- 数组元素路径赋值：`name[index] = expr;`、`name[index].field = expr;`
+- 只读切片仍然不能写入，因此 `view[index] = expr;` 和 `view[index].field = expr;` 都会被拒绝
 - `for` 当前支持的表头子句是：
 - 初始化：空、`let`、赋值、表达式
 - 条件：空或任意会检查为 `bool` 的表达式
@@ -354,8 +365,8 @@ Rules:
 - Read-only slices are allowed as [Type] and values[start:end].
 - Fixed-size arrays are allowed as [Type; N], [a, b, c], and values[index].
 - Empty array literals are allowed only in explicit zero-length array context, for example: let values: [i32; 0] = [];.
-- Direct array element assignment is allowed as values[index] = expr; when the array variable is mutable.
-- Direct field assignment is allowed only as name.field = expr; and only when name is a mutable struct variable.
+- Mutable write paths may target variables, nested struct fields, and fields selected from mutable array elements.
+- Slice values remain read-only, so assignments through values[start:end] are not allowed.
 - Do not use match, modules, imports, exceptions, async, or generics.
 - Use [] only when the target type is explicitly a zero-length array like [i32; 0].
 - Return 0 from main on success unless a different exit code is explicitly needed.

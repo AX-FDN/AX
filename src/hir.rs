@@ -135,8 +135,8 @@ pub struct Place {
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum PlaceKind {
     Local { name: String },
-    Field { base: String, field: String },
-    Index { base: String, index: Expr },
+    Field { base: Box<Place>, field: String },
+    Index { base: Box<Place>, index: Expr },
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -480,35 +480,21 @@ impl<'a> LoweringContext<'a> {
                 name: value.clone(),
             },
             ast::ExprKind::Field { base, field } => {
-                let ast::ExprKind::Name { value } = &base.kind else {
-                    return Err(self.lowering_error(
-                        "H0003",
-                        "HIR assignments require a direct variable or direct field target",
-                        expr.span,
-                    ));
-                };
                 PlaceKind::Field {
-                    base: value.clone(),
+                    base: Box::new(self.lower_place(base)?),
                     field: field.clone(),
                 }
             }
             ast::ExprKind::Index { base, index } => {
-                let ast::ExprKind::Name { value } = &base.kind else {
-                    return Err(self.lowering_error(
-                        "H0003",
-                        "HIR assignments require a direct variable, direct field, or direct array index target",
-                        expr.span,
-                    ));
-                };
                 PlaceKind::Index {
-                    base: value.clone(),
+                    base: Box::new(self.lower_place(base)?),
                     index: self.lower_expr(index)?,
                 }
             }
             _ => {
                 return Err(self.lowering_error(
                     "H0003",
-                    "HIR assignments require a direct variable, direct field, or direct array index target",
+                    "HIR assignments require writable place targets built from variables, fields, and indexes",
                     expr.span,
                 ));
             }
@@ -851,5 +837,36 @@ fn main() -> i32 {
             panic!("expected assignment statement");
         };
         assert!(matches!(target.kind, PlaceKind::Index { .. }));
+    }
+
+    #[test]
+    fn lowers_nested_assignment_places() {
+        let program = lower(
+            "\
+struct Point { x: i32 }
+
+fn main() -> i32 {
+    let mut points: [Point; 2] = [Point { x: 1 }, Point { x: 2 }];
+    points[0].x = 3;
+    return points[0].x;
+}
+",
+        );
+
+        let ItemKind::Function { body, .. } = &program.items[1].kind else {
+            panic!("expected main function");
+        };
+
+        let StmtKind::Assign { target, .. } = &body.statements[1].kind else {
+            panic!("expected assignment statement");
+        };
+
+        match &target.kind {
+            PlaceKind::Field { base, field } => {
+                assert_eq!(field, "x");
+                assert!(matches!(base.kind, PlaceKind::Index { .. }));
+            }
+            _ => panic!("expected nested field assignment place"),
+        }
     }
 }

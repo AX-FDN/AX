@@ -248,6 +248,39 @@ fn main() -> i32 {
     }
 
     #[test]
+    fn accepts_nested_assignment_through_array_elements_and_fields() {
+        let codes = check(
+            "\
+struct Token { value: i32 }
+
+fn main() -> i32 {
+    let mut tokens: [Token; 2] = [Token { value: 1 }, Token { value: 2 }];
+    tokens[1].value = tokens[0].value + 4;
+    return tokens[1].value;
+}
+",
+        );
+        assert!(codes.is_empty(), "unexpected diagnostics: {codes:?}");
+    }
+
+    #[test]
+    fn accepts_nested_struct_field_assignment_paths() {
+        let codes = check(
+            "\
+struct Inner { value: i32 }
+struct Outer { inner: Inner }
+
+fn main() -> i32 {
+    let mut outer: Outer = Outer { inner: Inner { value: 1 } };
+    outer.inner.value = outer.inner.value + 2;
+    return outer.inner.value;
+}
+",
+        );
+        assert!(codes.is_empty(), "unexpected diagnostics: {codes:?}");
+    }
+
+    #[test]
     fn reports_slice_assignment_as_read_only() {
         let codes = check(
             "\
@@ -255,6 +288,23 @@ fn main() -> i32 {
     let values: [i32; 3] = [1, 2, 3];
     let mut head: [i32] = values[0:2];
     head[0] = 9;
+    return 0;
+}
+",
+        );
+        assert!(codes.iter().any(|code| code == "S0035"));
+    }
+
+    #[test]
+    fn reports_nested_assignment_through_slice_as_read_only() {
+        let codes = check(
+            "\
+struct Token { value: i32 }
+
+fn main() -> i32 {
+    let mut tokens: [Token; 2] = [Token { value: 1 }, Token { value: 2 }];
+    let mut view: [Token] = tokens[0:2];
+    view[0].value = 9;
     return 0;
 }
 ",

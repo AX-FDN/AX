@@ -137,13 +137,11 @@ pub enum PlaceKind {
         name: String,
     },
     Field {
-        local: u32,
-        name: String,
+        base: Box<Place>,
         field: String,
     },
     Index {
-        local: u32,
-        name: String,
+        base: Box<Place>,
         index: Expr,
     },
 }
@@ -473,13 +471,11 @@ impl FunctionLowerer {
                 name: name.clone(),
             },
             hir::PlaceKind::Field { base, field } => PlaceKind::Field {
-                local: self.lookup(base)?,
-                name: base.clone(),
+                base: Box::new(self.lower_place(base)?),
                 field: field.clone(),
             },
             hir::PlaceKind::Index { base, index } => PlaceKind::Index {
-                local: self.lookup(base)?,
-                name: base.clone(),
+                base: Box::new(self.lower_place(base)?),
                 index: self.lower_expr(index)?,
             },
         };
@@ -870,5 +866,36 @@ fn main() -> i32 {
             panic!("expected assignment statement");
         };
         assert!(matches!(target.kind, PlaceKind::Index { .. }));
+    }
+
+    #[test]
+    fn lowers_nested_assignment_places() {
+        let program = lower(
+            "\
+struct Point { x: i32 }
+
+fn main() -> i32 {
+    let mut points: [Point; 2] = [Point { x: 1 }, Point { x: 2 }];
+    points[0].x = 3;
+    return points[0].x;
+}
+",
+        );
+
+        let ItemKind::Function { blocks, .. } = &program.items[1].kind else {
+            panic!("expected main function");
+        };
+
+        let StatementKind::Assign { target, .. } = &blocks[0].statements[1].kind else {
+            panic!("expected assignment statement");
+        };
+
+        match &target.kind {
+            PlaceKind::Field { base, field } => {
+                assert_eq!(field, "x");
+                assert!(matches!(base.kind, PlaceKind::Index { .. }));
+            }
+            _ => panic!("expected nested field assignment place"),
+        }
     }
 }
