@@ -100,13 +100,14 @@ Accepted success forms:
 2. write repaired AX source to `stdout` and exit `0`
 
 The benchmark runner prefers `OutputPath`, but if the file does not exist and `stdout` is non-empty, it will capture stdout into the candidate file.
+This stdout-only success path is part of the stable runner contract and is intended for adapters that cannot or do not want to write files directly.
 
 Failure contract:
 
 - non-zero exit code, or
 - zero exit code with neither `OutputPath` nor non-empty stdout
 
-The runner records stdout and stderr either way.
+The runner records stdout and stderr either way. A zero exit with no file and no stdout is recorded as `failed`, not `ok`.
 
 ## Output Quality Requirements
 
@@ -133,6 +134,7 @@ Adapters should not:
 - mutate benchmark artifacts in place
 - assume `PromptPath` or `BundlePath` live under a fixed absolute directory
 - rely on interactive input during benchmark runs
+- mix logs with repaired AX source on stdout when using the stdout-only success path
 
 ## Minimal Replay Example
 

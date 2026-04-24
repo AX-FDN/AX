@@ -180,6 +180,7 @@ Run output contains:
   Embedded score output, unless `-SkipScore` is used.
 
 For environments where `cargo` is unavailable but a compiled `axc` already exists, point `AXC_BINARY` at that executable and add `-SkipBuild`. `run-repair-benchmark.ps1` now forwards that flag to any nested export and score steps so the full run stays on the prebuilt binary path.
+The runner also supports stdout-only adapters: if the child exits `0` and leaves no file at `OutputPath`, non-empty stdout is captured as the candidate source. A zero exit with no file and no stdout is recorded as `failed`.
 
 `run-summary.json` uses these runner statuses:
 
@@ -189,6 +190,8 @@ For environments where `cargo` is unavailable but a compiled `axc` already exist
   Runner exited unsuccessfully or produced no usable candidate.
 - `timed_out`
   Runner exceeded the configured timeout.
+
+`-SkipScore` is useful when you want to validate only the runner contract itself, for example when checking whether a new adapter writes `OutputPath` correctly or returns the repaired source on stdout without hanging.
 
 ## Score Step
 

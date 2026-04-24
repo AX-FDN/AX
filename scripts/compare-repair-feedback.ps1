@@ -160,25 +160,48 @@ function Invoke-ExternalProcess {
     }) -join ' '
 
     $process = [System.Diagnostics.Process]::Start($startInfo)
+    $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+    $stderrTask = $process.StandardError.ReadToEndAsync()
+
     if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
         try {
             $process.Kill()
         } catch {
         }
 
+        $process.WaitForExit()
+
+        $stdout = ""
+        $stderr = "Process timed out after $TimeoutSeconds seconds."
+        try {
+            $stdout = $stdoutTask.GetAwaiter().GetResult()
+        } catch {
+        }
+        try {
+            $capturedStdErr = $stderrTask.GetAwaiter().GetResult()
+            if (-not [string]::IsNullOrWhiteSpace($capturedStdErr)) {
+                $stderr += "`n$capturedStdErr"
+            }
+        } catch {
+        }
+
         return [pscustomobject]@{
             TimedOut = $true
             ExitCode = $null
-            StdOut   = ""
-            StdErr   = "Process timed out after $TimeoutSeconds seconds."
+            StdOut   = $stdout
+            StdErr   = $stderr
         }
     }
+
+    $process.WaitForExit()
+    $stdout = $stdoutTask.GetAwaiter().GetResult()
+    $stderr = $stderrTask.GetAwaiter().GetResult()
 
     return [pscustomobject]@{
         TimedOut = $false
         ExitCode = $process.ExitCode
-        StdOut   = $process.StandardOutput.ReadToEnd()
-        StdErr   = $process.StandardError.ReadToEnd()
+        StdOut   = $stdout
+        StdErr   = $stderr
     }
 }
 

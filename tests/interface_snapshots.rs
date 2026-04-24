@@ -152,7 +152,7 @@ fn assert_json_f64(value: &Value, expected: f64, label: &str) {
     );
 }
 
-fn export_smoke_repair_benchmark(temp: &TempDir) -> PathBuf {
+fn export_repair_benchmark(temp: &TempDir, manifest_path: &Path) -> PathBuf {
     let output_dir = temp.join("benchmark");
     let script_path = repo_root().join("scripts").join("export-repair-benchmark.ps1");
 
@@ -160,7 +160,7 @@ fn export_smoke_repair_benchmark(temp: &TempDir) -> PathBuf {
         &script_path,
         [
             OsStr::new("-ManifestPath"),
-            OsStr::new("benchmarks/repair-cases-smoke.json"),
+            manifest_path.as_os_str(),
             OsStr::new("-OutputDir"),
             output_dir.as_os_str(),
             OsStr::new("-SkipBuild"),
@@ -176,6 +176,13 @@ fn export_smoke_repair_benchmark(temp: &TempDir) -> PathBuf {
     assert_clean_stderr(&output);
 
     output_dir
+}
+
+fn export_smoke_repair_benchmark(temp: &TempDir) -> PathBuf {
+    export_repair_benchmark(
+        temp,
+        &repo_root().join("benchmarks").join("repair-cases-smoke.json"),
+    )
 }
 
 fn write_replay_wrapper(
@@ -239,6 +246,78 @@ $ErrorActionPreference = \"Stop\"
     );
 
     temp.write(name, &script_text)
+}
+
+fn write_stdout_only_runner(temp: &TempDir, name: &str) -> PathBuf {
+    temp.write(
+        name,
+        "\
+param(
+    [Parameter(Mandatory = $true)]
+    [string] $PromptPath,
+    [Parameter(Mandatory = $true)]
+    [string] $BundlePath,
+    [Parameter(Mandatory = $true)]
+    [string] $OutputPath,
+    [Parameter(Mandatory = $true)]
+    [string] $CaseId,
+    [Parameter(Mandatory = $true)]
+    [string] $FeedbackMode
+)
+
+$ErrorActionPreference = \"Stop\"
+$payload = \"A\" * 131072
+$source = \"fn main() -> i32 { let payload: string = `\"$payload`\"; return 0; }`n\"
+[Console]::Out.Write($source)
+",
+    )
+}
+
+fn write_silent_success_runner(temp: &TempDir, name: &str) -> PathBuf {
+    temp.write(
+        name,
+        "\
+param(
+    [Parameter(Mandatory = $true)]
+    [string] $PromptPath,
+    [Parameter(Mandatory = $true)]
+    [string] $BundlePath,
+    [Parameter(Mandatory = $true)]
+    [string] $OutputPath,
+    [Parameter(Mandatory = $true)]
+    [string] $CaseId,
+    [Parameter(Mandatory = $true)]
+    [string] $FeedbackMode
+)
+
+$ErrorActionPreference = \"Stop\"
+exit 0
+",
+    )
+}
+
+fn write_single_case_manifest(temp: &TempDir, name: &str) -> PathBuf {
+    temp.write(
+        name,
+        "\
+{
+  \"version\": 1,
+  \"description\": \"Single-case runner contract benchmark.\",
+  \"cases\": [
+    {
+      \"id\": \"missing_semicolon_basic\",
+      \"file\": \"examples/missing_semicolon.ax\",
+      \"category\": \"syntax\",
+      \"diagnostic_command\": \"check\",
+      \"expected_codes\": [\"P0001\"],
+      \"expected_ai_rule_ids\": [\"statement_terminator_required\"],
+      \"repair_goal\": \"Insert the missing semicolon after the let binding.\",
+      \"notes\": \"Contract-only benchmark case.\"
+    }
+  ]
+}
+",
+    )
 }
 
 fn diagnostic_codes(value: &Value) -> Vec<String> {
@@ -882,6 +961,141 @@ fn repair_benchmark_export_keeps_cold_base_ai_artifact_contracts() {
             "The program already gets far enough to execute, so repair the runtime failure without introducing new check-time diagnostics."
         ),
         "runtime cold prompt should preserve the runtime-specific repair guidance"
+    );
+}
+
+#[test]
+fn repair_benchmark_run_accepts_large_stdout_only_adapter_output_without_timeout() {
+    let temp = TempDir::new("repair-benchmark-stdout-only");
+    let manifest_path = write_single_case_manifest(&temp, "single-case-manifest.json");
+    let benchmark_dir = export_repair_benchmark(&temp, &manifest_path);
+    let runner_script = write_stdout_only_runner(&temp, "stdout-only-runner.ps1");
+    let output_dir = temp.join("run");
+    let script_path = repo_root().join("scripts").join("run-repair-benchmark.ps1");
+
+    let output = run_powershell_script(
+        &script_path,
+        [
+            OsStr::new("-BenchmarkDir"),
+            benchmark_dir.as_os_str(),
+            OsStr::new("-RunnerScript"),
+            runner_script.as_os_str(),
+            OsStr::new("-FeedbackMode"),
+            OsStr::new("ai"),
+            OsStr::new("-OutputDir"),
+            output_dir.as_os_str(),
+            OsStr::new("-SkipBuild"),
+            OsStr::new("-SkipScore"),
+            OsStr::new("-TimeoutSeconds"),
+            OsStr::new("2"),
+        ],
+    );
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "stdout-only runner contract should succeed\nstdout:\n{}\nstderr:\n{}",
+        string_output(&output.stdout),
+        string_output(&output.stderr)
+    );
+    assert_clean_stderr(&output);
+
+    let run_summary =
+        read_json_file(&output_dir.join("run-summary.json"), "stdout-only runner summary");
+    assert_eq!(run_summary["schema_version"], Value::from(1));
+    assert_eq!(run_summary["feedback_mode"], Value::from("ai"));
+    assert_eq!(run_summary["totals"]["total"], Value::from(1));
+    assert_eq!(run_summary["totals"]["ok"], Value::from(1));
+    assert_eq!(run_summary["totals"]["failed"], Value::from(0));
+    assert_eq!(run_summary["totals"]["timed_out"], Value::from(0));
+    assert_eq!(run_summary["score"]["skipped"], Value::from(true));
+    assert!(run_summary["score"]["summary_path"].is_null());
+    assert!(run_summary["score"]["exit_code"].is_null());
+
+    let cases = run_summary["cases"]
+        .as_array()
+        .expect("stdout-only runner summary should include cases");
+    assert_eq!(cases.len(), 1);
+    assert_eq!(cases[0]["status"], Value::from("ok"));
+    assert_eq!(cases[0]["timed_out"], Value::from(false));
+    assert_eq!(cases[0]["exit_code"], Value::from(0));
+
+    let candidate_path = PathBuf::from(
+        cases[0]["output_path"]
+            .as_str()
+            .expect("stdout-only runner should report output path"),
+    );
+    let candidate_text = fs::read_to_string(&candidate_path)
+        .expect("stdout-only runner should materialize captured stdout as candidate source");
+    assert!(
+        candidate_text.starts_with("fn main() -> i32 { let payload: string = \"AAAA"),
+        "captured stdout candidate should preserve the emitted AX source"
+    );
+    assert!(
+        candidate_text.len() > 100_000,
+        "captured stdout candidate should keep the large emitted payload"
+    );
+}
+
+#[test]
+fn repair_benchmark_run_rejects_zero_exit_without_file_or_stdout() {
+    let temp = TempDir::new("repair-benchmark-silent-runner");
+    let manifest_path = write_single_case_manifest(&temp, "single-case-manifest.json");
+    let benchmark_dir = export_repair_benchmark(&temp, &manifest_path);
+    let runner_script = write_silent_success_runner(&temp, "silent-success-runner.ps1");
+    let output_dir = temp.join("run");
+    let script_path = repo_root().join("scripts").join("run-repair-benchmark.ps1");
+
+    let output = run_powershell_script(
+        &script_path,
+        [
+            OsStr::new("-BenchmarkDir"),
+            benchmark_dir.as_os_str(),
+            OsStr::new("-RunnerScript"),
+            runner_script.as_os_str(),
+            OsStr::new("-FeedbackMode"),
+            OsStr::new("ai"),
+            OsStr::new("-OutputDir"),
+            output_dir.as_os_str(),
+            OsStr::new("-SkipBuild"),
+            OsStr::new("-SkipScore"),
+            OsStr::new("-TimeoutSeconds"),
+            OsStr::new("2"),
+        ],
+    );
+    assert_eq!(
+        output.status.code(),
+        Some(1),
+        "silent success runner should be treated as failed\nstdout:\n{}\nstderr:\n{}",
+        string_output(&output.stdout),
+        string_output(&output.stderr)
+    );
+    assert_clean_stderr(&output);
+
+    let run_summary =
+        read_json_file(&output_dir.join("run-summary.json"), "silent runner summary");
+    assert_eq!(run_summary["schema_version"], Value::from(1));
+    assert_eq!(run_summary["totals"]["total"], Value::from(1));
+    assert_eq!(run_summary["totals"]["ok"], Value::from(0));
+    assert_eq!(run_summary["totals"]["failed"], Value::from(1));
+    assert_eq!(run_summary["totals"]["timed_out"], Value::from(0));
+    assert_eq!(run_summary["score"]["skipped"], Value::from(true));
+
+    let cases = run_summary["cases"]
+        .as_array()
+        .expect("silent runner summary should include cases");
+    assert_eq!(cases.len(), 1);
+    assert_eq!(cases[0]["status"], Value::from("failed"));
+    assert_eq!(cases[0]["timed_out"], Value::from(false));
+    assert_eq!(cases[0]["exit_code"], Value::from(0));
+
+    let candidate_path = PathBuf::from(
+        cases[0]["output_path"]
+            .as_str()
+            .expect("silent runner should still report the preferred output path"),
+    );
+    assert!(
+        !candidate_path.exists(),
+        "silent runner should not produce a candidate file when it emits nothing"
     );
 }
 
