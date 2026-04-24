@@ -4,6 +4,7 @@ param(
     [string[]] $RunnerExtraArgs = @(),
     [string] $OutputDir = "",
     [switch] $RefreshBenchmark,
+    [switch] $SkipBuild,
     [switch] $RunPrograms,
     [int] $TimeoutSeconds = 180
 )
@@ -104,12 +105,13 @@ function Resolve-BenchmarkIndexPath {
 function Ensure-BenchmarkIndex {
     param(
         [string] $BenchmarkDir,
-        [switch] $Refresh
+        [switch] $Refresh,
+        [switch] $SkipBuild
     )
 
     if ($Refresh) {
         $exportDir = Join-Path $OutputDir "benchmark"
-        & $exportScript -OutputDir $exportDir | Out-Null
+        & $exportScript -OutputDir $exportDir -SkipBuild:$SkipBuild | Out-Null
         return (Join-Path $exportDir "index.json")
     }
 
@@ -119,7 +121,7 @@ function Ensure-BenchmarkIndex {
     }
 
     $exportDir = Join-Path $OutputDir "benchmark"
-    & $exportScript -OutputDir $exportDir | Out-Null
+    & $exportScript -OutputDir $exportDir -SkipBuild:$SkipBuild | Out-Null
     return (Join-Path $exportDir "index.json")
 }
 
@@ -247,6 +249,10 @@ function Build-RunCommandText {
 
     if ($RunPrograms) {
         $parts += "-RunPrograms"
+    }
+
+    if ($SkipBuild) {
+        $parts += "-SkipBuild"
     }
 
     return ($parts -join " ")
@@ -386,7 +392,7 @@ function Build-MarkdownReport {
 
 New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
 
-$benchmarkIndexPath = Ensure-BenchmarkIndex -BenchmarkDir $BenchmarkDir -Refresh:$RefreshBenchmark
+$benchmarkIndexPath = Ensure-BenchmarkIndex -BenchmarkDir $BenchmarkDir -Refresh:$RefreshBenchmark -SkipBuild:$SkipBuild
 $benchmarkIndex = Read-JsonFile -Path $benchmarkIndexPath -Label "benchmark index"
 $caseCount = @($benchmarkIndex.cases).Count
 $outerTimeoutSeconds = [math]::Max(300, ($caseCount * $TimeoutSeconds) + 120)

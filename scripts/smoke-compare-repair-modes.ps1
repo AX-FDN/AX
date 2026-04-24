@@ -5,7 +5,8 @@ param(
     [string] $BaseSourceDir = "benchmarks\\repair-candidates\\compare\\base",
     [string] $AiSourceDir = "",
     [string] $BenchmarkDir = ".ax-ai\\repair-benchmark\\ci-compare-modes",
-    [string] $OutputDir = ".ax-ai\\repair-mode-comparisons\\ci-smoke"
+    [string] $OutputDir = ".ax-ai\\repair-mode-comparisons\\ci-smoke",
+    [switch] $SkipBuild
 )
 
 $ErrorActionPreference = "Stop"
@@ -104,7 +105,7 @@ if ($aiSourceDir -and (-not (Test-Path $aiSourceDir))) {
 Remove-RepoDirectoryIfExists -Path $BenchmarkDir
 Remove-RepoDirectoryIfExists -Path $OutputDir
 
-& $exportScript -ManifestPath $manifestPath -OutputDir $benchmarkDir | Out-Null
+& $exportScript -ManifestPath $manifestPath -OutputDir $benchmarkDir -SkipBuild:$SkipBuild | Out-Null
 
 $runnerExtraArgs = @(
     "-SourceDir", $sharedSourceDir,
@@ -120,7 +121,8 @@ if ($aiSourceDir) {
     -BenchmarkDir $benchmarkDir `
     -RunnerScript $replayAdapter `
     -RunnerExtraArgs $runnerExtraArgs `
-    -OutputDir $outputDir | Out-Null
+    -OutputDir $outputDir `
+    -SkipBuild:$SkipBuild | Out-Null
 
 $comparisonPath = Join-Path $outputDir "comparison.json"
 if (-not (Test-Path $comparisonPath)) {

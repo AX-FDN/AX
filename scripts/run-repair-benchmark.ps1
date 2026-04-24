@@ -7,6 +7,7 @@ param(
     [string] $OutputDir = "",
     [switch] $RefreshBenchmark,
     [switch] $SkipScore,
+    [switch] $SkipBuild,
     [switch] $RunPrograms,
     [int] $TimeoutSeconds = 180
 )
@@ -164,12 +165,13 @@ function Resolve-BenchmarkIndexPath {
 function Ensure-BenchmarkIndex {
     param(
         [string] $BenchmarkDir,
-        [switch] $Refresh
+        [switch] $Refresh,
+        [switch] $SkipBuild
     )
 
     if ($Refresh) {
         $exportDir = Join-Path $OutputDir "benchmark"
-        & $exportScript -OutputDir $exportDir | Out-Null
+        & $exportScript -OutputDir $exportDir -SkipBuild:$SkipBuild | Out-Null
         return (Join-Path $exportDir "index.json")
     }
 
@@ -179,12 +181,12 @@ function Ensure-BenchmarkIndex {
     }
 
     $exportDir = Join-Path $OutputDir "benchmark"
-    & $exportScript -OutputDir $exportDir | Out-Null
+    & $exportScript -OutputDir $exportDir -SkipBuild:$SkipBuild | Out-Null
     return (Join-Path $exportDir "index.json")
 }
 
 $powerShellExe = Get-PowerShellExecutable
-$benchmarkIndexPath = Ensure-BenchmarkIndex -BenchmarkDir $BenchmarkDir -Refresh:$RefreshBenchmark
+$benchmarkIndexPath = Ensure-BenchmarkIndex -BenchmarkDir $BenchmarkDir -Refresh:$RefreshBenchmark -SkipBuild:$SkipBuild
 $benchmarkIndex = Get-Content $benchmarkIndexPath -Raw -Encoding utf8 | ConvertFrom-Json
 $benchmarkRoot = Split-Path -Parent $benchmarkIndexPath
 
@@ -289,6 +291,10 @@ if (-not $SkipScore) {
 
     if ($RunPrograms) {
         $scoreArguments += "-RunPrograms"
+    }
+
+    if ($SkipBuild) {
+        $scoreArguments += "-SkipBuild"
     }
 
     $scoreInvocation = Invoke-ExternalProcess -FileName $powerShellExe -Arguments $scoreArguments -TimeoutSeconds $TimeoutSeconds

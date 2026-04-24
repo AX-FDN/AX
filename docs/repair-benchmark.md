@@ -148,6 +148,8 @@ Key parameters:
   Optional. After successful `check`, also execute `axc run`.
 - `-RefreshBenchmark`
   Optional. Force a fresh export before running.
+- `-SkipBuild`
+  Optional. Reuse an already-built `axc` binary instead of invoking `cargo build`.
 
 Runner-specific extra args are passed through unchanged. The replay adapter uses this to support:
 
@@ -176,6 +178,8 @@ Run output contains:
   Top-level run result with case statuses.
 - `score\`
   Embedded score output, unless `-SkipScore` is used.
+
+For environments where `cargo` is unavailable but a compiled `axc` already exists, point `AXC_BINARY` at that executable and add `-SkipBuild`. `run-repair-benchmark.ps1` now forwards that flag to any nested export and score steps so the full run stays on the prebuilt binary path.
 
 `run-summary.json` uses these runner statuses:
 
@@ -229,6 +233,8 @@ Important files:
 - `<case-id>\diagnostics.json`
   Remaining diagnostics for failed repairs.
 
+Like export, scoring also honors `AXC_BINARY` and `CARGO_BIN_EXE_axc`. Pair either variable with `-SkipBuild` when you want to score against a prebuilt binary without rebuilding the workspace.
+
 ## Compare Step
 
 Use [`../scripts/compare-repair-feedback.ps1`](../scripts/compare-repair-feedback.ps1) for the formal `base` versus `ai` experiment:
@@ -245,6 +251,8 @@ This script:
 2. runs the same runner twice against the same snapshot
 3. scores both runs
 4. computes pass-rate lift and per-category deltas
+
+`compare-repair-feedback.ps1` and `compare-repair-modes.ps1` also accept `-SkipBuild` and propagate it through their nested export and run stages, so comparison jobs can stay fully reproducible on machines that only have a prebuilt `axc`.
 
 Default output root:
 
@@ -295,6 +303,8 @@ This script uses the smoke manifest plus replay candidates committed in the repo
 - scoring still works end to end
 
 It also asserts the stable `run-summary.json` and `score/summary.json` contracts for the current 10-case smoke subset, including the `run --json` validation path for the two runtime repair cases.
+
+If your local environment does not expose `cargo`, the smoke entrypoints also accept `-SkipBuild`; combine that with `AXC_BINARY=<path-to-axc>` to replay the full smoke evidence chain against an existing compiler binary.
 
 It is not intended to prove model quality.
 

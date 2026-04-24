@@ -2,7 +2,8 @@ param(
     [string] $ManifestPath = "benchmarks\\repair-cases-smoke.json",
     [string] $SourceDir = "benchmarks\\repair-candidates\\smoke",
     [string] $BenchmarkDir = ".ax-ai\\repair-benchmark\\ci-smoke",
-    [string] $OutputDir = ".ax-ai\\repair-runs\\ci-smoke"
+    [string] $OutputDir = ".ax-ai\\repair-runs\\ci-smoke",
+    [switch] $SkipBuild
 )
 
 $ErrorActionPreference = "Stop"
@@ -82,13 +83,14 @@ if (-not (Test-Path $sourceDir)) {
 Remove-RepoDirectoryIfExists -Path $BenchmarkDir
 Remove-RepoDirectoryIfExists -Path $OutputDir
 
-& $exportScript -ManifestPath $manifestPath -OutputDir $benchmarkDir | Out-Null
+& $exportScript -ManifestPath $manifestPath -OutputDir $benchmarkDir -SkipBuild:$SkipBuild | Out-Null
 & $runScript `
     -BenchmarkDir $benchmarkDir `
     -RunnerScript $replayAdapter `
     -RunnerExtraArgs @("-SourceDir", $sourceDir) `
     -FeedbackMode ai `
-    -OutputDir $outputDir
+    -OutputDir $outputDir `
+    -SkipBuild:$SkipBuild
 
 $runSummaryPath = Join-Path $outputDir "run-summary.json"
 if (-not (Test-Path $runSummaryPath)) {

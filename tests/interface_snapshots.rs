@@ -126,6 +126,121 @@ fn read_json_file(path: &Path, label: &str) -> Value {
         .unwrap_or_else(|error| panic!("failed to parse {label} `{}` as JSON: {error}", path.display()))
 }
 
+fn powershell_literal_path(path: &Path) -> String {
+    path.to_string_lossy().replace('\'', "''")
+}
+
+fn json_string_array(value: &Value, label: &str) -> Vec<String> {
+    value.as_array()
+        .unwrap_or_else(|| panic!("{label} should be a JSON array"))
+        .iter()
+        .map(|item| {
+            item.as_str()
+                .unwrap_or_else(|| panic!("{label} should only contain strings"))
+                .to_string()
+        })
+        .collect()
+}
+
+fn assert_json_f64(value: &Value, expected: f64, label: &str) {
+    let actual = value
+        .as_f64()
+        .unwrap_or_else(|| panic!("{label} should be a JSON number"));
+    assert!(
+        (actual - expected).abs() < f64::EPSILON,
+        "{label} expected {expected}, got {actual}"
+    );
+}
+
+fn export_smoke_repair_benchmark(temp: &TempDir) -> PathBuf {
+    let output_dir = temp.join("benchmark");
+    let script_path = repo_root().join("scripts").join("export-repair-benchmark.ps1");
+
+    let output = run_powershell_script(
+        &script_path,
+        [
+            OsStr::new("-ManifestPath"),
+            OsStr::new("benchmarks/repair-cases-smoke.json"),
+            OsStr::new("-OutputDir"),
+            output_dir.as_os_str(),
+            OsStr::new("-SkipBuild"),
+        ],
+    );
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "smoke repair benchmark export should succeed\nstdout:\n{}\nstderr:\n{}",
+        string_output(&output.stdout),
+        string_output(&output.stderr)
+    );
+    assert_clean_stderr(&output);
+
+    output_dir
+}
+
+fn write_replay_wrapper(
+    temp: &TempDir,
+    name: &str,
+    shared_source_dir: &Path,
+    cold_source_dir: Option<&Path>,
+    base_source_dir: Option<&Path>,
+    ai_source_dir: Option<&Path>,
+) -> PathBuf {
+    let replay_adapter = repo_root().join("scripts").join("replay-repair-adapter.ps1");
+    let mut args = vec![
+        "-PromptPath $PromptPath".to_string(),
+        "-BundlePath $BundlePath".to_string(),
+        "-OutputPath $OutputPath".to_string(),
+        "-CaseId $CaseId".to_string(),
+        "-FeedbackMode $FeedbackMode".to_string(),
+        format!("-SourceDir '{}'", powershell_literal_path(shared_source_dir)),
+    ];
+
+    if let Some(path) = cold_source_dir {
+        args.push(format!(
+            "-SourceDirCold '{}'",
+            powershell_literal_path(path)
+        ));
+    }
+
+    if let Some(path) = base_source_dir {
+        args.push(format!(
+            "-SourceDirBase '{}'",
+            powershell_literal_path(path)
+        ));
+    }
+
+    if let Some(path) = ai_source_dir {
+        args.push(format!("-SourceDirAi '{}'", powershell_literal_path(path)));
+    }
+
+    let script_text = format!(
+        "\
+param(
+    [Parameter(Mandatory = $true)]
+    [string] $PromptPath,
+    [Parameter(Mandatory = $true)]
+    [string] $BundlePath,
+    [Parameter(Mandatory = $true)]
+    [string] $OutputPath,
+    [Parameter(Mandatory = $true)]
+    [string] $CaseId,
+    [Parameter(Mandatory = $true)]
+    [string] $FeedbackMode
+)
+
+$ErrorActionPreference = \"Stop\"
+
+& '{}' `
+    {}
+",
+        powershell_literal_path(&replay_adapter),
+        args.join(" `\n    ")
+    );
+
+    temp.write(name, &script_text)
+}
+
 fn diagnostic_codes(value: &Value) -> Vec<String> {
     value
         .as_array()
@@ -550,27 +665,7 @@ fn diagnostics_ai_rule_ids_match_smoke_repair_manifest_cases() {
 #[test]
 fn repair_benchmark_export_keeps_cold_base_ai_artifact_contracts() {
     let temp = TempDir::new("repair-benchmark-export");
-    let output_dir = temp.join("export");
-    let script_path = repo_root().join("scripts").join("export-repair-benchmark.ps1");
-
-    let output = run_powershell_script(
-        &script_path,
-        [
-            OsStr::new("-ManifestPath"),
-            OsStr::new("benchmarks/repair-cases-smoke.json"),
-            OsStr::new("-OutputDir"),
-            output_dir.as_os_str(),
-            OsStr::new("-SkipBuild"),
-        ],
-    );
-    assert_eq!(
-        output.status.code(),
-        Some(0),
-        "repair benchmark export should succeed\nstdout:\n{}\nstderr:\n{}",
-        string_output(&output.stdout),
-        string_output(&output.stderr)
-    );
-    assert_clean_stderr(&output);
+    let output_dir = export_smoke_repair_benchmark(&temp);
 
     let index_path = output_dir.join("index.json");
     let index = read_json_file(&index_path, "repair benchmark index");
@@ -788,6 +883,416 @@ fn repair_benchmark_export_keeps_cold_base_ai_artifact_contracts() {
         ),
         "runtime cold prompt should preserve the runtime-specific repair guidance"
     );
+}
+
+#[test]
+fn repair_benchmark_run_keeps_smoke_run_and_score_contracts_without_rebuild() {
+    let temp = TempDir::new("repair-benchmark-run");
+    let benchmark_dir = export_smoke_repair_benchmark(&temp);
+    let runner_script = write_replay_wrapper(
+        &temp,
+        "replay-smoke.ps1",
+        &repo_root()
+            .join("benchmarks")
+            .join("repair-candidates")
+            .join("smoke"),
+        None,
+        None,
+        None,
+    );
+    let output_dir = temp.join("run");
+    let script_path = repo_root().join("scripts").join("run-repair-benchmark.ps1");
+
+    let output = run_powershell_script(
+        &script_path,
+        [
+            OsStr::new("-BenchmarkDir"),
+            benchmark_dir.as_os_str(),
+            OsStr::new("-RunnerScript"),
+            runner_script.as_os_str(),
+            OsStr::new("-FeedbackMode"),
+            OsStr::new("ai"),
+            OsStr::new("-OutputDir"),
+            output_dir.as_os_str(),
+            OsStr::new("-SkipBuild"),
+        ],
+    );
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "repair benchmark run should succeed without rebuilding\nstdout:\n{}\nstderr:\n{}",
+        string_output(&output.stdout),
+        string_output(&output.stderr)
+    );
+    assert_clean_stderr(&output);
+
+    let run_summary_path = output_dir.join("run-summary.json");
+    let score_summary_path = output_dir.join("score").join("summary.json");
+    let run_summary = read_json_file(&run_summary_path, "repair benchmark run summary");
+    let score_summary = read_json_file(&score_summary_path, "repair benchmark score summary");
+
+    assert_eq!(run_summary["schema_version"], Value::from(1));
+    assert_eq!(run_summary["feedback_mode"], Value::from("ai"));
+    assert_eq!(run_summary["totals"]["total"], Value::from(10));
+    assert_eq!(run_summary["totals"]["ok"], Value::from(10));
+    assert_eq!(run_summary["totals"]["failed"], Value::from(0));
+    assert_eq!(run_summary["totals"]["timed_out"], Value::from(0));
+    assert_eq!(run_summary["score"]["skipped"], Value::from(false));
+    assert_eq!(run_summary["score"]["exit_code"], Value::from(0));
+
+    let reported_score_summary_path = PathBuf::from(
+        run_summary["score"]["summary_path"]
+            .as_str()
+            .expect("run summary should include score summary path"),
+    );
+    assert!(
+        reported_score_summary_path.exists(),
+        "run summary should point at an existing score summary"
+    );
+
+    let run_cases = run_summary["cases"]
+        .as_array()
+        .expect("run summary should include cases");
+    assert_eq!(run_cases.len(), 10);
+
+    assert_eq!(score_summary["schema_version"], Value::from(1));
+    assert_eq!(score_summary["totals"]["total"], Value::from(10));
+    assert_eq!(score_summary["totals"]["passed"], Value::from(10));
+    assert_eq!(score_summary["totals"]["failed"], Value::from(0));
+    assert_eq!(score_summary["totals"]["missing"], Value::from(0));
+
+    let score_cases = score_summary["cases"]
+        .as_array()
+        .expect("score summary should include cases");
+    assert_eq!(score_cases.len(), 10);
+
+    let runtime_cases: Vec<&Value> = score_cases
+        .iter()
+        .filter(|case| case["diagnostic_command"].as_str() == Some("run"))
+        .collect();
+    let check_cases: Vec<&Value> = score_cases
+        .iter()
+        .filter(|case| case["diagnostic_command"].as_str() == Some("check"))
+        .collect();
+    assert_eq!(runtime_cases.len(), 2);
+    assert_eq!(check_cases.len(), 8);
+    assert_eq!(
+        runtime_cases
+            .iter()
+            .map(|case| case["id"].as_str().expect("runtime case should have id"))
+            .collect::<Vec<_>>(),
+        vec!["index_out_of_bounds_runtime", "division_by_zero_runtime"]
+    );
+
+    for runtime_case in runtime_cases {
+        let case_id = runtime_case["id"]
+            .as_str()
+            .expect("runtime score case should have id");
+        assert_eq!(
+            runtime_case["status"],
+            Value::from("passed"),
+            "runtime smoke case `{case_id}` should pass"
+        );
+        assert_eq!(
+            runtime_case["run"]["command"],
+            Value::from("run --json"),
+            "runtime smoke case `{case_id}` should record run --json validation"
+        );
+        assert_eq!(
+            runtime_case["run"]["command_exit_code"],
+            Value::from(0),
+            "runtime smoke case `{case_id}` should keep a zero runtime exit code"
+        );
+        assert_eq!(
+            runtime_case["run"]["parsed_diagnostics"],
+            Value::from(true),
+            "runtime smoke case `{case_id}` should confirm runtime diagnostics parsing"
+        );
+        assert!(
+            runtime_case["run"]["remaining_codes"]
+                .as_array()
+                .expect("runtime smoke case should expose remaining runtime codes")
+                .is_empty(),
+            "runtime smoke case `{case_id}` should clear remaining runtime diagnostics"
+        );
+    }
+}
+
+#[test]
+fn repair_feedback_comparison_keeps_smoke_contract_without_rebuild() {
+    let temp = TempDir::new("repair-feedback-comparison");
+    let benchmark_dir = export_smoke_repair_benchmark(&temp);
+    let runner_script = write_replay_wrapper(
+        &temp,
+        "replay-compare-feedback.ps1",
+        &repo_root()
+            .join("benchmarks")
+            .join("repair-candidates")
+            .join("smoke"),
+        None,
+        Some(
+            &repo_root()
+                .join("benchmarks")
+                .join("repair-candidates")
+                .join("compare")
+                .join("base"),
+        ),
+        None,
+    );
+    let output_dir = temp.join("comparison");
+    let script_path = repo_root()
+        .join("scripts")
+        .join("compare-repair-feedback.ps1");
+
+    let output = run_powershell_script(
+        &script_path,
+        [
+            OsStr::new("-BenchmarkDir"),
+            benchmark_dir.as_os_str(),
+            OsStr::new("-RunnerScript"),
+            runner_script.as_os_str(),
+            OsStr::new("-OutputDir"),
+            output_dir.as_os_str(),
+            OsStr::new("-SkipBuild"),
+        ],
+    );
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "repair feedback comparison should succeed without rebuilding\nstdout:\n{}\nstderr:\n{}",
+        string_output(&output.stdout),
+        string_output(&output.stderr)
+    );
+    assert_clean_stderr(&output);
+
+    let comparison = read_json_file(
+        &output_dir.join("comparison.json"),
+        "repair feedback comparison summary",
+    );
+    assert_eq!(comparison["schema_version"], Value::from(1));
+    assert_eq!(comparison["comparison"]["total_cases"], Value::from(10));
+    assert_eq!(comparison["comparison"]["base_passed"], Value::from(5));
+    assert_eq!(comparison["comparison"]["ai_passed"], Value::from(10));
+    assert_eq!(comparison["comparison"]["absolute_lift_cases"], Value::from(5));
+    assert_json_f64(
+        &comparison["comparison"]["absolute_lift_pp"],
+        50.0,
+        "comparison absolute_lift_pp",
+    );
+    assert_eq!(comparison["modes"]["base"]["invocation_totals"]["ok"], Value::from(10));
+    assert_eq!(comparison["modes"]["ai"]["invocation_totals"]["ok"], Value::from(10));
+    assert_eq!(comparison["modes"]["base"]["score_totals"]["failed"], Value::from(5));
+    assert_eq!(comparison["modes"]["ai"]["score_totals"]["failed"], Value::from(0));
+    assert_eq!(comparison["modes"]["base"]["timed_out"], Value::from(false));
+    assert_eq!(comparison["modes"]["ai"]["timed_out"], Value::from(false));
+    assert_eq!(
+        json_string_array(
+            &comparison["comparison"]["improved_cases"],
+            "comparison improved_cases",
+        ),
+        vec![
+            "type_mismatch_bool_from_int".to_string(),
+            "missing_struct_literal_field".to_string(),
+            "slice_assignment_read_only".to_string(),
+            "index_out_of_bounds_runtime".to_string(),
+            "division_by_zero_runtime".to_string(),
+        ]
+    );
+    assert_eq!(
+        json_string_array(
+            &comparison["comparison"]["regressed_cases"],
+            "comparison regressed_cases",
+        ),
+        Vec::<String>::new()
+    );
+
+    let categories = comparison["categories"]
+        .as_array()
+        .expect("comparison should include category summaries");
+    let semantic = categories
+        .iter()
+        .find(|category| category["category"].as_str() == Some("semantic"))
+        .expect("comparison should include the semantic category");
+    assert_eq!(semantic["total"], Value::from(6));
+    assert_eq!(semantic["base_passed"], Value::from(3));
+    assert_eq!(semantic["ai_passed"], Value::from(6));
+    assert_eq!(semantic["improved"], Value::from(3));
+    assert_eq!(semantic["regressed"], Value::from(0));
+
+    let runtime = categories
+        .iter()
+        .find(|category| category["category"].as_str() == Some("runtime"))
+        .expect("comparison should include the runtime category");
+    assert_eq!(runtime["total"], Value::from(2));
+    assert_eq!(runtime["base_passed"], Value::from(0));
+    assert_eq!(runtime["ai_passed"], Value::from(2));
+    assert_eq!(runtime["improved"], Value::from(2));
+    assert_eq!(runtime["regressed"], Value::from(0));
+}
+
+#[test]
+fn repair_mode_comparison_keeps_smoke_contract_without_rebuild() {
+    let temp = TempDir::new("repair-mode-comparison");
+    let benchmark_dir = export_smoke_repair_benchmark(&temp);
+    let runner_script = write_replay_wrapper(
+        &temp,
+        "replay-compare-modes.ps1",
+        &repo_root()
+            .join("benchmarks")
+            .join("repair-candidates")
+            .join("smoke"),
+        Some(
+            &repo_root()
+                .join("benchmarks")
+                .join("repair-candidates")
+                .join("compare")
+                .join("cold"),
+        ),
+        Some(
+            &repo_root()
+                .join("benchmarks")
+                .join("repair-candidates")
+                .join("compare")
+                .join("base"),
+        ),
+        None,
+    );
+    let output_dir = temp.join("comparison");
+    let script_path = repo_root().join("scripts").join("compare-repair-modes.ps1");
+
+    let output = run_powershell_script(
+        &script_path,
+        [
+            OsStr::new("-BenchmarkDir"),
+            benchmark_dir.as_os_str(),
+            OsStr::new("-RunnerScript"),
+            runner_script.as_os_str(),
+            OsStr::new("-OutputDir"),
+            output_dir.as_os_str(),
+            OsStr::new("-SkipBuild"),
+        ],
+    );
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "repair mode comparison should succeed without rebuilding\nstdout:\n{}\nstderr:\n{}",
+        string_output(&output.stdout),
+        string_output(&output.stderr)
+    );
+    assert_clean_stderr(&output);
+
+    let comparison = read_json_file(
+        &output_dir.join("comparison.json"),
+        "repair mode comparison summary",
+    );
+    assert_eq!(comparison["schema_version"], Value::from(1));
+    assert_eq!(
+        json_string_array(&comparison["mode_order"], "mode comparison mode_order"),
+        vec!["cold".to_string(), "base".to_string(), "ai".to_string()]
+    );
+    assert_eq!(comparison["summary"]["total_cases"], Value::from(10));
+    assert_eq!(comparison["summary"]["cold_passed"], Value::from(3));
+    assert_eq!(comparison["summary"]["base_passed"], Value::from(5));
+    assert_eq!(comparison["summary"]["ai_passed"], Value::from(10));
+    assert_eq!(comparison["modes"]["cold"]["score_totals"]["failed"], Value::from(7));
+    assert_eq!(comparison["modes"]["base"]["score_totals"]["failed"], Value::from(5));
+    assert_eq!(comparison["modes"]["ai"]["score_totals"]["failed"], Value::from(0));
+    assert_eq!(
+        comparison["summary"]["pairwise_comparisons"]["cold_to_base"]["absolute_lift_cases"],
+        Value::from(2)
+    );
+    assert_eq!(
+        comparison["summary"]["pairwise_comparisons"]["base_to_ai"]["absolute_lift_cases"],
+        Value::from(5)
+    );
+    assert_eq!(
+        comparison["summary"]["pairwise_comparisons"]["cold_to_ai"]["absolute_lift_cases"],
+        Value::from(7)
+    );
+    assert_eq!(
+        comparison["summary"]["pairwise_comparisons"]["cold_to_base"]["absolute_lift_pp"]
+            .as_f64()
+            .expect("cold_to_base.absolute_lift_pp should be numeric"),
+        20.0
+    );
+    assert_eq!(
+        comparison["summary"]["pairwise_comparisons"]["base_to_ai"]["absolute_lift_pp"]
+            .as_f64()
+            .expect("base_to_ai.absolute_lift_pp should be numeric"),
+        50.0
+    );
+    assert_eq!(
+        comparison["summary"]["pairwise_comparisons"]["cold_to_ai"]["absolute_lift_pp"]
+            .as_f64()
+            .expect("cold_to_ai.absolute_lift_pp should be numeric"),
+        70.0
+    );
+    assert_eq!(
+        json_string_array(
+            &comparison["summary"]["pairwise_comparisons"]["cold_to_base"]["improved_cases"],
+            "mode comparison cold_to_base improved_cases",
+        ),
+        vec![
+            "unknown_type_missing".to_string(),
+            "len_builtin_non_countable_value".to_string(),
+        ]
+    );
+    assert_eq!(
+        json_string_array(
+            &comparison["summary"]["pairwise_comparisons"]["base_to_ai"]["improved_cases"],
+            "mode comparison base_to_ai improved_cases",
+        ),
+        vec![
+            "type_mismatch_bool_from_int".to_string(),
+            "missing_struct_literal_field".to_string(),
+            "slice_assignment_read_only".to_string(),
+            "index_out_of_bounds_runtime".to_string(),
+            "division_by_zero_runtime".to_string(),
+        ]
+    );
+    assert_eq!(
+        json_string_array(
+            &comparison["summary"]["pairwise_comparisons"]["cold_to_ai"]["improved_cases"],
+            "mode comparison cold_to_ai improved_cases",
+        ),
+        vec![
+            "type_mismatch_bool_from_int".to_string(),
+            "unknown_type_missing".to_string(),
+            "missing_struct_literal_field".to_string(),
+            "len_builtin_non_countable_value".to_string(),
+            "slice_assignment_read_only".to_string(),
+            "index_out_of_bounds_runtime".to_string(),
+            "division_by_zero_runtime".to_string(),
+        ]
+    );
+    assert_eq!(
+        json_string_array(
+            &comparison["summary"]["pairwise_comparisons"]["cold_to_ai"]["regressed_cases"],
+            "mode comparison cold_to_ai regressed_cases",
+        ),
+        Vec::<String>::new()
+    );
+
+    let categories = comparison["categories"]
+        .as_array()
+        .expect("mode comparison should include category summaries");
+    let semantic = categories
+        .iter()
+        .find(|category| category["category"].as_str() == Some("semantic"))
+        .expect("mode comparison should include the semantic category");
+    assert_eq!(semantic["total"], Value::from(6));
+    assert_eq!(semantic["cold_passed"], Value::from(1));
+    assert_eq!(semantic["base_passed"], Value::from(3));
+    assert_eq!(semantic["ai_passed"], Value::from(6));
+
+    let runtime = categories
+        .iter()
+        .find(|category| category["category"].as_str() == Some("runtime"))
+        .expect("mode comparison should include the runtime category");
+    assert_eq!(runtime["total"], Value::from(2));
+    assert_eq!(runtime["cold_passed"], Value::from(0));
+    assert_eq!(runtime["base_passed"], Value::from(0));
+    assert_eq!(runtime["ai_passed"], Value::from(2));
 }
 
 #[test]
