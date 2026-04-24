@@ -178,6 +178,34 @@ impl<'a> Interpreter<'a> {
             return Ok(Value::Void);
         }
 
+        if name == "string_len" {
+            if arguments.len() != 1 {
+                return Err(self.runtime_error(
+                    "R0037",
+                    format!(
+                        "function `string_len` expected 1 argument(s), got {}",
+                        arguments.len()
+                    ),
+                    span,
+                ));
+            }
+
+            let text = arguments.into_iter().next().expect("string_len argument should exist");
+            return match text {
+                Value::String(text) => Ok(Value::I32(text.chars().count() as i32)),
+                other => Err(self
+                    .runtime_error(
+                        "R0038",
+                        format!(
+                            "function `string_len` requires a `string` argument, got `{}`",
+                            other.display()
+                        ),
+                        span,
+                    )
+                    .with_suggestion("call `string_len` with a string value like `string_len(message)`")),
+            };
+        }
+
         let function = self.functions.get(name).copied().ok_or_else(|| {
             self.runtime_error("R0003", format!("call to unknown function `{name}`"), span)
         })?;
@@ -712,6 +740,9 @@ impl<'a> Interpreter<'a> {
                 .checked_add(right)
                 .map(Value::I32)
                 .ok_or_else(|| self.runtime_error("R0018", "integer addition overflowed", span)),
+            (BinaryOp::Add, Value::String(left), Value::String(right)) => {
+                Ok(Value::String(format!("{left}{right}")))
+            }
             (BinaryOp::Subtract, Value::I32(left), Value::I32(right)) => left
                 .checked_sub(right)
                 .map(Value::I32)
@@ -1049,5 +1080,24 @@ fn main() -> i32 {
         let output = run_program(&source, &hir).expect("program should run");
         assert_eq!(output.exit_code, 4);
         assert_eq!(output.stdout, vec!["4"]);
+    }
+
+    #[test]
+    fn runs_string_concat_and_string_len() {
+        let (source, hir) = analyzed_hir(
+            "\
+fn main() -> i32 {
+    let prefix: string = \"AX\";
+    let message: string = prefix + \" tools\";
+    println(message);
+    println(string_len(message));
+    return string_len(\"hey\");
+}
+",
+        );
+
+        let output = run_program(&source, &hir).expect("program should run");
+        assert_eq!(output.exit_code, 3);
+        assert_eq!(output.stdout, vec!["AX tools", "8"]);
     }
 }

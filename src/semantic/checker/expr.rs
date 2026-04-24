@@ -118,7 +118,29 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 }
 
                 match op {
-                    BinaryOp::Add | BinaryOp::Subtract | BinaryOp::Multiply | BinaryOp::Divide => {
+                    BinaryOp::Add => {
+                        if left_type == Type::String && right_type == Type::String {
+                            Type::String
+                        } else if left_type.is_numeric() && left_type == right_type {
+                            left_type
+                        } else {
+                            self.diagnostics.push(
+                                Diagnostic::new(
+                                    "S0014",
+                                    format!(
+                                        "operator `{}` expects matching numeric operands or two `string` operands, found `{}` and `{}`",
+                                        binary_op_name(*op),
+                                        left_type.describe(),
+                                        right_type.describe()
+                                    ),
+                                    self.info.source,
+                                    expr.span,
+                                ),
+                            );
+                            Type::Error
+                        }
+                    }
+                    BinaryOp::Subtract | BinaryOp::Multiply | BinaryOp::Divide => {
                         if left_type.is_numeric() && left_type == right_type {
                             left_type
                         } else {

@@ -251,6 +251,27 @@ fn main() -> i32 {
     }
 
     #[test]
+    fn accepts_string_concat_and_string_len() {
+        let codes = check(
+            "\
+fn main() -> i32 {
+    let prefix: string = \"AX\";
+    let message: string = prefix + \" tools\";
+    println(message);
+    return string_len(message);
+}
+",
+        );
+        assert!(codes.is_empty(), "unexpected diagnostics: {codes:?}");
+    }
+
+    #[test]
+    fn reports_non_string_argument_to_string_len() {
+        let codes = check("fn main() -> i32 { return string_len(1); }");
+        assert!(codes.iter().any(|code| code == "S0022"));
+    }
+
+    #[test]
     fn reports_immutable_array_element_assignment() {
         let codes =
             check("fn main() -> i32 { let values: [i32; 1] = [1]; values[0] = 2; return 0; }");

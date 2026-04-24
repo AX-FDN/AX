@@ -5,6 +5,8 @@ use crate::diagnostics::Diagnostic;
 
 #[path = "checker/assignment.rs"]
 mod assignment;
+#[path = "checker/builtin.rs"]
+mod builtin;
 #[path = "checker/calls.rs"]
 mod calls;
 #[path = "checker/composite.rs"]

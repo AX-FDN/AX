@@ -196,6 +196,13 @@ values[1]
 values[1:3]
 ```
 
+字符串拼接：
+
+```ax
+"AX " + "report"
+string_len("AX report")
+```
+
 枚举值：
 
 ```ax
@@ -302,6 +309,7 @@ array_type        := "[" type_ref ";" INT "]"
 - `for`
 - 用户函数调用
 - 递归
+- 内置 `string_len`
 - 结构体字面量与字段读取
 - 枚举值比较
 - 内置 `println`

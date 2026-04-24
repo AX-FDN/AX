@@ -125,7 +125,15 @@
   - 完成于：2026-04-24
   - 备注：第一版收敛为只读切片；当前已支持 `[Type]`、`values[start:end]`、slice 索引读取和数组传 slice 形参，新增 [`examples/slices.ax`](C:/Users/xiaoy/Desktop/A语言/AX/examples/slices.ax)。
 - [ ] `P1-1a` 空数组字面量策略
-- [ ] `P1-2` 更实用的字符串处理
+- [x] `P1-2` 更实用的字符串处理
+  - 目标：补上不重设计但马上有用的字符串能力，让 AX 能更自然地拼消息和做最小文本统计。
+  - 输入：[`能力缺口排序.md`](C:/Users/xiaoy/Desktop/A语言/AX/能力缺口排序.md) 的第二优先级结论、现有字符串字面量与 `println`。
+  - 输出：`string + string`、内置 `string_len(text)`、字符串工具示例与回归测试。
+  - 通过条件：字符串拼接与长度查询可 `check` / `run`；语义与运行期行为一致；示例与接口测试稳定。
+  - 回归保障：semantic / interpreter 单测，`tests/interface_snapshots.rs` 新增 `examples/string_tools.ax` 运行回归。
+  - 不做范围：不引入字符串索引、Unicode 语义设计、格式化模板或完整文本库。
+  - 完成于：2026-04-24
+  - 备注：第一版收敛为“拼接 + 长度”；当前已支持 `string + string` 和 `string_len(text)`，新增 [`examples/string_tools.ax`](C:/Users/xiaoy/Desktop/A语言/AX/examples/string_tools.ax)。
 - [ ] `P1-3` 更贴近工具链代码的遍历能力
 - [ ] `P1-4` 更多高价值错误的 AI 教学规则
 - [ ] `P1-5` 更多工具风格坏例子与修复样例

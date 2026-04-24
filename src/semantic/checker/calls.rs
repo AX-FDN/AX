@@ -11,13 +11,11 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
         arguments: &[Expr],
     ) -> Type {
         match &callee.kind {
-            ExprKind::Name { value } if value == "println" => {
-                for argument in arguments {
-                    self.check_expr(argument);
-                }
-                Type::Void
-            }
             ExprKind::Name { value } => {
+                if let Some(result) = self.check_builtin_call(expr, value, arguments) {
+                    return result;
+                }
+
                 let signature = self.info.functions.get(value).cloned();
                 let argument_types = arguments
                     .iter()

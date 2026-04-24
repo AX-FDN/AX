@@ -666,9 +666,17 @@ fn bootstrap_block_summary_example_runs() {
 #[test]
 fn slices_example_runs() {
     let output = run_axc([OsStr::new("run"), OsStr::new("examples/slices.ax")]);
-    assert_eq!(output.status.code(), Some(0));
+    assert_eq!(output.status.code(), Some(3));
     assert_clean_stderr(&output);
     assert_eq!(normalize_text(&string_output(&output.stdout)), "[2, 3]\n7\n");
+}
+
+#[test]
+fn string_tools_example_runs() {
+    let output = run_axc([OsStr::new("run"), OsStr::new("examples/string_tools.ax")]);
+    assert_eq!(output.status.code(), Some(2));
+    assert_clean_stderr(&output);
+    assert_eq!(normalize_text(&string_output(&output.stdout)), "AX report ready\n15\n");
 }
 
 #[test]
