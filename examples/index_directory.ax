@@ -1,0 +1,48 @@
+fn main() -> i32 {
+    if (argv_len() < 2) {
+        println("usage: axc run examples/index_directory.ax -- <root_dir> <output>");
+        return 1;
+    }
+
+    let root_dir: string = argv_get(0);
+    let output_path: string = argv_get(1);
+
+    if (!fs_is_dir(root_dir)) {
+        println("root dir is not a directory: " + root_dir);
+        return 2;
+    }
+
+    let output_dir: string = path_parent(output_path);
+    if (string_len(output_dir) != 0) {
+        fs_create_dir_all(output_dir);
+    }
+
+    let entries: [string] = fs_read_dir(root_dir);
+    let mut report: string =
+        "root=" + path_resolve(root_dir)
+        + "\nentries=" + to_string(len(entries))
+        + "\n";
+
+    for (let mut i: i32 = 0; i < len(entries); i = i + 1) {
+        let entry: string = entries[i];
+        let mut kind: string = "dir";
+        let mut size_text: string = "-";
+
+        if (fs_is_file(entry)) {
+            kind = "file";
+            size_text = to_string(fs_file_size(entry));
+        }
+
+        report = report
+            + path_file_name(entry)
+            + " | "
+            + kind
+            + " | "
+            + size_text
+            + "\n";
+    }
+
+    fs_write_string(output_path, report);
+    println("indexed=" + output_path);
+    return 0;
+}

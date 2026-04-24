@@ -1578,6 +1578,77 @@ impl<'a> Interpreter<'a> {
             };
         }
 
+        if name == "fs_read_dir" {
+            if arguments.len() != 1 {
+                return Err(self.runtime_error(
+                    "R0121",
+                    format!(
+                        "function `fs_read_dir` expected 1 argument(s), got {}",
+                        arguments.len()
+                    ),
+                    span,
+                ));
+            }
+
+            let path = arguments
+                .into_iter()
+                .next()
+                .expect("fs_read_dir argument should exist");
+            return match path {
+                Value::String(path) => {
+                    let resolved = self.resolve_host_path(&path);
+                    let mut entries = fs::read_dir(&resolved)
+                        .map_err(|error| {
+                            self.runtime_error(
+                                "R0123",
+                                format!("failed to read directory `{}`: {error}", resolved.display()),
+                                span,
+                            )
+                            .with_suggestion(
+                                "pass an existing readable directory path or guard with `fs_is_dir(path)` first",
+                            )
+                        })?
+                        .map(|entry_result| {
+                            entry_result.map(|entry| {
+                                Value::String(entry.path().to_string_lossy().into_owned())
+                            })
+                        })
+                        .collect::<Result<Vec<_>, _>>()
+                        .map_err(|error| {
+                            self.runtime_error(
+                                "R0123",
+                                format!(
+                                    "failed while enumerating directory `{}`: {error}",
+                                    resolved.display()
+                                ),
+                                span,
+                            )
+                            .with_suggestion(
+                                "pass an existing readable directory path or guard with `fs_is_dir(path)` first",
+                            )
+                        })?;
+
+                    entries.sort_by(|left, right| match (left, right) {
+                        (Value::String(left), Value::String(right)) => left.cmp(right),
+                        _ => std::cmp::Ordering::Equal,
+                    });
+                    Ok(Value::Slice(entries))
+                }
+                other => Err(self
+                    .runtime_error(
+                        "R0122",
+                        format!(
+                            "function `fs_read_dir` requires a `string` path, got `{}`",
+                            other.display()
+                        ),
+                        span,
+                    )
+                    .with_suggestion(
+                        "call `fs_read_dir` with a string value like `fs_read_dir(path)`",
+                    )),
+            };
+        }
+
         if name == "fs_read_to_string" {
             if arguments.len() != 1 {
                 return Err(self.runtime_error(

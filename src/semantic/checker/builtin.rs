@@ -1030,6 +1030,38 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 );
                 Some(Type::Void)
             }
+            "fs_read_dir" => {
+                let argument_types = arguments
+                    .iter()
+                    .map(|argument| self.check_expr(argument))
+                    .collect::<Vec<_>>();
+
+                if argument_types.len() != 1 {
+                    self.diagnostics.push(Diagnostic::new(
+                        "S0017",
+                        format!(
+                            "function `fs_read_dir` expects 1 argument(s), found {}",
+                            argument_types.len()
+                        ),
+                        self.info.source,
+                        expr.span,
+                    ));
+                    return Some(Type::Error);
+                }
+
+                self.expect_type_match(
+                    &Type::String,
+                    &argument_types[0],
+                    expr.span,
+                    format!(
+                        "function `fs_read_dir` expects argument `path` to be `string`, found `{}`",
+                        argument_types[0].describe()
+                    ),
+                );
+                Some(Type::Slice {
+                    element: Box::new(Type::String),
+                })
+            }
             "fs_read_to_string" => {
                 let argument_types = arguments
                     .iter()
