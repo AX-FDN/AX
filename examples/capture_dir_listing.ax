@@ -1,0 +1,29 @@
+fn main() -> i32 {
+    if (argv_len() < 2) {
+        println("usage: axc run examples/capture_dir_listing.ax -- <dir> <output>");
+        return 1;
+    }
+
+    let working_dir: string = argv_get(0);
+    let output_path: string = argv_get(1);
+
+    if (!fs_is_dir(working_dir)) {
+        println("working dir is not a directory: " + working_dir);
+        return 2;
+    }
+
+    let output_dir: string = path_parent(output_path);
+    if (string_len(output_dir) != 0) {
+        fs_create_dir_all(output_dir);
+    }
+
+    let listing: string = process_capture_in(working_dir, "dir /B");
+    let report: string =
+        "working_dir=" + path_resolve(working_dir)
+        + "\noutput=" + output_path
+        + "\nlisting=\n" + listing;
+
+    fs_write_string(output_path, report);
+    println("captured=" + output_path);
+    return 0;
+}

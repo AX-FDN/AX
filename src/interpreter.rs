@@ -754,6 +754,139 @@ impl<'a> Interpreter<'a> {
             };
         }
 
+        if name == "process_run_in" {
+            if arguments.len() != 2 {
+                return Err(self.runtime_error(
+                    "R0114",
+                    format!(
+                        "function `process_run_in` expected 2 argument(s), got {}",
+                        arguments.len()
+                    ),
+                    span,
+                ));
+            }
+
+            let mut arguments = arguments.into_iter();
+            let working_dir = arguments
+                .next()
+                .expect("process_run_in working_dir argument should exist");
+            let command_text = arguments
+                .next()
+                .expect("process_run_in command argument should exist");
+            return match (working_dir, command_text) {
+                (Value::String(working_dir), Value::String(command_text)) => self
+                    .host_shell_command_at(&self.resolve_host_path(&working_dir), &command_text)
+                    .status()
+                    .map(|status| Value::I32(status.code().unwrap_or(-1)))
+                    .map_err(|error| {
+                        self.runtime_error(
+                            "R0116",
+                            format!(
+                                "failed to run `{command_text}` in `{}`: {error}",
+                                self.resolve_host_path(&working_dir).display()
+                            ),
+                            span,
+                        )
+                        .with_suggestion(
+                            "pass an existing working directory and a valid shell command string like `process_run_in(dir, command)`",
+                        )
+                    }),
+                (working_dir, command_text) => Err(self
+                    .runtime_error(
+                        "R0115",
+                        format!(
+                            "function `process_run_in` requires `string` arguments, got `{}` and `{}`",
+                            working_dir.display(),
+                            command_text.display()
+                        ),
+                        span,
+                    )
+                    .with_suggestion(
+                        "call `process_run_in` like `process_run_in(working_dir, command)`",
+                    )),
+            };
+        }
+
+        if name == "process_capture_in" {
+            if arguments.len() != 2 {
+                return Err(self.runtime_error(
+                    "R0117",
+                    format!(
+                        "function `process_capture_in` expected 2 argument(s), got {}",
+                        arguments.len()
+                    ),
+                    span,
+                ));
+            }
+
+            let mut arguments = arguments.into_iter();
+            let working_dir = arguments
+                .next()
+                .expect("process_capture_in working_dir argument should exist");
+            let command_text = arguments
+                .next()
+                .expect("process_capture_in command argument should exist");
+            return match (working_dir, command_text) {
+                (Value::String(working_dir), Value::String(command_text)) => {
+                    let resolved_dir = self.resolve_host_path(&working_dir);
+                    let output = self
+                        .host_shell_command_at(&resolved_dir, &command_text)
+                        .output()
+                        .map_err(|error| {
+                            self.runtime_error(
+                                "R0119",
+                                format!(
+                                    "failed to capture `{command_text}` in `{}`: {error}",
+                                    resolved_dir.display()
+                                ),
+                                span,
+                            )
+                            .with_suggestion(
+                                "pass an existing working directory and a valid shell command string like `process_capture_in(dir, command)`",
+                            )
+                        })?;
+
+                    if !output.status.success() {
+                        let exit_code = output.status.code().unwrap_or(-1);
+                        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+                        let mut diagnostic = self
+                            .runtime_error(
+                                "R0120",
+                                format!(
+                                    "command `{command_text}` in `{}` exited with status {exit_code}",
+                                    resolved_dir.display()
+                                ),
+                                span,
+                            )
+                            .with_suggestion(
+                                "use `process_run_in(working_dir, command)` when you need the exit code without raising a runtime error",
+                            );
+                        if !stderr.is_empty() {
+                            diagnostic = diagnostic.with_note(format!("stderr: {stderr}"));
+                        }
+                        return Err(diagnostic);
+                    }
+
+                    Ok(Value::String(
+                        String::from_utf8_lossy(&output.stdout).into_owned(),
+                    ))
+                }
+                (working_dir, command_text) => Err(self
+                    .runtime_error(
+                        "R0118",
+                        format!(
+                            "function `process_capture_in` requires `string` arguments, got `{}` and `{}`",
+                            working_dir.display(),
+                            command_text.display()
+                        ),
+                        span,
+                    )
+                    .with_suggestion(
+                        "call `process_capture_in` like `process_capture_in(working_dir, command)`",
+                    )),
+            };
+        }
+
         if name == "path_join" {
             if arguments.len() != 2 {
                 return Err(self.runtime_error(
@@ -1393,6 +1526,54 @@ impl<'a> Interpreter<'a> {
                     )
                     .with_suggestion(
                         "call `fs_remove_file` with a string value like `fs_remove_file(path)`",
+                    )),
+            };
+        }
+
+        if name == "fs_remove_dir_all" {
+            if arguments.len() != 1 {
+                return Err(self.runtime_error(
+                    "R0111",
+                    format!(
+                        "function `fs_remove_dir_all` expected 1 argument(s), got {}",
+                        arguments.len()
+                    ),
+                    span,
+                ));
+            }
+
+            let path = arguments
+                .into_iter()
+                .next()
+                .expect("fs_remove_dir_all argument should exist");
+            return match path {
+                Value::String(path) => {
+                    let resolved = self.resolve_host_path(&path);
+                    fs::remove_dir_all(&resolved).map(|_| Value::Void).map_err(|error| {
+                        self.runtime_error(
+                            "R0113",
+                            format!(
+                                "failed to remove directory tree `{}`: {error}",
+                                resolved.display()
+                            ),
+                            span,
+                        )
+                        .with_suggestion(
+                            "guard with `fs_is_dir(path)` before removing or pass an existing writable directory path",
+                        )
+                    })
+                }
+                other => Err(self
+                    .runtime_error(
+                        "R0112",
+                        format!(
+                            "function `fs_remove_dir_all` requires a `string` path, got `{}`",
+                            other.display()
+                        ),
+                        span,
+                    )
+                    .with_suggestion(
+                        "call `fs_remove_dir_all` with a string value like `fs_remove_dir_all(path)`",
                     )),
             };
         }
@@ -2098,6 +2279,10 @@ impl<'a> Interpreter<'a> {
     }
 
     fn host_shell_command(&self, command_text: &str) -> Command {
+        self.host_shell_command_at(&self.host.current_dir, command_text)
+    }
+
+    fn host_shell_command_at(&self, working_dir: &Path, command_text: &str) -> Command {
         let mut command = if cfg!(windows) {
             let mut command = Command::new("cmd");
             command.arg("/C").arg(command_text);
@@ -2107,7 +2292,7 @@ impl<'a> Interpreter<'a> {
             command.arg("-lc").arg(command_text);
             command
         };
-        command.current_dir(&self.host.current_dir);
+        command.current_dir(working_dir);
         command.envs(&self.host.env);
         command
     }

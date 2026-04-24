@@ -1,0 +1,31 @@
+fn main() -> i32 {
+    if (argv_len() == 0) {
+        println("usage: axc run examples/prepare_clean_output.ax -- <output_dir>");
+        return 1;
+    }
+
+    let output_dir: string = argv_get(0);
+
+    if (fs_exists(output_dir)) {
+        if (!fs_is_dir(output_dir)) {
+            println("output path is not a directory: " + output_dir);
+            return 2;
+        }
+    }
+
+    if (fs_is_dir(output_dir)) {
+        fs_remove_dir_all(output_dir);
+    }
+
+    fs_create_dir_all(output_dir);
+
+    let ready_path: string = path_join(output_dir, "READY.txt");
+    let report: string =
+        "output=" + path_resolve(output_dir)
+        + "\nready_file=" + ready_path
+        + "\n";
+
+    fs_write_string(ready_path, report);
+    println("prepared=" + output_dir);
+    return 0;
+}
