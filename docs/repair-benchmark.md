@@ -12,7 +12,7 @@ The current repository supports three layers of work:
 
 1. export stable benchmark artifacts from manifest-defined broken programs
 2. run a repair adapter against those artifacts
-3. score repaired candidates and compare `base` versus `ai` feedback
+3. score repaired candidates and compare `cold`, `base`, and `ai` feedback branches
 
 ## Source Assets
 
@@ -93,10 +93,14 @@ Each case directory contains:
   Output of `axc <diagnostic_command> <file> --json`.
 - `diagnostics.ai.json`
   Output of `axc <diagnostic_command> <file> --json --ai`.
+- `bundle.cold.json`
+  Structured repair bundle for the prompt-only `cold` branch. Its `diagnostics` array is intentionally empty.
 - `bundle.base.json`
   Structured repair bundle for base feedback.
 - `bundle.ai.json`
   Structured repair bundle for AI feedback.
+- `prompt.cold.md`
+  Provider-neutral prompt for the prompt-only `cold` branch.
 - `prompt.base.md`
   Provider-neutral prompt built from the base bundle.
 - `prompt.ai.md`
@@ -117,6 +121,8 @@ The export script validates the benchmark as it exports it:
 - `expected_ai_rule_ids` must match observed AI-enhanced output exactly
 
 If any case drifts, export fails immediately.
+
+For `run`-based cases, the exported prompts also include an explicit runtime-repair note so adapters know the failure already passed `check` and should be repaired without introducing new check-time diagnostics.
 
 ## Run Step
 

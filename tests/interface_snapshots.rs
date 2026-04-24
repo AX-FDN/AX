@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::ffi::OsStr;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -41,6 +41,34 @@ where
         .current_dir(repo_root())
         .output()
         .expect("failed to execute axc")
+}
+
+fn powershell_executable() -> &'static str {
+    if cfg!(windows) {
+        "powershell.exe"
+    } else {
+        "pwsh"
+    }
+}
+
+fn run_powershell_script<I, S>(script: &Path, args: I) -> Output
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<OsStr>,
+{
+    let mut command = Command::new(powershell_executable());
+    command.arg("-NoProfile");
+    if cfg!(windows) {
+        command.arg("-ExecutionPolicy").arg("Bypass");
+    }
+    command
+        .arg("-File")
+        .arg(script)
+        .env("AXC_BINARY", axc_binary())
+        .args(args)
+        .current_dir(repo_root())
+        .output()
+        .expect("failed to execute PowerShell script")
 }
 
 struct TempDir {
@@ -89,6 +117,27 @@ impl Drop for TempDir {
 
 fn string_output(bytes: &[u8]) -> String {
     String::from_utf8(bytes.to_vec()).expect("process output should be valid UTF-8")
+}
+
+fn read_json_file(path: &Path, label: &str) -> Value {
+    let text = fs::read_to_string(path)
+        .unwrap_or_else(|error| panic!("failed to read {label} `{}`: {error}", path.display()));
+    serde_json::from_str(&text)
+        .unwrap_or_else(|error| panic!("failed to parse {label} `{}` as JSON: {error}", path.display()))
+}
+
+fn diagnostic_codes(value: &Value) -> Vec<String> {
+    value
+        .as_array()
+        .unwrap_or_else(|| panic!("expected diagnostics array, got {value:?}"))
+        .iter()
+        .map(|diagnostic| {
+            diagnostic["code"]
+                .as_str()
+                .unwrap_or_else(|| panic!("diagnostic should include code: {diagnostic:?}"))
+                .to_string()
+        })
+        .collect()
 }
 
 fn assert_clean_stderr(output: &Output) {
@@ -496,6 +545,249 @@ fn diagnostics_ai_rule_ids_match_repair_manifest_cases() {
 #[test]
 fn diagnostics_ai_rule_ids_match_smoke_repair_manifest_cases() {
     assert_manifest_cases_keep_stable_diagnostics("benchmarks/repair-cases-smoke.json");
+}
+
+#[test]
+fn repair_benchmark_export_keeps_cold_base_ai_artifact_contracts() {
+    let temp = TempDir::new("repair-benchmark-export");
+    let output_dir = temp.join("export");
+    let script_path = repo_root().join("scripts").join("export-repair-benchmark.ps1");
+
+    let output = run_powershell_script(
+        &script_path,
+        [
+            OsStr::new("-ManifestPath"),
+            OsStr::new("benchmarks/repair-cases-smoke.json"),
+            OsStr::new("-OutputDir"),
+            output_dir.as_os_str(),
+            OsStr::new("-SkipBuild"),
+        ],
+    );
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "repair benchmark export should succeed\nstdout:\n{}\nstderr:\n{}",
+        string_output(&output.stdout),
+        string_output(&output.stderr)
+    );
+    assert_clean_stderr(&output);
+
+    let index_path = output_dir.join("index.json");
+    let index = read_json_file(&index_path, "repair benchmark index");
+    assert_eq!(
+        index["schema_version"],
+        Value::from(1),
+        "repair benchmark export should keep schema version 1"
+    );
+
+    let cases = index["cases"]
+        .as_array()
+        .expect("repair benchmark export should include cases");
+    assert_eq!(
+        cases.len(),
+        10,
+        "smoke export should keep the 10-case repair manifest subset"
+    );
+
+    let syntax_case = cases
+        .iter()
+        .find(|case| case["id"].as_str() == Some("missing_semicolon_basic"))
+        .expect("smoke export should include the missing semicolon case");
+    assert_eq!(
+        syntax_case["diagnostic_command"],
+        Value::from("check"),
+        "syntax smoke export should default to the `check` diagnostic command"
+    );
+
+    let syntax_artifacts = syntax_case["artifacts"]
+        .as_object()
+        .expect("syntax case should include an artifacts object");
+    for key in [
+        "source",
+        "cold_bundle",
+        "cold_prompt",
+        "base_diagnostics",
+        "ai_diagnostics",
+        "base_bundle",
+        "ai_bundle",
+        "base_prompt",
+        "ai_prompt",
+    ] {
+        let relative_path = syntax_artifacts[key]
+            .as_str()
+            .unwrap_or_else(|| panic!("syntax artifact `{key}` should be a string path"));
+        assert!(
+            output_dir.join(relative_path).exists(),
+            "syntax artifact `{key}` should exist at `{relative_path}`"
+        );
+    }
+
+    let syntax_case_summary = read_json_file(
+        &output_dir.join("missing_semicolon_basic").join("case.json"),
+        "syntax case summary",
+    );
+    assert_eq!(
+        syntax_case_summary["artifacts"]["cold_bundle"],
+        Value::from("missing_semicolon_basic/bundle.cold.json"),
+        "case summary should expose the cold bundle artifact path"
+    );
+    assert_eq!(
+        syntax_case_summary["artifacts"]["cold_prompt"],
+        Value::from("missing_semicolon_basic/prompt.cold.md"),
+        "case summary should expose the cold prompt artifact path"
+    );
+
+    let cold_bundle = read_json_file(
+        &output_dir.join("missing_semicolon_basic").join("bundle.cold.json"),
+        "cold bundle",
+    );
+    assert_eq!(cold_bundle["schema_version"], Value::from(1));
+    assert_eq!(cold_bundle["feedback_mode"], Value::from("cold_prompt"));
+    assert_eq!(cold_bundle["diagnostic_command"], Value::from("check"));
+    assert_eq!(
+        cold_bundle["source_file"],
+        Value::from("missing_semicolon_basic/source.ax")
+    );
+    assert!(
+        cold_bundle["diagnostics"]
+            .as_array()
+            .expect("cold bundle diagnostics should be an array")
+            .is_empty(),
+        "cold bundle should keep diagnostics empty so adapters can measure prompt-only repair"
+    );
+
+    let base_bundle = read_json_file(
+        &output_dir.join("missing_semicolon_basic").join("bundle.base.json"),
+        "base bundle",
+    );
+    assert_eq!(base_bundle["feedback_mode"], Value::from("base_json"));
+    assert_eq!(base_bundle["diagnostic_command"], Value::from("check"));
+    assert_eq!(
+        diagnostic_codes(&base_bundle["diagnostics"]),
+        vec!["P0001".to_string()],
+        "base bundle should preserve the expected base diagnostic code sequence"
+    );
+
+    let ai_bundle = read_json_file(
+        &output_dir.join("missing_semicolon_basic").join("bundle.ai.json"),
+        "ai bundle",
+    );
+    assert_eq!(ai_bundle["feedback_mode"], Value::from("ai_json"));
+    assert_eq!(ai_bundle["diagnostic_command"], Value::from("check"));
+    assert_eq!(
+        diagnostic_codes(&ai_bundle["diagnostics"]),
+        vec!["P0001".to_string()],
+        "ai bundle should preserve the expected base diagnostic code sequence"
+    );
+    let ai_rule_ids: Vec<String> = ai_bundle["diagnostics"]
+        .as_array()
+        .expect("ai bundle diagnostics should be an array")
+        .iter()
+        .filter_map(|diagnostic| {
+            diagnostic
+                .get("ai")
+                .and_then(|ai| ai.get("rule_id"))
+                .and_then(Value::as_str)
+                .map(str::to_string)
+        })
+        .collect();
+    assert_eq!(
+        ai_rule_ids,
+        vec!["statement_terminator_required".to_string()],
+        "ai bundle should preserve the expected ai rule ids"
+    );
+
+    let cold_prompt = normalize_text(
+        &fs::read_to_string(output_dir.join("missing_semicolon_basic").join("prompt.cold.md"))
+            .expect("cold prompt should be readable"),
+    );
+    assert!(
+        cold_prompt.contains("Feedback mode: cold_prompt"),
+        "cold prompt should expose the prompt-only feedback mode"
+    );
+    assert!(
+        !cold_prompt.contains("Compiler diagnostics:"),
+        "cold prompt should omit compiler diagnostics entirely"
+    );
+
+    let base_prompt = normalize_text(
+        &fs::read_to_string(output_dir.join("missing_semicolon_basic").join("prompt.base.md"))
+            .expect("base prompt should be readable"),
+    );
+    assert!(
+        base_prompt.contains("Feedback mode: base_json"),
+        "base prompt should expose the base-json feedback mode"
+    );
+    assert!(
+        base_prompt.contains("Compiler diagnostics:"),
+        "base prompt should embed compiler diagnostics"
+    );
+    assert!(
+        base_prompt.contains("\"code\": \"P0001\""),
+        "base prompt should include the exported diagnostic payload"
+    );
+
+    let ai_prompt = normalize_text(
+        &fs::read_to_string(output_dir.join("missing_semicolon_basic").join("prompt.ai.md"))
+            .expect("ai prompt should be readable"),
+    );
+    assert!(
+        ai_prompt.contains("Feedback mode: ai_json"),
+        "ai prompt should expose the ai-json feedback mode"
+    );
+    assert!(
+        ai_prompt.contains("statement_terminator_required"),
+        "ai prompt should include the AI rule-bearing diagnostic payload"
+    );
+
+    let runtime_case = cases
+        .iter()
+        .find(|case| case["id"].as_str() == Some("index_out_of_bounds_runtime"))
+        .expect("smoke export should include the runtime bounds case");
+    assert_eq!(
+        runtime_case["diagnostic_command"],
+        Value::from("run"),
+        "runtime smoke export should preserve `run` as the diagnostic command"
+    );
+
+    let runtime_cold_bundle = read_json_file(
+        &output_dir.join("index_out_of_bounds_runtime").join("bundle.cold.json"),
+        "runtime cold bundle",
+    );
+    assert_eq!(runtime_cold_bundle["feedback_mode"], Value::from("cold_prompt"));
+    assert_eq!(runtime_cold_bundle["diagnostic_command"], Value::from("run"));
+    assert!(
+        runtime_cold_bundle["diagnostics"]
+            .as_array()
+            .expect("runtime cold bundle diagnostics should be an array")
+            .is_empty(),
+        "runtime cold bundle should stay prompt-only"
+    );
+
+    let runtime_base_bundle = read_json_file(
+        &output_dir.join("index_out_of_bounds_runtime").join("bundle.base.json"),
+        "runtime base bundle",
+    );
+    assert_eq!(
+        diagnostic_codes(&runtime_base_bundle["diagnostics"]),
+        vec!["R0031".to_string()],
+        "runtime base bundle should preserve runtime diagnostic codes"
+    );
+
+    let runtime_cold_prompt = normalize_text(
+        &fs::read_to_string(output_dir.join("index_out_of_bounds_runtime").join("prompt.cold.md"))
+            .expect("runtime cold prompt should be readable"),
+    );
+    assert!(
+        runtime_cold_prompt.contains("Diagnostic command: axc run --json"),
+        "runtime cold prompt should name the `run --json` origin explicitly"
+    );
+    assert!(
+        runtime_cold_prompt.contains(
+            "The program already gets far enough to execute, so repair the runtime failure without introducing new check-time diagnostics."
+        ),
+        "runtime cold prompt should preserve the runtime-specific repair guidance"
+    );
 }
 
 #[test]

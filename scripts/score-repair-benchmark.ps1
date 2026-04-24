@@ -46,6 +46,25 @@ function Resolve-TargetDir {
     return Join-Path $repoRoot "target"
 }
 
+function Resolve-AxcBinary {
+    $overrideCandidates = @()
+    if (-not [string]::IsNullOrWhiteSpace($env:AXC_BINARY)) {
+        $overrideCandidates += [string] $env:AXC_BINARY
+    }
+    if (-not [string]::IsNullOrWhiteSpace($env:CARGO_BIN_EXE_axc)) {
+        $overrideCandidates += [string] $env:CARGO_BIN_EXE_axc
+    }
+
+    foreach ($candidate in $overrideCandidates) {
+        if (Test-Path $candidate) {
+            return $candidate
+        }
+    }
+
+    $targetDir = Resolve-TargetDir
+    return Join-Path $targetDir "debug\\axc.exe"
+}
+
 function Resolve-BenchmarkIndexPath {
     param([string] $InputPath)
 
@@ -272,10 +291,9 @@ if (-not $SkipBuild) {
     & $cargoScript build | Out-Null
 }
 
-$targetDir = Resolve-TargetDir
-$binary = Join-Path $targetDir "debug\\axc.exe"
+$binary = Resolve-AxcBinary
 if (-not (Test-Path $binary)) {
-    Write-Error "Could not find compiled AX binary at $binary"
+    Write-Error "Could not find compiled AX binary. Checked AXC_BINARY, CARGO_BIN_EXE_axc, and fallback path $binary"
 }
 
 New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
