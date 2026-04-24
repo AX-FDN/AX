@@ -132,19 +132,19 @@ if (-not (Test-Path $comparisonPath)) {
 $comparison = Get-Content $comparisonPath -Raw -Encoding utf8 | ConvertFrom-Json
 
 Assert-Equal -Label "schema_version" -Actual ([int] $comparison.schema_version) -Expected 1
-Assert-Equal -Label "summary.total_cases" -Actual ([int] $comparison.summary.total_cases) -Expected 10
-Assert-Equal -Label "summary.cold_passed" -Actual ([int] $comparison.summary.cold_passed) -Expected 3
-Assert-Equal -Label "summary.base_passed" -Actual ([int] $comparison.summary.base_passed) -Expected 5
-Assert-Equal -Label "summary.ai_passed" -Actual ([int] $comparison.summary.ai_passed) -Expected 10
+Assert-Equal -Label "summary.total_cases" -Actual ([int] $comparison.summary.total_cases) -Expected 11
+Assert-Equal -Label "summary.cold_passed" -Actual ([int] $comparison.summary.cold_passed) -Expected 4
+Assert-Equal -Label "summary.base_passed" -Actual ([int] $comparison.summary.base_passed) -Expected 6
+Assert-Equal -Label "summary.ai_passed" -Actual ([int] $comparison.summary.ai_passed) -Expected 11
 Assert-Equal -Label "cold score_totals.failed" -Actual ([int] $comparison.modes.cold.score_totals.failed) -Expected 7
 Assert-Equal -Label "base score_totals.failed" -Actual ([int] $comparison.modes.base.score_totals.failed) -Expected 5
 Assert-Equal -Label "ai score_totals.failed" -Actual ([int] $comparison.modes.ai.score_totals.failed) -Expected 0
 Assert-Equal -Label "cold_to_base.absolute_lift_cases" -Actual ([int] $comparison.summary.pairwise_comparisons.cold_to_base.absolute_lift_cases) -Expected 2
 Assert-Equal -Label "base_to_ai.absolute_lift_cases" -Actual ([int] $comparison.summary.pairwise_comparisons.base_to_ai.absolute_lift_cases) -Expected 5
 Assert-Equal -Label "cold_to_ai.absolute_lift_cases" -Actual ([int] $comparison.summary.pairwise_comparisons.cold_to_ai.absolute_lift_cases) -Expected 7
-Assert-Equal -Label "cold_to_base.absolute_lift_pp" -Actual ([double] $comparison.summary.pairwise_comparisons.cold_to_base.absolute_lift_pp) -Expected 20
-Assert-Equal -Label "base_to_ai.absolute_lift_pp" -Actual ([double] $comparison.summary.pairwise_comparisons.base_to_ai.absolute_lift_pp) -Expected 50
-Assert-Equal -Label "cold_to_ai.absolute_lift_pp" -Actual ([double] $comparison.summary.pairwise_comparisons.cold_to_ai.absolute_lift_pp) -Expected 70
+Assert-Equal -Label "cold_to_base.absolute_lift_pp" -Actual ([double] $comparison.summary.pairwise_comparisons.cold_to_base.absolute_lift_pp) -Expected 18.19
+Assert-Equal -Label "base_to_ai.absolute_lift_pp" -Actual ([double] $comparison.summary.pairwise_comparisons.base_to_ai.absolute_lift_pp) -Expected 45.45
+Assert-Equal -Label "cold_to_ai.absolute_lift_pp" -Actual ([double] $comparison.summary.pairwise_comparisons.cold_to_ai.absolute_lift_pp) -Expected 63.64
 Assert-StringArray -Label "cold_to_base.improved_cases" -Actual @($comparison.summary.pairwise_comparisons.cold_to_base.improved_cases) -Expected @(
     "unknown_type_missing",
     "len_builtin_non_countable_value"

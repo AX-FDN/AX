@@ -476,6 +476,7 @@ struct RepairCaseManifest {
 struct RepairCaseEntry {
     id: String,
     file: String,
+    project: Option<String>,
     diagnostic_command: Option<String>,
     expected_codes: Vec<String>,
     expected_ai_rule_ids: Vec<String>,
@@ -484,6 +485,10 @@ struct RepairCaseEntry {
 impl RepairCaseEntry {
     fn diagnostic_command(&self) -> &str {
         self.diagnostic_command.as_deref().unwrap_or("check")
+    }
+
+    fn diagnostic_target(&self) -> &str {
+        self.project.as_deref().unwrap_or(self.file.as_str())
     }
 }
 
@@ -516,7 +521,7 @@ fn assert_manifest_cases_keep_stable_diagnostics(manifest_path: &str) {
     for case in manifest.cases {
         let output = run_axc([
             OsStr::new(case.diagnostic_command()),
-            OsStr::new(case.file.as_str()),
+            OsStr::new(case.diagnostic_target()),
             OsStr::new("--json"),
             OsStr::new("--ai"),
         ]);
@@ -899,8 +904,8 @@ fn repair_benchmark_export_keeps_cold_base_ai_artifact_contracts() {
         .expect("repair benchmark export should include cases");
     assert_eq!(
         cases.len(),
-        10,
-        "smoke export should keep the 10-case repair manifest subset"
+        11,
+        "smoke export should keep the 11-case repair manifest subset"
     );
 
     let syntax_case = cases
@@ -949,6 +954,36 @@ fn repair_benchmark_export_keeps_cold_base_ai_artifact_contracts() {
         syntax_case_summary["artifacts"]["cold_prompt"],
         Value::from("missing_semicolon_basic/prompt.cold.md"),
         "case summary should expose the cold prompt artifact path"
+    );
+
+    let project_case = cases
+        .iter()
+        .find(|case| case["id"].as_str() == Some("project_helper_missing_semicolon"))
+        .expect("smoke export should include the project-backed helper case");
+    assert_eq!(
+        project_case["project_target_relative_path"],
+        Value::from("lib/helper.ax")
+    );
+    assert_eq!(
+        project_case["artifacts"]["project_root"],
+        Value::from("project_helper_missing_semicolon/project")
+    );
+    assert!(
+        output_dir
+            .join("project_helper_missing_semicolon")
+            .join("project")
+            .join("AX.toml")
+            .exists(),
+        "project-backed export should include AX.toml in the read-only snapshot"
+    );
+    assert!(
+        output_dir
+            .join("project_helper_missing_semicolon")
+            .join("project")
+            .join("src")
+            .join("main.ax")
+            .exists(),
+        "project-backed export should include the supporting read-only AX sources"
     );
 
     let cold_bundle = read_json_file(
@@ -1968,8 +2003,8 @@ fn repair_benchmark_run_keeps_smoke_run_and_score_contracts_without_rebuild() {
         assert_json_path_exists(&run_summary["output_dir"], "run summary output_dir"),
         output_dir
     );
-    assert_eq!(run_summary["totals"]["total"], Value::from(10));
-    assert_eq!(run_summary["totals"]["ok"], Value::from(10));
+    assert_eq!(run_summary["totals"]["total"], Value::from(11));
+    assert_eq!(run_summary["totals"]["ok"], Value::from(11));
     assert_eq!(run_summary["totals"]["failed"], Value::from(0));
     assert_eq!(run_summary["totals"]["timed_out"], Value::from(0));
     assert_eq!(run_summary["score"]["skipped"], Value::from(false));
@@ -1989,7 +2024,7 @@ fn repair_benchmark_run_keeps_smoke_run_and_score_contracts_without_rebuild() {
     let run_cases = run_summary["cases"]
         .as_array()
         .expect("run summary should include cases");
-    assert_eq!(run_cases.len(), 10);
+    assert_eq!(run_cases.len(), 11);
     for case in run_cases {
         assert_eq!(case["feedback_mode"], Value::from("ai"));
         assert_eq!(case["status"], Value::from("ok"));
@@ -2028,15 +2063,15 @@ fn repair_benchmark_run_keeps_smoke_run_and_score_contracts_without_rebuild() {
         assert_json_path_exists(&score_summary["output_dir"], "score summary output_dir"),
         output_dir.join("score")
     );
-    assert_eq!(score_summary["totals"]["total"], Value::from(10));
-    assert_eq!(score_summary["totals"]["passed"], Value::from(10));
+    assert_eq!(score_summary["totals"]["total"], Value::from(11));
+    assert_eq!(score_summary["totals"]["passed"], Value::from(11));
     assert_eq!(score_summary["totals"]["failed"], Value::from(0));
     assert_eq!(score_summary["totals"]["missing"], Value::from(0));
 
     let score_cases = score_summary["cases"]
         .as_array()
         .expect("score summary should include cases");
-    assert_eq!(score_cases.len(), 10);
+    assert_eq!(score_cases.len(), 11);
     for case in score_cases {
         assert_eq!(case["status"], Value::from("passed"));
         assert_eq!(case["success"], Value::from(true));
@@ -2053,7 +2088,7 @@ fn repair_benchmark_run_keeps_smoke_run_and_score_contracts_without_rebuild() {
         .filter(|case| case["diagnostic_command"].as_str() == Some("check"))
         .collect();
     assert_eq!(runtime_cases.len(), 2);
-    assert_eq!(check_cases.len(), 8);
+    assert_eq!(check_cases.len(), 9);
     assert_eq!(
         runtime_cases
             .iter()
@@ -2100,6 +2135,20 @@ fn repair_benchmark_run_keeps_smoke_run_and_score_contracts_without_rebuild() {
             "check-only smoke case should not include runtime validation details"
         );
     }
+
+    let project_case = score_cases
+        .iter()
+        .find(|case| case["id"].as_str() == Some("project_helper_missing_semicolon"))
+        .expect("score summary should include the project-backed helper case");
+    assert_eq!(project_case["status"], Value::from("passed"));
+    assert_eq!(
+        project_case["benchmark_case"]["project"],
+        Value::from("benchmarks/repair-projects/helper_missing_semicolon")
+    );
+    assert_eq!(
+        project_case["benchmark_case"]["project_target_relative_path"],
+        Value::from("lib/helper.ax")
+    );
 }
 
 #[test]
@@ -2180,30 +2229,30 @@ fn repair_feedback_comparison_keeps_smoke_contract_without_rebuild() {
         assert_json_path_exists(&comparison["output_dir"], "feedback comparison output_dir"),
         output_dir
     );
-    assert_eq!(comparison["comparison"]["total_cases"], Value::from(10));
-    assert_eq!(comparison["comparison"]["base_passed"], Value::from(5));
-    assert_eq!(comparison["comparison"]["ai_passed"], Value::from(10));
+    assert_eq!(comparison["comparison"]["total_cases"], Value::from(11));
+    assert_eq!(comparison["comparison"]["base_passed"], Value::from(6));
+    assert_eq!(comparison["comparison"]["ai_passed"], Value::from(11));
     assert_eq!(
         comparison["comparison"]["absolute_lift_cases"],
         Value::from(5)
     );
     assert_json_f64(
         &comparison["comparison"]["absolute_lift_pp"],
-        50.0,
+        45.45,
         "comparison absolute_lift_pp",
     );
     assert_json_f64(
         &comparison["comparison"]["relative_lift_pct"],
-        100.0,
+        83.33,
         "comparison relative_lift_pct",
     );
     assert_eq!(
         comparison["modes"]["base"]["invocation_totals"]["ok"],
-        Value::from(10)
+        Value::from(11)
     );
     assert_eq!(
         comparison["modes"]["ai"]["invocation_totals"]["ok"],
-        Value::from(10)
+        Value::from(11)
     );
     assert_eq!(
         comparison["modes"]["base"]["score_totals"]["failed"],
@@ -2268,13 +2317,13 @@ fn repair_feedback_comparison_keeps_smoke_contract_without_rebuild() {
             .as_array()
             .expect("comparison unchanged_cases should be an array")
             .len(),
-        5
+        6
     );
 
     let case_deltas = comparison["cases"]
         .as_array()
         .expect("comparison should include per-case deltas");
-    assert_eq!(case_deltas.len(), 10);
+    assert_eq!(case_deltas.len(), 11);
     let runtime_case = case_deltas
         .iter()
         .find(|case| case["id"].as_str() == Some("index_out_of_bounds_runtime"))
@@ -2435,10 +2484,10 @@ fn repair_mode_comparison_keeps_smoke_contract_without_rebuild() {
         assert_json_path_exists(&comparison["output_dir"], "mode comparison output_dir"),
         output_dir
     );
-    assert_eq!(comparison["summary"]["total_cases"], Value::from(10));
-    assert_eq!(comparison["summary"]["cold_passed"], Value::from(3));
-    assert_eq!(comparison["summary"]["base_passed"], Value::from(5));
-    assert_eq!(comparison["summary"]["ai_passed"], Value::from(10));
+    assert_eq!(comparison["summary"]["total_cases"], Value::from(11));
+    assert_eq!(comparison["summary"]["cold_passed"], Value::from(4));
+    assert_eq!(comparison["summary"]["base_passed"], Value::from(6));
+    assert_eq!(comparison["summary"]["ai_passed"], Value::from(11));
     assert_eq!(comparison["modes"]["cold"]["exit_code"], Value::from(1));
     assert_eq!(comparison["modes"]["base"]["exit_code"], Value::from(1));
     assert_eq!(comparison["modes"]["ai"]["exit_code"], Value::from(0));
@@ -2512,33 +2561,33 @@ fn repair_mode_comparison_keeps_smoke_contract_without_rebuild() {
         comparison["summary"]["pairwise_comparisons"]["cold_to_base"]["absolute_lift_pp"]
             .as_f64()
             .expect("cold_to_base.absolute_lift_pp should be numeric"),
-        20.0
+        18.19
     );
     assert_eq!(
         comparison["summary"]["pairwise_comparisons"]["base_to_ai"]["absolute_lift_pp"]
             .as_f64()
             .expect("base_to_ai.absolute_lift_pp should be numeric"),
-        50.0
+        45.45
     );
     assert_eq!(
         comparison["summary"]["pairwise_comparisons"]["cold_to_ai"]["absolute_lift_pp"]
             .as_f64()
             .expect("cold_to_ai.absolute_lift_pp should be numeric"),
-        70.0
+        63.64
     );
     assert_json_f64(
         &comparison["summary"]["pairwise_comparisons"]["cold_to_base"]["relative_lift_pct"],
-        66.67,
+        50.0,
         "cold_to_base relative_lift_pct",
     );
     assert_json_f64(
         &comparison["summary"]["pairwise_comparisons"]["base_to_ai"]["relative_lift_pct"],
-        100.0,
+        83.33,
         "base_to_ai relative_lift_pct",
     );
     assert_json_f64(
         &comparison["summary"]["pairwise_comparisons"]["cold_to_ai"]["relative_lift_pct"],
-        233.33,
+        175.0,
         "cold_to_ai relative_lift_pct",
     );
     assert_eq!(
@@ -2591,27 +2640,27 @@ fn repair_mode_comparison_keeps_smoke_contract_without_rebuild() {
             .as_array()
             .expect("cold_to_base unchanged_cases should be an array")
             .len(),
-        8
+        9
     );
     assert_eq!(
         comparison["summary"]["pairwise_comparisons"]["base_to_ai"]["unchanged_cases"]
             .as_array()
             .expect("base_to_ai unchanged_cases should be an array")
             .len(),
-        5
+        6
     );
     assert_eq!(
         comparison["summary"]["pairwise_comparisons"]["cold_to_ai"]["unchanged_cases"]
             .as_array()
             .expect("cold_to_ai unchanged_cases should be an array")
             .len(),
-        3
+        4
     );
 
     let case_deltas = comparison["cases"]
         .as_array()
         .expect("mode comparison should include per-case deltas");
-    assert_eq!(case_deltas.len(), 10);
+    assert_eq!(case_deltas.len(), 11);
     let cold_to_base_case = case_deltas
         .iter()
         .find(|case| case["id"].as_str() == Some("unknown_type_missing"))
@@ -2664,14 +2713,14 @@ fn smoke_repair_manifest_stays_aligned_with_full_manifest() {
 
     assert_eq!(
         full_manifest.cases.len(),
-        26,
-        "full manifest should currently pin the 26-case repair benchmark baseline"
+        27,
+        "full manifest should currently pin the 27-case repair benchmark baseline"
     );
 
     assert_eq!(
         smoke_manifest.cases.len(),
-        10,
-        "smoke manifest should currently pin the 10-case CI subset"
+        11,
+        "smoke manifest should currently pin the 11-case CI subset"
     );
 
     let runtime_case_ids: Vec<&str> = smoke_manifest
@@ -2692,8 +2741,8 @@ fn smoke_repair_manifest_stays_aligned_with_full_manifest() {
         .filter(|case| case.diagnostic_command() == "check")
         .count();
     assert_eq!(
-        check_case_count, 8,
-        "smoke manifest should keep the diagnostics benchmark subset at 8 check-based cases"
+        check_case_count, 9,
+        "smoke manifest should keep the diagnostics benchmark subset at 9 check-based cases"
     );
 
     for smoke_case in &smoke_manifest.cases {
@@ -2710,6 +2759,12 @@ fn smoke_repair_manifest_stays_aligned_with_full_manifest() {
             smoke_case.file.as_str(),
             full_case.file.as_str(),
             "smoke case `{}` should point at the same source file as the full manifest",
+            smoke_case.id
+        );
+        assert_eq!(
+            smoke_case.project.as_deref(),
+            full_case.project.as_deref(),
+            "smoke case `{}` should keep the same project context as the full manifest",
             smoke_case.id
         );
         assert_eq!(
@@ -2804,8 +2859,8 @@ fn full_compare_shared_replay_scores_cleanly() {
         &output_dir.join("summary.json"),
         "full compare shared score summary",
     );
-    assert_eq!(summary["totals"]["total"], Value::from(26));
-    assert_eq!(summary["totals"]["passed"], Value::from(26));
+    assert_eq!(summary["totals"]["total"], Value::from(27));
+    assert_eq!(summary["totals"]["passed"], Value::from(27));
     assert_eq!(summary["totals"]["failed"], Value::from(0));
     assert_eq!(summary["totals"]["missing"], Value::from(0));
 }

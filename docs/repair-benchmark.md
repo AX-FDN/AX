@@ -26,8 +26,10 @@ The benchmark source of truth lives in the repository:
   Replay candidates used by smoke tests.
 - [`../benchmarks/repair-candidates/compare/shared`](../benchmarks/repair-candidates/compare/shared)
   Full-manifest shared replay candidates used as the deterministic passing baseline for compare runs.
+- [`../benchmarks/repair-projects`](../benchmarks/repair-projects)
+  Repository-owned AX project fixtures used by project-backed repair cases.
 - [`../examples`](../examples)
-  Broken AX source files referenced by the manifests.
+  Broken single-file AX source files referenced by the manifests.
 
 The full manifest schema is:
 
@@ -75,6 +77,10 @@ Field meanings:
   Human-facing repair target used in exported prompts and reports.
 - `cases[].notes`
   Extra case-specific context for prompts and readers.
+
+As of 2026-04-24, the committed manifests also include a repository-backed project-context case:
+[`project_helper_missing_semicolon`](../benchmarks/repair-projects/helper_missing_semicolon).
+It validates the "repair one target file while keeping the rest of the AX project read-only" path end to end.
 
 ## Export Step
 
@@ -220,8 +226,8 @@ Current `run-summary.json` shape:
   "candidates_dir": "C:\\repo\\.ax-ai\\repair-runs\\20260424-123500\\candidates",
   "output_dir": "C:\\repo\\.ax-ai\\repair-runs\\20260424-123500",
   "totals": {
-    "total": 10,
-    "ok": 10,
+    "total": 11,
+    "ok": 11,
     "failed": 0,
     "timed_out": 0
   },
@@ -358,8 +364,8 @@ Current `summary.json` shape:
   "candidates_dir": "C:\\repo\\.ax-ai\\repair-runs\\20260424-123500\\candidates",
   "output_dir": "C:\\repo\\.ax-ai\\repair-runs\\20260424-123500\\score",
   "totals": {
-    "total": 10,
-    "passed": 10,
+    "total": 11,
+    "passed": 11,
     "failed": 0,
     "missing": 0
   },
@@ -501,8 +507,8 @@ Current `comparison.json` shape for `compare-repair-feedback.ps1`:
       "stderr_log": "C:\\repo\\.ax-ai\\repair-comparisons\\20260424-123600\\base.stderr.txt",
       "run_summary_path": "C:\\repo\\.ax-ai\\repair-comparisons\\20260424-123600\\base\\run-summary.json",
       "score_summary_path": "C:\\repo\\.ax-ai\\repair-comparisons\\20260424-123600\\base\\score\\summary.json",
-      "invocation_totals": { "total": 10, "ok": 10, "failed": 0, "timed_out": 0 },
-      "score_totals": { "total": 10, "passed": 5, "failed": 5, "missing": 0 }
+      "invocation_totals": { "total": 11, "ok": 11, "failed": 0, "timed_out": 0 },
+      "score_totals": { "total": 11, "passed": 6, "failed": 5, "missing": 0 }
     },
     "ai": {
       "exit_code": 0,
@@ -511,19 +517,19 @@ Current `comparison.json` shape for `compare-repair-feedback.ps1`:
       "stderr_log": "C:\\repo\\.ax-ai\\repair-comparisons\\20260424-123600\\ai.stderr.txt",
       "run_summary_path": "C:\\repo\\.ax-ai\\repair-comparisons\\20260424-123600\\ai\\run-summary.json",
       "score_summary_path": "C:\\repo\\.ax-ai\\repair-comparisons\\20260424-123600\\ai\\score\\summary.json",
-      "invocation_totals": { "total": 10, "ok": 10, "failed": 0, "timed_out": 0 },
-      "score_totals": { "total": 10, "passed": 10, "failed": 0, "missing": 0 }
+      "invocation_totals": { "total": 11, "ok": 11, "failed": 0, "timed_out": 0 },
+      "score_totals": { "total": 11, "passed": 11, "failed": 0, "missing": 0 }
     }
   },
   "comparison": {
-    "total_cases": 10,
-    "base_passed": 5,
-    "ai_passed": 10,
-    "base_pass_rate": 50,
+    "total_cases": 11,
+    "base_passed": 6,
+    "ai_passed": 11,
+    "base_pass_rate": 54.55,
     "ai_pass_rate": 100,
     "absolute_lift_cases": 5,
-    "absolute_lift_pp": 50,
-    "relative_lift_pct": 100,
+    "absolute_lift_pp": 45.45,
+    "relative_lift_pct": 83.33,
     "improved_cases": [],
     "regressed_cases": [],
     "unchanged_cases": []
@@ -570,7 +576,7 @@ This script uses the smoke manifest plus replay candidates committed in the repo
 - the runner contract still works
 - scoring still works end to end
 
-It also asserts the stable `run-summary.json` and `score/summary.json` contracts for the current 10-case smoke subset, including the `run --json` validation path for the two runtime repair cases.
+It also asserts the stable `run-summary.json` and `score/summary.json` contracts for the current 11-case smoke subset, including the `run --json` validation path for the two runtime repair cases and the committed project-backed helper repair case.
 
 If your local environment does not expose `cargo`, the smoke entrypoints also accept `-SkipBuild`; combine that with `AXC_BINARY=<path-to-axc>` to replay the full smoke evidence chain against an existing compiler binary.
 
@@ -589,7 +595,7 @@ This compare smoke intentionally replays:
 - one shared repaired candidate set
 - one `base`-only override set that leaves five cases still broken, including three semantic cases and two runtime cases
 
-The committed `compare/shared` directory is broader than this smoke subset: it is intended to cover the full repair manifest so deterministic full-manifest compare runs can reuse one passing shared baseline instead of rebuilding ad hoc replay roots every time.
+The committed `compare/shared` directory is broader than this smoke subset: it is intended to cover the full repair manifest so deterministic full-manifest compare runs can reuse one passing shared baseline instead of rebuilding ad hoc replay roots every time. That shared baseline now also includes the project-backed `project_helper_missing_semicolon` replay candidate.
 
 It then asserts the stable `comparison.json` contract, including:
 
@@ -630,7 +636,7 @@ The three-mode `comparison.json` keeps the same outer contract style with these 
 - `categories`
   Per-category aggregates now keep `cold_passed`, `base_passed`, `ai_passed`, the corresponding pass rates, and nested `pairwise_lifts`.
 
-For CI contract checks of that three-mode ladder, use [`../scripts/smoke-compare-repair-modes.ps1`](../scripts/smoke-compare-repair-modes.ps1). It replays the committed `cold`, `base`, and shared candidate sets and asserts the stable 10-case `comparison.json` contract, including pairwise lift totals and runtime category counts.
+For CI contract checks of that three-mode ladder, use [`../scripts/smoke-compare-repair-modes.ps1`](../scripts/smoke-compare-repair-modes.ps1). It replays the committed `cold`, `base`, and shared candidate sets and asserts the stable 11-case `comparison.json` contract, including pairwise lift totals and runtime category counts.
 
 ## Stability Policy
 

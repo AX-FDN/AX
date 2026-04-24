@@ -10,6 +10,8 @@ This directory holds the stable external documentation for the current AX protot
   Gives a short external-facing demo sequence for showing AX's repair contract and tool-script direction.
 - [`quickstart.md`](./quickstart.md)
   Covers the current source-install path and a minimal sanity-check sequence for new users.
+- [`host-runtime-boundary.md`](./host-runtime-boundary.md)
+  Explains the current boundary between Rust host primitives, AX-facing library interfaces, project libraries, and future package-system expectations.
 - [`repair-benchmark.md`](./repair-benchmark.md)
   Explains the benchmark manifests, export pipeline, runner flow, scoring, and comparison workflow.
 - [`repair-adapter-spec.md`](./repair-adapter-spec.md)

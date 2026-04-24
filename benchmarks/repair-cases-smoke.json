@@ -12,6 +12,16 @@
       "notes": "CI smoke syntax case."
     },
     {
+      "id": "project_helper_missing_semicolon",
+      "file": "benchmarks/repair-projects/helper_missing_semicolon/lib/helper.ax",
+      "project": "benchmarks/repair-projects/helper_missing_semicolon",
+      "category": "syntax",
+      "expected_codes": ["P0001"],
+      "expected_ai_rule_ids": ["statement_terminator_required"],
+      "repair_goal": "Insert the missing semicolon in lib/helper.ax without editing the rest of the project.",
+      "notes": "CI smoke project-context syntax case."
+    },
+    {
       "id": "type_mismatch_bool_from_int",
       "file": "examples/type_mismatch.ax",
       "category": "semantic",

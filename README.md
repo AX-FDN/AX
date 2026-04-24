@@ -252,6 +252,8 @@ fn main() -> i32 {
   外部 repair adapter 的输入输出契约。
 - [`docs/diagnostics-schema.md`](./docs/diagnostics-schema.md)
   结构化 diagnostics 与 AI 修复字段定义。
+- [`docs/host-runtime-boundary.md`](./docs/host-runtime-boundary.md)
+  AX 官方接口层、Rust 宿主实现层、项目库与未来包系统边界。
 - [`SYNTAX.md`](./SYNTAX.md)
   当前 AX 原型语法、支持范围与 EBNF。
 - [`PLAN.md`](./PLAN.md)

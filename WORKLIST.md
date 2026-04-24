@@ -209,7 +209,7 @@
   - 回归保障：`tests/interface_snapshots.rs`、`scripts/smoke-repair-benchmark.ps1`、`scripts/smoke-compare-repair-feedback.ps1`、`scripts/smoke-compare-repair-modes.ps1`。
   - 不做范围：不在这一项里引入新的模型供应商，不把 smoke 子集和 full 基线混为一谈。
   - 完成于：2026-04-24
-  - 备注：已把 full manifest 从 24 case 扩到 26 case，新增 `array_index_type_mismatch` 与 `return_type_mismatch_main`；同时补齐 [`benchmarks/repair-candidates/compare/shared`](C:/Users/xiaoy/Desktop/A语言/AX/benchmarks/repair-candidates/compare/shared) 的 full replay 基线，并新增 full shared score 回归与 compare 说明文档。
+  - 备注：已把 full manifest 从 24 case 扩到 27 case，先新增 `array_index_type_mismatch` 与 `return_type_mismatch_main`，随后再补入首个仓库内 project-backed repair case `project_helper_missing_semicolon`；同时补齐 [`benchmarks/repair-candidates/compare/shared`](C:/Users/xiaoy/Desktop/A语言/AX/benchmarks/repair-candidates/compare/shared) 的 full replay 基线、[`benchmarks/repair-candidates/smoke`](C:/Users/xiaoy/Desktop/A语言/AX/benchmarks/repair-candidates/smoke) 的 project-backed replay 资产，并新增 full shared score 回归与 compare 说明文档。
 
 - [ ] `P1-10` 最小工具宿主能力第一批
   - 目标：给 AX 补上写真实 CLI / 文本处理 / 构建辅助程序的最低可用宿主能力，而不是继续优先补大语法面。
@@ -227,7 +227,7 @@
   - 回归保障：`examples/`、`tests/interface_snapshots.rs`、必要的 smoke。
   - 不做范围：不把样例扩成完整产品，不为了样例强行引入大表面积语法。
   - 进展：2026-04-24 已新增 [`examples/workspace_audit.ax`](C:/Users/xwh/Desktop/AX-main-git/examples/workspace_audit.ax)、[`examples/docs_release_snapshot.ax`](C:/Users/xwh/Desktop/AX-main-git/examples/docs_release_snapshot.ax) 与 [`examples/workspace_search_report.ax`](C:/Users/xwh/Desktop/AX-main-git/examples/workspace_search_report.ax)，三者均已完成 `check / run` 验证。
-  - 进展：2026-04-24 已新增项目化样例 [`examples/project_split/`](C:/Users/xwh/Desktop/AX-main-git/examples/project_split)、[`examples/project_foundation_report/`](C:/Users/xwh/Desktop/AX-main-git/examples/project_foundation_report)、[`examples/project_docs_release/`](C:/Users/xwh/Desktop/AX-main-git/examples/project_docs_release)、[`examples/project_workspace_audit/`](C:/Users/xwh/Desktop/AX-main-git/examples/project_workspace_audit) 与 [`examples/project_workspace_search_report/`](C:/Users/xwh/Desktop/AX-main-git/examples/project_workspace_search_report)，并把 `AX.toml` 的 `sources` 扩到可指向 `lib/` 这类支持目录、把 `axc build` 扩到导出 `project-sources/` 原始项目源树快照、把 repair benchmark export/score 扩到支持“项目上下文 + 单文件修复目标”的 project-backed case，用于验证目录级多文件装载和 AX 侧 helper 库组织。
+  - 进展：2026-04-24 已新增项目化样例 [`examples/project_split/`](C:/Users/xwh/Desktop/AX-main-git/examples/project_split)、[`examples/project_foundation_report/`](C:/Users/xwh/Desktop/AX-main-git/examples/project_foundation_report)、[`examples/project_docs_release/`](C:/Users/xwh/Desktop/AX-main-git/examples/project_docs_release)、[`examples/project_workspace_audit/`](C:/Users/xwh/Desktop/AX-main-git/examples/project_workspace_audit) 与 [`examples/project_workspace_search_report/`](C:/Users/xwh/Desktop/AX-main-git/examples/project_workspace_search_report)，并把 `AX.toml` 的 `sources` 扩到可指向 `lib/` 这类支持目录、把 `axc build` 扩到导出 `project-sources/` 原始项目源树快照、把 repair benchmark export/score 扩到支持“项目上下文 + 单文件修复目标”的 project-backed case。最新已把首个公开仓库用例 [`benchmarks/repair-projects/helper_missing_semicolon/`](C:/Users/xwh/Desktop/AX-main-git/benchmarks/repair-projects/helper_missing_semicolon) 接进 full/smoke manifest 与 shared/smoke replay，用于验证目录级多文件装载和 AX 侧 helper 库组织。
   - 当前暴露的真实缺口：不是先继续堆大语法，而是模块/导入/库组织、更深目录遍历、可扩展集合能力，以及把这些样例接入 smoke 或后续 backend 验证目标。
 
 ## P2
