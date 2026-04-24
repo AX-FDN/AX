@@ -288,6 +288,8 @@ This script uses the smoke manifest plus replay candidates committed in the repo
 - the runner contract still works
 - scoring still works end to end
 
+It also asserts the stable `run-summary.json` and `score/summary.json` contracts for the current 10-case smoke subset, including the `run --json` validation path for the two runtime repair cases.
+
 It is not intended to prove model quality.
 
 For the diagnostics baseline path, use [`../scripts/smoke-benchmark-diagnostics.ps1`](../scripts/smoke-benchmark-diagnostics.ps1). It asserts the stable `summary.json` contract produced by `benchmark-diagnostics.ps1`, including schema version, mode order, case count, and per-mode row counts.
@@ -301,7 +303,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke-compare-repa
 This compare smoke intentionally replays:
 
 - one shared repaired candidate set
-- one `base`-only override set that leaves two semantic cases still broken
+- one `base`-only override set that leaves five cases still broken, including three semantic cases and two runtime cases
 
 It then asserts the stable `comparison.json` contract, including:
 
@@ -310,6 +312,7 @@ It then asserts the stable `comparison.json` contract, including:
 - `base_passed` and `ai_passed`
 - absolute lift
 - improved and regressed case ids
+- runtime category totals and pass counts
 
 This gives CI a deterministic proof that `compare-repair-feedback.ps1` still produces a comparable machine-readable report, not just two ad hoc benchmark runs.
 
@@ -322,6 +325,8 @@ For the three-mode report, use [`../scripts/compare-repair-modes.ps1`](../script
 ```
 
 This adds a fixed `cold` -> `base` -> `ai` ladder on top of the same exported benchmark snapshot and writes a three-mode `comparison.json` under `.ax-ai\repair-mode-comparisons\<timestamp>\`.
+
+For CI contract checks of that three-mode ladder, use [`../scripts/smoke-compare-repair-modes.ps1`](../scripts/smoke-compare-repair-modes.ps1). It replays the committed `cold`, `base`, and shared candidate sets and asserts the stable 10-case `comparison.json` contract, including pairwise lift totals and runtime category counts.
 
 ## Stability Policy
 

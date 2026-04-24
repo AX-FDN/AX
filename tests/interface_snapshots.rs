@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::ffi::OsStr;
 use std::fs;
 use std::path::PathBuf;
@@ -116,6 +117,87 @@ struct RepairCaseEntry {
 impl RepairCaseEntry {
     fn diagnostic_command(&self) -> &str {
         self.diagnostic_command.as_deref().unwrap_or("check")
+    }
+}
+
+fn load_repair_manifest(path: &str) -> RepairCaseManifest {
+    let manifest_text = fs::read_to_string(repo_root().join(path))
+        .unwrap_or_else(|error| panic!("repair benchmark manifest `{path}` should be readable: {error}"));
+    serde_json::from_str(&manifest_text)
+        .unwrap_or_else(|error| panic!("repair benchmark manifest `{path}` should be valid: {error}"))
+}
+
+fn assert_manifest_cases_keep_stable_diagnostics(manifest_path: &str) {
+    let manifest = load_repair_manifest(manifest_path);
+
+    for case in manifest.cases {
+        let output = run_axc([
+            OsStr::new(case.diagnostic_command()),
+            OsStr::new(case.file.as_str()),
+            OsStr::new("--json"),
+            OsStr::new("--ai"),
+        ]);
+        assert_eq!(
+            output.status.code(),
+            Some(1),
+            "case `{}` from `{}` should emit diagnostics via `{}`",
+            case.id,
+            manifest_path,
+            case.diagnostic_command()
+        );
+        assert_clean_stderr(&output);
+
+        let diagnostics: Value =
+            serde_json::from_slice(&output.stdout).expect("diagnostics output should be JSON");
+        let diagnostics = diagnostics.as_array().unwrap_or_else(|| {
+            panic!(
+                "case `{}` from `{}` should return a diagnostic array",
+                case.id, manifest_path
+            )
+        });
+
+        let observed_codes: Vec<String> = diagnostics
+            .iter()
+            .map(|diagnostic| {
+                diagnostic["code"]
+                    .as_str()
+                    .unwrap_or_else(|| panic!("case `{}` diagnostic should include code", case.id))
+                    .to_string()
+            })
+            .collect();
+        assert_eq!(
+            observed_codes, case.expected_codes,
+            "case `{}` from `{}` should keep stable diagnostic codes",
+            case.id, manifest_path
+        );
+
+        let observed_rule_ids: Vec<String> = diagnostics
+            .iter()
+            .filter_map(|diagnostic| {
+                diagnostic
+                    .get("ai")
+                    .and_then(|ai| ai.get("rule_id"))
+                    .and_then(Value::as_str)
+                    .map(str::to_string)
+            })
+            .collect();
+        assert_eq!(
+            observed_rule_ids, case.expected_ai_rule_ids,
+            "case `{}` from `{}` should keep stable ai rule ids",
+            case.id, manifest_path
+        );
+
+        for diagnostic in diagnostics {
+            if let Some(ai) = diagnostic.get("ai") {
+                assert_eq!(
+                    ai["teaching_level"].as_str(),
+                    Some("L1"),
+                    "case `{}` from `{}` should default to L1 without session reuse",
+                    case.id,
+                    manifest_path
+                );
+            }
+        }
     }
 }
 
@@ -408,74 +490,85 @@ fn check_rejects_unsupported_ai_session_version() {
 
 #[test]
 fn diagnostics_ai_rule_ids_match_repair_manifest_cases() {
-    let manifest_text = fs::read_to_string(repo_root().join("benchmarks").join("repair-cases.json"))
-        .expect("repair benchmark manifest should be readable");
-    let manifest: RepairCaseManifest =
-        serde_json::from_str(&manifest_text).expect("repair benchmark manifest should be valid");
+    assert_manifest_cases_keep_stable_diagnostics("benchmarks/repair-cases.json");
+}
 
-    for case in manifest.cases {
-        let output = run_axc([
-            OsStr::new(case.diagnostic_command()),
-            OsStr::new(case.file.as_str()),
-            OsStr::new("--json"),
-            OsStr::new("--ai"),
-        ]);
+#[test]
+fn diagnostics_ai_rule_ids_match_smoke_repair_manifest_cases() {
+    assert_manifest_cases_keep_stable_diagnostics("benchmarks/repair-cases-smoke.json");
+}
+
+#[test]
+fn smoke_repair_manifest_stays_aligned_with_full_manifest() {
+    let full_manifest = load_repair_manifest("benchmarks/repair-cases.json");
+    let smoke_manifest = load_repair_manifest("benchmarks/repair-cases-smoke.json");
+
+    let full_cases_by_id: BTreeMap<&str, &RepairCaseEntry> = full_manifest
+        .cases
+        .iter()
+        .map(|case| (case.id.as_str(), case))
+        .collect();
+
+    assert_eq!(
+        smoke_manifest.cases.len(),
+        10,
+        "smoke manifest should currently pin the 10-case CI subset"
+    );
+
+    let runtime_case_ids: Vec<&str> = smoke_manifest
+        .cases
+        .iter()
+        .filter(|case| case.diagnostic_command() == "run")
+        .map(|case| case.id.as_str())
+        .collect();
+    assert_eq!(
+        runtime_case_ids,
+        vec!["index_out_of_bounds_runtime", "division_by_zero_runtime"],
+        "smoke manifest should keep the two runtime replay cases in a stable order"
+    );
+
+    let check_case_count = smoke_manifest
+        .cases
+        .iter()
+        .filter(|case| case.diagnostic_command() == "check")
+        .count();
+    assert_eq!(
+        check_case_count, 8,
+        "smoke manifest should keep the diagnostics benchmark subset at 8 check-based cases"
+    );
+
+    for smoke_case in &smoke_manifest.cases {
+        let full_case = *full_cases_by_id.get(smoke_case.id.as_str()).unwrap_or_else(|| {
+            panic!(
+                "smoke case `{}` should also exist in the full repair manifest",
+                smoke_case.id
+            )
+        });
+
         assert_eq!(
-            output.status.code(),
-            Some(1),
-            "case `{}` should emit diagnostics via `{}`",
-            case.id,
-            case.diagnostic_command()
+            smoke_case.file.as_str(),
+            full_case.file.as_str(),
+            "smoke case `{}` should point at the same source file as the full manifest",
+            smoke_case.id
         );
-        assert_clean_stderr(&output);
-
-        let diagnostics: Value =
-            serde_json::from_slice(&output.stdout).expect("diagnostics output should be JSON");
-        let diagnostics = diagnostics
-            .as_array()
-            .unwrap_or_else(|| panic!("case `{}` should return a diagnostic array", case.id));
-
-        let observed_codes: Vec<String> = diagnostics
-            .iter()
-            .map(|diagnostic| {
-                diagnostic["code"]
-                    .as_str()
-                    .unwrap_or_else(|| panic!("case `{}` diagnostic should include code", case.id))
-                    .to_string()
-            })
-            .collect();
         assert_eq!(
-            observed_codes, case.expected_codes,
-            "case `{}` should keep stable diagnostic codes",
-            case.id
+            smoke_case.diagnostic_command(),
+            full_case.diagnostic_command(),
+            "smoke case `{}` should keep the same diagnostic command as the full manifest",
+            smoke_case.id
         );
-
-        let observed_rule_ids: Vec<String> = diagnostics
-            .iter()
-            .filter_map(|diagnostic| {
-                diagnostic
-                    .get("ai")
-                    .and_then(|ai| ai.get("rule_id"))
-                    .and_then(Value::as_str)
-                    .map(str::to_string)
-            })
-            .collect();
         assert_eq!(
-            observed_rule_ids, case.expected_ai_rule_ids,
-            "case `{}` should keep stable ai rule ids",
-            case.id
+            smoke_case.expected_codes.as_slice(),
+            full_case.expected_codes.as_slice(),
+            "smoke case `{}` should keep the same expected diagnostic codes as the full manifest",
+            smoke_case.id
         );
-
-        for diagnostic in diagnostics {
-            if let Some(ai) = diagnostic.get("ai") {
-                assert_eq!(
-                    ai["teaching_level"].as_str(),
-                    Some("L1"),
-                    "case `{}` should default to L1 without session reuse",
-                    case.id
-                );
-            }
-        }
+        assert_eq!(
+            smoke_case.expected_ai_rule_ids.as_slice(),
+            full_case.expected_ai_rule_ids.as_slice(),
+            "smoke case `{}` should keep the same expected ai rule ids as the full manifest",
+            smoke_case.id
+        );
     }
 }
 
