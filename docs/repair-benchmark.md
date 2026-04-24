@@ -410,6 +410,7 @@ Stable per-case score fields:
 - `run?: object`
   Present only for runtime validation cases or when `-RunPrograms` executes the repaired program.
   For runtime benchmark cases this object keeps `command`, `command_exit_code`, `parsed_diagnostics`, `diagnostics`, and `remaining_codes`.
+  Runtime pass/fail is driven by parsed runtime diagnostics, not by `command_exit_code` alone, because AX currently reflects `main`'s integer return value into the process exit code.
   Clean `axc run --json` executions usually emit no JSON payload, so `parsed_diagnostics` will often be `false` while `diagnostics` and `remaining_codes` stay empty.
 
 ## Compare Step

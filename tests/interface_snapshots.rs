@@ -330,6 +330,30 @@ fn write_single_case_manifest(temp: &TempDir, name: &str) -> PathBuf {
     )
 }
 
+fn write_single_runtime_case_manifest(temp: &TempDir, name: &str) -> PathBuf {
+    temp.write(
+        name,
+        "\
+{
+  \"version\": 1,
+  \"description\": \"Single-case runtime runner contract benchmark.\",
+  \"cases\": [
+    {
+      \"id\": \"index_out_of_bounds_runtime\",
+      \"file\": \"examples/index_out_of_bounds.ax\",
+      \"category\": \"runtime\",
+      \"diagnostic_command\": \"run\",
+      \"expected_codes\": [\"R0031\"],
+      \"expected_ai_rule_ids\": [\"array_index_must_stay_in_bounds\"],
+      \"repair_goal\": \"Keep the array index within the declared fixed-size array bounds.\",
+      \"notes\": \"Runtime contract-only benchmark case.\"
+    }
+  ]
+}
+",
+    )
+}
+
 fn diagnostic_codes(value: &Value) -> Vec<String> {
     value
         .as_array()
@@ -1180,6 +1204,79 @@ fn repair_benchmark_run_rejects_zero_exit_without_file_or_stdout() {
     assert!(
         !candidate_path.exists(),
         "silent runner should not produce a candidate file when it emits nothing"
+    );
+}
+
+#[test]
+fn repair_benchmark_score_accepts_clean_runtime_nonzero_exit_without_diagnostics() {
+    let temp = TempDir::new("repair-benchmark-runtime-exit-contract");
+    let manifest_path = write_single_runtime_case_manifest(&temp, "single-runtime-manifest.json");
+    let benchmark_dir = export_repair_benchmark(&temp, &manifest_path);
+    let candidates_dir = temp.join("candidates");
+    fs::create_dir_all(&candidates_dir).expect("failed to create runtime candidates directory");
+    fs::write(
+        candidates_dir.join("index_out_of_bounds_runtime.ax"),
+        "\
+fn main() -> i32 {
+    let values: [i32; 2] = [1, 2];
+    return values[1];
+}
+",
+    )
+    .expect("failed to write runtime candidate");
+
+    let output_dir = temp.join("score");
+    let script_path = repo_root().join("scripts").join("score-repair-benchmark.ps1");
+
+    let output = run_powershell_script(
+        &script_path,
+        [
+            OsStr::new("-BenchmarkDir"),
+            benchmark_dir.as_os_str(),
+            OsStr::new("-CandidatesDir"),
+            candidates_dir.as_os_str(),
+            OsStr::new("-OutputDir"),
+            output_dir.as_os_str(),
+            OsStr::new("-SkipBuild"),
+        ],
+    );
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "clean runtime candidate should pass even when main returns a non-zero value\nstdout:\n{}\nstderr:\n{}",
+        string_output(&output.stdout),
+        string_output(&output.stderr)
+    );
+    assert_clean_stderr(&output);
+
+    let summary = read_json_file(&output_dir.join("summary.json"), "runtime exit score summary");
+    assert_eq!(summary["totals"]["total"], Value::from(1));
+    assert_eq!(summary["totals"]["passed"], Value::from(1));
+    assert_eq!(summary["totals"]["failed"], Value::from(0));
+    assert_eq!(summary["totals"]["missing"], Value::from(0));
+
+    let cases = summary["cases"]
+        .as_array()
+        .expect("runtime exit score summary should include cases");
+    assert_eq!(cases.len(), 1);
+    assert_eq!(cases[0]["id"], Value::from("index_out_of_bounds_runtime"));
+    assert_eq!(cases[0]["diagnostic_command"], Value::from("run"));
+    assert_eq!(cases[0]["status"], Value::from("passed"));
+    assert_eq!(cases[0]["success"], Value::from(true));
+    assert_eq!(cases[0]["check_exit_code"], Value::from(0));
+    assert_eq!(
+        json_string_array(&cases[0]["remaining_codes"], "runtime exit remaining_codes"),
+        Vec::<String>::new()
+    );
+    assert_eq!(cases[0]["run"]["command"], Value::from("run --json"));
+    assert_eq!(cases[0]["run"]["command_exit_code"], Value::from(2));
+    assert_eq!(cases[0]["run"]["parsed_diagnostics"], Value::from(false));
+    assert_eq!(
+        json_string_array(
+            &cases[0]["run"]["remaining_codes"],
+            "runtime exit run.remaining_codes",
+        ),
+        Vec::<String>::new()
     );
 }
 

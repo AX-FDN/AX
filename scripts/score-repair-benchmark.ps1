@@ -355,7 +355,7 @@ foreach ($case in @($benchmarkIndex.cases)) {
             remaining_codes    = $runtimeRemainingCodes
         }
 
-        if ($runResult.ExitCode -eq 2 -or ($runtimeDiagnosticsResult.Parsed -and $runtimeRemainingCodes.Count -gt 0)) {
+        if ($runtimeDiagnosticsResult.Parsed -and $runtimeRemainingCodes.Count -gt 0) {
             $success = $false
             $status = "failed"
         }
