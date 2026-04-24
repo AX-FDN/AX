@@ -1,0 +1,31 @@
+struct TextStats {
+    lines: i32,
+    nonempty: i32,
+    headings: i32,
+    action_items: i32,
+}
+
+fn zero_text_stats() -> TextStats {
+    return TextStats { lines: 0, nonempty: 0, headings: 0, action_items: 0 };
+}
+
+fn analyze_text(text: string) -> TextStats {
+    let lines: [string] = string_split_lines(text);
+    let mut stats: TextStats = zero_text_stats();
+    for (let mut i: i32 = 0; i < len(lines); i = i + 1) {
+        let line: string = string_trim(lines[i]);
+        stats.lines = stats.lines + 1;
+        if (string_len(line) != 0) {
+            stats.nonempty = stats.nonempty + 1;
+        }
+        if (string_starts_with(line, "#")) {
+            stats.headings = stats.headings + 1;
+        }
+        if (string_contains(line, "TODO")) {
+            stats.action_items = stats.action_items + 1;
+        } else if (string_contains(line, "FIXME")) {
+            stats.action_items = stats.action_items + 1;
+        }
+    }
+    return stats;
+}

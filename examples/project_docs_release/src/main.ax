@@ -1,15 +1,13 @@
 fn main() -> i32 {
     if (argv_len() < 2) {
-        println("usage: axc run examples/project_docs_release -- <source_dir> <out_dir>");
-        return 1;
+        return usage_error("examples/project_docs_release", "<source_dir> <out_dir>");
     }
 
     let source_dir: string = argv_get(0);
     let out_dir: string = argv_get(1);
 
     if (!fs_is_dir(source_dir)) {
-        println("source dir is not a directory: " + source_dir);
-        return 2;
+        return exit_with_message("source dir is not a directory: " + source_dir, 2);
     }
 
     fs_create_dir_all(out_dir);
@@ -33,7 +31,7 @@ fn main() -> i32 {
         if (fs_is_file(entry)) {
             if (is_markdown_file(entry)) {
                 let text: string = fs_read_to_string(entry);
-                let stats: DocStats = analyze_doc(text);
+                let stats: TextStats = analyze_text(text);
                 let destination_path: string = path_join(snapshot_dir, path_file_name(entry));
                 let copied_bytes: i32 = fs_copy_file(entry, destination_path);
                 let receipt_path: string = path_join(receipts_dir, path_stem(entry) + ".receipt.txt");

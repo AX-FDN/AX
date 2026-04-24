@@ -3,4 +3,4 @@ manifest_version = 1
 [package]
 name = "project_foundation_report"
 entry = "src/main.ax"
-sources = ["lib"]
+sources = ["../foundation", "lib"]

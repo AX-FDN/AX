@@ -1,18 +1,13 @@
 fn main() -> i32 {
     if (argv_len() < 2) {
-        println("usage: axc run examples/project_workspace_audit -- <root_dir> <output>");
-        return 1;
+        return usage_error("examples/project_workspace_audit", "<root_dir> <output>");
     }
     let root_dir: string = argv_get(0);
     let output_path: string = argv_get(1);
     if (!fs_is_dir(root_dir)) {
-        println("root dir is not a directory: " + root_dir);
-        return 2;
+        return exit_with_message("root dir is not a directory: " + root_dir, 2);
     }
-    let output_dir: string = path_parent(output_path);
-    if (string_len(output_dir) != 0) {
-        fs_create_dir_all(output_dir);
-    }
+    ensure_output_parent(output_path);
     let entries: [string] = fs_read_dir(root_dir);
     let mut totals: AuditTotals = zero_audit_totals();
     let mut entry_report: string = "";

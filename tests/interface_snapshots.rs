@@ -3092,9 +3092,13 @@ fn main() -> i32 {
         .as_array()
         .expect("project diagnostics should be an array");
     assert!(!diagnostics.is_empty(), "expected project diagnostics");
+    let diagnostic_file = diagnostics[0]["file"]
+        .as_str()
+        .map(|value| value.replace('\\', "/"));
+    let expected_file = temp.join("src/lib.ax").to_string_lossy().replace('\\', "/");
     assert_eq!(
-        diagnostics[0]["file"].as_str(),
-        Some(temp.join("src/lib.ax").to_string_lossy().as_ref()),
+        diagnostic_file.as_deref(),
+        Some(expected_file.as_str()),
         "diagnostics should point at the support source file"
     );
     assert_eq!(

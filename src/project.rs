@@ -313,17 +313,31 @@ fn resolve_project_relative_path(
         ));
     }
 
-    if relative_path
-        .components()
-        .any(|component| matches!(component, Component::ParentDir))
-    {
-        return Err(format!(
-            "project {label} `{raw_path}` in {} cannot escape the project root",
+    normalize_project_path(root_dir, relative_path).ok_or_else(|| {
+        format!(
+            "project {label} `{raw_path}` in {} cannot escape the filesystem root",
             manifest_path.display()
-        ));
+        )
+    })
+}
+
+fn normalize_project_path(root_dir: &Path, relative_path: &Path) -> Option<PathBuf> {
+    let mut resolved = root_dir.to_path_buf();
+
+    for component in relative_path.components() {
+        match component {
+            Component::CurDir => {}
+            Component::Normal(part) => resolved.push(part),
+            Component::ParentDir => {
+                if !resolved.pop() {
+                    return None;
+                }
+            }
+            Component::Prefix(_) | Component::RootDir => return None,
+        }
     }
 
-    Ok(root_dir.join(relative_path))
+    Some(resolved)
 }
 
 fn collect_ax_files_recursively(dir: &Path) -> Result<Vec<PathBuf>, std::io::Error> {
@@ -526,5 +540,55 @@ sources = [\"lib\"]
         assert!(resolved.source.text().contains("fn main() -> i32"));
 
         let _ = fs::remove_dir_all(&project_root);
+    }
+
+    #[test]
+    fn resolves_support_sources_from_shared_sibling_directory() {
+        let test_root = repo_root()
+            .join("target")
+            .join("project-shared-support-test");
+        let project_root = test_root.join("project");
+        let shared_root = test_root.join("shared");
+        let _ = fs::remove_dir_all(&test_root);
+        fs::create_dir_all(project_root.join("src")).expect("project src directory should exist");
+        fs::create_dir_all(&shared_root).expect("shared foundation directory should exist");
+        fs::write(
+            project_root.join(PROJECT_MANIFEST_FILE),
+            "\
+manifest_version = 1
+
+[package]
+name = \"project_shared_supports\"
+entry = \"src/main.ax\"
+sources = [\"../shared\"]
+",
+        )
+        .expect("manifest should exist");
+        fs::write(
+            shared_root.join("foundation.ax"),
+            "fn shared_helper() -> i32 { return 7; }\n",
+        )
+        .expect("shared foundation file should exist");
+        fs::write(
+            project_root.join("src").join("main.ax"),
+            "fn main() -> i32 { return shared_helper(); }\n",
+        )
+        .expect("main.ax should exist");
+
+        let resolved = resolve_input(&project_root)
+            .expect("project with shared sibling support sources should resolve");
+        let project = resolved.project.expect("project metadata should exist");
+        assert_eq!(project.source_paths().len(), 1);
+        assert!(
+            project.source_paths()[0]
+                .display()
+                .to_string()
+                .replace('\\', "/")
+                .ends_with("target/project-shared-support-test/shared/foundation.ax")
+        );
+        assert!(resolved.source.text().contains("fn shared_helper() -> i32"));
+        assert!(resolved.source.text().contains("fn main() -> i32"));
+
+        let _ = fs::remove_dir_all(&test_root);
     }
 }

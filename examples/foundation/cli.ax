@@ -1,0 +1,17 @@
+fn usage_error(command: string, arguments: string) -> i32 {
+    println("usage: axc run " + command + " -- " + arguments);
+    return 1;
+}
+
+fn exit_with_message(message: string, code: i32) -> i32 {
+    println(message);
+    return code;
+}
+
+fn ensure_output_parent(path: string) -> i32 {
+    let output_dir: string = path_parent(path);
+    if (string_len(output_dir) != 0) {
+        fs_create_dir_all(output_dir);
+    }
+    return 0;
+}
