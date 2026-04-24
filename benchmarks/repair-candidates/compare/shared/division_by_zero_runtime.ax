@@ -1,0 +1,5 @@
+fn main() -> i32 {
+    let total: i32 = 8;
+    let count: i32 = 2;
+    return (total / count) - 4;
+}

@@ -24,6 +24,8 @@ The benchmark source of truth lives in the repository:
   Small CI-safe subset.
 - [`../benchmarks/repair-candidates/smoke`](../benchmarks/repair-candidates/smoke)
   Replay candidates used by smoke tests.
+- [`../benchmarks/repair-candidates/compare/shared`](../benchmarks/repair-candidates/compare/shared)
+  Full-manifest shared replay candidates used as the deterministic passing baseline for compare runs.
 - [`../examples`](../examples)
   Broken AX source files referenced by the manifests.
 
@@ -162,6 +164,10 @@ Runner-specific extra args are passed through unchanged. The replay adapter uses
   Base-only override root searched before `-SourceDir`.
 - `-SourceDirAi`
   AI-only override root searched before `-SourceDir`.
+
+For a deterministic full-manifest compare baseline, point `-SourceDir` at
+[`../benchmarks/repair-candidates/compare/shared`](../benchmarks/repair-candidates/compare/shared)
+and then layer `-SourceDirCold` / `-SourceDirBase` overrides on top for the cases you intentionally keep broken in those branches.
 
 Default output root:
 
@@ -574,6 +580,8 @@ This compare smoke intentionally replays:
 
 - one shared repaired candidate set
 - one `base`-only override set that leaves five cases still broken, including three semantic cases and two runtime cases
+
+The committed `compare/shared` directory is broader than this smoke subset: it is intended to cover the full repair manifest so deterministic full-manifest compare runs can reuse one passing shared baseline instead of rebuilding ad hoc replay roots every time.
 
 It then asserts the stable `comparison.json` contract, including:
 

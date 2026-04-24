@@ -1,0 +1,12 @@
+enum Flag {
+    On,
+    Off,
+}
+
+fn main() -> i32 {
+    let flag: Flag = Flag.On;
+    if (flag == Flag.On) {
+        return 0;
+    }
+    return 1;
+}

@@ -1,0 +1,5 @@
+fn main() -> i32 {
+    let values: [i32; 2] = [1, 2];
+    let index: i32 = 1;
+    return values[index] - 2;
+}

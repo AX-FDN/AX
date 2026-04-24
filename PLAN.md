@@ -152,6 +152,7 @@ AX 是一门面向 AI 生成与修复优化的高性能静态语言；v1 先服�
   - `f32`
   - `string`
   - 固定长度数组：`[Type; N]`
+  - 只读切片：`[Type]`
   - 用户声明的 `struct` / `enum`
 - 当前表达式：
   - 整数字面量、浮点字面量、布尔字面量、字符串字面量
@@ -161,6 +162,7 @@ AX 是一门面向 AI 生成与修复优化的高性能静态语言；v1 先服�
   - 二元运算：`+ - * / == != < <= > >=`
   - 函数调用：`name(arg1, arg2)`
   - 数组字面量：`[1, 2, 3]`
+  - 切片表达式：`values[start:end]`
   - 字段访问：`point.x`
   - 索引读取：`values[1]`
   - 结构体字面量：`Point { x: 1, y: 2 }`
@@ -170,22 +172,28 @@ AX 是一门面向 AI 生成与修复优化的高性能静态语言；v1 先服�
   - 局部变量与赋值
   - 数组元素赋值：`values[index] = expr;`
   - 结构体字段赋值：`point.x = expr;`
+  - 嵌套可写路径：`outer.inner.value = expr;`、`values[index].field = expr;`
   - 数值与布尔运算
   - `if / else`
   - `while`
   - `for`
+  - `break`
   - 用户函数调用
   - 内置 `println`
+  - 内置 `string_len`、`len`、`to_string`
+  - 字符串拼接：`string + string`
   - 固定长度数组字面量与索引读取
+  - 只读切片取值与数组传 slice 形参
   - 结构体字面量与字段读取
   - 枚举值构造与相等比较
 
 ### 当前未进入原型执行面
 
 - `match`
-- 切片
 - import / module
 - 原生后端
+- 更完整的工具宿主能力：`io / fs / path / env / process`
+- `continue` 与更高层遍历语法
 - `enum` 的模式匹配执行
 
 ## 3. `axc` 的工程定义
@@ -504,12 +512,12 @@ AX 的核心主张不是“语法新”，而是“AI 更容易生成正确程�
 从今天开始，优先顺序固定如下：
 
 1. 维护本 `PLAN.md` 为唯一主文档。
-2. 稳定 formatter、基础 diagnostics 与 AST 输出，确保它们可作为 benchmark 接口。
-3. 冻结 AI 反馈 schema，并把它并入 `axc check --json`。
-4. 建立首批高频错误规则卡与坏例子语料。
-5. 接入会话级分级教学与最小修复上下文切片。
-6. 把 AI 增强 diagnostics 接入单轮修复 benchmark。
-7. 扩展示例程序与黄金测试，覆盖基础诊断与 AI 增强诊断。
+2. 扩 full repair benchmark 资产与 compare replay 基线，避免证据长期停留在 smoke 子集。
+3. 继续稳定 formatter、基础 diagnostics、`--json --ai` 与运行期 repair 合同，确保它们都是可回归的 benchmark 接口。
+4. 继续收敛高频错误规则卡、会话级教学状态和脆弱触发逻辑，优先减少对 message 文案匹配的依赖。
+5. 启动最小工具宿主能力第一批，围绕 `process / env / path / fs / string` 形成真实可写工具程序的最低可用面。
+6. 每补一项宿主能力，就同步补真实工具样例与常见误用诊断，不把能力和样例脱节推进。
+7. 只有在 benchmark 资产和真实工具样例都站稳后，才把 `axc build` 从骨架推进到可验证的原生后端目标。
 
 在阶段 2 之前，不做以下事情：
 

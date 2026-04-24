@@ -21,8 +21,9 @@
 1. 固定 benchmark 与性能基线
 2. 固定 `check/json/ai` 接口与回归资产
 3. 继续提高 AI 修复协议质量
-4. 用工具风格样例倒逼下一批语言能力
-5. 在证据支持下再推进更大的语言面和后端
+4. 把 full repair benchmark 与 compare replay 资产做厚
+5. 用最小工具宿主能力和真实工具样例验证 AX 的实际可写性
+6. 在证据支持下再推进更大的语言面和后端
 
 说明：
 
@@ -101,7 +102,7 @@
   - 回归保障：同步更新 [`规划.md`](C:/Users/xiaoy/Desktop/A语言/AX/规划.md)。
   - 不做范围：不立即把所有缺口都实现。
   - 完成于：2026-04-23
-  - 备注：已新增 [`能力缺口排序.md`](C:/Users/xiaoy/Desktop/A语言/AX/能力缺口排序.md)，把工具风格样例、repair benchmark 与当前实现边界放到同一张表里做排序；当前结论是优先推进切片、更实用的字符串处理、空数组字面量策略与更贴近工具代码的遍历能力，同时明确 `match`、`import/module` 与 `native backend` 现在不应抢优先级。
+  - 备注：已新增 [`能力缺口排序.md`](C:/Users/xiaoy/Desktop/A语言/AX/能力缺口排序.md)，先把工具风格样例、repair benchmark 与当前实现边界放到同一张表里做排序；当时结论是优先推进切片、更实用的字符串处理、空数组字面量策略与更贴近工具代码的遍历能力。这一轮能力已在 2026-04-24 基本落地，当前主线已顺延为 benchmark 代表性、最小工具宿主能力与真实工具样例。
 
 - [x] `P0-27` 补 `run` 结构化错误输出
   - 目标：让运行期失败也能进入结构化诊断和后续 AI 修复链。
@@ -197,6 +198,34 @@
   - 不做范围：本轮不引入 `continue;`，因为当前 `for` lowering 下如果硬上会把 step 语义做错。
   - 完成于：2026-04-24
   - 备注：当前已支持 `break;` 提前退出最近一层 `while` 或 `for`；新增 [`examples/break_loop.ax`](C:/Users/xiaoy/Desktop/A语言/AX/examples/break_loop.ax)，并把 [`examples/bootstrap_block_summary.ax`](C:/Users/xiaoy/Desktop/A语言/AX/examples/bootstrap_block_summary.ax) 的机械退出写法替换为真实 `break;`。
+
+## P1（当前待做）
+
+- [x] `P1-9` 扩 full repair benchmark 资产与 compare replay 基线
+  - 目标：把 repair evidence 从“10-case smoke 子集稳定”推进到“full manifest 更完整、compare replay 更接近真实对比基线”。
+  - 输入：现有 [`benchmarks/repair-cases.json`](C:/Users/xiaoy/Desktop/A语言/AX/benchmarks/repair-cases.json)、[`benchmarks/repair-cases-smoke.json`](C:/Users/xiaoy/Desktop/A语言/AX/benchmarks/repair-cases-smoke.json)、[`benchmarks/repair-candidates/`](C:/Users/xiaoy/Desktop/A语言/AX/benchmarks/repair-candidates/) 与 compare/smoke 脚本。
+  - 输出：扩容后的 full manifest、可重放的 full compare shared replay 资产、必要的 docs 与回归更新。
+  - 通过条件：full export 稳定；新增 case 的 `expected_codes / expected_ai_rule_ids` 固定；compare replay 不再只围绕 smoke 子集组织。
+  - 回归保障：`tests/interface_snapshots.rs`、`scripts/smoke-repair-benchmark.ps1`、`scripts/smoke-compare-repair-feedback.ps1`、`scripts/smoke-compare-repair-modes.ps1`。
+  - 不做范围：不在这一项里引入新的模型供应商，不把 smoke 子集和 full 基线混为一谈。
+  - 完成于：2026-04-24
+  - 备注：已把 full manifest 从 24 case 扩到 26 case，新增 `array_index_type_mismatch` 与 `return_type_mismatch_main`；同时补齐 [`benchmarks/repair-candidates/compare/shared`](C:/Users/xiaoy/Desktop/A语言/AX/benchmarks/repair-candidates/compare/shared) 的 full replay 基线，并新增 full shared score 回归与 compare 说明文档。
+
+- [ ] `P1-10` 最小工具宿主能力第一批
+  - 目标：给 AX 补上写真实 CLI / 文本处理 / 构建辅助程序的最低可用宿主能力，而不是继续优先补大语法面。
+  - 输入：[`PLAN.md`](C:/Users/xiaoy/Desktop/A语言/AX/PLAN.md) 的任务族定义、现有工具风格样例、[`能力缺口排序.md`](C:/Users/xiaoy/Desktop/A语言/AX/能力缺口排序.md) 的最新排序。
+  - 输出：围绕 `process / env / path / fs / string` 的第一批稳定接口、对应 diagnostics / AI guidance / 示例 / 文档 / 测试。
+  - 通过条件：至少一批真实工具风格程序不再只依赖纯玩具输入；误用这些接口时仍能给出稳定结构化反馈。
+  - 回归保障：语义 / 解释器 / 接口测试、真实样例 smoke、repair benchmark 资产。
+  - 不做范围：不一口气做大而全标准库，不先做网络、GUI、并发运行时或包生态。
+
+- [ ] `P1-11` 第二组真实工具样例与 backend 验证目标
+  - 目标：让后续 `axc build` 与更大语法决策建立在真实程序上，而不是建立在玩具样例上。
+  - 输入：第一批宿主能力、现有 examples、benchmark 观察与 build 骨架现状。
+  - 输出：2-4 个更接近真实任务的样例，覆盖 CLI、文本处理、批处理或构建辅助中的至少两类，并形成后续 native build 验证目标。
+  - 通过条件：这些样例可 `check / run`，且能明确暴露“下一步补标准库、backend 还是语法”。
+  - 回归保障：`examples/`、`tests/interface_snapshots.rs`、必要的 smoke。
+  - 不做范围：不把样例扩成完整产品，不为了样例强行引入大表面积语法。
 
 ## P2
 

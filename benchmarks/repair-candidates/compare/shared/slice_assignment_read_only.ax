@@ -1,0 +1,5 @@
+fn main() -> i32 {
+    let mut values: [i32; 3] = [1, 2, 3];
+    values[0] = 9;
+    return values[0] - 9;
+}

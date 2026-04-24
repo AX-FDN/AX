@@ -418,6 +418,20 @@ fn load_repair_manifest(path: &str) -> RepairCaseManifest {
         .unwrap_or_else(|error| panic!("repair benchmark manifest `{path}` should be valid: {error}"))
 }
 
+fn find_replay_candidate(root: &Path, case_id: &str) -> Option<PathBuf> {
+    let flat = root.join(format!("{case_id}.ax"));
+    if flat.exists() {
+        return Some(flat);
+    }
+
+    let nested = root.join(case_id).join("repaired.ax");
+    if nested.exists() {
+        return Some(nested);
+    }
+
+    None
+}
+
 fn assert_manifest_cases_keep_stable_diagnostics(manifest_path: &str) {
     let manifest = load_repair_manifest(manifest_path);
 
@@ -2184,6 +2198,12 @@ fn smoke_repair_manifest_stays_aligned_with_full_manifest() {
         .collect();
 
     assert_eq!(
+        full_manifest.cases.len(),
+        26,
+        "full manifest should currently pin the 26-case repair benchmark baseline"
+    );
+
+    assert_eq!(
         smoke_manifest.cases.len(),
         10,
         "smoke manifest should currently pin the 10-case CI subset"
@@ -2244,6 +2264,78 @@ fn smoke_repair_manifest_stays_aligned_with_full_manifest() {
             smoke_case.id
         );
     }
+}
+
+#[test]
+fn full_compare_shared_replay_covers_full_manifest() {
+    let full_manifest = load_repair_manifest("benchmarks/repair-cases.json");
+    let shared_root = repo_root()
+        .join("benchmarks")
+        .join("repair-candidates")
+        .join("compare")
+        .join("shared");
+
+    assert!(
+        shared_root.exists(),
+        "full compare shared replay root should exist at `{}`",
+        shared_root.display()
+    );
+
+    let missing_case_ids: Vec<String> = full_manifest
+        .cases
+        .iter()
+        .filter(|case| find_replay_candidate(&shared_root, &case.id).is_none())
+        .map(|case| case.id.clone())
+        .collect();
+
+    assert!(
+        missing_case_ids.is_empty(),
+        "full compare shared replay root should cover every full manifest case, missing: {}",
+        missing_case_ids.join(", ")
+    );
+}
+
+#[test]
+fn full_compare_shared_replay_scores_cleanly() {
+    let temp = TempDir::new("full-compare-shared-score");
+    let benchmark_dir = export_repair_benchmark(
+        &temp,
+        &repo_root().join("benchmarks").join("repair-cases.json"),
+    );
+    let candidates_dir = repo_root()
+        .join("benchmarks")
+        .join("repair-candidates")
+        .join("compare")
+        .join("shared");
+    let output_dir = temp.join("score");
+    let script_path = repo_root().join("scripts").join("score-repair-benchmark.ps1");
+
+    let output = run_powershell_script(
+        &script_path,
+        [
+            OsStr::new("-BenchmarkDir"),
+            benchmark_dir.as_os_str(),
+            OsStr::new("-CandidatesDir"),
+            candidates_dir.as_os_str(),
+            OsStr::new("-OutputDir"),
+            output_dir.as_os_str(),
+            OsStr::new("-SkipBuild"),
+        ],
+    );
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "full compare shared replay candidates should score cleanly\nstdout:\n{}\nstderr:\n{}",
+        string_output(&output.stdout),
+        string_output(&output.stderr)
+    );
+    assert_clean_stderr(&output);
+
+    let summary = read_json_file(&output_dir.join("summary.json"), "full compare shared score summary");
+    assert_eq!(summary["totals"]["total"], Value::from(26));
+    assert_eq!(summary["totals"]["passed"], Value::from(26));
+    assert_eq!(summary["totals"]["failed"], Value::from(0));
+    assert_eq!(summary["totals"]["missing"], Value::from(0));
 }
 
 #[test]

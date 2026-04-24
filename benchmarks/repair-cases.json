@@ -57,6 +57,15 @@
       "notes": "Extends repair coverage to call-site type mismatches with a dedicated AI rule card."
     },
     {
+      "id": "array_index_type_mismatch",
+      "file": "examples/array_index_type_mismatch.ax",
+      "category": "semantic",
+      "expected_codes": ["S0022"],
+      "expected_ai_rule_ids": ["array_index_must_be_i32"],
+      "repair_goal": "Rewrite the index expression so it produces an i32 value.",
+      "notes": "Extends exact-type diagnostics from bindings and call sites into array indexing."
+    },
+    {
       "id": "non_bool_condition",
       "file": "examples/non_bool_condition.ax",
       "category": "semantic",
@@ -91,6 +100,15 @@
       "expected_ai_rule_ids": ["all_paths_must_return"],
       "repair_goal": "Add a return on the control-flow path that currently falls through.",
       "notes": "Exercises function-context slicing for AI repair."
+    },
+    {
+      "id": "return_type_mismatch_main",
+      "file": "examples/return_type_mismatch.ax",
+      "category": "semantic",
+      "expected_codes": ["S0022"],
+      "expected_ai_rule_ids": ["return_value_must_match_declared_type"],
+      "repair_goal": "Return a value whose type matches the function's declared return type.",
+      "notes": "Extends exact-type diagnostics into return statements with a dedicated rule card."
     },
     {
       "id": "unknown_type_missing",
