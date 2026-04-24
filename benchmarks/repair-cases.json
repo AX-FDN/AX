@@ -152,8 +152,8 @@
       "category": "unsupported",
       "expected_codes": ["S0032"],
       "expected_ai_rule_ids": ["non_empty_array_literal_required"],
-      "repair_goal": "Provide at least one element so the array literal has a concrete element type and length.",
-      "notes": "Fixed-size arrays are supported, but empty array literals are still intentionally unimplemented."
+      "repair_goal": "Use an explicit zero-length array type like [i32; 0] for [], or provide elements when the target length is non-zero.",
+      "notes": "Empty array literals are only valid in explicit zero-length array context; non-zero-length targets still fail with S0032."
     }
   ]
 }

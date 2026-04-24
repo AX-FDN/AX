@@ -198,6 +198,12 @@ fn main() -> i32 {
     }
 
     #[test]
+    fn accepts_empty_array_literal_in_zero_length_array_context() {
+        let codes = check("fn main() -> i32 { let values: [i32; 0] = []; println(values); return 0; }");
+        assert!(codes.is_empty(), "unexpected diagnostics: {codes:?}");
+    }
+
+    #[test]
     fn accepts_slice_params_and_slice_expressions() {
         let codes = check(
             "\
@@ -219,6 +225,12 @@ fn main() -> i32 {
     fn reports_non_array_index_base() {
         let codes = check("fn main() -> i32 { let value: i32 = 1; return value[0]; }");
         assert!(codes.iter().any(|code| code == "S0033"));
+    }
+
+    #[test]
+    fn reports_empty_array_literal_without_zero_length_context() {
+        let codes = check("fn main() -> i32 { let values: [i32; 1] = []; return 0; }");
+        assert!(codes.iter().any(|code| code == "S0032"));
     }
 
     #[test]
@@ -266,8 +278,30 @@ fn main() -> i32 {
     }
 
     #[test]
+    fn accepts_len_for_strings_arrays_and_slices() {
+        let codes = check(
+            "\
+fn main() -> i32 {
+    let values: [i32; 4] = [1, 2, 3, 4];
+    let view: [i32] = values[1:3];
+    let chars: i32 = len(\"AX\");
+    let total: i32 = len(values) + len(view);
+    return chars + total;
+}
+",
+        );
+        assert!(codes.is_empty(), "unexpected diagnostics: {codes:?}");
+    }
+
+    #[test]
     fn reports_non_string_argument_to_string_len() {
         let codes = check("fn main() -> i32 { return string_len(1); }");
+        assert!(codes.iter().any(|code| code == "S0022"));
+    }
+
+    #[test]
+    fn reports_invalid_argument_to_len() {
+        let codes = check("fn main() -> i32 { return len(true); }");
         assert!(codes.iter().any(|code| code == "S0022"));
     }
 

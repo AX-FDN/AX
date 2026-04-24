@@ -603,12 +603,12 @@ const RULE_FOR_HEADER_CLAUSE_SUPPORTED: RuleTemplate = RuleTemplate {
 const RULE_NON_EMPTY_ARRAY_LITERAL_REQUIRED: RuleTemplate = RuleTemplate {
     rule_id: "non_empty_array_literal_required",
     normalized_pattern: "non_empty_array_literal_required",
-    repair_goal: "Provide at least one element so AX can infer the fixed array length and element type.",
-    summary: "The current AX prototype supports fixed-size arrays, but empty array literals are not implemented yet.",
+    repair_goal: "Either give `[]` a zero-length array context like `[i32; 0]`, or add elements so the array has a concrete non-zero length.",
+    summary: "AX accepts `[]` only when the surrounding context fixes it to a length-0 array type such as `[i32; 0]`.",
     pattern: "let values: [i32; 3] = [1, 2, 3];",
-    minimal_example: "let flags: [bool; 1] = [true];",
-    anti_pattern: Some("let values: [i32; 0] = [];"),
-    default_fixit: "add at least one element to the array literal",
+    minimal_example: "let values: [i32; 0] = [];",
+    anti_pattern: Some("let values: [i32; 1] = [];"),
+    default_fixit: "change the surrounding type to `[Type; 0]` or add elements to the array literal",
 };
 
 const RULE_INDEX_BASE_MUST_BE_ARRAY: RuleTemplate = RuleTemplate {
@@ -1522,7 +1522,7 @@ mod tests {
     #[test]
     fn adds_empty_array_guidance_for_unimplemented_literals() {
         let source =
-            SourceFile::anonymous("fn main() -> i32 { let values: [i32; 0] = []; return 0; }");
+            SourceFile::anonymous("fn main() -> i32 { let values: [i32; 1] = []; return 0; }");
         let mut analysis = analyze(&source);
         enhance_diagnostics(&source, &analysis.program, &mut analysis.diagnostics, None)
             .expect("ai enhancement should succeed");

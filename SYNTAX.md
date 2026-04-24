@@ -201,6 +201,7 @@ values[1:3]
 ```ax
 "AX " + "report"
 string_len("AX report")
+len("AX report")
 ```
 
 枚举值：
@@ -310,6 +311,7 @@ array_type        := "[" type_ref ";" INT "]"
 - 用户函数调用
 - 递归
 - 内置 `string_len`
+- 内置 `len`
 - 结构体字面量与字段读取
 - 枚举值比较
 - 内置 `println`
@@ -319,13 +321,18 @@ array_type        := "[" type_ref ";" INT "]"
 下面这些请不要在当前原型里使用：
 
 - `match`
-- 空数组字面量：`[]`
 - import / module
 - 异常
 - async / await
 - 泛型
 - 宏
 - 原生后端
+
+补充说明：
+
+- 空数组字面量 `[]` 不是“完全不支持”。
+- 当前只支持带显式零长度数组上下文的写法：`let values: [i32; 0] = [];`
+- 如果上下文不是零长度数组，例如 `let values: [i32; 1] = [];`，会报 `S0032`。
 
 ## 9. 给 AI 的直接提示词
 
@@ -338,13 +345,16 @@ Rules:
 - main must be exactly: fn main() -> i32 { ... }.
 - End let/assignment/expression/return statements with semicolons.
 - Supported primitive types are bool, i32, f32, string.
+- Builtin helpers are println(...), string_len(text), and len(value).
 - Enum values must use EnumName.Variant.
 - Construct structs with TypeName { field: expr, ... }.
 - Use for loops only as for (init; condition; step) { ... }.
 - Read-only slices are allowed as [Type] and values[start:end].
 - Fixed-size arrays are allowed as [Type; N], [a, b, c], and values[index].
+- Empty array literals are allowed only in explicit zero-length array context, for example: let values: [i32; 0] = [];.
 - Direct array element assignment is allowed as values[index] = expr; when the array variable is mutable.
 - Direct field assignment is allowed only as name.field = expr; and only when name is a mutable struct variable.
-- Do not use match, empty array literals, modules, imports, exceptions, async, or generics.
+- Do not use match, modules, imports, exceptions, async, or generics.
+- Use [] only when the target type is explicitly a zero-length array like [i32; 0].
 - Return 0 from main on success unless a different exit code is explicitly needed.
 ```

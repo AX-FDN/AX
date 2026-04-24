@@ -6,6 +6,7 @@ pub(super) enum Type {
     I32,
     F32,
     String,
+    EmptyArrayLiteral,
     Slice { element: Box<Type> },
     Array { element: Box<Type>, length: usize },
     Struct(String),
@@ -21,6 +22,7 @@ impl Type {
             Self::I32 => "i32".to_string(),
             Self::F32 => "f32".to_string(),
             Self::String => "string".to_string(),
+            Self::EmptyArrayLiteral => "[]".to_string(),
             Self::Slice { element } => format!("[{}]", element.describe()),
             Self::Array { element, length } => format!("[{}; {}]", element.describe(), length),
             Self::Struct(name) | Self::Enum(name) => name.clone(),
@@ -39,6 +41,10 @@ impl Type {
 
     pub(super) fn is_assignable_to(&self, expected: &Type) -> bool {
         self == expected
+            || matches!(
+                (expected, self),
+                (Self::Array { length: 0, .. }, Self::EmptyArrayLiteral)
+            )
             || matches!(
                 (expected, self),
                 (Self::Slice { element: expected_element }, Self::Array { element: actual_element, .. })

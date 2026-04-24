@@ -123,18 +123,9 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
         Type::Struct(struct_name)
     }
 
-    pub(super) fn check_array_literal_expr(&mut self, expr: &Expr, elements: &[Expr]) -> Type {
+    pub(super) fn check_array_literal_expr(&mut self, _expr: &Expr, elements: &[Expr]) -> Type {
         let Some((first, rest)) = elements.split_first() else {
-            self.diagnostics.push(
-                Diagnostic::new(
-                    "S0032",
-                    "empty array literals are not supported yet",
-                    self.info.source,
-                    expr.span,
-                )
-                .with_suggestion("add at least one element to the array literal"),
-            );
-            return Type::Error;
+            return Type::EmptyArrayLiteral;
         };
 
         let element_type = self.check_expr(first);

@@ -47,6 +47,49 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 );
                 Some(Type::I32)
             }
+            "len" => {
+                let argument_types = arguments
+                    .iter()
+                    .map(|argument| self.check_expr(argument))
+                    .collect::<Vec<_>>();
+
+                if argument_types.len() != 1 {
+                    self.diagnostics.push(Diagnostic::new(
+                        "S0017",
+                        format!(
+                            "function `len` expects 1 argument(s), found {}",
+                            argument_types.len()
+                        ),
+                        self.info.source,
+                        expr.span,
+                    ));
+                    return Some(Type::Error);
+                }
+
+                match &argument_types[0] {
+                    Type::String | Type::Array { .. } | Type::Slice { .. } => Some(Type::I32),
+                    actual => {
+                        self.diagnostics.push(
+                            Diagnostic::new(
+                                "S0022",
+                                format!(
+                                    "function `len` expects argument `value` to be `string`, array, or slice, found `{}`",
+                                    actual.describe()
+                                ),
+                                self.info.source,
+                                expr.span,
+                            )
+                            .with_note(
+                                "`len` is the general traversal-length builtin for strings, fixed-size arrays, and slices",
+                            )
+                            .with_suggestion(
+                                "call `len` with a string, array, or slice value like `len(values)`",
+                            ),
+                        );
+                        Some(Type::Error)
+                    }
+                }
+            }
             _ => None,
         }
     }

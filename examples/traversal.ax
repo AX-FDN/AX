@@ -1,0 +1,19 @@
+fn sum(values: [i32]) -> i32 {
+    let mut total: i32 = 0;
+    for (let mut i: i32 = 0; i < len(values); i = i + 1) {
+        total = total + values[i];
+    }
+    return total;
+}
+
+fn main() -> i32 {
+    let values: [i32; 5] = [1, 2, 3, 4, 5];
+    let middle: [i32] = values[1:4];
+    let label: string = "AX";
+
+    println(len(label));
+    println(len(values));
+    println(len(middle));
+    println(sum(middle));
+    return sum(values);
+}

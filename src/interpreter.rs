@@ -206,6 +206,34 @@ impl<'a> Interpreter<'a> {
             };
         }
 
+        if name == "len" {
+            if arguments.len() != 1 {
+                return Err(self.runtime_error(
+                    "R0039",
+                    format!("function `len` expected 1 argument(s), got {}", arguments.len()),
+                    span,
+                ));
+            }
+
+            let value = arguments.into_iter().next().expect("len argument should exist");
+            return match value {
+                Value::String(text) => Ok(Value::I32(text.chars().count() as i32)),
+                Value::Array(elements) | Value::Slice(elements) => {
+                    Ok(Value::I32(elements.len() as i32))
+                }
+                other => Err(self
+                    .runtime_error(
+                        "R0040",
+                        format!(
+                            "function `len` requires a `string`, array, or slice argument, got `{}`",
+                            other.display()
+                        ),
+                        span,
+                    )
+                    .with_suggestion("call `len` with a string, array, or slice value like `len(values)`")),
+            };
+        }
+
         let function = self.functions.get(name).copied().ok_or_else(|| {
             self.runtime_error("R0003", format!("call to unknown function `{name}`"), span)
         })?;
@@ -1099,5 +1127,34 @@ fn main() -> i32 {
         let output = run_program(&source, &hir).expect("program should run");
         assert_eq!(output.exit_code, 3);
         assert_eq!(output.stdout, vec!["AX tools", "8"]);
+    }
+
+    #[test]
+    fn runs_len_for_strings_arrays_and_slices() {
+        let (source, hir) = analyzed_hir(
+            "\
+fn sum(values: [i32]) -> i32 {
+    let mut total: i32 = 0;
+    for (let mut i: i32 = 0; i < len(values); i = i + 1) {
+        total = total + values[i];
+    }
+    return total;
+}
+
+fn main() -> i32 {
+    let values: [i32; 5] = [1, 2, 3, 4, 5];
+    let middle: [i32] = values[1:4];
+    println(len(\"AX\"));
+    println(len(values));
+    println(len(middle));
+    println(sum(middle));
+    return sum(values);
+}
+",
+        );
+
+        let output = run_program(&source, &hir).expect("program should run");
+        assert_eq!(output.exit_code, 15);
+        assert_eq!(output.stdout, vec!["2", "5", "3", "9"]);
     }
 }

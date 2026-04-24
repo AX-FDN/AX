@@ -147,7 +147,7 @@ AX 接下来要赢的，不是“特性数量”，而是证据。
 - 只使用仓库当前已经实现的原型语法
 - 不要擅自发明 `match`、泛型、模块系统、异常或 `async`
 - 只读切片目前已支持，写法是 `[Type]` 和 `values[start:end]`
-- 字符串目前已支持 `string + string` 和 `string_len(text)`
+- 字符串与遍历辅助目前已支持 `string + string`、`string_len(text)` 和统一长度查询 `len(value)`
 - `main` 必须写成 `fn main() -> i32 { ... }`
 - 局部变量、参数、返回值都应显式标注类型
 - 先参考 [`SYNTAX.md`](./SYNTAX.md)，再生成 AX 代码

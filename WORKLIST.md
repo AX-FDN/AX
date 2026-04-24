@@ -124,7 +124,15 @@
   - 不做范围：不引入可变 slice、borrow 系统、可省略边界的切片语法或集合泛型。
   - 完成于：2026-04-24
   - 备注：第一版收敛为只读切片；当前已支持 `[Type]`、`values[start:end]`、slice 索引读取和数组传 slice 形参，新增 [`examples/slices.ax`](C:/Users/xiaoy/Desktop/A语言/AX/examples/slices.ax)。
-- [ ] `P1-1a` 空数组字面量策略
+- [x] `P1-1a` 空数组字面量策略
+  - 目标：给 `[]` 一个稳定、可诊断、可被 AI 理解的实现边界，避免它长期悬空在 unsupported 与半套推导之间。
+  - 输入：[`能力缺口排序.md`](C:/Users/xiaoy/Desktop/A语言/AX/能力缺口排序.md) 的第三优先级结论、现有数组类型系统、repair benchmark case。
+  - 输出：空数组字面量的明确策略、语义检查、AI 规则更新、示例与回归测试。
+  - 通过条件：`[]` 只在显式零长度数组上下文中通过；非零长度上下文稳定报 `S0032`；AI 规则与 benchmark 口径一致。
+  - 回归保障：semantic 单测、`tests/interface_snapshots.rs` 的 `examples/empty_array.ax` 运行回归、repair cases 规则断言。
+  - 不做范围：不引入通用空数组推导、泛型集合字面量或隐式长度补全。
+  - 完成于：2026-04-24
+  - 备注：当前策略已收敛为 `let values: [i32; 0] = [];` 合法，`let values: [i32; 1] = [];` 稳定报 `S0032`；已新增 [`examples/empty_array.ax`](C:/Users/xiaoy/Desktop/A语言/AX/examples/empty_array.ax) 并同步 AI 规则文案。
 - [x] `P1-2` 更实用的字符串处理
   - 目标：补上不重设计但马上有用的字符串能力，让 AX 能更自然地拼消息和做最小文本统计。
   - 输入：[`能力缺口排序.md`](C:/Users/xiaoy/Desktop/A语言/AX/能力缺口排序.md) 的第二优先级结论、现有字符串字面量与 `println`。
@@ -134,7 +142,15 @@
   - 不做范围：不引入字符串索引、Unicode 语义设计、格式化模板或完整文本库。
   - 完成于：2026-04-24
   - 备注：第一版收敛为“拼接 + 长度”；当前已支持 `string + string` 和 `string_len(text)`，新增 [`examples/string_tools.ax`](C:/Users/xiaoy/Desktop/A语言/AX/examples/string_tools.ax)。
-- [ ] `P1-3` 更贴近工具链代码的遍历能力
+- [x] `P1-3` 更贴近工具链代码的遍历能力
+  - 目标：在不引入新循环语法的前提下，先把数组 / 切片 / 字符串的统一长度查询打通，让真实工具逻辑能用现有 `for` 写出稳定遍历。
+  - 输入：已落地的固定长度数组、只读切片、字符串能力，以及 [`能力缺口排序.md`](C:/Users/xiaoy/Desktop/A语言/AX/能力缺口排序.md) 的下一优先级结论。
+  - 输出：统一内置 `len(value)`、遍历示例、语义/解释器/接口回归测试。
+  - 通过条件：`len` 可作用于 `string`、固定长度数组与切片；现有 C 风格 `for` 可自然遍历 slice；示例与测试稳定通过。
+  - 回归保障：semantic / interpreter 单测，`tests/interface_snapshots.rs` 的 [`examples/traversal.ax`](C:/Users/xiaoy/Desktop/A语言/AX/examples/traversal.ax) 运行回归。
+  - 不做范围：不引入 `for item in values`、迭代器协议、可变切片或完整集合库。
+  - 完成于：2026-04-24
+  - 备注：第一版收敛为统一 `len(value)`；当前已支持 `len(string)`、`len([T; N])` 与 `len([T])`，新增 [`examples/traversal.ax`](C:/Users/xiaoy/Desktop/A语言/AX/examples/traversal.ax) 展示基于切片的遍历模式。
 - [ ] `P1-4` 更多高价值错误的 AI 教学规则
 - [ ] `P1-5` 更多工具风格坏例子与修复样例
 
