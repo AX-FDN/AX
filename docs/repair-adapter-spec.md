@@ -126,6 +126,7 @@ Adapters should:
 - prefer the smallest valid repair
 - preserve explicit AX type annotations
 - avoid inventing unsupported prototype features
+- for `run`-based repair cases, prefer a stable `main` return value of `0` when that does not fight the repair goal, so benchmark validation does not conflate program results with process exit codes
 - keep the process deterministic where practical
 - log provider stderr without hiding it
 

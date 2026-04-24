@@ -123,6 +123,7 @@ The export script validates the benchmark as it exports it:
 If any case drifts, export fails immediately.
 
 For `run`-based cases, the exported prompts also include an explicit runtime-repair note so adapters know the failure already passed `check` and should be repaired without introducing new check-time diagnostics.
+For stable replay baselines, prefer repaired runtime candidates whose `main` returns `0` after the fix so benchmark evidence does not depend on the program's business result becoming the process exit code.
 
 ## Run Step
 
@@ -358,7 +359,7 @@ Current `summary.json` shape:
       "run": {
         "command": "run --json",
         "command_exit_code": 0,
-        "parsed_diagnostics": true,
+        "parsed_diagnostics": false,
         "diagnostics": [],
         "remaining_codes": []
       }
@@ -409,6 +410,7 @@ Stable per-case score fields:
 - `run?: object`
   Present only for runtime validation cases or when `-RunPrograms` executes the repaired program.
   For runtime benchmark cases this object keeps `command`, `command_exit_code`, `parsed_diagnostics`, `diagnostics`, and `remaining_codes`.
+  Clean `axc run --json` executions usually emit no JSON payload, so `parsed_diagnostics` will often be `false` while `diagnostics` and `remaining_codes` stay empty.
 
 ## Compare Step
 

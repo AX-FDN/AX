@@ -148,7 +148,7 @@ foreach ($runtimeCase in $runtimeCases) {
     Assert-Equal -Label "runtime[$caseId].status" -Actual ([string] $runtimeCase.status) -Expected "passed"
     Assert-Equal -Label "runtime[$caseId].run.command" -Actual ([string] $runtimeCase.run.command) -Expected "run --json"
     Assert-Equal -Label "runtime[$caseId].run.command_exit_code" -Actual ([int] $runtimeCase.run.command_exit_code) -Expected 0
-    Assert-Equal -Label "runtime[$caseId].run.parsed_diagnostics" -Actual ([bool] $runtimeCase.run.parsed_diagnostics) -Expected $true
+    Assert-Equal -Label "runtime[$caseId].run.parsed_diagnostics" -Actual ([bool] $runtimeCase.run.parsed_diagnostics) -Expected $false
     Assert-Equal -Label "runtime[$caseId].run.remaining_codes count" -Actual (@($runtimeCase.run.remaining_codes).Count) -Expected 0
 }
 
