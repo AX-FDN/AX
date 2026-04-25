@@ -3,7 +3,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use crate::diagnostics::Diagnostic;
+use crate::diagnostics::{Diagnostic, DiagnosticKind};
 use crate::hir::{
     BinaryOp, Block, Expr, ExprKind, ItemKind, Param, Place, PlaceKind, Program, Stmt, StmtKind,
     UnaryOp,
@@ -708,10 +708,11 @@ impl<'a> Interpreter<'a> {
                 .expect("argv_get argument should exist");
             return match index {
                 Value::I32(index) if index < 0 => Err(self
-                    .runtime_error(
+                    .runtime_error_with_kind(
                         "R0048",
                         format!("argv index `{index}` must be non-negative"),
                         span,
+                        DiagnosticKind::ArgvIndexNegative,
                     )
                     .with_note("AX argv positions use zero-based `i32` indices")
                     .with_suggestion(
@@ -720,10 +721,11 @@ impl<'a> Interpreter<'a> {
                 Value::I32(index) => {
                     let index = index as usize;
                     self.host.argv.get(index).cloned().map(Value::String).ok_or_else(|| {
-                        self.runtime_error(
+                        self.runtime_error_with_kind(
                             "R0048",
                             format!("argv index `{index}` is out of bounds"),
                             span,
+                            DiagnosticKind::ArgvIndexOutOfBounds,
                         )
                         .with_note(format!(
                             "the current AX runtime was started with {} argument(s)",
@@ -802,10 +804,11 @@ impl<'a> Interpreter<'a> {
                     .env_value(&name)
                     .map(|value| Value::String(value.to_string()))
                     .ok_or_else(|| {
-                        self.runtime_error(
+                        self.runtime_error_with_kind(
                             "R0053",
                             format!("environment variable `{name}` is not available"),
                             span,
+                            DiagnosticKind::EnvironmentVariableUnavailable,
                         )
                         .with_suggestion(
                             "check the variable first with `env_has(name)` or set it in the host environment",
@@ -860,10 +863,11 @@ impl<'a> Interpreter<'a> {
                     .status()
                     .map(|status| Value::I32(status.code().unwrap_or(-1)))
                     .map_err(|error| {
-                        self.runtime_error(
+                        self.runtime_error_with_kind(
                             "R0090",
                             format!("failed to run `{command_text}`: {error}"),
                             span,
+                            DiagnosticKind::ProcessCommandNotLaunchable,
                         )
                         .with_suggestion(
                             "pass a valid shell command string like `process_run(\"echo ready\")`",
@@ -920,10 +924,11 @@ impl<'a> Interpreter<'a> {
                         let exit_code = output.status.code().unwrap_or(-1);
                         let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
                         let mut diagnostic = self
-                            .runtime_error(
+                            .runtime_error_with_kind(
                                 "R0094",
                                 format!("command `{command_text}` exited with status {exit_code}"),
                                 span,
+                                DiagnosticKind::ProcessCaptureNonZeroExit,
                             )
                             .with_suggestion(
                                 "use `process_run(command)` when you need to inspect a failing exit code without raising a runtime error",
@@ -978,13 +983,14 @@ impl<'a> Interpreter<'a> {
                     .status()
                     .map(|status| Value::I32(status.code().unwrap_or(-1)))
                     .map_err(|error| {
-                        self.runtime_error(
+                        self.runtime_error_with_kind(
                             "R0116",
                             format!(
                                 "failed to run `{command_text}` in `{}`: {error}",
                                 self.resolve_host_path(&working_dir).display()
                             ),
                             span,
+                            DiagnosticKind::ProcessCommandNotLaunchable,
                         )
                         .with_suggestion(
                             "pass an existing working directory and a valid shell command string like `process_run_in(dir, command)`",
@@ -1032,13 +1038,14 @@ impl<'a> Interpreter<'a> {
                         .host_shell_command_at(&resolved_dir, &command_text)
                         .output()
                         .map_err(|error| {
-                            self.runtime_error(
+                            self.runtime_error_with_kind(
                                 "R0119",
                                 format!(
                                     "failed to capture `{command_text}` in `{}`: {error}",
                                     resolved_dir.display()
                                 ),
                                 span,
+                                DiagnosticKind::ProcessCommandNotLaunchable,
                             )
                             .with_suggestion(
                                 "pass an existing working directory and a valid shell command string like `process_capture_in(dir, command)`",
@@ -1049,13 +1056,14 @@ impl<'a> Interpreter<'a> {
                         let exit_code = output.status.code().unwrap_or(-1);
                         let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
                         let mut diagnostic = self
-                            .runtime_error(
+                            .runtime_error_with_kind(
                                 "R0120",
                                 format!(
                                     "command `{command_text}` in `{}` exited with status {exit_code}",
                                     resolved_dir.display()
                                 ),
                                 span,
+                                DiagnosticKind::ProcessCaptureNonZeroExit,
                             )
                             .with_suggestion(
                                 "use `process_run_in(working_dir, command)` when you need the exit code without raising a runtime error",
@@ -1469,10 +1477,11 @@ impl<'a> Interpreter<'a> {
                     let resolved = self.resolve_host_path(&path);
                     fs::metadata(&resolved)
                         .map_err(|error| {
-                            self.runtime_error(
+                            self.runtime_error_with_kind(
                                 "R0103",
                                 format!("failed to read metadata for `{}`: {error}", resolved.display()),
                                 span,
+                                DiagnosticKind::ReadableFilePathRequired,
                             )
                             .with_suggestion(
                                 "pass an existing file path or guard with `fs_is_file(path)` first",
@@ -1798,10 +1807,11 @@ impl<'a> Interpreter<'a> {
                     let resolved = self.resolve_host_path(&path);
                     let mut entries = fs::read_dir(&resolved)
                         .map_err(|error| {
-                            self.runtime_error(
+                            self.runtime_error_with_kind(
                                 "R0123",
                                 format!("failed to read directory `{}`: {error}", resolved.display()),
                                 span,
+                                DiagnosticKind::ReadableDirectoryPathRequired,
                             )
                             .with_suggestion(
                                 "pass an existing readable directory path or guard with `fs_is_dir(path)` first",
@@ -1814,13 +1824,14 @@ impl<'a> Interpreter<'a> {
                         })
                         .collect::<Result<Vec<_>, _>>()
                         .map_err(|error| {
-                            self.runtime_error(
+                            self.runtime_error_with_kind(
                                 "R0123",
                                 format!(
                                     "failed while enumerating directory `{}`: {error}",
                                     resolved.display()
                                 ),
                                 span,
+                                DiagnosticKind::ReadableDirectoryPathRequired,
                             )
                             .with_suggestion(
                                 "pass an existing readable directory path or guard with `fs_is_dir(path)` first",
@@ -1868,10 +1879,11 @@ impl<'a> Interpreter<'a> {
                 Value::String(path) => {
                     let resolved = self.resolve_host_path(&path);
                     fs::read_to_string(&resolved).map(Value::String).map_err(|error| {
-                        self.runtime_error(
+                        self.runtime_error_with_kind(
                             "R0061",
                             format!("failed to read `{}`: {error}", resolved.display()),
                             span,
+                            DiagnosticKind::ReadableFilePathRequired,
                         )
                         .with_suggestion(
                             "pass an existing readable text file path or guard with `fs_exists(path)` first",
@@ -2569,6 +2581,16 @@ impl<'a> Interpreter<'a> {
 
     fn runtime_error(&self, code: &str, message: impl Into<String>, span: Span) -> Diagnostic {
         Diagnostic::new(code, message.into(), self.source, span)
+    }
+
+    fn runtime_error_with_kind(
+        &self,
+        code: &str,
+        message: impl Into<String>,
+        span: Span,
+        kind: DiagnosticKind,
+    ) -> Diagnostic {
+        self.runtime_error(code, message, span).with_kind(kind)
     }
 }
 

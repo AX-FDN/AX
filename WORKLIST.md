@@ -302,6 +302,8 @@
 - 进展：2026-04-25 已给这批模块诊断和首批高价值 `S0022` 变体补上稳定 `DiagnosticKind`，`src/ai.rs` 现会优先按内部语义标签映射 `rule_id`，而不是继续把规则绑定在 `message.contains(...)` 上；新增 `stable_diagnostic_kinds_drive_rule_matching_without_old_message_text` 回归测试，并已通过 `cargo +stable-x86_64-pc-windows-gnu test --lib`。
 - 进展：2026-04-25 已继续把 parser 侧高频 `P0001` 诊断接入稳定 `DiagnosticKind`，当前覆盖缺分号、缺右括号、缺右花括号与顶层声明错误；`src/ai.rs` 对这批规则也已优先走 kind 映射，同时保留 `match` 误写场景的特判，避免被普通缺分号规则吞掉。
 - 进展：2026-04-25 已让 parser 的详细提示生成也优先消费 `DiagnosticKind`，不再只靠 `message.contains(...)` 决定补充 note/suggestion；新增 “文案改掉但 kind 不变时，帮助信息仍保留” 的回归测试，并复跑 `cargo +stable-x86_64-pc-windows-gnu test --lib` 与两条 diagnostics interface snapshot。
+- 进展：2026-04-25 又把缺右中括号、类型名缺失、表达式缺失也接进稳定 `DiagnosticKind`，并补上 `close_bracketed_construct` 规则卡；这说明 parser 高频基础错误现在已经不只是“能分类”，而是开始形成更完整的稳定 AI 修复入口。
+- 进展：2026-04-25 又把运行时高价值 host diagnostics 接进稳定 `DiagnosticKind`，当前覆盖 `argv_get` 负索引/越界、缺失环境变量、不可读文件/目录、`process` 启动失败与 `capture` 非零退出；`src/ai.rs` 对这批宿主误用现也优先按 kind 映射 `rule_id`，并已补上 env/argv runtime AI 回归测试与 diagnostics snapshot 复跑。
 
 ## P2
 

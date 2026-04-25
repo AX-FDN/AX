@@ -782,10 +782,14 @@ impl<'a> Parser<'a> {
             }
             TokenKind::LBracket => self.parse_array_literal(token.span.start),
             _ => {
-                self.diagnostics.push(
+                let diagnostic = enrich_parse_error(
                     Diagnostic::new("P0003", "expected an expression", self.source, token.span)
+                        .with_kind(DiagnosticKind::ExpressionRequired)
                         .with_expected("expression"),
+                    &token,
+                    "expected an expression",
                 );
+                self.diagnostics.push(diagnostic);
                 Expr {
                     span: token.span,
                     kind: ExprKind::Error,
@@ -1017,27 +1021,34 @@ impl<'a> Parser<'a> {
 }
 
 fn parse_error_kind(code: &str, message: &str, expected: &[&str]) -> Option<DiagnosticKind> {
-    if code != "P0001" {
-        return None;
-    }
+    match code {
+        "P0001" => {
+            if message == "expected a top-level declaration" {
+                return Some(DiagnosticKind::TopLevelDeclarationRequired);
+            }
 
-    if message == "expected a top-level declaration" {
-        return Some(DiagnosticKind::TopLevelDeclarationRequired);
-    }
+            if expected.contains(&"`;`") {
+                return Some(DiagnosticKind::MissingSemicolon);
+            }
 
-    if expected.contains(&"`;`") {
-        return Some(DiagnosticKind::MissingSemicolon);
-    }
+            if expected.contains(&"`)`") {
+                return Some(DiagnosticKind::MissingRightParen);
+            }
 
-    if expected.contains(&"`)`") {
-        return Some(DiagnosticKind::MissingRightParen);
-    }
+            if expected.contains(&"`]`") {
+                return Some(DiagnosticKind::MissingRightBracket);
+            }
 
-    if expected.contains(&"`}`") {
-        return Some(DiagnosticKind::MissingRightBrace);
-    }
+            if expected.contains(&"`}`") {
+                return Some(DiagnosticKind::MissingRightBrace);
+            }
 
-    None
+            None
+        }
+        "P0002" if message == "expected a type name" => Some(DiagnosticKind::TypeNameRequired),
+        "P0003" if message == "expected an expression" => Some(DiagnosticKind::ExpressionRequired),
+        _ => None,
+    }
 }
 
 fn enrich_parse_error(mut diagnostic: Diagnostic, token: &Token, message: &str) -> Diagnostic {
@@ -1059,6 +1070,13 @@ fn enrich_parse_error(mut diagnostic: Diagnostic, token: &Token, message: &str) 
                     )
                     .with_suggestion("insert `)` to close the current parenthesized construct");
             }
+            DiagnosticKind::MissingRightBracket => {
+                return diagnostic
+                    .with_note(
+                        "AX closes array literals, slice types, array types, index expressions, and slice expressions with `]`",
+                    )
+                    .with_suggestion("insert `]` to close the current bracketed construct");
+            }
             DiagnosticKind::MissingRightBrace => {
                 return diagnostic
                     .with_note("AX closes blocks and struct literals with `}`")
@@ -1067,6 +1085,16 @@ fn enrich_parse_error(mut diagnostic: Diagnostic, token: &Token, message: &str) 
             DiagnosticKind::TopLevelDeclarationRequired => {
                 return diagnostic
                     .with_suggestion("start a top-level item with `fn`, `struct`, or `enum`");
+            }
+            DiagnosticKind::TypeNameRequired => {
+                return diagnostic.with_suggestion(
+                    "use `bool`, `i32`, `f32`, `string`, `[Type]`, `[Type; N]`, or a previously declared type name",
+                );
+            }
+            DiagnosticKind::ExpressionRequired => {
+                return diagnostic.with_suggestion(
+                    "insert a runtime expression such as a literal, array literal, name, call, or parenthesized expression",
+                );
             }
             _ => {}
         }
@@ -1491,6 +1519,7 @@ fn main() -> i32 {
                 .iter()
                 .any(|note| note.contains("slice types"))
         );
+        assert_eq!(diagnostic.kind(), Some(DiagnosticKind::MissingRightBracket));
         assert_eq!(
             diagnostic.suggestion.as_deref(),
             Some("insert `]` to close the current bracketed construct")
@@ -1545,6 +1574,46 @@ fn main() -> i32 {
         assert_eq!(
             enriched.suggestion.as_deref(),
             Some("insert `;` before the next statement or closing `}`")
+        );
+    }
+
+    #[test]
+    fn classifies_type_name_error_with_stable_kind() {
+        let source = SourceFile::anonymous("fn main() -> i32 { let value: = 1; return 0; }");
+        let tokens = tokenize(&source).tokens;
+        let output = parse(&source, tokens);
+        let diagnostic = output
+            .diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.message == "expected a type name")
+            .expect("type name diagnostic should exist");
+
+        assert_eq!(diagnostic.kind(), Some(DiagnosticKind::TypeNameRequired));
+        assert_eq!(
+            diagnostic.suggestion.as_deref(),
+            Some(
+                "use `bool`, `i32`, `f32`, `string`, `[Type]`, `[Type; N]`, or a previously declared type name"
+            )
+        );
+    }
+
+    #[test]
+    fn classifies_expression_error_with_stable_kind() {
+        let source = SourceFile::anonymous("fn main() -> i32 { let value: i32 = ; return 0; }");
+        let tokens = tokenize(&source).tokens;
+        let output = parse(&source, tokens);
+        let diagnostic = output
+            .diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.message == "expected an expression")
+            .expect("expression diagnostic should exist");
+
+        assert_eq!(diagnostic.kind(), Some(DiagnosticKind::ExpressionRequired));
+        assert_eq!(
+            diagnostic.suggestion.as_deref(),
+            Some(
+                "insert a runtime expression such as a literal, array literal, name, call, or parenthesized expression"
+            )
         );
     }
 }

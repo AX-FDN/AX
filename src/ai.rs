@@ -160,7 +160,6 @@ struct RuleTemplate {
 }
 
 fn match_rule(source: &SourceFile, diagnostic: &Diagnostic) -> Option<RuleTemplate> {
-    let expects = diagnostic.expected.join(" ");
     if diagnostic.code == "P0001" && looks_like_match_attempt(source, diagnostic) {
         return Some(RULE_MATCH_NOT_SUPPORTED);
     }
@@ -177,18 +176,6 @@ fn match_rule(source: &SourceFile, diagnostic: &Diagnostic) -> Option<RuleTempla
         "L0003" => Some(RULE_INTEGER_LITERAL_SYNTAX),
         "L0004" => Some(RULE_FLOAT_LITERAL_SYNTAX),
         "L0005" => Some(RULE_SUPPORTED_STRING_ESCAPE_REQUIRED),
-        "P0001" if diagnostic.message.contains("expected `;`") || expects.contains("`;`") => {
-            Some(RULE_MISSING_SEMICOLON)
-        }
-        "P0001" if diagnostic.message.contains("expected `)`") || expects.contains("`)`") => {
-            Some(RULE_MISSING_RPAREN)
-        }
-        "P0001" if diagnostic.message.contains("expected `}`") || expects.contains("`}`") => {
-            Some(RULE_MISSING_RBRACE)
-        }
-        "P0001" if diagnostic.message == "expected a top-level declaration" => {
-            Some(RULE_TOP_LEVEL_DECLARATION_REQUIRED)
-        }
         "P0002" => Some(RULE_TYPE_NAME_REQUIRED),
         "P0003" => Some(RULE_EXPRESSION_REQUIRED),
         "S0001" => Some(RULE_UNIQUE_DEFINITION_REQUIRED),
@@ -204,21 +191,6 @@ fn match_rule(source: &SourceFile, diagnostic: &Diagnostic) -> Option<RuleTempla
         "S0018" | "S0019" => Some(RULE_CALL_TARGET_MUST_BE_FUNCTION_NAME),
         "S0020" | "S0027" => Some(RULE_STRUCT_FIELD_MUST_EXIST),
         "S0021" => Some(RULE_FIELD_ACCESS_REQUIRES_STRUCT_VALUE),
-        "S0022" if looks_like_len_builtin_type_mismatch(diagnostic) => {
-            Some(RULE_LEN_BUILTIN_REQUIRES_COUNTABLE_VALUE)
-        }
-        "S0022" if looks_like_function_argument_type_mismatch(diagnostic) => {
-            Some(RULE_FUNCTION_ARGUMENT_TYPE_MUST_MATCH)
-        }
-        "S0022" if looks_like_return_type_mismatch(diagnostic) => {
-            Some(RULE_RETURN_VALUE_MUST_MATCH_DECLARED_TYPE)
-        }
-        "S0022" if looks_like_condition_type_mismatch(diagnostic) => {
-            Some(RULE_CONDITION_MUST_BE_BOOL)
-        }
-        "S0022" if looks_like_array_index_type_mismatch(diagnostic) => {
-            Some(RULE_ARRAY_INDEX_MUST_BE_I32)
-        }
         "S0022" => Some(RULE_TYPE_MISMATCH),
         "S0023" => Some(RULE_MISSING_RETURN),
         "S0024" => Some(RULE_STRUCT_LITERAL_REQUIRES_STRUCT_TYPE),
@@ -233,12 +205,6 @@ fn match_rule(source: &SourceFile, diagnostic: &Diagnostic) -> Option<RuleTempla
         "S0034" => Some(RULE_SLICE_BASE_MUST_BE_ARRAY_OR_SLICE),
         "S0035" => Some(RULE_SLICE_VALUES_ARE_READ_ONLY),
         "S0037" => Some(RULE_ENTRY_FILE_MUST_NOT_DECLARE_MODULE),
-        "S0038" if looks_like_support_source_missing_module_declaration(diagnostic) => {
-            Some(RULE_SUPPORT_SOURCE_MUST_DECLARE_MODULE)
-        }
-        "S0038" if looks_like_support_source_missing_manifest_listing(diagnostic) => {
-            Some(RULE_SUPPORT_SOURCE_MUST_BE_LISTED_IN_MANIFEST)
-        }
         "S0039" => Some(RULE_MODULE_PATH_MUST_MATCH_SOURCE_PATH),
         "S0040" => Some(RULE_MODULE_PATH_MUST_BE_UNIQUE),
         "S0041" => Some(RULE_MODULE_IMPORT_MUST_BE_UNIQUE),
@@ -249,10 +215,6 @@ fn match_rule(source: &SourceFile, diagnostic: &Diagnostic) -> Option<RuleTempla
         "R0030" => Some(RULE_ARRAY_INDEX_NON_NEGATIVE),
         "R0031" => Some(RULE_ARRAY_INDEX_IN_BOUNDS),
         "R0040" => Some(RULE_LEN_BUILTIN_REQUIRES_COUNTABLE_VALUE),
-        "R0061" | "R0103" => Some(RULE_READABLE_FILE_PATH_REQUIRED),
-        "R0090" | "R0116" | "R0119" => Some(RULE_PROCESS_COMMAND_MUST_BE_LAUNCHABLE),
-        "R0094" | "R0120" => Some(RULE_PROCESS_CAPTURE_REQUIRES_SUCCESSFUL_EXIT),
-        "R0123" => Some(RULE_READABLE_DIRECTORY_PATH_REQUIRED),
         _ => None,
     }
 }
@@ -261,8 +223,11 @@ fn match_rule_by_kind(kind: DiagnosticKind) -> Option<RuleTemplate> {
     match kind {
         DiagnosticKind::MissingSemicolon => Some(RULE_MISSING_SEMICOLON),
         DiagnosticKind::MissingRightParen => Some(RULE_MISSING_RPAREN),
+        DiagnosticKind::MissingRightBracket => Some(RULE_MISSING_RBRACKET),
         DiagnosticKind::MissingRightBrace => Some(RULE_MISSING_RBRACE),
         DiagnosticKind::TopLevelDeclarationRequired => Some(RULE_TOP_LEVEL_DECLARATION_REQUIRED),
+        DiagnosticKind::TypeNameRequired => Some(RULE_TYPE_NAME_REQUIRED),
+        DiagnosticKind::ExpressionRequired => Some(RULE_EXPRESSION_REQUIRED),
         DiagnosticKind::EntryFileDeclaresModule => Some(RULE_ENTRY_FILE_MUST_NOT_DECLARE_MODULE),
         DiagnosticKind::SupportSourceMissingModuleDeclaration => {
             Some(RULE_SUPPORT_SOURCE_MUST_DECLARE_MODULE)
@@ -284,44 +249,22 @@ fn match_rule_by_kind(kind: DiagnosticKind) -> Option<RuleTemplate> {
         DiagnosticKind::ConditionTypeMismatch => Some(RULE_CONDITION_MUST_BE_BOOL),
         DiagnosticKind::ArrayIndexTypeMismatch => Some(RULE_ARRAY_INDEX_MUST_BE_I32),
         DiagnosticKind::LenBuiltinTypeMismatch => Some(RULE_LEN_BUILTIN_REQUIRES_COUNTABLE_VALUE),
+        DiagnosticKind::ArgvIndexNegative => Some(RULE_ARGV_INDEX_NON_NEGATIVE),
+        DiagnosticKind::ArgvIndexOutOfBounds => Some(RULE_ARGV_INDEX_IN_BOUNDS),
+        DiagnosticKind::EnvironmentVariableUnavailable => {
+            Some(RULE_ENVIRONMENT_VARIABLE_MUST_BE_AVAILABLE)
+        }
+        DiagnosticKind::ReadableFilePathRequired => Some(RULE_READABLE_FILE_PATH_REQUIRED),
+        DiagnosticKind::ReadableDirectoryPathRequired => {
+            Some(RULE_READABLE_DIRECTORY_PATH_REQUIRED)
+        }
+        DiagnosticKind::ProcessCommandNotLaunchable => {
+            Some(RULE_PROCESS_COMMAND_MUST_BE_LAUNCHABLE)
+        }
+        DiagnosticKind::ProcessCaptureNonZeroExit => {
+            Some(RULE_PROCESS_CAPTURE_REQUIRES_SUCCESSFUL_EXIT)
+        }
     }
-}
-
-fn looks_like_support_source_missing_module_declaration(diagnostic: &Diagnostic) -> bool {
-    diagnostic
-        .message
-        .contains("missing a `module` declaration in module mode")
-}
-
-fn looks_like_support_source_missing_manifest_listing(diagnostic: &Diagnostic) -> bool {
-    diagnostic
-        .message
-        .contains("is not declared in `[package].sources`")
-}
-
-fn looks_like_function_argument_type_mismatch(diagnostic: &Diagnostic) -> bool {
-    diagnostic.message.starts_with("function `")
-        && diagnostic.message.contains("expects argument `")
-}
-
-fn looks_like_len_builtin_type_mismatch(diagnostic: &Diagnostic) -> bool {
-    diagnostic
-        .message
-        .contains("function `len` expects argument `value`")
-}
-
-fn looks_like_return_type_mismatch(diagnostic: &Diagnostic) -> bool {
-    diagnostic
-        .message
-        .contains("return statement must produce `")
-}
-
-fn looks_like_condition_type_mismatch(diagnostic: &Diagnostic) -> bool {
-    diagnostic.message.contains("condition must be `bool`")
-}
-
-fn looks_like_array_index_type_mismatch(diagnostic: &Diagnostic) -> bool {
-    diagnostic.message.contains("array index must be `i32`")
 }
 
 fn looks_like_match_attempt(source: &SourceFile, diagnostic: &Diagnostic) -> bool {
@@ -798,6 +741,39 @@ const RULE_LEN_BUILTIN_REQUIRES_COUNTABLE_VALUE: RuleTemplate = RuleTemplate {
     default_fixit: "pass a string, string_list, array, or slice to `len(...)`",
 };
 
+const RULE_ARGV_INDEX_NON_NEGATIVE: RuleTemplate = RuleTemplate {
+    rule_id: "argv_index_must_be_non_negative",
+    normalized_pattern: "argv_index_must_be_non_negative",
+    repair_goal: "Call `argv_get(index)` only with a zero-based index that stays at `0` or above.",
+    summary: "AX command-line arguments use zero-based `i32` indexing, so negative values are always invalid at runtime.",
+    pattern: "if (argv_len() > 0) { let first: string = argv_get(0); }",
+    minimal_example: "let output: string = argv_get(1);",
+    anti_pattern: Some("let flag: string = argv_get(-1);"),
+    default_fixit: "change the index so it is zero or greater before calling `argv_get(...)`",
+};
+
+const RULE_ARGV_INDEX_IN_BOUNDS: RuleTemplate = RuleTemplate {
+    rule_id: "argv_index_must_stay_in_bounds",
+    normalized_pattern: "argv_index_must_stay_in_bounds",
+    repair_goal: "Check `argv_len()` first and only read positions that exist in the current runtime invocation.",
+    summary: "`argv_get(index)` fails at runtime when the selected index is outside the argument list provided by the host.",
+    pattern: "if (argv_len() >= 2) { let output: string = argv_get(1); }",
+    minimal_example: "let target: string = argv_get(0);",
+    anti_pattern: Some("let missing: string = argv_get(3);"),
+    default_fixit: "guard with `argv_len()` or reduce the requested argument index",
+};
+
+const RULE_ENVIRONMENT_VARIABLE_MUST_BE_AVAILABLE: RuleTemplate = RuleTemplate {
+    rule_id: "environment_variable_must_be_available",
+    normalized_pattern: "environment_variable_must_be_available",
+    repair_goal: "Only call `env_get(name)` when that variable is present in the host environment, or guard first with `env_has(name)`.",
+    summary: "AX exposes host environment variables directly, so missing keys still fail at runtime even though the program type-checks.",
+    pattern: "if (env_has(\"PATH\")) { let path: string = env_get(\"PATH\"); }",
+    minimal_example: "let home: string = env_get(\"HOME\");",
+    anti_pattern: Some("let token: string = env_get(\"MISSING_KEY\");"),
+    default_fixit: "guard with `env_has(name)` or ensure the host sets the variable before running the program",
+};
+
 const RULE_READABLE_FILE_PATH_REQUIRED: RuleTemplate = RuleTemplate {
     rule_id: "readable_file_path_required",
     normalized_pattern: "readable_file_path_required",
@@ -906,6 +882,17 @@ const RULE_MISSING_RPAREN: RuleTemplate = RuleTemplate {
     minimal_example: "if (flag == true) { return 1; }",
     anti_pattern: Some("if (flag == true { return 1; }"),
     default_fixit: "add the missing `)` at the current construct boundary",
+};
+
+const RULE_MISSING_RBRACKET: RuleTemplate = RuleTemplate {
+    rule_id: "close_bracketed_construct",
+    normalized_pattern: "close_bracketed_construct",
+    repair_goal: "Close the current bracketed construct with `]` and keep the surrounding syntax balanced.",
+    summary: "AX requires balanced brackets in array literals, slice types, array types, index expressions, and slice expressions.",
+    pattern: "let values: [i32; 2] = [1, 2];",
+    minimal_example: "return values[index];",
+    anti_pattern: Some("let values: [i32; 2 = [1, 2];"),
+    default_fixit: "add the missing `]` at the current construct boundary",
 };
 
 const RULE_MISSING_RBRACE: RuleTemplate = RuleTemplate {
@@ -1594,6 +1581,12 @@ mod tests {
             },
             KindCase {
                 code: "P0001",
+                message: "parser right bracket placeholder",
+                kind: DiagnosticKind::MissingRightBracket,
+                expected_rule_id: "close_bracketed_construct",
+            },
+            KindCase {
+                code: "P0001",
                 message: "parser right brace placeholder",
                 kind: DiagnosticKind::MissingRightBrace,
                 expected_rule_id: "close_block_or_literal",
@@ -1603,6 +1596,18 @@ mod tests {
                 message: "parser top-level placeholder",
                 kind: DiagnosticKind::TopLevelDeclarationRequired,
                 expected_rule_id: "top_level_item_required",
+            },
+            KindCase {
+                code: "P0002",
+                message: "parser type name placeholder",
+                kind: DiagnosticKind::TypeNameRequired,
+                expected_rule_id: "type_name_required",
+            },
+            KindCase {
+                code: "P0003",
+                message: "parser expression placeholder",
+                kind: DiagnosticKind::ExpressionRequired,
+                expected_rule_id: "expression_required",
             },
             KindCase {
                 code: "S0038",
@@ -1645,6 +1650,48 @@ mod tests {
                 message: "len type placeholder",
                 kind: DiagnosticKind::LenBuiltinTypeMismatch,
                 expected_rule_id: "len_builtin_requires_countable_value",
+            },
+            KindCase {
+                code: "R0048",
+                message: "argv negative placeholder",
+                kind: DiagnosticKind::ArgvIndexNegative,
+                expected_rule_id: "argv_index_must_be_non_negative",
+            },
+            KindCase {
+                code: "R0048",
+                message: "argv bounds placeholder",
+                kind: DiagnosticKind::ArgvIndexOutOfBounds,
+                expected_rule_id: "argv_index_must_stay_in_bounds",
+            },
+            KindCase {
+                code: "R0053",
+                message: "env missing placeholder",
+                kind: DiagnosticKind::EnvironmentVariableUnavailable,
+                expected_rule_id: "environment_variable_must_be_available",
+            },
+            KindCase {
+                code: "R0061",
+                message: "readable file placeholder",
+                kind: DiagnosticKind::ReadableFilePathRequired,
+                expected_rule_id: "readable_file_path_required",
+            },
+            KindCase {
+                code: "R0123",
+                message: "readable dir placeholder",
+                kind: DiagnosticKind::ReadableDirectoryPathRequired,
+                expected_rule_id: "readable_directory_path_required",
+            },
+            KindCase {
+                code: "R0090",
+                message: "process launch placeholder",
+                kind: DiagnosticKind::ProcessCommandNotLaunchable,
+                expected_rule_id: "process_command_must_be_launchable",
+            },
+            KindCase {
+                code: "R0094",
+                message: "process capture placeholder",
+                kind: DiagnosticKind::ProcessCaptureNonZeroExit,
+                expected_rule_id: "process_capture_requires_successful_exit",
             },
         ];
 
@@ -2252,6 +2299,92 @@ sources = [\"lib\"]
     }
 
     #[test]
+    fn enhances_runtime_missing_environment_variable_with_host_rule_card() {
+        let source =
+            SourceFile::anonymous("fn main() -> i32 { println(env_get(\"AX_MISSING_KEY\")); return 0; }");
+        let analysis = analyze(&source);
+        assert!(
+            analysis.diagnostics.is_empty(),
+            "analysis should succeed before runtime failure"
+        );
+
+        let hir = analysis
+            .hir
+            .as_ref()
+            .expect("HIR should be available after successful analysis");
+        let runtime_error = run_program(&source, hir).expect_err("program should fail at runtime");
+        let mut diagnostics = vec![runtime_error];
+
+        enhance_diagnostics(&source, &analysis.program, &mut diagnostics, None)
+            .expect("ai enhancement should succeed for runtime diagnostics");
+
+        let ai = diagnostics[0]
+            .ai
+            .as_ref()
+            .expect("runtime diagnostic should have ai payload");
+        assert_eq!(diagnostics[0].code, "R0053");
+        assert_eq!(ai.rule_id, "environment_variable_must_be_available");
+    }
+
+    #[test]
+    fn enhances_runtime_argv_bounds_failure_with_host_rule_card() {
+        let source = SourceFile::anonymous(
+            "fn main() -> i32 { println(argv_get(0)); return 0; }",
+        );
+        let analysis = analyze(&source);
+        assert!(
+            analysis.diagnostics.is_empty(),
+            "analysis should succeed before runtime failure"
+        );
+
+        let hir = analysis
+            .hir
+            .as_ref()
+            .expect("HIR should be available after successful analysis");
+        let runtime_error = run_program(&source, hir).expect_err("program should fail at runtime");
+        let mut diagnostics = vec![runtime_error];
+
+        enhance_diagnostics(&source, &analysis.program, &mut diagnostics, None)
+            .expect("ai enhancement should succeed for runtime diagnostics");
+
+        let ai = diagnostics[0]
+            .ai
+            .as_ref()
+            .expect("runtime diagnostic should have ai payload");
+        assert_eq!(diagnostics[0].code, "R0048");
+        assert_eq!(ai.rule_id, "argv_index_must_stay_in_bounds");
+    }
+
+    #[test]
+    fn enhances_runtime_negative_argv_index_with_host_rule_card() {
+        let source = SourceFile::anonymous(
+            "fn main() -> i32 { println(argv_get(-1)); return 0; }",
+        );
+        let analysis = analyze(&source);
+        assert!(
+            analysis.diagnostics.is_empty(),
+            "analysis should succeed before runtime failure"
+        );
+
+        let hir = analysis
+            .hir
+            .as_ref()
+            .expect("HIR should be available after successful analysis");
+        let runtime_error = run_program(&source, hir).expect_err("program should fail at runtime");
+        let mut diagnostics = vec![runtime_error];
+
+        enhance_diagnostics(&source, &analysis.program, &mut diagnostics, None)
+            .expect("ai enhancement should succeed for runtime diagnostics");
+
+        let ai = diagnostics[0]
+            .ai
+            .as_ref()
+            .expect("runtime diagnostic should have ai payload");
+        assert_eq!(diagnostics[0].code, "R0048");
+        assert_eq!(ai.rule_id, "argv_index_must_be_non_negative");
+    }
+
+    #[test]
     fn high_value_diagnostics_keep_stable_rule_ids() {
         struct RuleCase<'a> {
             name: &'a str,
@@ -2277,11 +2410,32 @@ sources = [\"lib\"]
                 expected_rule_id: "close_parenthesized_construct",
             },
             RuleCase {
+                name: "missing_right_bracket",
+                source: "fn main() -> i32 { let values: [i32; 2 = [1, 2]; return 0; }",
+                diagnostic_code: "P0001",
+                message_fragment: "expected `]` after array type",
+                expected_rule_id: "close_bracketed_construct",
+            },
+            RuleCase {
                 name: "undefined_variable",
                 source: "fn main() -> i32 { return missing; }",
                 diagnostic_code: "S0002",
                 message_fragment: "undefined variable",
                 expected_rule_id: "variable_must_be_declared_in_scope",
+            },
+            RuleCase {
+                name: "type_name_required",
+                source: "fn main() -> i32 { let value: = 1; return 0; }",
+                diagnostic_code: "P0002",
+                message_fragment: "expected a type name",
+                expected_rule_id: "type_name_required",
+            },
+            RuleCase {
+                name: "expression_required",
+                source: "fn main() -> i32 { let value: i32 = ; return 0; }",
+                diagnostic_code: "P0003",
+                message_fragment: "expected an expression",
+                expected_rule_id: "expression_required",
             },
             RuleCase {
                 name: "immutable_assignment",

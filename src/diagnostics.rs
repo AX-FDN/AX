@@ -9,8 +9,11 @@ use crate::source::{SourceFile, Span};
 pub enum DiagnosticKind {
     MissingSemicolon,
     MissingRightParen,
+    MissingRightBracket,
     MissingRightBrace,
     TopLevelDeclarationRequired,
+    TypeNameRequired,
+    ExpressionRequired,
     EntryFileDeclaresModule,
     SupportSourceMissingModuleDeclaration,
     SupportSourceMissingManifestListing,
@@ -24,6 +27,13 @@ pub enum DiagnosticKind {
     ConditionTypeMismatch,
     ArrayIndexTypeMismatch,
     LenBuiltinTypeMismatch,
+    ArgvIndexNegative,
+    ArgvIndexOutOfBounds,
+    EnvironmentVariableUnavailable,
+    ReadableFilePathRequired,
+    ReadableDirectoryPathRequired,
+    ProcessCommandNotLaunchable,
+    ProcessCaptureNonZeroExit,
 }
 
 #[derive(Debug, Clone, Serialize)]
