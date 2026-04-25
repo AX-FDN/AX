@@ -1,0 +1,33 @@
+struct IndexTotals {
+    directories: i32,
+    files: i32,
+    text_files: i32,
+    bytes: i32,
+}
+
+fn zero_index_totals() -> IndexTotals {
+    return IndexTotals { directories: 0, files: 0, text_files: 0, bytes: 0 };
+}
+
+fn add_directory(totals: IndexTotals) -> IndexTotals {
+    return IndexTotals {
+        directories: totals.directories + 1,
+        files: totals.files,
+        text_files: totals.text_files,
+        bytes: totals.bytes,
+    };
+}
+
+fn add_file(totals: IndexTotals, size: i32, counted_as_text: bool) -> IndexTotals {
+    let mut text_files: i32 = totals.text_files;
+    if (counted_as_text) {
+        text_files = text_files + 1;
+    }
+
+    return IndexTotals {
+        directories: totals.directories,
+        files: totals.files + 1,
+        text_files: text_files,
+        bytes: totals.bytes + size,
+    };
+}

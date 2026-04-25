@@ -1,0 +1,6 @@
+manifest_version = 1
+
+[package]
+name = "project_release_promote"
+entry = "src/main.ax"
+sources = ["../../foundation", "lib"]

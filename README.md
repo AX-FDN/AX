@@ -184,6 +184,12 @@ See also:
   A multi-file AX project version of the workspace search workflow, with shared foundation helpers plus project-local search aggregation.
 - [`examples/project_command_capture/`](./examples/project_command_capture)
   A project-backed AX command capture tool that exercises `process / env / path / fs` through the shared foundation layer.
+- [`examples/project_release_promote/`](./examples/project_release_promote)
+  A project-backed AX release tool that exercises `fs_exists / fs_remove_file / fs_rename / path_*` through the shared foundation layer.
+- [`examples/project_directory_index/`](./examples/project_directory_index)
+  A project-backed AX directory inventory tool that exercises `fs_read_dir / file_kind / workspace-report` through the shared foundation layer.
+- [`examples/project_command_batch/`](./examples/project_command_batch)
+  A project-backed AX batch runner that exercises `process_run / process_run_in / env_get` through a multi-artifact workflow.
 
 ## How AX Should Be Evaluated
 

@@ -1,0 +1,15 @@
+fn build_receipt(source_path: string, promoted_path: string, replaced_existing: bool) -> string {
+    let mut report: string = "";
+    report = append_path_stat(report, "source", source_path);
+    report = append_path_stat(report, "promoted", promoted_path);
+    report = append_path_stat(report, "release_dir", path_parent(promoted_path));
+    report = append_string_stat(report, "name", path_file_name(promoted_path));
+    report = append_string_stat(report, "stem", path_stem(promoted_path));
+    report = append_string_stat(report, "extension", path_extension(promoted_path));
+    report = append_bool_stat(report, "replaced_existing", replaced_existing);
+    report = append_bool_stat(report, "source_exists_after", fs_exists(source_path));
+    report = append_bool_stat(report, "release_is_dir", fs_is_dir(path_parent(promoted_path)));
+    report = append_bool_stat(report, "promoted_is_file", fs_is_file(promoted_path));
+    report = append_int_stat(report, "size", fs_file_size(promoted_path));
+    return report + "\n";
+}

@@ -1,0 +1,55 @@
+fn main() -> i32 {
+    let args_status: i32 = require_min_args(argv_len(), 2, "examples/project_command_batch", "<working_dir> <output_dir>");
+    if (args_status != 0) {
+        return args_status;
+    }
+
+    let working_dir: string = argv_get(0);
+    let output_dir: string = argv_get(1);
+
+    let dir_status: i32 = require_directory(working_dir, "working dir", 2);
+    if (dir_status != 0) {
+        return dir_status;
+    }
+
+    let output_status: i32 = require_non_empty_text(output_dir, "output dir", 3);
+    if (output_status != 0) {
+        return output_status;
+    }
+
+    ensure_directory(output_dir);
+
+    let global_marker_path: string = path_join(output_dir, "global-ready.txt");
+    let local_marker_path: string = path_join(working_dir, "local-ready.txt");
+
+    let global_command: string = "echo global-ready";
+    let local_command: string = "echo local-ready > local-ready.txt";
+
+    let global_exit: i32 = process_run(global_command);
+    if (global_exit == 0) {
+        fs_write_string(global_marker_path, "global-ready\n");
+    }
+    let local_exit: i32 = process_run_in(working_dir, local_command);
+
+    let path_env_present: bool = env_has("PATH");
+    let mut path_length: i32 = 0;
+    if (path_env_present) {
+        path_length = len(env_get("PATH"));
+    }
+
+    let report_path: string = path_join(output_dir, "BATCH-REPORT.txt");
+    let report: string = build_report(
+        working_dir,
+        output_dir,
+        global_marker_path,
+        local_marker_path,
+        global_exit,
+        local_exit,
+        path_env_present,
+        path_length
+    );
+
+    fs_write_string(report_path, report);
+    println("batched=" + report_path);
+    return 0;
+}

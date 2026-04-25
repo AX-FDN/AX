@@ -1,0 +1,25 @@
+fn append_directory_entry(report: string, path: string, child_count: i32) -> string {
+    return append_named_line(report, path, "dir | children=" + to_string(child_count));
+}
+
+fn append_file_entry(report: string, path: string, kind: string, counted_as_text: bool, size: i32) -> string {
+    let details: string =
+        "file | kind="
+        + kind
+        + " | text="
+        + to_string(counted_as_text)
+        + " | bytes="
+        + to_string(size);
+    return append_named_line(report, path, details);
+}
+
+fn build_summary(root_dir: string, entry_count: i32, totals: IndexTotals, details: string) -> string {
+    let mut report: string = "";
+    report = append_path_stat(report, "root", root_dir);
+    report = append_int_stat(report, "entries", entry_count);
+    report = append_int_stat(report, "directories", totals.directories);
+    report = append_int_stat(report, "files", totals.files);
+    report = append_int_stat(report, "text_files", totals.text_files);
+    report = append_int_stat(report, "bytes", totals.bytes);
+    return append_section_details_or_none(report, "entries", details, "(none)");
+}

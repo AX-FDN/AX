@@ -3351,6 +3351,198 @@ fn project_command_capture_runs_on_controlled_fixture() {
 }
 
 #[test]
+fn project_release_promote_runs_on_controlled_fixture() {
+    let temp = TempDir::new("project-release-promote");
+    let incoming_dir = temp.join("incoming");
+    let release_dir = temp.join("release");
+    fs::create_dir_all(&incoming_dir).expect("incoming directory should exist");
+    fs::create_dir_all(&release_dir).expect("release directory should exist");
+
+    let input_text = "release build v2\n";
+    let input_path = incoming_dir.join("release-notes.txt");
+    fs::write(&input_path, input_text).expect("input file should exist");
+    fs::write(release_dir.join("release-notes.txt"), "old build\n")
+        .expect("existing promoted file should exist");
+
+    let output = run_axc([
+        OsStr::new("run"),
+        OsStr::new("examples/project_release_promote"),
+        OsStr::new("--"),
+        input_path.as_os_str(),
+        release_dir.as_os_str(),
+    ]);
+    assert_eq!(output.status.code(), Some(0));
+    assert_clean_stderr(&output);
+
+    let stdout = normalize_temp_output(&string_output(&output.stdout), &temp);
+    assert_eq!(stdout, "promoted=<root>/release/release-notes.txt\n");
+
+    assert!(
+        !input_path.exists(),
+        "source file should be moved into the release directory"
+    );
+
+    let promoted_path = release_dir.join("release-notes.txt");
+    assert!(
+        promoted_path.exists(),
+        "promoted file should exist in the release directory"
+    );
+    assert_eq!(
+        fs::read_to_string(&promoted_path).expect("promoted file should be readable"),
+        input_text
+    );
+
+    let receipt = normalize_temp_output(
+        &fs::read_to_string(release_dir.join("release-notes.receipt.txt"))
+            .expect("promotion receipt should exist"),
+        &temp,
+    );
+    let expected_receipt = format!(
+        "\
+source=<root>/incoming/release-notes.txt
+promoted=<root>/release/release-notes.txt
+release_dir=<root>/release
+name=release-notes.txt
+stem=release-notes
+extension=txt
+replaced_existing=true
+source_exists_after=false
+release_is_dir=true
+promoted_is_file=true
+size={}
+",
+        input_text.len()
+    );
+    assert_eq!(receipt, expected_receipt);
+}
+
+#[test]
+fn project_directory_index_runs_on_controlled_fixture() {
+    let temp = TempDir::new("project-directory-index");
+    let workspace_dir = temp.join("workspace");
+    let docs_dir = workspace_dir.join("docs");
+    fs::create_dir_all(&docs_dir).expect("docs directory should exist");
+
+    let app_text = "fn main() {}\n";
+    let notes_text = "# Notes\nTODO refine\n";
+    let blob_bytes = b"\x01\x02\x03\x04";
+
+    fs::write(workspace_dir.join("app.ax"), app_text).expect("app.ax should exist");
+    fs::write(workspace_dir.join("notes.md"), notes_text).expect("notes.md should exist");
+    fs::write(workspace_dir.join("blob.bin"), blob_bytes).expect("blob.bin should exist");
+    fs::write(docs_dir.join("guide.md"), "## Guide\n").expect("guide.md should exist");
+
+    let output_path = temp.join("index.txt");
+    let output = run_axc([
+        OsStr::new("run"),
+        OsStr::new("examples/project_directory_index"),
+        OsStr::new("--"),
+        workspace_dir.as_os_str(),
+        output_path.as_os_str(),
+    ]);
+    assert_eq!(output.status.code(), Some(0));
+    assert_clean_stderr(&output);
+
+    let stdout = normalize_temp_output(&string_output(&output.stdout), &temp);
+    assert_eq!(stdout, "indexed=<root>/index.txt\n");
+
+    let report = normalize_temp_output(
+        &fs::read_to_string(&output_path).expect("directory index report should exist"),
+        &temp,
+    );
+    let expected = format!(
+        "\
+root=<root>/workspace
+entries=4
+directories=1
+files=3
+text_files=2
+bytes={}
+
+entries:
+app.ax | file | kind=ax | text=true | bytes={}
+blob.bin | file | kind=plain | text=false | bytes={}
+docs | dir | children=1
+notes.md | file | kind=markdown | text=true | bytes={}
+",
+        app_text.len() + blob_bytes.len() + notes_text.len(),
+        app_text.len(),
+        blob_bytes.len(),
+        notes_text.len(),
+    );
+    assert_eq!(report, expected);
+}
+
+#[test]
+fn project_command_batch_runs_on_controlled_fixture() {
+    let temp = TempDir::new("project-command-batch");
+    let workspace_dir = temp.join("workspace");
+    let output_dir = temp.join("batch-out");
+    fs::create_dir_all(&workspace_dir).expect("workspace directory should exist");
+
+    let output = run_axc([
+        OsStr::new("run"),
+        OsStr::new("examples/project_command_batch"),
+        OsStr::new("--"),
+        workspace_dir.as_os_str(),
+        output_dir.as_os_str(),
+    ]);
+    assert_eq!(output.status.code(), Some(0));
+    assert_clean_stderr(&output);
+
+    let stdout = normalize_temp_output(&string_output(&output.stdout), &temp);
+    assert_eq!(
+        stdout,
+        "global-ready\nbatched=<root>/batch-out/BATCH-REPORT.txt\n"
+    );
+
+    let global_marker = output_dir.join("global-ready.txt");
+    let local_marker = workspace_dir.join("local-ready.txt");
+    assert_eq!(
+        normalize_text(&fs::read_to_string(&global_marker).expect("global marker should exist")),
+        "global-ready\n"
+    );
+    assert_eq!(
+        normalize_text(&fs::read_to_string(&local_marker).expect("local marker should exist"))
+            .trim(),
+        "local-ready"
+    );
+
+    let path_value = std::env::var("PATH").ok();
+    let expected_path_present = path_value.is_some();
+    let expected_path_length = path_value
+        .as_deref()
+        .map(|value| value.chars().count())
+        .unwrap_or(0);
+
+    let report = normalize_temp_output(
+        &fs::read_to_string(output_dir.join("BATCH-REPORT.txt"))
+            .expect("batch report should exist"),
+        &temp,
+    );
+    let expected = format!(
+        "\
+working_dir=<root>/workspace
+output_dir=<root>/batch-out
+global_marker=<root>/batch-out/global-ready.txt
+local_marker=<root>/workspace/local-ready.txt
+global_exit=0
+local_exit=0
+path_env_present={}
+path_length={}
+global_marker_exists=true
+local_marker_exists=true
+
+markers:
+global-ready.txt | global-ready
+local-ready.txt | local-ready
+",
+        expected_path_present, expected_path_length
+    );
+    assert_eq!(report, expected);
+}
+
+#[test]
 fn project_docs_release_runs_on_controlled_fixture() {
     let temp = TempDir::new("project-docs-release");
     let docs_dir = temp.join("docs");

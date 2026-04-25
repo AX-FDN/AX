@@ -1,0 +1,29 @@
+struct IndexedEntry {
+    report: string,
+    totals: IndexTotals,
+}
+
+fn index_entry(report: string, totals: IndexTotals, path: string) -> IndexedEntry {
+    if (fs_is_dir(path)) {
+        let children: [string] = fs_read_dir(path);
+        return IndexedEntry {
+            report: append_directory_entry(report, path, len(children)),
+            totals: add_directory(totals),
+        };
+    }
+
+    if (fs_is_file(path)) {
+        let kind: string = classify_file_kind(path);
+        let counted_as_text: bool = is_text_file(path);
+        let size: i32 = fs_file_size(path);
+        return IndexedEntry {
+            report: append_file_entry(report, path, kind, counted_as_text, size),
+            totals: add_file(totals, size, counted_as_text),
+        };
+    }
+
+    return IndexedEntry {
+        report: append_named_line(report, path, "other | kind=" + classify_file_kind(path)),
+        totals: totals,
+    };
+}
