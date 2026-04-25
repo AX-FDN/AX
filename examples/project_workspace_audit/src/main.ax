@@ -39,7 +39,7 @@ fn main() -> i32 {
             totals = audited.totals;
         }
     }
-    fs_write_string(output_path, build_summary(root_dir, len(entries), totals) + entry_report);
+    fs_write_string(output_path, append_section_details(build_summary(root_dir, len(entries), totals), "entries", entry_report));
     println("audited=" + output_path);
     return 0;
 }

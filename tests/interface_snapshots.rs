@@ -3294,6 +3294,63 @@ action_items={}
 }
 
 #[test]
+fn project_command_capture_runs_on_controlled_fixture() {
+    let temp = TempDir::new("project-command-capture");
+    let workspace_dir = temp.join("workspace");
+    fs::create_dir_all(&workspace_dir).expect("workspace directory should exist");
+
+    let output_path = temp.join("command-report.txt");
+    let output = run_axc([
+        OsStr::new("run"),
+        OsStr::new("examples/project_command_capture"),
+        OsStr::new("--"),
+        workspace_dir.as_os_str(),
+        OsStr::new("echo repair-ready"),
+        output_path.as_os_str(),
+    ]);
+    assert_eq!(output.status.code(), Some(0));
+    assert_clean_stderr(&output);
+
+    let stdout = normalize_temp_output(&string_output(&output.stdout), &temp);
+    assert_eq!(stdout, "captured=<root>/command-report.txt\n");
+
+    let report = normalize_temp_output(
+        &fs::read_to_string(&output_path).expect("command capture report should exist"),
+        &temp,
+    );
+    assert!(
+        report.contains("working_dir=<root>/workspace\n"),
+        "expected working directory in report, got:\n{}",
+        report
+    );
+    assert!(
+        report.contains("command=echo repair-ready\n"),
+        "expected command in report, got:\n{}",
+        report
+    );
+    assert!(
+        report.contains("lines=1\n"),
+        "expected single-line command output stats, got:\n{}",
+        report
+    );
+    assert!(
+        report.contains("nonempty=1\n"),
+        "expected nonempty output stats, got:\n{}",
+        report
+    );
+    assert!(
+        report.contains("path_env_present="),
+        "expected environment presence stat, got:\n{}",
+        report
+    );
+    assert!(
+        report.contains("\n\noutput:\nrepair-ready\n"),
+        "expected captured command output section, got:\n{}",
+        report
+    );
+}
+
+#[test]
 fn project_docs_release_runs_on_controlled_fixture() {
     let temp = TempDir::new("project-docs-release");
     let docs_dir = temp.join("docs");
@@ -4295,18 +4352,27 @@ fn project_workspace_search_report_build_copies_real_example_source_tree() {
             .exists(),
         "build should copy the example helper sources"
     );
-    assert!(
-        out_dir
-            .join("project-sources")
-            .join("external")
-            .join("foundation")
-            .join("cli.ax")
-            .exists(),
-        "build should copy shared sibling foundation sources"
-    );
+      assert!(
+          out_dir
+              .join("project-sources")
+              .join("external")
+              .join("foundation")
+              .join("cli.ax")
+              .exists(),
+          "build should copy shared sibling foundation sources"
+      );
+      assert!(
+          out_dir
+              .join("project-sources")
+              .join("external")
+              .join("foundation")
+              .join("search.ax")
+              .exists(),
+          "build should copy shared foundation search helpers"
+      );
 
-    let manifest: Value = serde_json::from_str(
-        &fs::read_to_string(out_dir.join("build-manifest.json"))
+      let manifest: Value = serde_json::from_str(
+          &fs::read_to_string(out_dir.join("build-manifest.json"))
             .expect("project build manifest should be readable"),
     )
     .expect("project build manifest should be valid JSON");
@@ -4316,11 +4382,11 @@ fn project_workspace_search_report_build_copies_real_example_source_tree() {
             "external/foundation/cli.ax".to_string(),
             "external/foundation/file_kind.ax".to_string(),
             "external/foundation/report.ax".to_string(),
+            "external/foundation/search.ax".to_string(),
             "external/foundation/text.ax".to_string(),
             "external/foundation/workspace.ax".to_string(),
             "lib/file_search.ax".to_string(),
             "lib/report.ax".to_string(),
-            "lib/search_stats.ax".to_string(),
             "lib/search_totals.ax".to_string(),
             "src/main.ax".to_string(),
         ]

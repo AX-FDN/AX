@@ -3,4 +3,4 @@ manifest_version = 1
 [package]
 name = "project_workspace_search_report"
 entry = "src/main.ax"
-sources = ["../foundation", "lib"]
+sources = ["../../foundation", "lib"]

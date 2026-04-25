@@ -12,7 +12,7 @@ fn append_file_line(report: string, path: string, depth: i32, size: i32, counted
 
 fn build_summary(root_dir: string, entry_count: i32, totals: AuditTotals) -> string {
     let mut report: string = "";
-    report = append_string_stat(report, "root", path_resolve(root_dir));
+    report = append_path_stat(report, "root", root_dir);
     report = append_string_stat(report, "scope", "top-level + one nested level");
     report = append_int_stat(report, "top_level_entries", entry_count);
     report = append_int_stat(report, "directories", totals.directories);
@@ -23,5 +23,5 @@ fn build_summary(root_dir: string, entry_count: i32, totals: AuditTotals) -> str
     report = append_int_stat(report, "nonempty", totals.nonempty);
     report = append_int_stat(report, "headings", totals.headings);
     report = append_int_stat(report, "action_items", totals.action_items);
-    return report + "\n\nentries:\n";
+    return report;
 }

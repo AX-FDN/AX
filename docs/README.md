@@ -45,5 +45,7 @@ Real workload examples currently live in [`../examples/`](../examples/):
   Multi-file AX project for workspace auditing, combining shared foundation helpers with project-local auditing logic.
 - [`../examples/project_workspace_search_report/`](../examples/project_workspace_search_report/)
   Multi-file AX project for workspace search reporting, combining shared foundation helpers with project-local search logic.
+- [`../examples/project_command_capture/`](../examples/project_command_capture/)
+  Project-backed command capture tool showing how AX can wrap `process / env / path / fs` through the shared foundation layer.
 
 Read [`../README.md`](../README.md) for the AX design statement and project entry, [`../详细介绍.md`](../详细介绍.md) for practical commands and benchmark workflow, [`../PLAN.md`](../PLAN.md) for roadmap and project policy, and [`../SYNTAX.md`](../SYNTAX.md) for the current prototype grammar.

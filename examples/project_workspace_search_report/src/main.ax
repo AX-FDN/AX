@@ -41,12 +41,7 @@ fn main() -> i32 {
             }
         }
     }
-    let mut summary: string = build_summary(root_dir, needle, totals);
-    if (string_len(match_report) == 0) {
-        summary = summary + "(none)\n";
-    } else {
-        summary = summary + match_report;
-    }
+    let summary: string = append_section_details_or_none(build_summary(root_dir, needle, totals), "matches", match_report, "(none)");
     fs_write_string(output_path, summary);
     println("searched=" + output_path);
     return 0;

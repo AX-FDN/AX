@@ -394,6 +394,7 @@ mod tests {
         assert!(relative_paths.contains(&"external/foundation/cli.ax".to_string()));
         assert!(relative_paths.contains(&"external/foundation/file_kind.ax".to_string()));
         assert!(relative_paths.contains(&"external/foundation/report.ax".to_string()));
+        assert!(relative_paths.contains(&"external/foundation/search.ax".to_string()));
         assert!(relative_paths.contains(&"external/foundation/text.ax".to_string()));
         assert!(relative_paths.contains(&"external/foundation/workspace.ax".to_string()));
         assert!(relative_paths.contains(&"lib/file_search.ax".to_string()));

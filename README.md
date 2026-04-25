@@ -128,7 +128,7 @@ rustup toolchain install stable-x86_64-pc-windows-gnu --profile minimal -c rustf
 
 AX now includes medium, end-to-end tool-style examples that exercise the current host boundary instead of only showing toy syntax fragments.
 
-Under that example layer, AX now also has a first shared AX-side foundation in [`examples/foundation/`](./examples/foundation/). It holds reusable helpers for CLI guards, report assembly, text stats, file-kind filters, and workspace labels so multi-file AX projects can start sharing code instead of cloning one-off helpers.
+Under that example layer, AX now also has a first shared AX-side foundation in [`foundation/`](./foundation/). It holds reusable helpers for CLI guards, report assembly, text analysis and search, file-kind filters, and workspace labels so multi-file AX projects can start sharing code instead of cloning one-off helpers.
 
 - [`examples/workspace_audit.ax`](./examples/workspace_audit.ax)
   Audits a workspace at top level plus one nested level and writes a report with file counts, bytes, lines, headings, and action items.
@@ -182,6 +182,8 @@ See also:
   A multi-file AX project version of the workspace audit workflow, with shared foundation helpers plus project-local auditing logic.
 - [`examples/project_workspace_search_report/`](./examples/project_workspace_search_report)
   A multi-file AX project version of the workspace search workflow, with shared foundation helpers plus project-local search aggregation.
+- [`examples/project_command_capture/`](./examples/project_command_capture)
+  A project-backed AX command capture tool that exercises `process / env / path / fs` through the shared foundation layer.
 
 ## How AX Should Be Evaluated
 

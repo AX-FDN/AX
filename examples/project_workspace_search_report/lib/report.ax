@@ -5,7 +5,7 @@ fn append_match_line(report: string, path: string, depth: i32, size: i32, stats:
 
 fn build_summary(root_dir: string, needle: string, totals: SearchTotals) -> string {
     let mut report: string = "";
-    report = append_string_stat(report, "root", path_resolve(root_dir));
+    report = append_path_stat(report, "root", root_dir);
     report = append_string_stat(report, "needle", needle);
     report = append_string_stat(report, "scope", "top-level + one nested level");
     report = append_int_stat(report, "searchable_files", totals.searchable_files);
@@ -13,5 +13,5 @@ fn build_summary(root_dir: string, needle: string, totals: SearchTotals) -> stri
     report = append_int_stat(report, "bytes", totals.bytes);
     report = append_int_stat(report, "lines", totals.lines);
     report = append_int_stat(report, "matched_lines", totals.matched_lines);
-    return report + "\n\nmatches:\n";
+    return report;
 }

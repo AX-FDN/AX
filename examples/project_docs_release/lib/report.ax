@@ -1,7 +1,7 @@
 fn build_receipt(source_path: string, destination_path: string, copied_bytes: i32, stats: TextStats) -> string {
     let mut report: string = "";
-    report = append_string_stat(report, "source", path_resolve(source_path));
-    report = append_string_stat(report, "destination", path_resolve(destination_path));
+    report = append_path_stat(report, "source", source_path);
+    report = append_path_stat(report, "destination", destination_path);
     report = append_int_stat(report, "bytes", copied_bytes);
     report = append_int_stat(report, "lines", stats.lines);
     report = append_int_stat(report, "headings", stats.headings);
@@ -24,8 +24,8 @@ fn append_doc_detail(report: string, path: string, copied_bytes: i32, stats: Tex
 
 fn build_summary(source_dir: string, snapshot_dir: string, entries_seen: i32, totals: SnapshotTotals, detail_report: string) -> string {
     let mut report: string = "";
-    report = append_string_stat(report, "source", path_resolve(source_dir));
-    report = append_string_stat(report, "snapshot", path_resolve(snapshot_dir));
+    report = append_path_stat(report, "source", source_dir);
+    report = append_path_stat(report, "snapshot", snapshot_dir);
     report = append_int_stat(report, "entries_seen", entries_seen);
     report = append_int_stat(report, "copied_files", totals.copied_files);
     report = append_int_stat(report, "skipped_entries", totals.skipped_entries);
@@ -33,5 +33,5 @@ fn build_summary(source_dir: string, snapshot_dir: string, entries_seen: i32, to
     report = append_int_stat(report, "lines", totals.lines);
     report = append_int_stat(report, "headings", totals.headings);
     report = append_int_stat(report, "action_items", totals.action_items);
-    return report + "\n\nfiles:\n" + detail_report;
+    return append_section_details(report, "files", detail_report);
 }
