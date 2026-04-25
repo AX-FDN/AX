@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 use crate::ast::{ItemKind, Program, TypeRef};
-use crate::diagnostics::Diagnostic;
+use crate::diagnostics::{Diagnostic, DiagnosticKind};
 use crate::project::Project;
 use crate::source::SourceFile;
 
@@ -55,6 +55,7 @@ impl<'a> ProgramInfo<'a> {
                                 source,
                                 import.span,
                             )
+                            .with_kind(DiagnosticKind::DuplicateModuleImport)
                             .with_suggestion("keep only one import for each module path"),
                         );
                     }
@@ -69,6 +70,7 @@ impl<'a> ProgramInfo<'a> {
                                 source,
                                 module.span,
                             )
+                            .with_kind(DiagnosticKind::EntryFileDeclaresModule)
                             .with_note(
                                 "the project entry remains the manifest-owned root unit for `fn main() -> i32`",
                             )
@@ -86,6 +88,7 @@ impl<'a> ProgramInfo<'a> {
                             source,
                             unit.span,
                         )
+                        .with_kind(DiagnosticKind::SupportSourceMissingModuleDeclaration)
                         .with_note(format!(
                             "support source `{}` must declare its module path before top-level items",
                             unit.path
@@ -109,6 +112,7 @@ impl<'a> ProgramInfo<'a> {
                             source,
                             module.span,
                         )
+                        .with_kind(DiagnosticKind::ModulePathMismatch)
                         .with_note(format!(
                             "AX derives the minimal module path from the support-source root and the file path of `{}`",
                             unit.path
@@ -125,6 +129,7 @@ impl<'a> ProgramInfo<'a> {
                             source,
                             module.span,
                         )
+                        .with_kind(DiagnosticKind::DuplicateModulePath)
                         .with_suggestion(
                             "rename or move one of the support files so each module path is unique",
                         ),
@@ -142,6 +147,7 @@ impl<'a> ProgramInfo<'a> {
                                 source,
                                 import.span,
                             )
+                            .with_kind(DiagnosticKind::ImportedModuleMissing)
                             .with_suggestion(
                                 "import an existing support module declared in this project",
                             ),
@@ -461,6 +467,7 @@ impl<'a> ProgramInfo<'a> {
                     self.source,
                     span,
                 )
+                .with_kind(DiagnosticKind::CrossModuleReferenceMissingImport)
                 .with_note(
                     "AX minimal module mode requires explicit imports for cross-module references",
                 )
@@ -519,6 +526,7 @@ fn collect_unit_contexts(
                     source,
                     unit.span,
                 )
+                .with_kind(DiagnosticKind::SupportSourceMissingManifestListing)
                 .with_suggestion("add the file or its parent directory to `[package].sources`"),
             );
         }

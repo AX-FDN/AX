@@ -1,5 +1,5 @@
 use crate::ast::Expr;
-use crate::diagnostics::Diagnostic;
+use crate::diagnostics::{Diagnostic, DiagnosticKind};
 
 use super::{Type, TypeChecker};
 
@@ -407,6 +407,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                                 self.info.source,
                                 expr.span,
                             )
+                            .with_kind(DiagnosticKind::LenBuiltinTypeMismatch)
                             .with_note(
                                 "`len` is the general traversal-length builtin for strings, string lists, fixed-size arrays, and slices",
                             )

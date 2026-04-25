@@ -1,5 +1,5 @@
 use crate::ast::Expr;
-use crate::diagnostics::Diagnostic;
+use crate::diagnostics::{Diagnostic, DiagnosticKind};
 
 use super::{Type, TypeChecker};
 
@@ -65,7 +65,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 }
 
                 for (argument, parameter) in argument_types.iter().zip(signature.params.iter()) {
-                    self.expect_type_match(
+                    self.expect_type_match_with_kind(
                         &parameter.ty,
                         argument,
                         expr.span,
@@ -75,6 +75,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                             parameter.ty.describe(),
                             argument.describe()
                         ),
+                        DiagnosticKind::FunctionArgumentTypeMismatch,
                     );
                 }
 

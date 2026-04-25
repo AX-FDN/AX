@@ -5,6 +5,27 @@ use serde::Serialize;
 use crate::ai::AiDiagnostic;
 use crate::source::{SourceFile, Span};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DiagnosticKind {
+    MissingSemicolon,
+    MissingRightParen,
+    MissingRightBrace,
+    TopLevelDeclarationRequired,
+    EntryFileDeclaresModule,
+    SupportSourceMissingModuleDeclaration,
+    SupportSourceMissingManifestListing,
+    ModulePathMismatch,
+    DuplicateModulePath,
+    DuplicateModuleImport,
+    ImportedModuleMissing,
+    CrossModuleReferenceMissingImport,
+    FunctionArgumentTypeMismatch,
+    ReturnTypeMismatch,
+    ConditionTypeMismatch,
+    ArrayIndexTypeMismatch,
+    LenBuiltinTypeMismatch,
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct Diagnostic {
     pub code: String,
@@ -16,6 +37,8 @@ pub struct Diagnostic {
     pub suggestion: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ai: Option<AiDiagnostic>,
+    #[serde(skip)]
+    kind: Option<DiagnosticKind>,
 }
 
 impl Diagnostic {
@@ -34,6 +57,7 @@ impl Diagnostic {
             expected: Vec::new(),
             suggestion: None,
             ai: None,
+            kind: None,
         }
     }
 
@@ -55,6 +79,15 @@ impl Diagnostic {
     pub fn with_ai(mut self, ai: AiDiagnostic) -> Self {
         self.ai = Some(ai);
         self
+    }
+
+    pub fn with_kind(mut self, kind: DiagnosticKind) -> Self {
+        self.kind = Some(kind);
+        self
+    }
+
+    pub fn kind(&self) -> Option<DiagnosticKind> {
+        self.kind
     }
 }
 

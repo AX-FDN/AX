@@ -299,6 +299,9 @@
 - 进展：2026-04-25 已补 qualified function/type/enum 的 HIR lowering 兼容，`examples/project_module_smoke/` 现已可稳定走到 `axc hir` 与 `axc run`；剩余收尾重点转为 AI rule/benchmark 资产同步，以及更完整的模块模式回归覆盖。
 - 进展：2026-04-25 已把 AI 反馈层对齐当前模块实现，移除旧的 “import/module 尚未支持” guidance，改为稳定覆盖 `S0037`-`S0043` 模块诊断；并补上 project 级 AI rule 测试，确认缺少 `module` 声明、缺少 `import`、导入不存在模块等场景都有稳定 `rule_id`。
 - 进展：2026-04-25 已把 repair benchmark 的旧模块占位 case 同步到当前实现：`examples/import_unsupported.ax` / `examples/module_unsupported.ax` 现改为最小模块模式误用样例，manifest 预期也切到 `S0042` / `S0037` 与对应 `rule_id`；同时更新了 [`docs/import-module-minimal-design.md`](C:/Users/xiaoy/Desktop/A语言/AX/docs/import-module-minimal-design.md) 和 benchmark prompt 文案，去掉“modules/imports 尚未实现”的过时说法。
+- 进展：2026-04-25 已给这批模块诊断和首批高价值 `S0022` 变体补上稳定 `DiagnosticKind`，`src/ai.rs` 现会优先按内部语义标签映射 `rule_id`，而不是继续把规则绑定在 `message.contains(...)` 上；新增 `stable_diagnostic_kinds_drive_rule_matching_without_old_message_text` 回归测试，并已通过 `cargo +stable-x86_64-pc-windows-gnu test --lib`。
+- 进展：2026-04-25 已继续把 parser 侧高频 `P0001` 诊断接入稳定 `DiagnosticKind`，当前覆盖缺分号、缺右括号、缺右花括号与顶层声明错误；`src/ai.rs` 对这批规则也已优先走 kind 映射，同时保留 `match` 误写场景的特判，避免被普通缺分号规则吞掉。
+- 进展：2026-04-25 已让 parser 的详细提示生成也优先消费 `DiagnosticKind`，不再只靠 `message.contains(...)` 决定补充 note/suggestion；新增 “文案改掉但 kind 不变时，帮助信息仍保留” 的回归测试，并复跑 `cargo +stable-x86_64-pc-windows-gnu test --lib` 与两条 diagnostics interface snapshot。
 
 ## P2
 

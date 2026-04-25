@@ -1,5 +1,5 @@
 use crate::ast::{Block, Expr, Stmt, StmtKind};
-use crate::diagnostics::Diagnostic;
+use crate::diagnostics::{Diagnostic, DiagnosticKind};
 
 use super::{Type, TypeChecker, return_type_message};
 
@@ -28,11 +28,12 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             Some(expr) => self.check_expr(expr),
             None => Type::Void,
         };
-        self.expect_type_match(
+        self.expect_type_match_with_kind(
             &self.return_type.clone(),
             &actual_type,
             statement.span,
             return_type_message(&self.return_type, &actual_type),
+            DiagnosticKind::ReturnTypeMismatch,
         );
     }
 
@@ -107,7 +108,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
 
     fn check_condition(&mut self, keyword: &str, condition: &Expr) {
         let condition_type = self.check_expr(condition);
-        self.expect_type_match(
+        self.expect_type_match_with_kind(
             &Type::Bool,
             &condition_type,
             condition.span,
@@ -115,6 +116,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 "`{keyword}` condition must be `bool`, found `{}`",
                 condition_type.describe()
             ),
+            DiagnosticKind::ConditionTypeMismatch,
         );
     }
 }

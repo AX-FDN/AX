@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use crate::ast::{Expr, StructLiteralField};
-use crate::diagnostics::Diagnostic;
+use crate::diagnostics::{Diagnostic, DiagnosticKind};
 
 use super::{Type, TypeChecker};
 
@@ -238,7 +238,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
     pub(super) fn check_index_expr(&mut self, expr: &Expr, base: &Expr, index: &Expr) -> Type {
         let base_type = self.check_expr(base);
         let index_type = self.check_expr(index);
-        self.expect_type_match(
+        self.expect_type_match_with_kind(
             &Type::I32,
             &index_type,
             index.span,
@@ -246,6 +246,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 "array index must be `i32`, found `{}`",
                 index_type.describe()
             ),
+            DiagnosticKind::ArrayIndexTypeMismatch,
         );
 
         match base_type {

@@ -2,7 +2,7 @@ use crate::ast::{
     BinaryOp, Block, EnumVariant, Expr, ExprKind, ImportDecl, Item, ItemKind, ModuleDecl, Param,
     Program, SourceUnit, Stmt, StmtKind, StructField, StructLiteralField, TypeRef, UnaryOp,
 };
-use crate::diagnostics::Diagnostic;
+use crate::diagnostics::{Diagnostic, DiagnosticKind};
 use crate::source::{SourceFile, Span};
 use crate::token::{Token, TokenKind};
 
@@ -920,6 +920,9 @@ impl<'a> Parser<'a> {
         for entry in expected {
             diagnostic = diagnostic.with_expected(*entry);
         }
+        if let Some(kind) = parse_error_kind(code, message, expected) {
+            diagnostic = diagnostic.with_kind(kind);
+        }
         diagnostic = enrich_parse_error(diagnostic, &token, message);
         self.diagnostics.push(diagnostic);
     }
@@ -1013,8 +1016,61 @@ impl<'a> Parser<'a> {
     }
 }
 
+fn parse_error_kind(code: &str, message: &str, expected: &[&str]) -> Option<DiagnosticKind> {
+    if code != "P0001" {
+        return None;
+    }
+
+    if message == "expected a top-level declaration" {
+        return Some(DiagnosticKind::TopLevelDeclarationRequired);
+    }
+
+    if expected.contains(&"`;`") {
+        return Some(DiagnosticKind::MissingSemicolon);
+    }
+
+    if expected.contains(&"`)`") {
+        return Some(DiagnosticKind::MissingRightParen);
+    }
+
+    if expected.contains(&"`}`") {
+        return Some(DiagnosticKind::MissingRightBrace);
+    }
+
+    None
+}
+
 fn enrich_parse_error(mut diagnostic: Diagnostic, token: &Token, message: &str) -> Diagnostic {
     diagnostic = diagnostic.with_note(format!("found {} instead", describe_token(token)));
+
+    if let Some(kind) = diagnostic.kind() {
+        match kind {
+            DiagnosticKind::MissingSemicolon => {
+                return diagnostic
+                    .with_note(
+                        "AX uses explicit semicolons after `let`, assignments, expression statements, and `return`.",
+                    )
+                    .with_suggestion("insert `;` before the next statement or closing `}`");
+            }
+            DiagnosticKind::MissingRightParen => {
+                return diagnostic
+                    .with_note(
+                        "this usually means a condition, grouped expression, call, or `for` header was left open",
+                    )
+                    .with_suggestion("insert `)` to close the current parenthesized construct");
+            }
+            DiagnosticKind::MissingRightBrace => {
+                return diagnostic
+                    .with_note("AX closes blocks and struct literals with `}`")
+                    .with_suggestion("insert `}` to close the current block or literal");
+            }
+            DiagnosticKind::TopLevelDeclarationRequired => {
+                return diagnostic
+                    .with_suggestion("start a top-level item with `fn`, `struct`, or `enum`");
+            }
+            _ => {}
+        }
+    }
 
     if message.contains("expected `;`") {
         return diagnostic
@@ -1082,10 +1138,12 @@ fn describe_token(token: &Token) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::parse;
+    use super::{enrich_parse_error, parse};
     use crate::ast::{ExprKind, ItemKind, StmtKind};
+    use crate::diagnostics::{Diagnostic, DiagnosticKind};
     use crate::lexer::tokenize;
-    use crate::source::SourceFile;
+    use crate::source::{SourceFile, Span};
+    use crate::token::{Token, TokenKind};
     use std::path::PathBuf;
 
     #[test]
@@ -1358,6 +1416,7 @@ fn main() -> i32 {
                 .iter()
                 .any(|note| note.contains("explicit semicolons"))
         );
+        assert_eq!(diagnostic.kind(), Some(DiagnosticKind::MissingSemicolon));
         assert_eq!(
             diagnostic.suggestion.as_deref(),
             Some("insert `;` before the next statement or closing `}`")
@@ -1385,9 +1444,32 @@ fn main() -> i32 {
                 .iter()
                 .any(|note| note.contains("left open"))
         );
+        assert_eq!(diagnostic.kind(), Some(DiagnosticKind::MissingRightParen));
         assert_eq!(
             diagnostic.suggestion.as_deref(),
             Some("insert `)` to close the current parenthesized construct")
+        );
+    }
+
+    #[test]
+    fn enriches_missing_right_brace_diagnostic_with_stable_kind() {
+        let source = SourceFile::anonymous("fn main() -> i32 { if (true) { return 1; }");
+        let tokens = tokenize(&source).tokens;
+        let output = parse(&source, tokens);
+        let diagnostic = output
+            .diagnostics
+            .iter()
+            .find(|diagnostic| {
+                diagnostic
+                    .message
+                    .contains("expected `}` to close the block")
+            })
+            .expect("missing right brace diagnostic should exist");
+
+        assert_eq!(diagnostic.kind(), Some(DiagnosticKind::MissingRightBrace));
+        assert_eq!(
+            diagnostic.suggestion.as_deref(),
+            Some("insert `}` to close the current block or literal")
         );
     }
 
@@ -1412,6 +1494,57 @@ fn main() -> i32 {
         assert_eq!(
             diagnostic.suggestion.as_deref(),
             Some("insert `]` to close the current bracketed construct")
+        );
+    }
+
+    #[test]
+    fn classifies_top_level_declaration_error_with_stable_kind() {
+        let source = SourceFile::anonymous("let value: i32 = 1;");
+        let tokens = tokenize(&source).tokens;
+        let output = parse(&source, tokens);
+        let diagnostic = output
+            .diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.message == "expected a top-level declaration")
+            .expect("top-level declaration diagnostic should exist");
+
+        assert_eq!(
+            diagnostic.kind(),
+            Some(DiagnosticKind::TopLevelDeclarationRequired)
+        );
+        assert_eq!(
+            diagnostic.suggestion.as_deref(),
+            Some("start a top-level item with `fn`, `struct`, or `enum`")
+        );
+    }
+
+    #[test]
+    fn stable_kind_keeps_parse_help_even_if_message_text_changes() {
+        let source = SourceFile::anonymous("fn main() -> i32 { return 0 }");
+        let token = Token {
+            kind: TokenKind::RBrace,
+            lexeme: "}".to_string(),
+            span: Span::new(27, 28),
+        };
+        let diagnostic = Diagnostic::new(
+            "P0001",
+            "placeholder parser wording",
+            &source,
+            token.span,
+        )
+        .with_kind(DiagnosticKind::MissingSemicolon);
+
+        let enriched = enrich_parse_error(diagnostic, &token, "placeholder parser wording");
+
+        assert!(
+            enriched
+                .notes
+                .iter()
+                .any(|note| note.contains("explicit semicolons"))
+        );
+        assert_eq!(
+            enriched.suggestion.as_deref(),
+            Some("insert `;` before the next statement or closing `}`")
         );
     }
 }

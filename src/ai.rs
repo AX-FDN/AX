@@ -5,7 +5,7 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 
 use crate::ast::{Block, Expr, ExprKind, Item, ItemKind, Program, Stmt, StmtKind, TypeRef};
-use crate::diagnostics::Diagnostic;
+use crate::diagnostics::{Diagnostic, DiagnosticKind};
 use crate::source::{SourceFile, Span};
 
 #[derive(Debug, Clone, Serialize)]
@@ -161,13 +161,22 @@ struct RuleTemplate {
 
 fn match_rule(source: &SourceFile, diagnostic: &Diagnostic) -> Option<RuleTemplate> {
     let expects = diagnostic.expected.join(" ");
+    if diagnostic.code == "P0001" && looks_like_match_attempt(source, diagnostic) {
+        return Some(RULE_MATCH_NOT_SUPPORTED);
+    }
+
+    if let Some(kind) = diagnostic.kind()
+        && let Some(rule) = match_rule_by_kind(kind)
+    {
+        return Some(rule);
+    }
+
     match diagnostic.code.as_str() {
         "L0001" => Some(RULE_UNEXPECTED_CHARACTER),
         "L0002" => Some(RULE_UNTERMINATED_STRING_LITERAL),
         "L0003" => Some(RULE_INTEGER_LITERAL_SYNTAX),
         "L0004" => Some(RULE_FLOAT_LITERAL_SYNTAX),
         "L0005" => Some(RULE_SUPPORTED_STRING_ESCAPE_REQUIRED),
-        "P0001" if looks_like_match_attempt(source, diagnostic) => Some(RULE_MATCH_NOT_SUPPORTED),
         "P0001" if diagnostic.message.contains("expected `;`") || expects.contains("`;`") => {
             Some(RULE_MISSING_SEMICOLON)
         }
@@ -245,6 +254,36 @@ fn match_rule(source: &SourceFile, diagnostic: &Diagnostic) -> Option<RuleTempla
         "R0094" | "R0120" => Some(RULE_PROCESS_CAPTURE_REQUIRES_SUCCESSFUL_EXIT),
         "R0123" => Some(RULE_READABLE_DIRECTORY_PATH_REQUIRED),
         _ => None,
+    }
+}
+
+fn match_rule_by_kind(kind: DiagnosticKind) -> Option<RuleTemplate> {
+    match kind {
+        DiagnosticKind::MissingSemicolon => Some(RULE_MISSING_SEMICOLON),
+        DiagnosticKind::MissingRightParen => Some(RULE_MISSING_RPAREN),
+        DiagnosticKind::MissingRightBrace => Some(RULE_MISSING_RBRACE),
+        DiagnosticKind::TopLevelDeclarationRequired => Some(RULE_TOP_LEVEL_DECLARATION_REQUIRED),
+        DiagnosticKind::EntryFileDeclaresModule => Some(RULE_ENTRY_FILE_MUST_NOT_DECLARE_MODULE),
+        DiagnosticKind::SupportSourceMissingModuleDeclaration => {
+            Some(RULE_SUPPORT_SOURCE_MUST_DECLARE_MODULE)
+        }
+        DiagnosticKind::SupportSourceMissingManifestListing => {
+            Some(RULE_SUPPORT_SOURCE_MUST_BE_LISTED_IN_MANIFEST)
+        }
+        DiagnosticKind::ModulePathMismatch => Some(RULE_MODULE_PATH_MUST_MATCH_SOURCE_PATH),
+        DiagnosticKind::DuplicateModulePath => Some(RULE_MODULE_PATH_MUST_BE_UNIQUE),
+        DiagnosticKind::DuplicateModuleImport => Some(RULE_MODULE_IMPORT_MUST_BE_UNIQUE),
+        DiagnosticKind::ImportedModuleMissing => Some(RULE_IMPORTED_MODULE_MUST_EXIST),
+        DiagnosticKind::CrossModuleReferenceMissingImport => {
+            Some(RULE_CROSS_MODULE_REFERENCE_REQUIRES_IMPORT)
+        }
+        DiagnosticKind::FunctionArgumentTypeMismatch => {
+            Some(RULE_FUNCTION_ARGUMENT_TYPE_MUST_MATCH)
+        }
+        DiagnosticKind::ReturnTypeMismatch => Some(RULE_RETURN_VALUE_MUST_MATCH_DECLARED_TYPE),
+        DiagnosticKind::ConditionTypeMismatch => Some(RULE_CONDITION_MUST_BE_BOOL),
+        DiagnosticKind::ArrayIndexTypeMismatch => Some(RULE_ARRAY_INDEX_MUST_BE_I32),
+        DiagnosticKind::LenBuiltinTypeMismatch => Some(RULE_LEN_BUILTIN_REQUIRES_COUNTABLE_VALUE),
     }
 }
 
@@ -1489,14 +1528,15 @@ fn snippet_text(source: &SourceFile, span: Span, max_lines: usize) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{TeachingLevel, enhance_diagnostics};
+    use super::{TeachingLevel, enhance_diagnostics, match_rule};
     use std::fs;
     use std::path::{Path, PathBuf};
 
+    use crate::diagnostics::{Diagnostic, DiagnosticKind};
     use crate::frontend::{analyze, analyze_with_project};
     use crate::interpreter::run_program;
     use crate::project::resolve_input;
-    use crate::source::SourceFile;
+    use crate::source::{SourceFile, Span};
 
     fn unique_session_path(label: &str) -> PathBuf {
         std::env::temp_dir().join(format!(
@@ -1527,6 +1567,98 @@ mod tests {
             fs::create_dir_all(parent).expect("parent directory should exist");
         }
         fs::write(path, text).expect("project file should be written");
+    }
+
+    #[test]
+    fn stable_diagnostic_kinds_drive_rule_matching_without_old_message_text() {
+        struct KindCase {
+            code: &'static str,
+            message: &'static str,
+            kind: DiagnosticKind,
+            expected_rule_id: &'static str,
+        }
+
+        let source = SourceFile::anonymous("fn main() -> i32 { return 0; }");
+        let cases = [
+            KindCase {
+                code: "P0001",
+                message: "parser semicolon placeholder",
+                kind: DiagnosticKind::MissingSemicolon,
+                expected_rule_id: "statement_terminator_required",
+            },
+            KindCase {
+                code: "P0001",
+                message: "parser right paren placeholder",
+                kind: DiagnosticKind::MissingRightParen,
+                expected_rule_id: "close_parenthesized_construct",
+            },
+            KindCase {
+                code: "P0001",
+                message: "parser right brace placeholder",
+                kind: DiagnosticKind::MissingRightBrace,
+                expected_rule_id: "close_block_or_literal",
+            },
+            KindCase {
+                code: "P0001",
+                message: "parser top-level placeholder",
+                kind: DiagnosticKind::TopLevelDeclarationRequired,
+                expected_rule_id: "top_level_item_required",
+            },
+            KindCase {
+                code: "S0038",
+                message: "support source manifest drift placeholder",
+                kind: DiagnosticKind::SupportSourceMissingManifestListing,
+                expected_rule_id: "support_source_must_be_listed_in_manifest",
+            },
+            KindCase {
+                code: "S0038",
+                message: "support source module declaration placeholder",
+                kind: DiagnosticKind::SupportSourceMissingModuleDeclaration,
+                expected_rule_id: "support_source_must_declare_module",
+            },
+            KindCase {
+                code: "S0022",
+                message: "return type placeholder",
+                kind: DiagnosticKind::ReturnTypeMismatch,
+                expected_rule_id: "return_value_must_match_declared_type",
+            },
+            KindCase {
+                code: "S0022",
+                message: "condition type placeholder",
+                kind: DiagnosticKind::ConditionTypeMismatch,
+                expected_rule_id: "condition_expression_must_be_bool",
+            },
+            KindCase {
+                code: "S0022",
+                message: "argument type placeholder",
+                kind: DiagnosticKind::FunctionArgumentTypeMismatch,
+                expected_rule_id: "function_argument_type_must_match",
+            },
+            KindCase {
+                code: "S0022",
+                message: "index type placeholder",
+                kind: DiagnosticKind::ArrayIndexTypeMismatch,
+                expected_rule_id: "array_index_must_be_i32",
+            },
+            KindCase {
+                code: "S0022",
+                message: "len type placeholder",
+                kind: DiagnosticKind::LenBuiltinTypeMismatch,
+                expected_rule_id: "len_builtin_requires_countable_value",
+            },
+        ];
+
+        for case in cases {
+            let diagnostic = Diagnostic::new(case.code, case.message, &source, Span::new(0, 2))
+                .with_kind(case.kind);
+            let rule = match_rule(&source, &diagnostic)
+                .unwrap_or_else(|| panic!("kind case `{}` should match a rule", case.message));
+            assert_eq!(
+                rule.rule_id, case.expected_rule_id,
+                "diagnostic kind should keep the rule mapping stable for `{}`",
+                case.message
+            );
+        }
     }
 
     #[test]
