@@ -441,6 +441,94 @@ fn assert_clean_stderr(output: &Output) {
     );
 }
 
+const SHARED_FOUNDATION_PROJECT_SOURCES: &[&str] = &[
+    "external/foundation/cli.ax",
+    "external/foundation/file_kind.ax",
+    "external/foundation/report.ax",
+    "external/foundation/search.ax",
+    "external/foundation/text.ax",
+    "external/foundation/workspace.ax",
+];
+
+fn project_sources_with_shared_foundation(extra: &[&str]) -> Vec<String> {
+    SHARED_FOUNDATION_PROJECT_SOURCES
+        .iter()
+        .copied()
+        .chain(extra.iter().copied())
+        .map(str::to_string)
+        .collect()
+}
+
+fn project_sources_path(root: &Path, relative: &str) -> PathBuf {
+    let mut path = root.to_path_buf();
+    for segment in relative.split('/') {
+        path.push(segment);
+    }
+    path
+}
+
+fn assert_project_example_build_sources(
+    label: &str,
+    example_path: &str,
+    expected_sources: &[String],
+) {
+    let temp = TempDir::new(label);
+    let out_dir = temp.join("build-out");
+
+    let output = run_axc([
+        OsStr::new("build"),
+        OsStr::new(example_path),
+        OsStr::new("--out-dir"),
+        out_dir.as_os_str(),
+    ]);
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "build for `{example_path}` should succeed\nstdout:\n{}\nstderr:\n{}",
+        string_output(&output.stdout),
+        string_output(&output.stderr)
+    );
+    assert_clean_stderr(&output);
+
+    assert!(
+        out_dir.join("build-manifest.json").exists(),
+        "build should emit build-manifest.json for `{example_path}`"
+    );
+    assert!(
+        out_dir.join("AX.toml").exists(),
+        "build should copy AX.toml for `{example_path}`"
+    );
+    assert!(
+        out_dir.join("source.ax").exists(),
+        "build should copy source.ax for `{example_path}`"
+    );
+    assert!(
+        out_dir.join("project-sources").exists(),
+        "build should copy project-sources for `{example_path}`"
+    );
+
+    let manifest: Value = serde_json::from_str(
+        &fs::read_to_string(out_dir.join("build-manifest.json"))
+            .expect("project build manifest should be readable"),
+    )
+    .expect("project build manifest should be valid JSON");
+    assert_eq!(
+        json_string_array(&manifest["artifacts"]["project_sources"], "project sources"),
+        expected_sources,
+        "build should keep stable packaged source order for `{example_path}`"
+    );
+
+    let project_sources_root = out_dir.join("project-sources");
+    for source in expected_sources {
+        let copied_path = project_sources_path(&project_sources_root, source);
+        assert!(
+            copied_path.exists(),
+            "build should copy `{}` for `{example_path}`",
+            source
+        );
+    }
+}
+
 fn normalize_temp_output(text: &str, temp: &TempDir) -> String {
     let normalized = normalize_text(text).replace('\\', "/");
     let root = temp.path.display().to_string().replace('\\', "/");
@@ -3421,16 +3509,19 @@ fn project_directory_index_runs_on_controlled_fixture() {
     let temp = TempDir::new("project-directory-index");
     let workspace_dir = temp.join("workspace");
     let docs_dir = workspace_dir.join("docs");
+    let api_dir = docs_dir.join("api");
     fs::create_dir_all(&docs_dir).expect("docs directory should exist");
+    fs::create_dir_all(&api_dir).expect("api directory should exist");
 
     let app_text = "fn main() {}\n";
     let notes_text = "# Notes\nTODO refine\n";
+    let guide_text = "## Guide\n";
     let blob_bytes = b"\x01\x02\x03\x04";
 
     fs::write(workspace_dir.join("app.ax"), app_text).expect("app.ax should exist");
     fs::write(workspace_dir.join("notes.md"), notes_text).expect("notes.md should exist");
     fs::write(workspace_dir.join("blob.bin"), blob_bytes).expect("blob.bin should exist");
-    fs::write(docs_dir.join("guide.md"), "## Guide\n").expect("guide.md should exist");
+    fs::write(api_dir.join("guide.md"), guide_text).expect("guide.md should exist");
 
     let output_path = temp.join("index.txt");
     let output = run_axc([
@@ -3453,21 +3544,24 @@ fn project_directory_index_runs_on_controlled_fixture() {
     let expected = format!(
         "\
 root=<root>/workspace
-entries=4
-directories=1
-files=3
-text_files=2
+entries=6
+directories=2
+files=4
+text_files=3
 bytes={}
 
 entries:
 app.ax | file | kind=ax | text=true | bytes={}
 blob.bin | file | kind=plain | text=false | bytes={}
 docs | dir | children=1
+  docs/api | dir | children=1
+    api/guide.md | file | kind=markdown | text=true | bytes={}
 notes.md | file | kind=markdown | text=true | bytes={}
 ",
-        app_text.len() + blob_bytes.len() + notes_text.len(),
+        app_text.len() + blob_bytes.len() + notes_text.len() + guide_text.len(),
         app_text.len(),
         blob_bytes.len(),
+        guide_text.len(),
         notes_text.len(),
     );
     assert_eq!(report, expected);
@@ -4119,7 +4213,9 @@ app.ax | bytes={} | lines={} | matched_lines=2
 fn project_workspace_search_report_runs_on_controlled_fixture() {
     let temp = TempDir::new("project-workspace-search-report");
     let workspace_dir = temp.join("workspace");
-    fs::create_dir_all(workspace_dir.join("docs")).expect("docs directory should exist");
+    let docs_dir = workspace_dir.join("docs");
+    let api_dir = docs_dir.join("api");
+    fs::create_dir_all(&api_dir).expect("docs/api directory should exist");
     fs::create_dir_all(workspace_dir.join("tmp").join("inner"))
         .expect("nested directory should exist");
 
@@ -4138,10 +4234,10 @@ still stable
 ";
 
     fs::write(workspace_dir.join("app.ax"), app_text).expect("app.ax should exist");
-    fs::write(workspace_dir.join("docs").join("guide.md"), guide_text)
+    fs::write(api_dir.join("guide.md"), guide_text)
         .expect("guide.md should exist");
     fs::write(workspace_dir.join("notes.md"), notes_text).expect("notes.md should exist");
-    fs::write(workspace_dir.join("docs").join("blob.bin"), b"\x01\x02\x03")
+    fs::write(docs_dir.join("blob.bin"), b"\x01\x02\x03")
         .expect("blob.bin should exist");
 
     let output_path = temp.join("search.txt");
@@ -4167,7 +4263,7 @@ still stable
         "\
 root=<root>/workspace
 needle=repair
-scope=top-level + one nested level
+scope=recursive
 searchable_files=3
 matched_files=2
 bytes={}
@@ -4176,7 +4272,7 @@ matched_lines=3
 
 matches:
 app.ax | bytes={} | lines={} | matched_lines=2
-  docs/guide.md | bytes={} | lines={} | matched_lines=1
+    api/guide.md | bytes={} | lines={} | matched_lines=1
 ",
         app_text.len() + guide_text.len() + notes_text.len(),
         line_count(app_text) + line_count(guide_text) + line_count(notes_text),
@@ -4627,25 +4723,73 @@ fn project_workspace_search_report_build_copies_real_example_source_tree() {
           "build should copy shared foundation search helpers"
       );
 
-      let manifest: Value = serde_json::from_str(
-          &fs::read_to_string(out_dir.join("build-manifest.json"))
+    let manifest: Value = serde_json::from_str(
+        &fs::read_to_string(out_dir.join("build-manifest.json"))
             .expect("project build manifest should be readable"),
     )
     .expect("project build manifest should be valid JSON");
     assert_eq!(
         json_string_array(&manifest["artifacts"]["project_sources"], "project sources"),
-        vec![
-            "external/foundation/cli.ax".to_string(),
-            "external/foundation/file_kind.ax".to_string(),
-            "external/foundation/report.ax".to_string(),
-            "external/foundation/search.ax".to_string(),
-            "external/foundation/text.ax".to_string(),
-            "external/foundation/workspace.ax".to_string(),
-            "lib/file_search.ax".to_string(),
-            "lib/report.ax".to_string(),
-            "lib/search_totals.ax".to_string(),
-            "src/main.ax".to_string(),
-        ]
+        project_sources_with_shared_foundation(&[
+            "lib/file_search.ax",
+            "lib/report.ax",
+            "lib/search_totals.ax",
+            "src/main.ax",
+        ])
+    );
+}
+
+#[test]
+fn project_command_capture_build_copies_real_example_source_tree() {
+    assert_project_example_build_sources(
+        "project-command-capture-build",
+        "examples/project_command_capture",
+        &project_sources_with_shared_foundation(&["src/main.ax"]),
+    );
+}
+
+#[test]
+fn project_release_promote_build_copies_real_example_source_tree() {
+    assert_project_example_build_sources(
+        "project-release-promote-build",
+        "examples/project_release_promote",
+        &project_sources_with_shared_foundation(&["lib/receipt.ax", "src/main.ax"]),
+    );
+}
+
+#[test]
+fn project_directory_index_build_copies_real_example_source_tree() {
+    assert_project_example_build_sources(
+        "project-directory-index-build",
+        "examples/project_directory_index",
+        &project_sources_with_shared_foundation(&[
+            "lib/index_totals.ax",
+            "lib/report.ax",
+            "lib/scan.ax",
+            "src/main.ax",
+        ]),
+    );
+}
+
+#[test]
+fn project_command_batch_build_copies_real_example_source_tree() {
+    assert_project_example_build_sources(
+        "project-command-batch-build",
+        "examples/project_command_batch",
+        &project_sources_with_shared_foundation(&["lib/report.ax", "src/main.ax"]),
+    );
+}
+
+#[test]
+fn project_text_normalize_build_copies_real_example_source_tree() {
+    assert_project_example_build_sources(
+        "project-text-normalize-build",
+        "examples/project_text_normalize",
+        &project_sources_with_shared_foundation(&[
+            "lib/normalize.ax",
+            "lib/report.ax",
+            "src/main.ax",
+        ]),
     );
 }
 

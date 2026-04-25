@@ -7,7 +7,7 @@ fn build_summary(root_dir: string, needle: string, totals: SearchTotals) -> stri
     let mut report: string = "";
     report = append_path_stat(report, "root", root_dir);
     report = append_string_stat(report, "needle", needle);
-    report = append_string_stat(report, "scope", "top-level + one nested level");
+    report = append_string_stat(report, "scope", "recursive");
     report = append_int_stat(report, "searchable_files", totals.searchable_files);
     report = append_int_stat(report, "matched_files", totals.matched_files);
     report = append_int_stat(report, "bytes", totals.bytes);

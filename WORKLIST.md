@@ -1,6 +1,6 @@
 # AX Worklist
 
-最后更新：2026-04-24
+最后更新：2026-04-25
 
 状态说明：
 
@@ -22,8 +22,8 @@
 2. 固定 `check/json/ai` 接口与回归资产
 3. 继续提高 AI 修复协议质量
 4. 把 full repair benchmark 与 compare replay 资产做厚
-5. 用最小工具宿主能力和真实工具样例验证 AX 的实际可写性
-6. 在证据支持下再推进更大的语言面和后端
+5. 把现有五类 project-backed 样例固化成代表集，并接进更硬的验证链
+6. 用代表样例决定下一批缺口，再推进宿主能力补口、更大的语言面或后端
 
 说明：
 
@@ -211,34 +211,53 @@
   - 完成于：2026-04-24
   - 备注：已把 full manifest 从 24 case 扩到 27 case，先新增 `array_index_type_mismatch` 与 `return_type_mismatch_main`，随后再补入首个仓库内 project-backed repair case `project_helper_missing_semicolon`；同时补齐 [`benchmarks/repair-candidates/compare/shared`](C:/Users/xiaoy/Desktop/A语言/AX/benchmarks/repair-candidates/compare/shared) 的 full replay 基线、[`benchmarks/repair-candidates/smoke`](C:/Users/xiaoy/Desktop/A语言/AX/benchmarks/repair-candidates/smoke) 的 project-backed replay 资产，并新增 full shared score 回归与 compare 说明文档。
 
-- [ ] `P1-10` 最小工具宿主能力第一批
+- [~] `P1-10` 最小工具宿主能力第一批
   - 目标：给 AX 补上写真实 CLI / 文本处理 / 构建辅助程序的最低可用宿主能力，而不是继续优先补大语法面。
   - 输入：[`PLAN.md`](C:/Users/xiaoy/Desktop/A语言/AX/PLAN.md) 的任务族定义、现有工具风格样例、[`能力缺口排序.md`](C:/Users/xiaoy/Desktop/A语言/AX/能力缺口排序.md) 的最新排序。
   - 输出：围绕 `process / env / path / fs / string` 的第一批稳定接口、对应 diagnostics / AI guidance / 示例 / 文档 / 测试。
   - 通过条件：至少一批真实工具风格程序不再只依赖纯玩具输入；误用这些接口时仍能给出稳定结构化反馈。
   - 回归保障：语义 / 解释器 / 接口测试、真实样例 smoke、repair benchmark 资产。
   - 不做范围：不一口气做大而全标准库，不先做网络、GUI、并发运行时或包生态。
+  - 进展：2026-04-25 已通过 [`examples/project_command_capture/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_command_capture/)、[`examples/project_release_promote/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_release_promote/)、[`examples/project_directory_index/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_directory_index/)、[`examples/project_command_batch/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_command_batch/) 与 [`examples/project_text_normalize/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_text_normalize/) 把 `process / env / path / fs / string` 这批接口压过第一轮。
+  - 进展：2026-04-25 共享 AX 基础层 [`foundation/`](C:/Users/xiaoy/Desktop/A语言/AX/foundation/) 已沉淀 `cli / report / text / search / file_kind / workspace`，说明这一批能力不再只是零散样例调用，而是开始形成可复用边界。
+  - 当前剩余收口：把接口边界、误用 diagnostics、AI guidance 与代表样例验证链一起收稳，而不是继续无上限加新宿主 API。
 
-- [~] `P1-11` 第二组真实工具样例与 backend 验证目标
-  - 目标：让后续 `axc build` 与更大语法决策建立在真实程序上，而不是建立在玩具样例上。
-  - 输入：第一批宿主能力、现有 examples、benchmark 观察与 build 骨架现状。
-  - 输出：2-4 个更接近真实任务的样例，覆盖 CLI、文本处理、批处理或构建辅助中的至少两类，并形成后续 native build 验证目标。
-  - 通过条件：这些样例可 `check / run`，且能明确暴露“下一步补标准库、backend 还是语法”。
-  - 回归保障：`examples/`、`tests/interface_snapshots.rs`、必要的 smoke。
-  - 不做范围：不把样例扩成完整产品，不为了样例强行引入大表面积语法。
-  - 进展：2026-04-24 已新增 [`examples/workspace_audit.ax`](C:/Users/xwh/Desktop/AX-main-git/examples/workspace_audit.ax)、[`examples/docs_release_snapshot.ax`](C:/Users/xwh/Desktop/AX-main-git/examples/docs_release_snapshot.ax) 与 [`examples/workspace_search_report.ax`](C:/Users/xwh/Desktop/AX-main-git/examples/workspace_search_report.ax)，三者均已完成 `check / run` 验证。
-  - 进展：2026-04-24 已新增项目化样例 [`examples/project_split/`](C:/Users/xwh/Desktop/AX-main-git/examples/project_split)、[`examples/project_foundation_report/`](C:/Users/xwh/Desktop/AX-main-git/examples/project_foundation_report)、[`examples/project_docs_release/`](C:/Users/xwh/Desktop/AX-main-git/examples/project_docs_release)、[`examples/project_workspace_audit/`](C:/Users/xwh/Desktop/AX-main-git/examples/project_workspace_audit) 与 [`examples/project_workspace_search_report/`](C:/Users/xwh/Desktop/AX-main-git/examples/project_workspace_search_report)，并把 `AX.toml` 的 `sources` 扩到可指向 `lib/` 这类支持目录、把 `axc build` 扩到导出 `project-sources/` 原始项目源树快照、把 repair benchmark export/score 扩到支持“项目上下文 + 单文件修复目标”的 project-backed case。最新已把首个公开仓库用例 [`benchmarks/repair-projects/helper_missing_semicolon/`](C:/Users/xwh/Desktop/AX-main-git/benchmarks/repair-projects/helper_missing_semicolon) 接进 full/smoke manifest 与 shared/smoke replay，用于验证目录级多文件装载和 AX 侧 helper 库组织。
-  - 进展：2026-04-25 已把共享 AX 基础层扩到 repo 根目录 [`foundation/`](C:/Users/xiaoy/Desktop/A语言/AX/foundation/) 下的 `file_kind.ax` 与 `workspace.ax`，并把多个 project 样例中重复的本地文件分类、workspace 标签与报告明细行渲染 helper 回收到共享层，开始形成真正可复用的 AX-side foundation。
-  - 进展：2026-04-25 已继续补强共享 [`foundation/cli.ax`](C:/Users/xiaoy/Desktop/A语言/AX/foundation/cli.ax)，新增最小入口骨架 helper：`require_min_args`、`require_directory`、`require_file`、`require_non_empty_text`、`ensure_directory` 与 `recreate_directory`；`project_foundation_report / project_docs_release / project_workspace_audit / project_workspace_search_report` 已改为直接复用这层 CLI 校验与目录准备逻辑。
-  - 进展：2026-04-25 已继续补强共享 [`foundation/report.ax`](C:/Users/xiaoy/Desktop/A语言/AX/foundation/report.ax)，新增 `append_path_stat`、`begin_section`、`append_section_details` 与 `append_section_details_or_none`，把 docs / audit / search 三类 project summary 的 section 骨架也收回共享层。
-  - 进展：2026-04-25 已完成共享库目录迁移：`examples/project_*` 的 `AX.toml` 全部改为引用 repo 根目录 `../../foundation`，旧 `examples/foundation/*.ax` 已退场；`project_foundation_report / project_docs_release / project_workspace_audit / project_workspace_search_report` 与 `build::tests::packages_shared_sibling_support_sources_under_external_prefix` 已全部回归通过，说明共享 AX 库已真正接入示例运行链路与构建链路。
-  - 进展：2026-04-25 已把 `project_workspace_search_report` 中通用的文本搜索 helper 收敛进共享 [`foundation/search.ax`](C:/Users/xiaoy/Desktop/A语言/AX/foundation/search.ax)，项目本地 `lib/search_stats.ax` 已删除；build manifest 与 interface snapshot 已同步更新，说明共享库开始承接真正可复用的“文本搜索”能力，而不只是 CLI/报告骨架。
-  - 进展：2026-04-25 已新增 [`examples/project_command_capture/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_command_capture/) 作为第二组真实工具样例的首个 `process / env / path / fs` 项目化验证点；同时共享 [`foundation/report.ax`](C:/Users/xiaoy/Desktop/A语言/AX/foundation/report.ax) 新增 `append_bool_stat`，让命令执行报告也能复用统一的 key-value 输出骨架。
-  - 进展：2026-04-25 已新增 [`examples/project_release_promote/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_release_promote/) 作为第二个同等级真实工具样例，覆盖 `fs_exists / fs_remove_file / fs_rename / fs_file_size / path_file_name / path_stem / path_extension / path_parent` 这条 release/promote 链，并通过项目本地 [`lib/receipt.ax`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_release_promote/lib/receipt.ax) 验证“共享 foundation + 项目私有 helper”协作模式。
-  - 进展：2026-04-25 已新增 [`examples/project_directory_index/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_directory_index/) 作为第三类真实工具样例，覆盖 `fs_read_dir / fs_is_dir / fs_is_file / fs_file_size / classify_file_kind / is_text_file` 这条目录清单链，并通过项目本地 `scan + report + totals` helper 验证“共享 foundation + 项目私有编排”的目录索引模式。
-  - 进展：2026-04-25 已新增 [`examples/project_command_batch/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_command_batch/) 作为第四类真实工具样例，覆盖 `process_run / process_run_in / env_get` 这条批处理编排链，并通过项目本地 [`lib/report.ax`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_command_batch/lib/report.ax) 验证“命令执行 + 环境读取 + 多产物报告”组合在 AX project 模式里是可落地的。
-  - 进展：2026-04-25 已新增 [`examples/project_text_normalize/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_text_normalize/) 作为第五类真实工具样例，覆盖 `fs_read_to_string / fs_write_string / string_replace / string_split_lines / string_trim / string_ends_with` 这条文本重写链，并通过项目本地 `normalize + report` helper 验证“读取文本 -> 变换 -> 输出结果和报告”的 project 模式闭环。
-  - 当前暴露的真实缺口：不是先继续堆大语法，而是模块/导入/库组织、更深目录遍历、可扩展集合能力，以及把这些样例接入 smoke 或后续 backend 验证目标。
+- [x] `P1-11` 固化代表样例集并接入更硬验证链
+  - 目标：把现有五类 project-backed 真实工具样例收成“可验收的代表资产”，让后续 `axc build` 和下一批能力决策都建立在这些样例上，而不是继续按启动期逻辑新增样例品类。
+  - 输入：现有五类 project-backed 样例、共享 [`foundation/`](C:/Users/xiaoy/Desktop/A语言/AX/foundation/)、`axc build` 骨架、interface snapshots 与当前 smoke。
+  - 输出：核心代表集、宿主能力验证集、更硬的 `check / run / build / smoke` 验证链，以及一份由代表样例驱动的下一缺口判断。
+  - 通过条件：核心代表样例可稳定 `check / run` 并进入更硬的 `build / smoke`；宿主能力验证样例可继续压 `process / env / path / fs`；能明确说出下一步更值钱的是更深目录遍历、最小 collections，还是 `import / module`。
+  - 回归保障：`examples/`、[`tests/interface_snapshots.rs`](C:/Users/xiaoy/Desktop/A语言/AX/tests/interface_snapshots.rs)、必要的 smoke 与 build 回归。
+  - 不做范围：不把样例扩成完整产品，不为了凑样例继续发明第六类、第七类 project 品类。
+  - 进展：2026-04-24 已新增 [`examples/workspace_audit.ax`](C:/Users/xiaoy/Desktop/A语言/AX/examples/workspace_audit.ax)、[`examples/docs_release_snapshot.ax`](C:/Users/xiaoy/Desktop/A语言/AX/examples/docs_release_snapshot.ax) 与 [`examples/workspace_search_report.ax`](C:/Users/xiaoy/Desktop/A语言/AX/examples/workspace_search_report.ax)，三者均已完成 `check / run` 验证。
+  - 进展：2026-04-24 已新增项目化样例 [`examples/project_split/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_split/)、[`examples/project_foundation_report/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_foundation_report/)、[`examples/project_docs_release/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_docs_release/)、[`examples/project_workspace_audit/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_workspace_audit/) 与 [`examples/project_workspace_search_report/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_workspace_search_report/)，并把 `AX.toml` 的 `sources` 扩到支持目录，把 `axc build` 扩到导出 `project-sources/` 源树快照，把 repair benchmark export/score 扩到支持“项目上下文 + 单文件修复目标”的 project-backed case。
+  - 进展：2026-04-25 已完成共享库目录迁移：`examples/project_*` 的 `AX.toml` 全部改为引用 repo 根目录 `../../foundation`，旧 `examples/foundation/*.ax` 已退场；共享 [`foundation/cli.ax`](C:/Users/xiaoy/Desktop/A语言/AX/foundation/cli.ax)、[`foundation/report.ax`](C:/Users/xiaoy/Desktop/A语言/AX/foundation/report.ax)、[`foundation/search.ax`](C:/Users/xiaoy/Desktop/A语言/AX/foundation/search.ax)、[`foundation/file_kind.ax`](C:/Users/xiaoy/Desktop/A语言/AX/foundation/file_kind.ax) 与 [`foundation/workspace.ax`](C:/Users/xiaoy/Desktop/A语言/AX/foundation/workspace.ax) 已开始承接重复 helper。
+  - 进展：2026-04-25 已形成五类 project-backed 真实工具样例：
+    - [`examples/project_command_capture/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_command_capture/)
+    - [`examples/project_release_promote/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_release_promote/)
+    - [`examples/project_directory_index/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_directory_index/)
+    - [`examples/project_command_batch/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_command_batch/)
+    - [`examples/project_text_normalize/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_text_normalize/)
+  - 进展：2026-04-25 已把五类 project-backed 样例全部接进 `build` 级接口回归，新增 [`tests/interface_snapshots.rs`](C:/Users/xiaoy/Desktop/A语言/AX/tests/interface_snapshots.rs) 中的五个真实 example build 测试；同时新增 [`scripts/smoke-project-representatives.ps1`](C:/Users/xiaoy/Desktop/A语言/AX/scripts/smoke-project-representatives.ps1)，把 `project_directory_index / project_text_normalize / project_release_promote` 作为核心代表集、`project_command_capture / project_command_batch` 作为宿主能力验证集，固定成一条可复跑的代表项目 build smoke。
+  - 完成于：2026-04-25
+
+- [x] `P1-12` 用代表样例重排下一缺口
+  - 目标：不靠感觉决定下一步，而是让代表样例和共享 foundation 边界来回答“下一步到底该补什么”。
+  - 输入：代表样例运行结果、现有 benchmark 资产、[`能力缺口排序.md`](C:/Users/xiaoy/Desktop/A语言/AX/能力缺口排序.md)、当前 foundation 边界。
+  - 输出：更新后的缺口排序结论，以及同步后的 [`规划.md`](C:/Users/xiaoy/Desktop/A语言/AX/规划.md) / [`WORKLIST.md`](C:/Users/xiaoy/Desktop/A语言/AX/WORKLIST.md)。
+  - 通过条件：能明确指出是更深目录遍历、最小 collections，还是 `import / module` 更值；并能列出是哪几个代表样例暴露了该缺口。
+  - 回归保障：文档同步审计、代表样例 smoke、必要的 interface snapshot 更新。
+  - 不做范围：不在排序阶段顺手把下一批大能力一起实现。
+  - 完成于：2026-04-25
+  - 备注：已把 [`examples/project_directory_index/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_directory_index/) 与 [`examples/project_workspace_search_report/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_workspace_search_report/) 推到递归目录遍历，证明“更深目录遍历”在当前 AX 上可以用现有函数递归 + 共享 foundation helper 落地，不再是下一编译器主缺口。当前新排序已收敛为：`最小 collections > import / module > 继续样例侧递归遍历增强`。
+
+- [ ] `P1-13` 最小 collections 第一批
+  - 目标：补上代表样例已经开始真实需要、但当前只能靠“边遍历边拼字符串”勉强绕开的最小集合能力。
+  - 输入：[`examples/project_directory_index/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_directory_index/)、[`examples/project_text_normalize/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_text_normalize/)、[`examples/project_command_batch/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_command_batch/) 与最新的 [`能力缺口排序.md`](C:/Users/xiaoy/Desktop/A语言/AX/能力缺口排序.md)。
+  - 输出：最小 collections 方案边界、第一版实现、误用 diagnostics / AI guidance、代表样例验证与文档同步。
+  - 通过条件：至少一类真实工具样例可以不再依赖“纯流式字符串累积”来表达动态条目聚合；新能力不破坏 `check/json/ai`、build 打包与代表样例 smoke。
+  - 回归保障：语义 / 解释器 / interface snapshots、代表样例 smoke、必要时补 repair case。
+  - 不做范围：不直接扩成大而全容器库，不一次引入 map/set/iterator 全家桶。
 
 ## P2
 

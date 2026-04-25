@@ -12,3 +12,28 @@ fn search_file(report: string, totals: SearchTotals, path: string, depth: i32, n
     }
     return FileSearch { report: next_report, totals: add_search_result(totals, size, stats) };
 }
+
+fn search_path(report: string, totals: SearchTotals, path: string, depth: i32, needle: string) -> FileSearch {
+    if (fs_is_file(path)) {
+        if (is_searchable_file(path)) {
+            return search_file(report, totals, path, depth, needle);
+        }
+        return FileSearch { report: report, totals: totals };
+    }
+
+    if (fs_is_dir(path)) {
+        let children: [string] = fs_read_dir(path);
+        let mut next_report: string = report;
+        let mut next_totals: SearchTotals = totals;
+
+        for (let mut i: i32 = 0; i < len(children); i = i + 1) {
+            let searched: FileSearch = search_path(next_report, next_totals, children[i], depth + 1, needle);
+            next_report = searched.report;
+            next_totals = searched.totals;
+        }
+
+        return FileSearch { report: next_report, totals: next_totals };
+    }
+
+    return FileSearch { report: report, totals: totals };
+}

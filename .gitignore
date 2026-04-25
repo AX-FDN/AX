@@ -26,6 +26,7 @@ temp/
 !.cargo/config.example.toml
 .ax-ai-session*.json
 .ax-ai/
+.ax-smoke/
 
 # Build outputs
 build/

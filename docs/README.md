@@ -44,13 +44,13 @@ Real workload examples currently live in [`../examples/`](../examples/):
 - [`../examples/project_workspace_audit/`](../examples/project_workspace_audit/)
   Multi-file AX project for workspace auditing, combining shared foundation helpers with project-local auditing logic.
 - [`../examples/project_workspace_search_report/`](../examples/project_workspace_search_report/)
-  Multi-file AX project for workspace search reporting, combining shared foundation helpers with project-local search logic.
+  Multi-file AX project for recursive workspace search reporting, combining shared foundation helpers with project-local search logic.
 - [`../examples/project_command_capture/`](../examples/project_command_capture/)
   Project-backed command capture tool showing how AX can wrap `process / env / path / fs` through the shared foundation layer.
 - [`../examples/project_release_promote/`](../examples/project_release_promote/)
   Project-backed release promote tool showing how AX can wrap overwrite-safe file promotion and receipt generation through the shared foundation layer.
 - [`../examples/project_directory_index/`](../examples/project_directory_index/)
-  Project-backed directory inventory tool showing how AX can wrap `fs_read_dir` plus shared file-kind/report helpers into a stable manifest-style workflow.
+  Project-backed recursive directory inventory tool showing how AX can wrap `fs_read_dir` plus shared file-kind/report helpers into a stable manifest-style workflow.
 - [`../examples/project_command_batch/`](../examples/project_command_batch/)
   Project-backed batch runner showing how AX can orchestrate shell commands and environment reads while still producing stable report artifacts.
 - [`../examples/project_text_normalize/`](../examples/project_text_normalize/)

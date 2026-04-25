@@ -1,15 +1,23 @@
 fn display_label(path: string, depth: i32) -> string {
-    if (depth == 0) {
-        return path_file_name(path);
+    let name: string = path_file_name(path);
+    if (depth <= 0) {
+        return name;
     }
-    return path_file_name(path_parent(path)) + "/" + path_file_name(path);
+
+    let parent_name: string = path_file_name(path_parent(path));
+    if (string_len(parent_name) == 0) {
+        return name;
+    }
+
+    return parent_name + "/" + name;
 }
 
 fn depth_prefix(depth: i32) -> string {
-    if (depth == 0) {
-        return "";
+    let mut prefix: string = "";
+    for (let mut i: i32 = 0; i < depth; i = i + 1) {
+        prefix = prefix + "  ";
     }
-    return "  ";
+    return prefix;
 }
 
 fn append_workspace_line(report: string, path: string, depth: i32, details: string) -> string {

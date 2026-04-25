@@ -3,13 +3,19 @@ struct IndexedEntry {
     totals: IndexTotals,
 }
 
-fn index_entry(report: string, totals: IndexTotals, path: string) -> IndexedEntry {
+fn index_entry(report: string, totals: IndexTotals, path: string, depth: i32) -> IndexedEntry {
     if (fs_is_dir(path)) {
         let children: [string] = fs_read_dir(path);
-        return IndexedEntry {
-            report: append_directory_entry(report, path, len(children)),
-            totals: add_directory(totals),
-        };
+        let mut next_report: string = append_directory_entry(report, path, depth, len(children));
+        let mut next_totals: IndexTotals = add_directory(totals);
+
+        for (let mut i: i32 = 0; i < len(children); i = i + 1) {
+            let indexed: IndexedEntry = index_entry(next_report, next_totals, children[i], depth + 1);
+            next_report = indexed.report;
+            next_totals = indexed.totals;
+        }
+
+        return IndexedEntry { report: next_report, totals: next_totals };
     }
 
     if (fs_is_file(path)) {
@@ -17,13 +23,13 @@ fn index_entry(report: string, totals: IndexTotals, path: string) -> IndexedEntr
         let counted_as_text: bool = is_text_file(path);
         let size: i32 = fs_file_size(path);
         return IndexedEntry {
-            report: append_file_entry(report, path, kind, counted_as_text, size),
+            report: append_file_entry(report, path, depth, kind, counted_as_text, size),
             totals: add_file(totals, size, counted_as_text),
         };
     }
 
     return IndexedEntry {
-        report: append_named_line(report, path, "other | kind=" + classify_file_kind(path)),
-        totals: totals,
+        report: append_other_entry(report, path, depth, classify_file_kind(path)),
+        totals: add_other(totals),
     };
 }
