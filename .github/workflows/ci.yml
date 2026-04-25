@@ -43,3 +43,33 @@ jobs:
 
       - name: Run repair mode comparison smoke
         run: .\scripts\smoke-compare-repair-modes.ps1
+
+  ubuntu-core:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Check Rust formatting
+        run: cargo +stable fmt --check
+
+      - name: Build axc
+        run: cargo build --locked
+
+      - name: Run Rust unit tests
+        run: cargo test --locked --lib
+
+      - name: Run cross-platform interface snapshots
+        run: cargo test --locked --test interface_snapshots
+
+      - name: Run Linux core CLI smoke
+        run: |
+          ./target/debug/axc check examples/hello.ax
+          ./target/debug/axc run examples/hello.ax
+          ./target/debug/axc build examples/project_hello --out-dir target/ci-project-build

@@ -1,83 +1,35 @@
 # AX Quickstart
 
-This is the fastest honest path to get AX running locally today.
+This page is now the quickstart index for AX platform entry points.
 
-Current tested install path:
+AX currently uses platform tiers instead of claiming full workflow parity everywhere.
 
-- `Windows x86_64`
-- Rust stable GNU toolchain
-- source build from this repository
+## Supported Paths
 
-This is a source-first prototype.
-Treat this page as the current install entry, not as a polished release installer.
+- [`quickstart-windows.md`](./quickstart-windows.md)
+  Full Windows source-install path, including the current PowerShell benchmark/orchestration workflow.
+- [`quickstart-linux.md`](./quickstart-linux.md)
+  Linux core compiler/runtime path for `axc build / check / run / fmt`.
+- [`platform-support.md`](./platform-support.md)
+  Current platform support tiers, boundaries, and what remains Windows-only.
 
-## 1. Install The Rust GNU Toolchain
+## Current Boundary
 
-AX uses [`../scripts/cargo-gnu.ps1`](../scripts/cargo-gnu.ps1) because some Windows environments do not have `link.exe` configured for the MSVC path.
+Today the install story is still source-first.
+The repo does **not** pretend that release packaging is already polished.
 
-Install the tested Rust toolchain:
+What exists now:
 
-```powershell
-rustup toolchain install stable-x86_64-pc-windows-gnu --profile minimal -c rustfmt
-```
+- a full Windows workflow
+- a Linux core compiler/runtime path
+- shared examples, tests, and Rust source on one mainline
 
-## 2. Clone The Repository
+What is still future productization work:
 
-```powershell
-git clone https://github.com/AX-FDN/AX.git
-cd AX
-```
-
-## 3. Build `axc`
-
-```powershell
-.\scripts\cargo-gnu.ps1 build
-```
-
-If the build succeeds, the compiler binary should be available at:
-
-```text
-.\target\debug\axc.exe
-```
-
-## 4. Run The Smallest Sanity Check
-
-Check a valid example:
-
-```powershell
-.\target\debug\axc.exe check examples\hello.ax
-```
-
-Run a program:
-
-```powershell
-.\target\debug\axc.exe run examples\hello.ax
-```
-
-Inspect AI-enhanced diagnostics:
-
-```powershell
-.\target\debug\axc.exe check examples\slice_assignment.ax --json --ai
-```
-
-Run one small tool-style script:
-
-```powershell
-.\target\debug\axc.exe run examples\extract_markdown_headings.ax -- README.md target\headings-demo.txt
-Get-Content target\headings-demo.txt
-```
-
-If all four commands work, your local prototype path is healthy.
-
-## 5. Optional: Run The Benchmark Smoke
-
-If you want to verify the repair-evidence path instead of only the compiler binary:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke-compare-repair-feedback.ps1 -SkipBuild
-```
-
-That checks the stable `base` versus `ai` comparison contract on the committed smoke benchmark assets.
+- Linux benchmark/orchestration parity
+- macOS support
+- smoother release binaries
+- broader platform packaging
 
 ## Where To Go Next
 
@@ -89,20 +41,3 @@ That checks the stable `base` versus `ai` comparison contract on the committed s
   If you want the current evidence summary.
 - [`repair-benchmark.md`](./repair-benchmark.md)
   If you want the full benchmark/export/run/score workflow.
-
-## Current Boundary
-
-Today the install story is still source-first.
-The repo does **not** pretend that release packaging is already polished.
-
-What exists now:
-
-- a working source build path
-- a working compiler/interpreter prototype
-- stable benchmark scripts and smoke checks
-
-What is still future productization work:
-
-- smoother release binaries
-- faster first-run onboarding
-- broader platform packaging

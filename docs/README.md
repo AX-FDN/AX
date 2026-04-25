@@ -9,7 +9,13 @@ This directory holds the stable external documentation for the current AX protot
 - [`killer-demo.md`](./killer-demo.md)
   Gives a short external-facing demo sequence for showing AX's repair contract and tool-script direction.
 - [`quickstart.md`](./quickstart.md)
-  Covers the current source-install path and a minimal sanity-check sequence for new users.
+  Quickstart index for the current Windows and Linux entry paths.
+- [`quickstart-windows.md`](./quickstart-windows.md)
+  Full Windows source-install path, including the current PowerShell benchmark/orchestration workflow.
+- [`quickstart-linux.md`](./quickstart-linux.md)
+  Linux core compiler/runtime install path for `axc build / check / run / fmt`.
+- [`platform-support.md`](./platform-support.md)
+  Defines the current Windows/Linux/macOS support tiers and boundaries.
 - [`host-runtime-boundary.md`](./host-runtime-boundary.md)
   Explains the current boundary between Rust host primitives, AX-facing library interfaces, project libraries, and future package-system expectations.
 - [`repair-benchmark.md`](./repair-benchmark.md)

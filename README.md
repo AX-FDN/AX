@@ -97,8 +97,24 @@ AX 已经不是纸上概念。当前仓库里已经有一条可以真实跑通�
 
 ## Quickstart
 
-Current tested install path: `Windows x86_64` + Rust stable GNU toolchain.
-If you want the shortest source-install path, start with [`docs/quickstart.md`](./docs/quickstart.md).
+AX now uses platform tiers instead of treating every workflow as equally supported everywhere.
+
+- `Windows`: full workflow support
+- `Linux`: core compiler/runtime support
+- `macOS`: planned after Linux core is stable
+
+If you want the current install entry points, start with:
+
+- [`docs/quickstart.md`](./docs/quickstart.md)
+  Quickstart index for all supported platform paths.
+- [`docs/quickstart-windows.md`](./docs/quickstart-windows.md)
+  Full Windows source-install path, including the current PowerShell benchmark/orchestration workflow.
+- [`docs/quickstart-linux.md`](./docs/quickstart-linux.md)
+  Linux core compiler/runtime path for `axc build / check / run / fmt`.
+- [`docs/platform-support.md`](./docs/platform-support.md)
+  Current platform tiers and what remains Windows-only.
+
+Current full-workflow path:
 
 ```powershell
 rustup toolchain install stable-x86_64-pc-windows-gnu --profile minimal -c rustfmt
@@ -189,7 +205,9 @@ AX 最终不该靠口号成立，而要靠证据成立。
 - [`docs/benchmark-showcase.md`](./docs/benchmark-showcase.md)
   Current benchmark evidence with case-set breakdown, method table, failure sample, and reproduced results summary.
 - [`docs/quickstart.md`](./docs/quickstart.md)
-  The fastest install-from-source path and the smallest command sequence that proves the repo is working.
+  Quickstart index for the current Windows and Linux entry paths.
+- [`docs/platform-support.md`](./docs/platform-support.md)
+  Current support tiers: Windows full workflow, Linux core compiler/runtime, macOS deferred.
 
 Important boundary:
 

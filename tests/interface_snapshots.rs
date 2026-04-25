@@ -1319,6 +1319,10 @@ fn main() -> i32 {
 }
 
 #[test]
+#[cfg_attr(
+    not(windows),
+    ignore = "Windows-only PowerShell benchmark orchestration"
+)]
 fn repair_benchmark_run_accepts_large_stdout_only_adapter_output_without_timeout() {
     let temp = TempDir::new("repair-benchmark-stdout-only");
     let manifest_path = write_single_case_manifest(&temp, "single-case-manifest.json");
@@ -1433,6 +1437,10 @@ fn repair_benchmark_run_accepts_large_stdout_only_adapter_output_without_timeout
 }
 
 #[test]
+#[cfg_attr(
+    not(windows),
+    ignore = "Windows-only PowerShell benchmark orchestration"
+)]
 fn repair_benchmark_run_rejects_zero_exit_without_file_or_stdout() {
     let temp = TempDir::new("repair-benchmark-silent-runner");
     let manifest_path = write_single_case_manifest(&temp, "single-case-manifest.json");
@@ -1535,6 +1543,10 @@ fn repair_benchmark_run_rejects_zero_exit_without_file_or_stdout() {
 }
 
 #[test]
+#[cfg_attr(
+    not(windows),
+    ignore = "Windows-only PowerShell benchmark orchestration"
+)]
 fn repair_benchmark_score_accepts_clean_runtime_nonzero_exit_without_diagnostics() {
     let temp = TempDir::new("repair-benchmark-runtime-exit-contract");
     let manifest_path = write_single_runtime_case_manifest(&temp, "single-runtime-manifest.json");
@@ -1613,6 +1625,10 @@ fn main() -> i32 {
 }
 
 #[test]
+#[cfg_attr(
+    not(windows),
+    ignore = "Windows-only PowerShell benchmark orchestration"
+)]
 fn repair_benchmark_score_normalizes_utf8_bom_candidates() {
     let temp = TempDir::new("repair-benchmark-bom-candidate");
     let manifest_path = write_single_case_manifest(&temp, "single-case-manifest.json");
@@ -1702,6 +1718,10 @@ fn main() -> i32 {
 }
 
 #[test]
+#[cfg_attr(
+    not(windows),
+    ignore = "Windows-only PowerShell benchmark orchestration"
+)]
 fn repair_benchmark_score_normalizes_utf16le_bom_candidates() {
     let temp = TempDir::new("repair-benchmark-utf16le-bom-candidate");
     let manifest_path = write_single_case_manifest(&temp, "single-case-manifest.json");
@@ -1795,6 +1815,10 @@ fn main() -> i32 {
 }
 
 #[test]
+#[cfg_attr(
+    not(windows),
+    ignore = "Windows-only PowerShell benchmark orchestration"
+)]
 fn repair_benchmark_score_supports_project_context_cases() {
     let temp = TempDir::new("repair-benchmark-project-score");
     let project_dir = temp.join("project");
@@ -1922,6 +1946,10 @@ fn helper() -> i32 {
 }
 
 #[test]
+#[cfg_attr(
+    not(windows),
+    ignore = "Windows-only PowerShell benchmark orchestration"
+)]
 fn repair_benchmark_run_keeps_smoke_run_and_score_contracts_without_rebuild() {
     let temp = TempDir::new("repair-benchmark-run");
     let benchmark_dir = export_smoke_repair_benchmark(&temp);
@@ -2152,6 +2180,10 @@ fn repair_benchmark_run_keeps_smoke_run_and_score_contracts_without_rebuild() {
 }
 
 #[test]
+#[cfg_attr(
+    not(windows),
+    ignore = "Windows-only PowerShell benchmark orchestration"
+)]
 fn repair_feedback_comparison_keeps_smoke_contract_without_rebuild() {
     let temp = TempDir::new("repair-feedback-comparison");
     let benchmark_dir = export_smoke_repair_benchmark(&temp);
@@ -2399,6 +2431,10 @@ fn repair_feedback_comparison_keeps_smoke_contract_without_rebuild() {
 }
 
 #[test]
+#[cfg_attr(
+    not(windows),
+    ignore = "Windows-only PowerShell benchmark orchestration"
+)]
 fn repair_mode_comparison_keeps_smoke_contract_without_rebuild() {
     let temp = TempDir::new("repair-mode-comparison");
     let benchmark_dir = export_smoke_repair_benchmark(&temp);
@@ -2789,6 +2825,10 @@ fn smoke_repair_manifest_stays_aligned_with_full_manifest() {
 }
 
 #[test]
+#[cfg_attr(
+    not(windows),
+    ignore = "Windows-only PowerShell benchmark orchestration"
+)]
 fn full_compare_shared_replay_covers_full_manifest() {
     let full_manifest = load_repair_manifest("benchmarks/repair-cases.json");
     let shared_root = repo_root()
@@ -2818,6 +2858,10 @@ fn full_compare_shared_replay_covers_full_manifest() {
 }
 
 #[test]
+#[cfg_attr(
+    not(windows),
+    ignore = "Windows-only PowerShell benchmark orchestration"
+)]
 fn full_compare_shared_replay_scores_cleanly() {
     let temp = TempDir::new("full-compare-shared-score");
     let benchmark_dir = export_repair_benchmark(
