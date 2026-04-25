@@ -1,0 +1,4 @@
+fn main() -> i32 {
+    process_run("exit 7");
+    return 0;
+}

@@ -1,0 +1,5 @@
+fn main() -> i32 {
+    let output: string = process_capture("exit 7");
+    println(output);
+    return 0;
+}

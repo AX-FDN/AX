@@ -1,0 +1,11 @@
+fn main() -> i32 {
+    let path: string = "__ax_missing_runtime_file_do_not_create__.txt";
+    if (fs_is_file(path)) {
+        let text: string = fs_read_to_string(path);
+        println(string_len(text));
+        return 0;
+    }
+
+    println(0);
+    return 0;
+}

@@ -195,6 +195,36 @@
       "notes": "Extends the repair benchmark from static diagnostics into runtime failures."
     },
     {
+      "id": "missing_file_read_runtime",
+      "file": "examples/missing_file_read.ax",
+      "category": "runtime",
+      "diagnostic_command": "run",
+      "expected_codes": ["R0061"],
+      "expected_ai_rule_ids": ["readable_file_path_required"],
+      "repair_goal": "Guard the read with fs_is_file/fs_exists or switch to a path that is guaranteed to exist before reading.",
+      "notes": "Extends runtime repair coverage into host file-system failures while keeping the AX program statically valid."
+    },
+    {
+      "id": "process_capture_non_zero_runtime",
+      "file": "examples/process_capture_non_zero.ax",
+      "category": "runtime",
+      "diagnostic_command": "run",
+      "expected_codes": ["R0094"],
+      "expected_ai_rule_ids": ["process_capture_requires_successful_exit"],
+      "repair_goal": "Use process_run when the command is allowed to fail, or rewrite the command so process_capture only sees a zero exit status.",
+      "notes": "Covers runtime process capture failures that should be repaired by switching to the status-oriented builtin or a successful command."
+    },
+    {
+      "id": "missing_dir_read_runtime",
+      "file": "examples/missing_dir_read.ax",
+      "category": "runtime",
+      "diagnostic_command": "run",
+      "expected_codes": ["R0123"],
+      "expected_ai_rule_ids": ["readable_directory_path_required"],
+      "repair_goal": "Guard the directory read with fs_is_dir or switch to a directory path that is guaranteed to exist before reading.",
+      "notes": "Extends runtime repair coverage into host directory-enumeration failures while keeping the AX program statically valid."
+    },
+    {
       "id": "import_declaration_unsupported",
       "file": "examples/import_unsupported.ax",
       "category": "unsupported",

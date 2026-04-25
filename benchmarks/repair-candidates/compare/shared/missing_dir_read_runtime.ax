@@ -1,0 +1,11 @@
+fn main() -> i32 {
+    let path: string = "__ax_missing_runtime_dir_do_not_create__/nested";
+    if (fs_is_dir(path)) {
+        let entries: [string] = fs_read_dir(path);
+        println(len(entries));
+        return 0;
+    }
+
+    println(0);
+    return 0;
+}

@@ -221,6 +221,9 @@
   - 进展：2026-04-25 已通过 [`examples/project_command_capture/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_command_capture/)、[`examples/project_release_promote/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_release_promote/)、[`examples/project_directory_index/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_directory_index/)、[`examples/project_command_batch/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_command_batch/) 与 [`examples/project_text_normalize/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_text_normalize/) 把 `process / env / path / fs / string` 这批接口压过第一轮。
   - 进展：2026-04-25 共享 AX 基础层 [`foundation/`](C:/Users/xiaoy/Desktop/A语言/AX/foundation/) 已沉淀 `cli / report / text / search / file_kind / workspace`，说明这一批能力不再只是零散样例调用，而是开始形成可复用边界。
   - 进展：2026-04-25 已为首批宿主运行期误用补上稳定 AI 规则卡与接口验证，当前覆盖 `fs_read_to_string` / `fs_file_size` 的可读文件要求、`fs_read_dir` 的可读目录要求，以及 `process_run_in` / `process_capture` 的常见启动失败与非零退出反馈。
+  - 进展：2026-04-25 已把缺可读文件的宿主运行期坏例子接入 full repair benchmark，并为其补上共享修复候选与 full-manifest 回归测试，说明这批宿主反馈已经进入可重复证据链。
+  - 进展：2026-04-25 已继续把 `process_capture` 非零退出坏例子接入 full repair benchmark，并补上共享修复候选；当前 full manifest 已能回归两类宿主 runtime 修复：缺可读文件与 capture 非零退出。
+  - 进展：2026-04-25 已继续把 `fs_read_dir` 缺可读目录坏例子接入 full repair benchmark，并补上共享修复候选；当前 full manifest 已能回归三类宿主 runtime 修复：缺可读文件、缺可读目录与 capture 非零退出。
   - 当前剩余收口：把接口边界、误用 diagnostics、AI guidance 与代表样例验证链一起收稳，而不是继续无上限加新宿主 API。
 
 - [x] `P1-11` 固化代表样例集并接入更硬验证链
@@ -261,6 +264,24 @@
   - 不做范围：不直接扩成大而全容器库，不一次引入 map/set/iterator 全家桶。
   - 完成于：2026-04-25
   - 备注：第一版刻意收敛为内建 `string_list`，只解决“动态收集字符串条目”这一类最常见工具场景；当前已落地 `string_list_new / string_list_push / string_list_join`、`len(string_list)`、[`examples/string_list.ax`](C:/Users/xiaoy/Desktop/A语言/AX/examples/string_list.ax) 与 [`examples/project_workspace_search_report/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_workspace_search_report/) 的真实接入，证明代表样例不再只能靠纯流式字符串累积来维护匹配明细。
+
+- [x] `P1-14` `import / module` 进入条件复查
+  - 目标：在不急着实现模块系统的前提下，先回答“`import / module` 现在是不是已经到了该进主线的时候”。
+  - 输入：共享 [`foundation/`](C:/Users/xiaoy/Desktop/A语言/AX/foundation/)、现有 project-backed 代表样例、[`能力缺口排序.md`](C:/Users/xiaoy/Desktop/A语言/AX/能力缺口排序.md)、当前 `AX.toml + sources` 组织方式。
+  - 输出：一份明确的进入条件判断，以及同步后的 [`规划.md`](C:/Users/xiaoy/Desktop/A语言/AX/规划.md) / [`WORKLIST.md`](C:/Users/xiaoy/Desktop/A语言/AX/WORKLIST.md)。
+  - 通过条件：能明确判断 `import / module` 是否已经压过“第二批 minimal collections”，并列出支持这一判断的实际项目证据。
+  - 回归保障：文档同步审计；代表样例与共享 foundation 的人工复核。
+  - 不做范围：不在这一项里直接实现模块语法、包系统或可见性规则。
+  - 完成于：2026-04-25
+  - 备注：复查结论已从“继续观察”升级为“下一主阻塞”。当前共享 foundation 已沉淀 `cli / report / text / search / file_kind / workspace` 六块 helper，七个 project-backed 工程稳定采用 `sources = ["../../foundation", "lib"]`；同时 [`examples/project_directory_index/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_directory_index/)、[`examples/project_workspace_audit/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_workspace_audit/)、[`examples/project_docs_release/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_docs_release/) 与 [`examples/project_workspace_search_report/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_workspace_search_report/) 已进入 3-4 个 `.ax` 文件、约 107-122 行的量级，`build_summary / build_receipt / build_report / display_label / search_text` 等重复 helper 名称说明扁平全局命名空间已经开始主要靠命名纪律维持。
+
+- [ ] `P1-15` `import / module` 最小方案与迁移边界
+  - 目标：在不引入完整包系统的前提下，先冻结足以支撑共享 foundation 与多文件 project 的最小模块组织方案。
+  - 输入：[`foundation/`](C:/Users/xiaoy/Desktop/A语言/AX/foundation/)、现有 `AX.toml + sources` 组织方式、project-backed 代表样例、[`能力缺口排序.md`](C:/Users/xiaoy/Desktop/A语言/AX/能力缺口排序.md) 的复查结论。
+  - 输出：模块最小语法草案、文件到模块的映射规则、限定名 / 导入规则、与 `AX.toml + sources` 的兼容迁移边界，以及明确的不做范围。
+  - 通过条件：能解释当前如何消解共享 foundation 与 project 私有库之间的命名冲突；现有 project-backed 工程有清晰迁移路径；不会把范围直接膨胀成完整包系统。
+  - 回归保障：同步更新 [`规划.md`](C:/Users/xiaoy/Desktop/A语言/AX/规划.md)、[`能力缺口排序.md`](C:/Users/xiaoy/Desktop/A语言/AX/能力缺口排序.md) 与后续 `SYNTAX.md` 设计说明。
+  - 不做范围：本项不直接落 parser / semantic / interpreter 实现，不引入包管理、远程依赖或复杂可见性系统。
 
 ## P2
 
