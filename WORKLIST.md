@@ -275,13 +275,23 @@
   - 完成于：2026-04-25
   - 备注：复查结论已从“继续观察”升级为“下一主阻塞”。当前共享 foundation 已沉淀 `cli / report / text / search / file_kind / workspace` 六块 helper，七个 project-backed 工程稳定采用 `sources = ["../../foundation", "lib"]`；同时 [`examples/project_directory_index/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_directory_index/)、[`examples/project_workspace_audit/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_workspace_audit/)、[`examples/project_docs_release/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_docs_release/) 与 [`examples/project_workspace_search_report/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_workspace_search_report/) 已进入 3-4 个 `.ax` 文件、约 107-122 行的量级，`build_summary / build_receipt / build_report / display_label / search_text` 等重复 helper 名称说明扁平全局命名空间已经开始主要靠命名纪律维持。
 
-- [ ] `P1-15` `import / module` 最小方案与迁移边界
+- [x] `P1-15` `import / module` 最小方案与迁移边界
   - 目标：在不引入完整包系统的前提下，先冻结足以支撑共享 foundation 与多文件 project 的最小模块组织方案。
   - 输入：[`foundation/`](C:/Users/xiaoy/Desktop/A语言/AX/foundation/)、现有 `AX.toml + sources` 组织方式、project-backed 代表样例、[`能力缺口排序.md`](C:/Users/xiaoy/Desktop/A语言/AX/能力缺口排序.md) 的复查结论。
   - 输出：模块最小语法草案、文件到模块的映射规则、限定名 / 导入规则、与 `AX.toml + sources` 的兼容迁移边界，以及明确的不做范围。
   - 通过条件：能解释当前如何消解共享 foundation 与 project 私有库之间的命名冲突；现有 project-backed 工程有清晰迁移路径；不会把范围直接膨胀成完整包系统。
   - 回归保障：同步更新 [`规划.md`](C:/Users/xiaoy/Desktop/A语言/AX/规划.md)、[`能力缺口排序.md`](C:/Users/xiaoy/Desktop/A语言/AX/能力缺口排序.md) 与后续 `SYNTAX.md` 设计说明。
   - 不做范围：本项不直接落 parser / semantic / interpreter 实现，不引入包管理、远程依赖或复杂可见性系统。
+  - 完成于：2026-04-25
+  - 备注：已冻结第一版最小模块设计，详见 [`docs/import-module-minimal-design.md`](C:/Users/xiaoy/Desktop/A语言/AX/docs/import-module-minimal-design.md)。当前结论是：继续保留 `AX.toml + sources` 做文件发现，支持文件走“一文件一模块”，入口文件显式 `import`，跨模块名称默认走全限定路径；同时明确第一刀不做 alias / wildcard / `pub` / 包管理，并把该设计同步回 [`SYNTAX.md`](C:/Users/xiaoy/Desktop/A语言/AX/SYNTAX.md)。
+
+- [ ] `P1-16` `import / module` parser / resolver / diagnostics 第一刀
+  - 目标：把已经冻结的最小模块方案真正落到 parser / resolver / 诊断主链上，并迁一个代表 project 样例验证。
+  - 输入：[`docs/import-module-minimal-design.md`](C:/Users/xiaoy/Desktop/A语言/AX/docs/import-module-minimal-design.md)、现有 `AX.toml + sources` 工程模型、共享 [`foundation/`](C:/Users/xiaoy/Desktop/A语言/AX/foundation/) 与代表 project 样例。
+  - 输出：`module` / `import` 语法支持、源文件到模块路径映射、模块注册与首批专用 diagnostics、一条迁移后的 project-backed 验证样例。
+  - 通过条件：最小模块项目可稳定 `check`；模块路径与文件路径错配、重复模块、导入缺失等错误有稳定 diagnostics；现有非模块项目保持兼容。
+  - 回归保障：parser / resolver / interface snapshots、迁移样例 `check / run`、必要的 AI rule 与 benchmark 资产补充。
+  - 不做范围：本项不扩成完整包系统，不做 alias / wildcard / `pub` / 远程依赖，不顺手重写整套工程模型。
 
 ## P2
 

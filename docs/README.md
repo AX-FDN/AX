@@ -18,6 +18,8 @@ This directory holds the stable external documentation for the current AX protot
   Defines the current Windows/Linux/macOS support tiers and boundaries.
 - [`host-runtime-boundary.md`](./host-runtime-boundary.md)
   Explains the current boundary between Rust host primitives, AX-facing library interfaces, project libraries, and future package-system expectations.
+- [`import-module-minimal-design.md`](./import-module-minimal-design.md)
+  Freezes the first minimal `import / module` design: file-to-module mapping, explicit imports, fully qualified cross-module names, and the migration boundary from today's `AX.toml` `sources = [...]` mode.
 - [`repair-benchmark.md`](./repair-benchmark.md)
   Explains the benchmark manifests, export pipeline, runner flow, scoring, and comparison workflow.
 - [`repair-adapter-spec.md`](./repair-adapter-spec.md)

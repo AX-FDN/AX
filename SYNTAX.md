@@ -70,6 +70,7 @@ enum Flag {
 
 - AX 当前仍然没有语言关键字层的 `module`、命名空间和 `import` 声明。
 - 当前最小的代码组织方式是项目清单：可以在 `AX.toml` 里用 `[package].sources = ["src/lib.ax", "lib", ...]` 列出额外源文件或源目录，在 `check / run / build` 时与 `entry` 一起装载；目录项会递归展开为稳定路径顺序的 `.ax` 文件列表。
+- `P1-15` 已先冻结最小设计方向，但还没有进入实现：保留 `AX.toml + sources` 做文件发现，支持文件声明 `module ...;`，入口文件显式写 `import ...;`，跨模块名称默认走全限定路径。设计草案见 [`docs/import-module-minimal-design.md`](C:/Users/xiaoy/Desktop/A语言/AX/docs/import-module-minimal-design.md)。
 
 ## 4. 语句
 
@@ -371,6 +372,7 @@ array_type        := "[" type_ref ";" INT "]"
 - 空数组字面量 `[]` 不是“完全不支持”。
 - 当前只支持带显式零长度数组上下文的写法：`let values: [i32; 0] = [];`
 - 如果上下文不是零长度数组，例如 `let values: [i32; 1] = [];`，会报 `S0032`。
+- `import / module` 的最小方案已经冻结，但当前 parser / resolver / interpreter 还没有实现，所以它依然属于“设计已明确、执行面未开放”的能力。
 
 ## 9. 给 AI 的直接提示词
 
