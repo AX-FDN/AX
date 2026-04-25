@@ -1,0 +1,27 @@
+fn normalize_text_content(source: string) -> string {
+    let tab_expanded: string = string_replace(source, "\t", "    ");
+    let lines: [string] = string_split_lines(tab_expanded);
+    let mut normalized: string = "";
+    let mut previous_blank: bool = false;
+
+    for (let mut i: i32 = 0; i < len(lines); i = i + 1) {
+        let trimmed: string = string_trim(lines[i]);
+        let is_blank: bool = string_len(trimmed) == 0;
+
+        if (is_blank) {
+            if (!previous_blank) {
+                normalized = normalized + "\n";
+                previous_blank = true;
+            }
+        } else {
+            normalized = normalized + trimmed + "\n";
+            previous_blank = false;
+        }
+    }
+
+    if (!string_ends_with(normalized, "\n")) {
+        normalized = normalized + "\n";
+    }
+
+    return normalized;
+}

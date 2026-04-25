@@ -237,6 +237,7 @@
   - 进展：2026-04-25 已新增 [`examples/project_release_promote/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_release_promote/) 作为第二个同等级真实工具样例，覆盖 `fs_exists / fs_remove_file / fs_rename / fs_file_size / path_file_name / path_stem / path_extension / path_parent` 这条 release/promote 链，并通过项目本地 [`lib/receipt.ax`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_release_promote/lib/receipt.ax) 验证“共享 foundation + 项目私有 helper”协作模式。
   - 进展：2026-04-25 已新增 [`examples/project_directory_index/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_directory_index/) 作为第三类真实工具样例，覆盖 `fs_read_dir / fs_is_dir / fs_is_file / fs_file_size / classify_file_kind / is_text_file` 这条目录清单链，并通过项目本地 `scan + report + totals` helper 验证“共享 foundation + 项目私有编排”的目录索引模式。
   - 进展：2026-04-25 已新增 [`examples/project_command_batch/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_command_batch/) 作为第四类真实工具样例，覆盖 `process_run / process_run_in / env_get` 这条批处理编排链，并通过项目本地 [`lib/report.ax`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_command_batch/lib/report.ax) 验证“命令执行 + 环境读取 + 多产物报告”组合在 AX project 模式里是可落地的。
+  - 进展：2026-04-25 已新增 [`examples/project_text_normalize/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_text_normalize/) 作为第五类真实工具样例，覆盖 `fs_read_to_string / fs_write_string / string_replace / string_split_lines / string_trim / string_ends_with` 这条文本重写链，并通过项目本地 `normalize + report` helper 验证“读取文本 -> 变换 -> 输出结果和报告”的 project 模式闭环。
   - 当前暴露的真实缺口：不是先继续堆大语法，而是模块/导入/库组织、更深目录遍历、可扩展集合能力，以及把这些样例接入 smoke 或后续 backend 验证目标。
 
 ## P2

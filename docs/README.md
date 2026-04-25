@@ -53,5 +53,7 @@ Real workload examples currently live in [`../examples/`](../examples/):
   Project-backed directory inventory tool showing how AX can wrap `fs_read_dir` plus shared file-kind/report helpers into a stable manifest-style workflow.
 - [`../examples/project_command_batch/`](../examples/project_command_batch/)
   Project-backed batch runner showing how AX can orchestrate shell commands and environment reads while still producing stable report artifacts.
+- [`../examples/project_text_normalize/`](../examples/project_text_normalize/)
+  Project-backed text rewrite tool showing how AX can normalize source text and emit a stable summary report without leaving project mode.
 
 Read [`../README.md`](../README.md) for the AX design statement and project entry, [`../详细介绍.md`](../详细介绍.md) for practical commands and benchmark workflow, [`../PLAN.md`](../PLAN.md) for roadmap and project policy, and [`../SYNTAX.md`](../SYNTAX.md) for the current prototype grammar.

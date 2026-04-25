@@ -190,6 +190,8 @@ See also:
   A project-backed AX directory inventory tool that exercises `fs_read_dir / file_kind / workspace-report` through the shared foundation layer.
 - [`examples/project_command_batch/`](./examples/project_command_batch)
   A project-backed AX batch runner that exercises `process_run / process_run_in / env_get` through a multi-artifact workflow.
+- [`examples/project_text_normalize/`](./examples/project_text_normalize)
+  A project-backed AX text rewrite tool that exercises `fs_read_to_string / fs_write_string / string_*` through a normalize-and-report workflow.
 
 ## How AX Should Be Evaluated
 

@@ -3543,6 +3543,70 @@ local-ready.txt | local-ready
 }
 
 #[test]
+fn project_text_normalize_runs_on_controlled_fixture() {
+    let temp = TempDir::new("project-text-normalize");
+    let input_text = "\t# Title  \n\n\n  TODO fix  \n\tBody line\t\n";
+    let input_path = temp.write("notes.md", input_text);
+    let output_dir = temp.join("normalized");
+
+    let output = run_axc([
+        OsStr::new("run"),
+        OsStr::new("examples/project_text_normalize"),
+        OsStr::new("--"),
+        input_path.as_os_str(),
+        output_dir.as_os_str(),
+    ]);
+    assert_eq!(output.status.code(), Some(0));
+    assert_clean_stderr(&output);
+
+    let stdout = normalize_temp_output(&string_output(&output.stdout), &temp);
+    assert_eq!(stdout, "normalized=<root>/normalized/notes.normalized.txt\n");
+
+    let normalized_output = normalize_text(
+        &fs::read_to_string(output_dir.join("notes.normalized.txt"))
+            .expect("normalized output should exist"),
+    );
+    let expected_normalized = "# Title\n\nTODO fix\nBody line\n";
+    assert_eq!(normalized_output, expected_normalized);
+
+    let report = normalize_temp_output(
+        &fs::read_to_string(output_dir.join("NORMALIZE-REPORT.txt"))
+            .expect("normalize report should exist"),
+        &temp,
+    );
+    let expected_report = format!(
+        "\
+input=<root>/notes.md
+output=<root>/normalized/notes.normalized.txt
+changed=true
+before_lines={}
+before_nonempty={}
+before_headings={}
+before_action_items={}
+after_lines={}
+after_nonempty={}
+after_headings={}
+after_action_items={}
+output_bytes={}
+
+preview:
+# Title
+TODO fix
+Body line",
+        line_count(input_text),
+        nonempty_line_count(input_text),
+        heading_count(input_text),
+        action_item_count(input_text),
+        line_count(expected_normalized),
+        nonempty_line_count(expected_normalized),
+        heading_count(expected_normalized),
+        action_item_count(expected_normalized),
+        expected_normalized.len()
+    );
+    assert_eq!(report, expected_report);
+}
+
+#[test]
 fn project_docs_release_runs_on_controlled_fixture() {
     let temp = TempDir::new("project-docs-release");
     let docs_dir = temp.join("docs");
