@@ -70,6 +70,16 @@ jobs:
 
       - name: Run Linux core CLI smoke
         run: |
+          mkdir -p target/ci-fmt
+          cat <<'EOF' > target/ci-fmt/format_me.ax
+          fn main() -> i32 {
+          let value: i32 = 1;
+          println(value);
+          return 0;
+          }
+          EOF
+          ./target/debug/axc fmt target/ci-fmt/format_me.ax
+          grep -F "    let value: i32 = 1;" target/ci-fmt/format_me.ax
           ./target/debug/axc check examples/hello.ax
           ./target/debug/axc run examples/hello.ax
           ./target/debug/axc build examples/project_hello --out-dir target/ci-project-build

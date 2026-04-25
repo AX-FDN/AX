@@ -887,6 +887,10 @@ fn diagnostics_ai_rule_ids_match_smoke_repair_manifest_cases() {
 }
 
 #[test]
+#[cfg_attr(
+    not(windows),
+    ignore = "Windows-only PowerShell benchmark orchestration"
+)]
 fn repair_benchmark_export_keeps_cold_base_ai_artifact_contracts() {
     let temp = TempDir::new("repair-benchmark-export");
     let output_dir = export_smoke_repair_benchmark(&temp);
@@ -1172,6 +1176,10 @@ fn repair_benchmark_export_keeps_cold_base_ai_artifact_contracts() {
 }
 
 #[test]
+#[cfg_attr(
+    not(windows),
+    ignore = "Windows-only PowerShell benchmark orchestration"
+)]
 fn repair_benchmark_export_supports_project_context_cases() {
     let temp = TempDir::new("repair-benchmark-project-export");
     let project_dir = temp.join("project");
