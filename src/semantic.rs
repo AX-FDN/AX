@@ -1,5 +1,6 @@
 use crate::ast::{ItemKind, Program};
 use crate::diagnostics::Diagnostic;
+use crate::project::Project;
 use crate::source::{SourceFile, Span};
 
 #[path = "semantic/checker.rs"]
@@ -18,8 +19,16 @@ use program_info::ProgramInfo;
 use return_analysis::missing_return_diagnostic;
 
 pub fn check_program(source: &SourceFile, program: &Program) -> Vec<Diagnostic> {
+    check_program_with_project(source, program, None)
+}
+
+pub fn check_program_with_project(
+    source: &SourceFile,
+    program: &Program,
+    project: Option<&Project>,
+) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
-    let program_info = ProgramInfo::collect(source, program, &mut diagnostics);
+    let program_info = ProgramInfo::collect(source, program, project, &mut diagnostics);
 
     if !program_info.has_main {
         diagnostics.push(
@@ -43,13 +52,22 @@ pub fn check_program(source: &SourceFile, program: &Program) -> Vec<Diagnostic> 
             ..
         } = &item.kind
         {
-            let resolved_return_type = program_info.resolve_type_ref(return_type, &mut diagnostics);
-            let mut checker =
-                TypeChecker::new(&program_info, resolved_return_type, &mut diagnostics);
+            let current_unit_path = source.display_path_for_offset(item.span.start).to_string();
+            let resolved_return_type =
+                program_info.resolve_type_ref(return_type, &current_unit_path, &mut diagnostics);
+            let mut checker = TypeChecker::new(
+                &program_info,
+                resolved_return_type,
+                current_unit_path.clone(),
+                &mut diagnostics,
+            );
 
             for param in params {
-                let resolved_param_type =
-                    program_info.resolve_type_ref(&param.ty, checker.diagnostics_mut());
+                let resolved_param_type = program_info.resolve_type_ref(
+                    &param.ty,
+                    &current_unit_path,
+                    checker.diagnostics_mut(),
+                );
                 checker.declare(&param.name, resolved_param_type, false, param.span.start);
             }
 
@@ -69,11 +87,14 @@ pub fn check_program(source: &SourceFile, program: &Program) -> Vec<Diagnostic> 
 
 #[cfg(test)]
 mod tests {
-    use super::check_program;
+    use super::{check_program, check_program_with_project};
     use crate::diagnostics::Diagnostic;
     use crate::lexer::tokenize;
     use crate::parser::parse;
+    use crate::project::resolve_input;
     use crate::source::SourceFile;
+    use std::fs;
+    use std::path::PathBuf;
 
     fn check(source_text: &str) -> Vec<String> {
         diagnostics(source_text)
@@ -87,6 +108,17 @@ mod tests {
         let tokens = tokenize(&source).tokens;
         let parsed = parse(&source, tokens);
         check_program(&source, &parsed.program)
+    }
+
+    fn project_diagnostics(project_root: &PathBuf) -> Vec<Diagnostic> {
+        let resolved = resolve_input(project_root).expect("project should resolve");
+        let tokens = tokenize(&resolved.source).tokens;
+        let parsed = parse(&resolved.source, tokens);
+        check_program_with_project(&resolved.source, &parsed.program, resolved.project.as_ref())
+    }
+
+    fn repo_root() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
     }
 
     #[test]
@@ -509,5 +541,87 @@ fn main() -> i32 {
             diagnostic.suggestion.as_deref(),
             Some("add a fallback like `return 0;`, or make every branch return `i32`")
         );
+    }
+
+    #[test]
+    fn reports_missing_module_declaration_in_module_mode_project() {
+        let project_root = repo_root()
+            .join("target")
+            .join("semantic-module-missing-decl-test");
+        let _ = fs::remove_dir_all(&project_root);
+        fs::create_dir_all(project_root.join("lib")).expect("lib directory should exist");
+        fs::create_dir_all(project_root.join("src")).expect("src directory should exist");
+        fs::write(
+            project_root.join("AX.toml"),
+            "\
+manifest_version = 1
+
+[package]
+name = \"semantic_module_missing_decl\"
+entry = \"src/main.ax\"
+sources = [\"lib\"]
+",
+        )
+        .expect("manifest should exist");
+        fs::write(
+            project_root.join("lib").join("report.ax"),
+            "fn helper() -> i32 { return 1; }\n",
+        )
+        .expect("support file should exist");
+        fs::write(
+            project_root.join("src").join("main.ax"),
+            "import lib.report;\nfn main() -> i32 { return 0; }\n",
+        )
+        .expect("entry file should exist");
+
+        let diagnostics = project_diagnostics(&project_root);
+        assert!(
+            diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "S0038")
+        );
+
+        let _ = fs::remove_dir_all(&project_root);
+    }
+
+    #[test]
+    fn reports_missing_import_for_cross_module_reference() {
+        let project_root = repo_root()
+            .join("target")
+            .join("semantic-module-missing-import-test");
+        let _ = fs::remove_dir_all(&project_root);
+        fs::create_dir_all(project_root.join("lib")).expect("lib directory should exist");
+        fs::create_dir_all(project_root.join("src")).expect("src directory should exist");
+        fs::write(
+            project_root.join("AX.toml"),
+            "\
+manifest_version = 1
+
+[package]
+name = \"semantic_module_missing_import\"
+entry = \"src/main.ax\"
+sources = [\"lib\"]
+",
+        )
+        .expect("manifest should exist");
+        fs::write(
+            project_root.join("lib").join("report.ax"),
+            "module lib.report;\nfn helper() -> i32 { return 1; }\n",
+        )
+        .expect("support file should exist");
+        fs::write(
+            project_root.join("src").join("main.ax"),
+            "fn main() -> i32 { return lib.report.helper(); }\n",
+        )
+        .expect("entry file should exist");
+
+        let diagnostics = project_diagnostics(&project_root);
+        assert!(
+            diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "S0043")
+        );
+
+        let _ = fs::remove_dir_all(&project_root);
     }
 }

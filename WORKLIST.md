@@ -285,13 +285,15 @@
   - 完成于：2026-04-25
   - 备注：已冻结第一版最小模块设计，详见 [`docs/import-module-minimal-design.md`](C:/Users/xiaoy/Desktop/A语言/AX/docs/import-module-minimal-design.md)。当前结论是：继续保留 `AX.toml + sources` 做文件发现，支持文件走“一文件一模块”，入口文件显式 `import`，跨模块名称默认走全限定路径；同时明确第一刀不做 alias / wildcard / `pub` / 包管理，并把该设计同步回 [`SYNTAX.md`](C:/Users/xiaoy/Desktop/A语言/AX/SYNTAX.md)。
 
-- [ ] `P1-16` `import / module` parser / resolver / diagnostics 第一刀
+- [~] `P1-16` `import / module` parser / resolver / diagnostics 第一刀
   - 目标：把已经冻结的最小模块方案真正落到 parser / resolver / 诊断主链上，并迁一个代表 project 样例验证。
   - 输入：[`docs/import-module-minimal-design.md`](C:/Users/xiaoy/Desktop/A语言/AX/docs/import-module-minimal-design.md)、现有 `AX.toml + sources` 工程模型、共享 [`foundation/`](C:/Users/xiaoy/Desktop/A语言/AX/foundation/) 与代表 project 样例。
   - 输出：`module` / `import` 语法支持、源文件到模块路径映射、模块注册与首批专用 diagnostics、一条迁移后的 project-backed 验证样例。
   - 通过条件：最小模块项目可稳定 `check`；模块路径与文件路径错配、重复模块、导入缺失等错误有稳定 diagnostics；现有非模块项目保持兼容。
   - 回归保障：parser / resolver / interface snapshots、迁移样例 `check / run`、必要的 AI rule 与 benchmark 资产补充。
   - 不做范围：本项不扩成完整包系统，不做 alias / wildcard / `pub` / 远程依赖，不顺手重写整套工程模型。
+  - 进展：2026-04-25 已接上 `module` / `import` 词法与 parser，`Program.source_units` 现可保留每个源文件的 header 元信息；同时 `Project` 已能从 `AX.toml + sources` 推导 support source 的期望模块路径并拒绝重复根别名。
+  - 进展：2026-04-25 已补第一批模块语义诊断：support source 缺少 `module`、模块路径与文件路径错配、重复模块、重复 `import`、导入不存在模块、跨模块引用缺少 `import`；并新增迁移样例 [`examples/project_module_smoke/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_module_smoke/) 与 CLI `check` 回归。
 
 ## P2
 

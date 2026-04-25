@@ -41,9 +41,19 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             }
             ExprKind::Bool { .. } => Type::Bool,
             ExprKind::String { .. } => Type::String,
-            ExprKind::Name { value } => match self.lookup(value) {
-                Some(binding) => binding.ty,
-                None if self.info.functions.contains_key(value) => {
+            ExprKind::Name { value } => {
+                if let Some(binding) = self.lookup(value) {
+                    return binding.ty;
+                }
+
+                let current_unit_path = self.current_unit_path().to_string();
+                let resolved_function = self.info.resolve_function_key(
+                    value,
+                    &current_unit_path,
+                    expr.span,
+                    self.diagnostics,
+                );
+                if resolved_function.is_some() {
                     self.diagnostics.push(
                         Diagnostic::new(
                             "S0011",
@@ -55,26 +65,36 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                             "call `{value}` with parentheses, for example `{value}(...)`",
                         )),
                     );
-                    Type::Error
+                    return Type::Error;
                 }
-                None if self.info.named_types.contains_key(value) => {
+
+                if let Some(type_name) = self.info.resolve_named_type_key(
+                    value,
+                    &current_unit_path,
+                    expr.span,
+                    self.diagnostics,
+                ) {
+                    let resolved_type = self
+                        .info
+                        .named_types
+                        .get(&type_name)
+                        .expect("resolved type must exist");
                     self.diagnostics.push(type_name_as_value_diagnostic(
                         self.info.source,
                         expr.span,
                         value,
-                        self.info.named_types.get(value).expect("type must exist"),
+                        resolved_type,
                     ));
-                    Type::Error
+                    return Type::Error;
                 }
-                None => {
-                    self.diagnostics.push(self.undefined_variable_diagnostic(
-                        value,
-                        expr.span,
-                        format!("declare `{value}` before using it"),
-                    ));
-                    Type::Error
-                }
-            },
+
+                self.diagnostics.push(self.undefined_variable_diagnostic(
+                    value,
+                    expr.span,
+                    format!("declare `{value}` before using it"),
+                ));
+                Type::Error
+            }
             ExprKind::Unary { op, expr: inner } => {
                 let inner_type = self.check_expr(inner);
                 if inner_type.is_error() {

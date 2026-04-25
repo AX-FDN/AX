@@ -3249,6 +3249,18 @@ fn main() -> i32 {
 }
 
 #[test]
+fn check_accepts_minimal_module_mode_project() {
+    let output = run_axc([
+        OsStr::new("check"),
+        OsStr::new("examples/project_module_smoke"),
+        OsStr::new("--json"),
+    ]);
+    assert_eq!(output.status.code(), Some(0));
+    assert_clean_stderr(&output);
+    assert_eq!(normalize_text(&string_output(&output.stdout)), "[]\n");
+}
+
+#[test]
 fn fmt_formats_multifile_project_inputs() {
     let temp = TempDir::new("fmt-project");
     temp.write(

@@ -1,0 +1,9 @@
+module lib.report;
+
+struct Summary {
+    count: i32,
+}
+
+fn build_summary() -> Summary {
+    return Summary { count: 7 };
+}

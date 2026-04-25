@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use crate::ast::{Expr, ExprKind, StructLiteralField};
+use crate::ast::{Expr, StructLiteralField};
 use crate::diagnostics::Diagnostic;
 
 use super::{Type, TypeChecker};
@@ -12,7 +12,15 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
         name: &str,
         fields: &[StructLiteralField],
     ) -> Type {
-        let struct_info = match self.info.named_types.get(name).cloned() {
+        let current_unit_path = self.current_unit_path().to_string();
+        let resolved_type_name =
+            self.info
+                .resolve_named_type_key(name, &current_unit_path, expr.span, self.diagnostics);
+        let struct_info = match resolved_type_name
+            .as_ref()
+            .and_then(|name| self.info.named_types.get(name))
+            .cloned()
+        {
             Some(Type::Struct(struct_name)) => self
                 .info
                 .structs
@@ -155,16 +163,26 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
     }
 
     pub(super) fn check_field_expr(&mut self, expr: &Expr, base: &Expr, field: &str) -> Type {
-        if let ExprKind::Name { value: enum_name } = &base.kind {
-            if let Some(enum_info) = self.info.enums.get(enum_name) {
+        if let Some(enum_name) = base.qualified_name() {
+            let current_unit_path = self.current_unit_path().to_string();
+            if let Some(resolved_enum_name) = self.info.resolve_named_type_key(
+                &enum_name,
+                &current_unit_path,
+                expr.span,
+                self.diagnostics,
+            ) && let Some(enum_info) = self.info.enums.get(&resolved_enum_name)
+            {
                 if enum_info.variants.contains(field) {
-                    return Type::Enum(enum_name.clone());
+                    return Type::Enum(resolved_enum_name);
                 }
 
                 self.diagnostics.push(
                     Diagnostic::new(
                         "S0029",
-                        format!("enum `{enum_name}` does not have a variant `{field}`"),
+                        format!(
+                            "enum `{}` does not have a variant `{field}`",
+                            resolved_enum_name
+                        ),
                         self.info.source,
                         expr.span,
                     )

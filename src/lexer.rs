@@ -134,6 +134,8 @@ impl<'a> Lexer<'a> {
             "fn" => TokenKind::FnKw,
             "struct" => TokenKind::StructKw,
             "enum" => TokenKind::EnumKw,
+            "module" => TokenKind::ModuleKw,
+            "import" => TokenKind::ImportKw,
             "let" => TokenKind::LetKw,
             "mut" => TokenKind::MutKw,
             "return" => TokenKind::ReturnKw,
@@ -300,6 +302,22 @@ mod tests {
         assert!(kinds.contains(&TokenKind::LetKw));
         assert!(kinds.contains(&TokenKind::MutKw));
         assert!(kinds.contains(&TokenKind::Arrow));
+    }
+
+    #[test]
+    fn tokenizes_module_and_import_keywords() {
+        let source = SourceFile::anonymous(
+            "module foundation.search; import foundation.workspace; fn main() -> i32 { return 0; }",
+        );
+        let output = tokenize(&source);
+        let kinds = output
+            .tokens
+            .iter()
+            .map(|token| token.kind)
+            .collect::<Vec<_>>();
+        assert!(output.diagnostics.is_empty());
+        assert!(kinds.contains(&TokenKind::ModuleKw));
+        assert!(kinds.contains(&TokenKind::ImportKw));
     }
 
     #[test]

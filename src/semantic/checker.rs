@@ -33,6 +33,7 @@ use names::Binding;
 pub(super) struct TypeChecker<'a, 'b> {
     info: &'a ProgramInfo<'a>,
     return_type: Type,
+    current_unit_path: String,
     scopes: Vec<HashMap<String, Binding>>,
     loop_depth: usize,
     diagnostics: &'b mut Vec<Diagnostic>,
@@ -42,11 +43,13 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
     pub(super) fn new(
         info: &'a ProgramInfo<'a>,
         return_type: Type,
+        current_unit_path: String,
         diagnostics: &'b mut Vec<Diagnostic>,
     ) -> Self {
         Self {
             info,
             return_type,
+            current_unit_path,
             scopes: vec![HashMap::new()],
             loop_depth: 0,
             diagnostics,
@@ -59,6 +62,10 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
 
     pub(super) fn return_type(&self) -> &Type {
         &self.return_type
+    }
+
+    pub(super) fn current_unit_path(&self) -> &str {
+        &self.current_unit_path
     }
 
     pub(super) fn check_block(&mut self, block: &Block) {

@@ -1,0 +1,6 @@
+import lib.report;
+
+fn main() -> i32 {
+    let summary: lib.report.Summary = lib.report.build_summary();
+    return summary.count;
+}

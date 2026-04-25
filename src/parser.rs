@@ -1,6 +1,6 @@
 use crate::ast::{
-    BinaryOp, Block, EnumVariant, Expr, ExprKind, Item, ItemKind, Param, Program, Stmt, StmtKind,
-    StructField, StructLiteralField, TypeRef, UnaryOp,
+    BinaryOp, Block, EnumVariant, Expr, ExprKind, ImportDecl, Item, ItemKind, ModuleDecl, Param,
+    Program, SourceUnit, Stmt, StmtKind, StructField, StructLiteralField, TypeRef, UnaryOp,
 };
 use crate::diagnostics::Diagnostic;
 use crate::source::{SourceFile, Span};
@@ -34,16 +34,80 @@ impl<'a> Parser<'a> {
 
     fn parse_program(mut self) -> ParseOutput {
         let mut items = Vec::new();
-        while !self.is_at_end() {
-            match self.parse_item() {
-                Some(item) => items.push(item),
-                None => self.sync_to_item(),
-            }
+        let mut source_units = Vec::new();
+
+        for segment in self.source.segments() {
+            source_units.push(self.parse_source_unit(&segment.path, segment.span, &mut items));
         }
 
         ParseOutput {
-            program: Program { items },
+            program: Program {
+                items,
+                source_units,
+            },
             diagnostics: self.diagnostics,
+        }
+    }
+
+    fn parse_source_unit(&mut self, path: &str, span: Span, items: &mut Vec<Item>) -> SourceUnit {
+        let mut module = None;
+        let mut imports = Vec::new();
+
+        if self.token_in_span(span) && self.check(TokenKind::ModuleKw) {
+            module = Some(self.parse_module_decl());
+        }
+
+        while self.token_in_span(span) && self.check(TokenKind::ImportKw) {
+            imports.push(self.parse_import_decl());
+        }
+
+        while self.token_in_span(span) {
+            match self.parse_item() {
+                Some(item) => items.push(item),
+                None => self.sync_to_item(span.end),
+            }
+        }
+
+        SourceUnit {
+            path: path.to_string(),
+            module,
+            imports,
+            span,
+            is_entry: path == self.source.display_path(),
+        }
+    }
+
+    fn parse_module_decl(&mut self) -> ModuleDecl {
+        let start = self.advance().span.start;
+        let (path, path_span) = self.parse_qualified_identifier_path(
+            "expected a module path after `module`",
+            "expected an identifier after `.` in module path",
+        );
+        let end = self.expect(
+            TokenKind::Semicolon,
+            "expected `;` after module declaration",
+            &["`;`"],
+        );
+        ModuleDecl {
+            path,
+            span: Span::new(start, end.span.end.max(path_span.end)),
+        }
+    }
+
+    fn parse_import_decl(&mut self) -> ImportDecl {
+        let start = self.advance().span.start;
+        let (path, path_span) = self.parse_qualified_identifier_path(
+            "expected a module path after `import`",
+            "expected an identifier after `.` in import path",
+        );
+        let end = self.expect(
+            TokenKind::Semicolon,
+            "expected `;` after import declaration",
+            &["`;`"],
+        );
+        ImportDecl {
+            path,
+            span: Span::new(start, end.span.end.max(path_span.end)),
         }
     }
 
@@ -237,7 +301,12 @@ impl<'a> Parser<'a> {
             self.advance()
         };
 
-        TypeRef::named(token.lexeme, token.span)
+        let (name, span) = self.finish_qualified_identifier_path(
+            token,
+            "expected an identifier after `.` in type path",
+        );
+
+        TypeRef::named(name, span)
     }
 
     fn parse_array_literal(&mut self, start: usize) -> Expr {
@@ -726,13 +795,17 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_name_or_struct_literal(&mut self, name: Token) -> Expr {
-        if !self.check(TokenKind::LBrace) {
+        if !self.check(TokenKind::LBrace) && !self.qualified_path_followed_by(TokenKind::LBrace) {
             return Expr {
                 span: name.span,
                 kind: ExprKind::Name { value: name.lexeme },
             };
         }
 
+        let (name, name_span) = self.finish_qualified_identifier_path(
+            name,
+            "expected an identifier after `.` in struct literal path",
+        );
         self.advance();
         let mut fields = Vec::new();
         if !self.check(TokenKind::RBrace) {
@@ -766,11 +839,8 @@ impl<'a> Parser<'a> {
             &["`}`"],
         );
         Expr {
-            span: Span::new(name.span.start, close.span.end),
-            kind: ExprKind::StructLiteral {
-                name: name.lexeme,
-                fields,
-            },
+            span: Span::new(name_span.start, close.span.end),
+            kind: ExprKind::StructLiteral { name, fields },
         }
     }
 
@@ -790,10 +860,14 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn sync_to_item(&mut self) {
-        while !self.is_at_end() {
+    fn sync_to_item(&mut self, segment_end: usize) {
+        while !self.is_at_end() && self.peek().span.start < segment_end {
             match self.peek().kind {
-                TokenKind::FnKw | TokenKind::StructKw | TokenKind::EnumKw => break,
+                TokenKind::FnKw
+                | TokenKind::StructKw
+                | TokenKind::EnumKw
+                | TokenKind::ModuleKw
+                | TokenKind::ImportKw => break,
                 _ => {
                     self.advance();
                 }
@@ -890,6 +964,53 @@ impl<'a> Parser<'a> {
     fn is_at_end(&self) -> bool {
         self.peek().kind == TokenKind::Eof
     }
+
+    fn token_in_span(&self, span: Span) -> bool {
+        !self.is_at_end() && self.peek().span.start < span.end
+    }
+
+    fn parse_qualified_identifier_path(
+        &mut self,
+        expected_path_message: &str,
+        expected_segment_message: &str,
+    ) -> (String, Span) {
+        let first = self.expect_identifier(expected_path_message);
+        self.finish_qualified_identifier_path(first, expected_segment_message)
+    }
+
+    fn finish_qualified_identifier_path(
+        &mut self,
+        first: Token,
+        expected_segment_message: &str,
+    ) -> (String, Span) {
+        let mut path = first.lexeme;
+        let mut end = first.span.end;
+
+        while self.matches(&[TokenKind::Dot]) {
+            let segment = self.expect_identifier(expected_segment_message);
+            path.push('.');
+            path.push_str(&segment.lexeme);
+            end = segment.span.end;
+        }
+
+        (path, Span::new(first.span.start, end))
+    }
+
+    fn qualified_path_followed_by(&self, terminator: TokenKind) -> bool {
+        let mut index = self.current;
+        let mut saw_dot = false;
+
+        while self.tokens.get(index).map(|token| token.kind) == Some(TokenKind::Dot) {
+            saw_dot = true;
+            index += 1;
+            if self.tokens.get(index).map(|token| token.kind) != Some(TokenKind::Identifier) {
+                return false;
+            }
+            index += 1;
+        }
+
+        saw_dot && self.tokens.get(index).map(|token| token.kind) == Some(terminator)
+    }
 }
 
 fn enrich_parse_error(mut diagnostic: Diagnostic, token: &Token, message: &str) -> Diagnostic {
@@ -965,6 +1086,7 @@ mod tests {
     use crate::ast::{ExprKind, ItemKind, StmtKind};
     use crate::lexer::tokenize;
     use crate::source::SourceFile;
+    use std::path::PathBuf;
 
     #[test]
     fn parses_minimal_main() {
@@ -973,6 +1095,7 @@ mod tests {
         let output = parse(&source, tokens);
         assert!(output.diagnostics.is_empty());
         assert_eq!(output.program.items.len(), 1);
+        assert_eq!(output.program.source_units.len(), 1);
         match &output.program.items[0].kind {
             ItemKind::Function { name, body, .. } => {
                 assert_eq!(name, "main");
@@ -980,6 +1103,66 @@ mod tests {
             }
             _ => panic!("expected function"),
         }
+    }
+
+    #[test]
+    fn parses_module_headers_per_source_segment() {
+        let source = SourceFile::from_segments(
+            "src/main.ax",
+            vec![
+                (
+                    PathBuf::from("foundation/search.ax"),
+                    "module foundation.search;\nfn helper() -> i32 { return 1; }\n".to_string(),
+                ),
+                (
+                    PathBuf::from("src/main.ax"),
+                    "import foundation.search;\nfn main() -> i32 { return foundation.search.helper(); }\n"
+                        .to_string(),
+                ),
+            ],
+        );
+        let tokens = tokenize(&source).tokens;
+        let output = parse(&source, tokens);
+        assert!(output.diagnostics.is_empty(), "{:?}", output.diagnostics);
+        assert_eq!(output.program.source_units.len(), 2);
+
+        let support = &output.program.source_units[0];
+        assert_eq!(support.path, "foundation/search.ax");
+        assert_eq!(
+            support.module.as_ref().map(|module| module.path.as_str()),
+            Some("foundation.search")
+        );
+        assert!(support.imports.is_empty());
+        assert!(!support.is_entry);
+
+        let entry = &output.program.source_units[1];
+        assert_eq!(entry.path, "src/main.ax");
+        assert_eq!(entry.imports.len(), 1);
+        assert_eq!(entry.imports[0].path, "foundation.search");
+        assert!(entry.is_entry);
+    }
+
+    #[test]
+    fn parses_qualified_type_path() {
+        let source = SourceFile::anonymous(
+            "fn main() -> i32 { let value: foundation.search.SearchStats = foundation.search.SearchStats { match_count: 0 }; return 0; }",
+        );
+        let tokens = tokenize(&source).tokens;
+        let output = parse(&source, tokens);
+        assert!(output.diagnostics.is_empty(), "{:?}", output.diagnostics);
+
+        let ItemKind::Function { body, .. } = &output.program.items[0].kind else {
+            panic!("expected function");
+        };
+        let StmtKind::Let {
+            ty, initializer, ..
+        } = &body.statements[0].kind
+        else {
+            panic!("expected let statement");
+        };
+
+        assert_eq!(ty.describe(), "foundation.search.SearchStats");
+        assert!(matches!(initializer.kind, ExprKind::StructLiteral { .. }));
     }
 
     #[test]

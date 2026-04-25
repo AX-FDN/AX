@@ -8,7 +8,7 @@ use crate::build::{
 };
 use crate::diagnostics::render_diagnostics;
 use crate::formatter::format_source;
-use crate::frontend::analyze;
+use crate::frontend::{analyze_with_project, check_only_with_project};
 use crate::interpreter::{RunContext, run_program_with_context};
 use crate::project::{ResolvedInput, resolve_input};
 
@@ -58,7 +58,7 @@ fn run_check(args: Vec<String>) -> i32 {
     };
     let source = &input.source;
 
-    let mut output = analyze(source);
+    let mut output = check_only_with_project(source, input.project.as_ref());
     if output.diagnostics.is_empty() {
         println!(
             "{}",
@@ -108,7 +108,7 @@ fn run_ast(args: Vec<String>) -> i32 {
     };
     let source = &input.source;
 
-    let output = analyze(source);
+    let output = check_only_with_project(source, input.project.as_ref());
     if !output.diagnostics.is_empty() {
         eprintln!("{}", render_diagnostics(source, &output.diagnostics));
         return 1;
@@ -137,7 +137,7 @@ fn run_hir(args: Vec<String>) -> i32 {
     };
     let source = &input.source;
 
-    let output = analyze(source);
+    let output = analyze_with_project(source, input.project.as_ref());
     if !output.diagnostics.is_empty() {
         eprintln!("{}", render_diagnostics(source, &output.diagnostics));
         return 1;
@@ -173,7 +173,7 @@ fn run_build(args: Vec<String>) -> i32 {
     };
     let source = &input.source;
 
-    let output = analyze(source);
+    let output = analyze_with_project(source, input.project.as_ref());
     if !output.diagnostics.is_empty() {
         eprintln!("{}", render_diagnostics(source, &output.diagnostics));
         return 1;
@@ -243,7 +243,7 @@ fn run_mir(args: Vec<String>) -> i32 {
     };
     let source = &input.source;
 
-    let output = analyze(source);
+    let output = analyze_with_project(source, input.project.as_ref());
     if !output.diagnostics.is_empty() {
         eprintln!("{}", render_diagnostics(source, &output.diagnostics));
         return 1;
@@ -281,7 +281,7 @@ fn run_run(args: Vec<String>) -> i32 {
     };
     let source = &input.source;
 
-    let mut output = analyze(source);
+    let mut output = analyze_with_project(source, input.project.as_ref());
     if !output.diagnostics.is_empty() {
         if options.ai {
             if let Err(error) = enhance_diagnostics(

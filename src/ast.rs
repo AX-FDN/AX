@@ -5,6 +5,35 @@ use crate::source::Span;
 #[derive(Debug, Clone, Serialize)]
 pub struct Program {
     pub items: Vec<Item>,
+    #[serde(skip)]
+    pub source_units: Vec<SourceUnit>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct SourceUnit {
+    pub path: String,
+    pub module: Option<ModuleDecl>,
+    pub imports: Vec<ImportDecl>,
+    pub span: Span,
+    pub is_entry: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct ModuleDecl {
+    pub path: String,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone)]
+pub struct ImportDecl {
+    pub path: String,
+    pub span: Span,
+}
+
+impl Program {
+    pub fn source_unit_for_path(&self, path: &str) -> Option<&SourceUnit> {
+        self.source_units.iter().find(|unit| unit.path == path)
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -171,6 +200,21 @@ pub struct Expr {
     #[serde(flatten)]
     pub kind: ExprKind,
     pub span: Span,
+}
+
+impl Expr {
+    pub fn qualified_name(&self) -> Option<String> {
+        match &self.kind {
+            ExprKind::Name { value } => Some(value.clone()),
+            ExprKind::Field { base, field } => base.qualified_name().map(|base| {
+                let mut path = base;
+                path.push('.');
+                path.push_str(field);
+                path
+            }),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]

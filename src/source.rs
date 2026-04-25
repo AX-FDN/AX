@@ -31,6 +31,12 @@ pub struct SourceFile {
     segments: Vec<SourceSegment>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SourceSegmentInfo {
+    pub path: String,
+    pub span: Span,
+}
+
 #[derive(Debug, Clone)]
 struct SourceSegment {
     path: PathBuf,
@@ -103,6 +109,16 @@ impl SourceFile {
 
     pub fn text(&self) -> &str {
         &self.text
+    }
+
+    pub fn segments(&self) -> Vec<SourceSegmentInfo> {
+        self.segments
+            .iter()
+            .map(|segment| SourceSegmentInfo {
+                path: segment.path.display().to_string(),
+                span: Span::new(segment.range.start, segment.range.end),
+            })
+            .collect()
     }
 
     pub fn display_path_for_offset(&self, offset: usize) -> &str {
@@ -195,7 +211,8 @@ fn compute_line_starts(text: &str) -> Vec<usize> {
 
 #[cfg(test)]
 mod tests {
-    use super::SourceFile;
+    use super::{SourceFile, SourceSegmentInfo};
+    use crate::source::Span;
     use std::path::PathBuf;
 
     #[test]
@@ -243,6 +260,35 @@ mod tests {
         assert_eq!(
             source.line_text_for_offset(main_offset, 2),
             "    return helper();"
+        );
+    }
+
+    #[test]
+    fn exposes_segment_metadata() {
+        let first = "fn helper() -> i32 { return 1; }";
+        let second = "fn main() -> i32 { return helper(); }";
+        let source = SourceFile::from_segments(
+            "src/main.ax",
+            vec![
+                (PathBuf::from("lib/report.ax"), first.to_string()),
+                (PathBuf::from("src/main.ax"), second.to_string()),
+            ],
+        );
+        let first_end = first.len() + 1;
+        let second_end = first_end + second.len() + 1;
+
+        assert_eq!(
+            source.segments(),
+            vec![
+                SourceSegmentInfo {
+                    path: "lib/report.ax".to_string(),
+                    span: Span::new(0, first_end),
+                },
+                SourceSegmentInfo {
+                    path: "src/main.ax".to_string(),
+                    span: Span::new(first_end, second_end),
+                },
+            ]
         );
     }
 }

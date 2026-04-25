@@ -16,6 +16,7 @@ pub struct Project {
     manifest_text: String,
     manifest: ProjectManifest,
     source_paths: Vec<PathBuf>,
+    source_module_paths: Vec<(PathBuf, String)>,
     entry_path: PathBuf,
 }
 
@@ -38,6 +39,13 @@ impl Project {
 
     pub fn source_paths(&self) -> &[PathBuf] {
         &self.source_paths
+    }
+
+    pub fn expected_module_path(&self, path: &Path) -> Option<&str> {
+        self.source_module_paths
+            .iter()
+            .find(|(source_path, _)| source_path == path)
+            .map(|(_, module_path)| module_path.as_str())
     }
 
     pub fn has_additional_sources(&self) -> bool {
@@ -153,6 +161,8 @@ fn load_project(manifest_path: &Path) -> Result<Project, String> {
 
     let entry_path = resolve_project_source_file_path(root_dir, manifest_path, entry, "entry")?;
     let mut source_paths = Vec::new();
+    let mut source_module_paths = Vec::new();
+    let mut source_root_aliases = Vec::<(String, String)>::new();
     for source in &manifest.package.sources {
         let source = source.trim();
         if source.is_empty() {
@@ -162,7 +172,20 @@ fn load_project(manifest_path: &Path) -> Result<Project, String> {
             ));
         }
 
-        let expanded_paths = resolve_project_support_source_paths(root_dir, manifest_path, source)?;
+        let support_spec = resolve_project_support_source_spec(root_dir, manifest_path, source)?;
+        if let Some((_, previous_source)) = source_root_aliases
+            .iter()
+            .find(|(alias, _)| alias == &support_spec.root_alias)
+        {
+            return Err(format!(
+                "project support source `{source}` in {} reuses module root alias `{}` already claimed by `{previous_source}`",
+                manifest_path.display(),
+                support_spec.root_alias,
+            ));
+        }
+        source_root_aliases.push((support_spec.root_alias.clone(), source.to_string()));
+
+        let expanded_paths = support_spec.expanded_paths;
         for source_path in expanded_paths {
             if source_path == entry_path {
                 return Err(format!(
@@ -177,7 +200,23 @@ fn load_project(manifest_path: &Path) -> Result<Project, String> {
                     source_path.display()
                 ));
             }
+            let module_path = expected_module_path_for_support_source(
+                &support_spec.root_path,
+                &support_spec.root_alias,
+                &source_path,
+            )
+            .map_err(|error| {
+                format!(
+                    "failed to derive module path for support source {} declared in {}: {error}",
+                    source_path.display(),
+                    manifest_path.display()
+                )
+            })?;
             source_paths.push(source_path);
+            source_module_paths.push((
+                source_paths.last().expect("source path must exist").clone(),
+                module_path,
+            ));
         }
     }
 
@@ -187,6 +226,7 @@ fn load_project(manifest_path: &Path) -> Result<Project, String> {
         manifest_text,
         manifest,
         source_paths,
+        source_module_paths,
         entry_path,
     })
 }
@@ -247,11 +287,17 @@ fn resolve_project_source_file_path(
     Ok(path)
 }
 
-fn resolve_project_support_source_paths(
+struct SupportSourceSpec {
+    root_path: PathBuf,
+    root_alias: String,
+    expanded_paths: Vec<PathBuf>,
+}
+
+fn resolve_project_support_source_spec(
     root_dir: &Path,
     manifest_path: &Path,
     raw_path: &str,
-) -> Result<Vec<PathBuf>, String> {
+) -> Result<SupportSourceSpec, String> {
     let path = resolve_project_relative_path(root_dir, manifest_path, raw_path, "support source")?;
     let metadata = fs::metadata(&path).map_err(|error| {
         format!(
@@ -268,7 +314,16 @@ fn resolve_project_support_source_paths(
                 manifest_path.display()
             ));
         }
-        return Ok(vec![path]);
+        return Ok(SupportSourceSpec {
+            root_alias: module_root_alias_for_source_root(&path).ok_or_else(|| {
+                format!(
+                    "support source {} must have a valid module root alias",
+                    path.display()
+                )
+            })?,
+            root_path: path.clone(),
+            expanded_paths: vec![path],
+        });
     }
 
     if metadata.is_dir() {
@@ -289,7 +344,16 @@ fn resolve_project_support_source_paths(
             ));
         }
 
-        return Ok(ax_files);
+        return Ok(SupportSourceSpec {
+            root_alias: module_root_alias_for_source_root(&path).ok_or_else(|| {
+                format!(
+                    "support source {} must have a valid module root alias",
+                    path.display()
+                )
+            })?,
+            root_path: path,
+            expanded_paths: ax_files,
+        });
     }
 
     Err(format!(
@@ -358,6 +422,52 @@ fn collect_ax_files_recursively(dir: &Path) -> Result<Vec<PathBuf>, std::io::Err
     }
 
     Ok(files)
+}
+
+fn module_root_alias_for_source_root(path: &Path) -> Option<String> {
+    if path.is_dir() {
+        path.file_name()
+            .and_then(|name| name.to_str())
+            .map(str::to_string)
+    } else {
+        path.file_stem()
+            .and_then(|name| name.to_str())
+            .map(str::to_string)
+    }
+}
+
+fn expected_module_path_for_support_source(
+    root_path: &Path,
+    root_alias: &str,
+    source_path: &Path,
+) -> Result<String, String> {
+    let mut segments = vec![root_alias.to_string()];
+    if root_path.is_dir() {
+        let relative_path = source_path.strip_prefix(root_path).map_err(|_| {
+            format!(
+                "{} is not under {}",
+                source_path.display(),
+                root_path.display()
+            )
+        })?;
+        let Some(file_stem) = relative_path.file_stem().and_then(|stem| stem.to_str()) else {
+            return Err(format!(
+                "support source {} does not have a valid file stem",
+                source_path.display()
+            ));
+        };
+        for component in relative_path
+            .parent()
+            .into_iter()
+            .flat_map(Path::components)
+        {
+            if let Component::Normal(segment) = component {
+                segments.push(segment.to_string_lossy().to_string());
+            }
+        }
+        segments.push(file_stem.to_string());
+    }
+    Ok(segments.join("."))
 }
 
 fn is_valid_package_name(name: &str) -> bool {
@@ -590,5 +700,110 @@ sources = [\"../shared\"]
         assert!(resolved.source.text().contains("fn main() -> i32"));
 
         let _ = fs::remove_dir_all(&test_root);
+    }
+
+    #[test]
+    fn derives_expected_module_paths_for_support_sources() {
+        let test_root = repo_root().join("target").join("project-module-path-test");
+        let project_root = test_root.join("project");
+        let shared_root = test_root.join("foundation");
+        let _ = fs::remove_dir_all(&test_root);
+        fs::create_dir_all(project_root.join("lib").join("audit"))
+            .expect("project lib directory should exist");
+        fs::create_dir_all(project_root.join("src")).expect("project src directory should exist");
+        fs::create_dir_all(&shared_root).expect("shared root should exist");
+        fs::write(
+            project_root.join(PROJECT_MANIFEST_FILE),
+            "\
+manifest_version = 1
+
+[package]
+name = \"project_module_paths\"
+entry = \"src/main.ax\"
+sources = [\"../foundation\", \"lib/report.ax\", \"lib/audit\"]
+",
+        )
+        .expect("manifest should exist");
+        fs::write(
+            shared_root.join("search.ax"),
+            "fn helper() -> i32 { return 1; }\n",
+        )
+        .expect("shared support file should exist");
+        fs::write(
+            project_root.join("lib").join("report.ax"),
+            "fn build_report() -> i32 { return 2; }\n",
+        )
+        .expect("project report file should exist");
+        fs::write(
+            project_root.join("lib").join("audit").join("summary.ax"),
+            "fn summarize() -> i32 { return 3; }\n",
+        )
+        .expect("audit summary file should exist");
+        fs::write(
+            project_root.join("src").join("main.ax"),
+            "fn main() -> i32 { return 0; }\n",
+        )
+        .expect("main.ax should exist");
+
+        let resolved = resolve_input(&project_root).expect("project should resolve");
+        let project = resolved.project.expect("project metadata should exist");
+
+        assert_eq!(
+            project.expected_module_path(&shared_root.join("search.ax")),
+            Some("foundation.search")
+        );
+        assert_eq!(
+            project.expected_module_path(&project_root.join("lib").join("report.ax")),
+            Some("report")
+        );
+        assert_eq!(
+            project
+                .expected_module_path(&project_root.join("lib").join("audit").join("summary.ax")),
+            Some("audit.summary")
+        );
+
+        let _ = fs::remove_dir_all(&test_root);
+    }
+
+    #[test]
+    fn rejects_duplicate_module_root_aliases() {
+        let project_root = repo_root()
+            .join("target")
+            .join("project-duplicate-module-root-test");
+        let _ = fs::remove_dir_all(&project_root);
+        fs::create_dir_all(project_root.join("src")).expect("project src directory should exist");
+        fs::create_dir_all(project_root.join("lib")).expect("project lib directory should exist");
+        fs::write(
+            project_root.join(PROJECT_MANIFEST_FILE),
+            "\
+manifest_version = 1
+
+[package]
+name = \"project_duplicate_module_root\"
+entry = \"src/main.ax\"
+sources = [\"lib\", \"lib.ax\"]
+",
+        )
+        .expect("manifest should exist");
+        fs::write(
+            project_root.join("lib").join("report.ax"),
+            "fn report() -> i32 { return 1; }\n",
+        )
+        .expect("lib/report.ax should exist");
+        fs::write(
+            project_root.join("lib.ax"),
+            "fn helper() -> i32 { return 2; }\n",
+        )
+        .expect("lib.ax should exist");
+        fs::write(
+            project_root.join("src").join("main.ax"),
+            "fn main() -> i32 { return 0; }\n",
+        )
+        .expect("main.ax should exist");
+
+        let error = resolve_input(&project_root).expect_err("duplicate module roots should fail");
+        assert!(error.contains("reuses module root alias `lib`"));
+
+        let _ = fs::remove_dir_all(&project_root);
     }
 }
