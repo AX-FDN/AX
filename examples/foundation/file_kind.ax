@@ -1,0 +1,61 @@
+fn classify_file_kind(path: string) -> string {
+    if (string_ends_with(path, ".md")) {
+        return "markdown";
+    }
+    if (string_ends_with(path, ".ax")) {
+        return "ax";
+    }
+    if (string_ends_with(path, ".json")) {
+        return "json";
+    }
+    if (string_ends_with(path, ".toml")) {
+        return "toml";
+    }
+    if (string_ends_with(path, ".txt")) {
+        return "text";
+    }
+    if (string_ends_with(path, ".ps1")) {
+        return "powershell";
+    }
+    if (string_ends_with(path, ".yml")) {
+        return "yaml";
+    }
+    if (string_ends_with(path, ".yaml")) {
+        return "yaml";
+    }
+    return "plain";
+}
+
+fn is_markdown_file(path: string) -> bool {
+    return classify_file_kind(path) == "markdown";
+}
+
+fn is_text_file(path: string) -> bool {
+    let kind: string = classify_file_kind(path);
+    if (kind == "markdown") {
+        return true;
+    }
+    if (kind == "ax") {
+        return true;
+    }
+    if (kind == "json") {
+        return true;
+    }
+    if (kind == "toml") {
+        return true;
+    }
+    if (kind == "text") {
+        return true;
+    }
+    if (kind == "powershell") {
+        return true;
+    }
+    if (kind == "yaml") {
+        return true;
+    }
+    return false;
+}
+
+fn is_searchable_file(path: string) -> bool {
+    return is_text_file(path);
+}

@@ -38,12 +38,12 @@ Real workload examples currently live in [`../examples/`](../examples/):
 - [`../examples/project_split/`](../examples/project_split/)
   Minimal multi-file AX project using `AX.toml` `sources = [...]` support.
 - [`../examples/project_foundation_report/`](../examples/project_foundation_report/)
-  AX-side helper files under `lib/` plus a real reporting entrypoint.
+  Minimal project showing how shared AX foundation helpers can power a reusable reporting entrypoint.
 - [`../examples/project_docs_release/`](../examples/project_docs_release/)
-  Multi-file AX project for docs snapshot and receipt generation.
+  Multi-file AX project for docs snapshot and receipt generation, combining shared foundation helpers with project-local workflow code.
 - [`../examples/project_workspace_audit/`](../examples/project_workspace_audit/)
-  Multi-file AX project for workspace auditing, with AX-side helper files for file typing, text stats, totals, report rendering, and file-level auditing.
+  Multi-file AX project for workspace auditing, combining shared foundation helpers with project-local auditing logic.
 - [`../examples/project_workspace_search_report/`](../examples/project_workspace_search_report/)
-  Multi-file AX project for workspace search reporting, with AX-side helper files for searchable file selection, line matching, totals, report rendering, and file-level search aggregation.
+  Multi-file AX project for workspace search reporting, combining shared foundation helpers with project-local search logic.
 
 Read [`../README.md`](../README.md) for the AX design statement and project entry, [`../详细介绍.md`](../详细介绍.md) for practical commands and benchmark workflow, [`../PLAN.md`](../PLAN.md) for roadmap and project policy, and [`../SYNTAX.md`](../SYNTAX.md) for the current prototype grammar.

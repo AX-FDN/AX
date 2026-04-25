@@ -1,28 +1,13 @@
-fn display_label(path: string, depth: i32) -> string {
-    if (depth == 0) {
-        return path_file_name(path);
-    }
-    return path_file_name(path_parent(path)) + "/" + path_file_name(path);
-}
-
 fn append_dir_line(report: string, path: string, depth: i32, child_count: i32) -> string {
-    let mut prefix: string = "";
-    if (depth != 0) {
-        prefix = "  ";
-    }
-    return report + prefix + display_label(path, depth) + " | dir | children=" + to_string(child_count) + "\n";
+    return append_workspace_line(report, path, depth, "dir | children=" + to_string(child_count));
 }
 
 fn append_file_line(report: string, path: string, depth: i32, size: i32, counted_as_text: bool, text_stats: TextStats) -> string {
-    let mut prefix: string = "";
-    if (depth != 0) {
-        prefix = "  ";
-    }
-    let mut line: string = prefix + display_label(path, depth) + " | file | bytes=" + to_string(size);
+    let mut details: string = "file | bytes=" + to_string(size);
     if (counted_as_text) {
-        line = line + " | lines=" + to_string(text_stats.lines) + " | nonempty=" + to_string(text_stats.nonempty) + " | headings=" + to_string(text_stats.headings) + " | action_items=" + to_string(text_stats.action_items);
+        details = details + " | lines=" + to_string(text_stats.lines) + " | nonempty=" + to_string(text_stats.nonempty) + " | headings=" + to_string(text_stats.headings) + " | action_items=" + to_string(text_stats.action_items);
     }
-    return report + line + "\n";
+    return append_workspace_line(report, path, depth, details);
 }
 
 fn build_summary(root_dir: string, entry_count: i32, totals: AuditTotals) -> string {

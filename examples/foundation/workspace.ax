@@ -1,0 +1,21 @@
+fn display_label(path: string, depth: i32) -> string {
+    if (depth == 0) {
+        return path_file_name(path);
+    }
+    return path_file_name(path_parent(path)) + "/" + path_file_name(path);
+}
+
+fn depth_prefix(depth: i32) -> string {
+    if (depth == 0) {
+        return "";
+    }
+    return "  ";
+}
+
+fn append_workspace_line(report: string, path: string, depth: i32, details: string) -> string {
+    return report + depth_prefix(depth) + display_label(path, depth) + " | " + details + "\n";
+}
+
+fn append_named_line(report: string, path: string, details: string) -> string {
+    return report + path_file_name(path) + " | " + details + "\n";
+}

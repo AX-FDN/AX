@@ -128,6 +128,8 @@ rustup toolchain install stable-x86_64-pc-windows-gnu --profile minimal -c rustf
 
 AX now includes medium, end-to-end tool-style examples that exercise the current host boundary instead of only showing toy syntax fragments.
 
+Under that example layer, AX now also has a first shared AX-side foundation in [`examples/foundation/`](./examples/foundation/). It holds reusable helpers for CLI guards, report assembly, text stats, file-kind filters, and workspace labels so multi-file AX projects can start sharing code instead of cloning one-off helpers.
+
 - [`examples/workspace_audit.ax`](./examples/workspace_audit.ax)
   Audits a workspace at top level plus one nested level and writes a report with file counts, bytes, lines, headings, and action items.
 - [`examples/docs_release_snapshot.ax`](./examples/docs_release_snapshot.ax)
@@ -173,13 +175,13 @@ See also:
 - [`examples/project_split/`](./examples/project_split)
   Minimal multi-file function split.
 - [`examples/project_foundation_report/`](./examples/project_foundation_report)
-  AX-side helper files under `lib/` plus a real entry that uses them to build a reusable text-report workflow.
+  A minimal project that consumes the shared AX foundation layer to build a reusable text-report workflow.
 - [`examples/project_docs_release/`](./examples/project_docs_release)
-  A multi-file AX project version of the docs snapshot workflow, with helper files for filters, text stats, report rendering, and totals.
+  A multi-file AX project version of the docs snapshot workflow, combining shared foundation helpers with project-local snapshot logic.
 - [`examples/project_workspace_audit/`](./examples/project_workspace_audit)
-  A multi-file AX project version of the workspace audit workflow, split into AX-side helpers for file typing, text stats, totals, report rendering, and file-level auditing.
+  A multi-file AX project version of the workspace audit workflow, with shared foundation helpers plus project-local auditing logic.
 - [`examples/project_workspace_search_report/`](./examples/project_workspace_search_report)
-  A multi-file AX project version of the workspace search workflow, split into AX-side helpers for searchable file selection, line matching, totals, report rendering, and file-level search aggregation.
+  A multi-file AX project version of the workspace search workflow, with shared foundation helpers plus project-local search aggregation.
 
 ## How AX Should Be Evaluated
 

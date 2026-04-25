@@ -1,6 +1,0 @@
-fn is_markdown_file(path: string) -> bool {
-    if (string_ends_with(path, ".md")) {
-        return true;
-    }
-    return false;
-}

@@ -1,16 +1,6 @@
-fn display_label(path: string, depth: i32) -> string {
-    if (depth == 0) {
-        return path_file_name(path);
-    }
-    return path_file_name(path_parent(path)) + "/" + path_file_name(path);
-}
-
 fn append_match_line(report: string, path: string, depth: i32, size: i32, stats: SearchStats) -> string {
-    let mut prefix: string = "";
-    if (depth != 0) {
-        prefix = "  ";
-    }
-    return report + prefix + display_label(path, depth) + " | bytes=" + to_string(size) + " | lines=" + to_string(stats.lines) + " | matched_lines=" + to_string(stats.matched_lines) + "\n";
+    let details: string = "bytes=" + to_string(size) + " | lines=" + to_string(stats.lines) + " | matched_lines=" + to_string(stats.matched_lines);
+    return append_workspace_line(report, path, depth, details);
 }
 
 fn build_summary(root_dir: string, needle: string, totals: SearchTotals) -> string {

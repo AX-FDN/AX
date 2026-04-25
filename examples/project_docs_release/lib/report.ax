@@ -10,17 +10,16 @@ fn build_receipt(source_path: string, destination_path: string, copied_bytes: i3
 }
 
 fn append_doc_detail(report: string, path: string, copied_bytes: i32, stats: TextStats) -> string {
-    return report
-        + path_file_name(path)
-        + " | bytes="
+    let details: string =
+        "bytes="
         + to_string(copied_bytes)
         + " | lines="
         + to_string(stats.lines)
         + " | headings="
         + to_string(stats.headings)
         + " | action_items="
-        + to_string(stats.action_items)
-        + "\n";
+        + to_string(stats.action_items);
+    return append_named_line(report, path, details);
 }
 
 fn build_summary(source_dir: string, snapshot_dir: string, entries_seen: i32, totals: SnapshotTotals, detail_report: string) -> string {

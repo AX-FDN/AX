@@ -4314,9 +4314,10 @@ fn project_workspace_search_report_build_copies_real_example_source_tree() {
         json_string_array(&manifest["artifacts"]["project_sources"], "project sources"),
         vec![
             "external/foundation/cli.ax".to_string(),
+            "external/foundation/file_kind.ax".to_string(),
             "external/foundation/report.ax".to_string(),
             "external/foundation/text.ax".to_string(),
-            "lib/file_kind.ax".to_string(),
+            "external/foundation/workspace.ax".to_string(),
             "lib/file_search.ax".to_string(),
             "lib/report.ax".to_string(),
             "lib/search_stats.ax".to_string(),
