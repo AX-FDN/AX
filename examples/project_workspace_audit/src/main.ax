@@ -1,11 +1,13 @@
 fn main() -> i32 {
-    if (argv_len() < 2) {
-        return usage_error("examples/project_workspace_audit", "<root_dir> <output>");
+    let args_status: i32 = require_min_args(argv_len(), 2, "examples/project_workspace_audit", "<root_dir> <output>");
+    if (args_status != 0) {
+        return args_status;
     }
     let root_dir: string = argv_get(0);
     let output_path: string = argv_get(1);
-    if (!fs_is_dir(root_dir)) {
-        return exit_with_message("root dir is not a directory: " + root_dir, 2);
+    let root_status: i32 = require_directory(root_dir, "root dir", 2);
+    if (root_status != 0) {
+        return root_status;
     }
     ensure_output_parent(output_path);
     let entries: [string] = fs_read_dir(root_dir);

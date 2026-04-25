@@ -3,6 +3,13 @@ fn usage_error(command: string, arguments: string) -> i32 {
     return 1;
 }
 
+fn require_min_args(actual: i32, minimum: i32, command: string, arguments: string) -> i32 {
+    if (actual < minimum) {
+        return usage_error(command, arguments);
+    }
+    return 0;
+}
+
 fn exit_with_message(message: string, code: i32) -> i32 {
     println(message);
     return code;
@@ -13,5 +20,39 @@ fn ensure_output_parent(path: string) -> i32 {
     if (string_len(output_dir) != 0) {
         fs_create_dir_all(output_dir);
     }
+    return 0;
+}
+
+fn require_directory(path: string, label: string, code: i32) -> i32 {
+    if (!fs_is_dir(path)) {
+        return exit_with_message(label + " is not a directory: " + path, code);
+    }
+    return 0;
+}
+
+fn require_file(path: string, label: string, code: i32) -> i32 {
+    if (!fs_is_file(path)) {
+        return exit_with_message(label + " does not exist: " + path, code);
+    }
+    return 0;
+}
+
+fn require_non_empty_text(text: string, label: string, code: i32) -> i32 {
+    if (string_len(text) == 0) {
+        return exit_with_message(label + " must not be empty", code);
+    }
+    return 0;
+}
+
+fn ensure_directory(path: string) -> i32 {
+    fs_create_dir_all(path);
+    return 0;
+}
+
+fn recreate_directory(path: string) -> i32 {
+    if (fs_is_dir(path)) {
+        fs_remove_dir_all(path);
+    }
+    fs_create_dir_all(path);
     return 0;
 }

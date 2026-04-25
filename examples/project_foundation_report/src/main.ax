@@ -11,13 +11,15 @@ fn build_file_report(path: string, text: string, stats: TextStats) -> string {
 }
 
 fn main() -> i32 {
-    if (argv_len() < 1) {
-        return usage_error("examples/project_foundation_report", "<file>");
+    let args_status: i32 = require_min_args(argv_len(), 1, "examples/project_foundation_report", "<file>");
+    if (args_status != 0) {
+        return args_status;
     }
 
     let input_path: string = argv_get(0);
-    if (!fs_is_file(input_path)) {
-        return exit_with_message("file does not exist: " + input_path, 2);
+    let input_status: i32 = require_file(input_path, "file", 2);
+    if (input_status != 0) {
+        return input_status;
     }
 
     let text: string = fs_read_to_string(input_path);

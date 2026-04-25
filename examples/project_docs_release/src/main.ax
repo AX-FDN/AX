@@ -1,25 +1,24 @@
 fn main() -> i32 {
-    if (argv_len() < 2) {
-        return usage_error("examples/project_docs_release", "<source_dir> <out_dir>");
+    let args_status: i32 = require_min_args(argv_len(), 2, "examples/project_docs_release", "<source_dir> <out_dir>");
+    if (args_status != 0) {
+        return args_status;
     }
 
     let source_dir: string = argv_get(0);
     let out_dir: string = argv_get(1);
 
-    if (!fs_is_dir(source_dir)) {
-        return exit_with_message("source dir is not a directory: " + source_dir, 2);
+    let source_status: i32 = require_directory(source_dir, "source dir", 2);
+    if (source_status != 0) {
+        return source_status;
     }
 
-    fs_create_dir_all(out_dir);
+    ensure_directory(out_dir);
 
     let snapshot_dir: string = path_join(out_dir, "docs-snapshot");
-    if (fs_is_dir(snapshot_dir)) {
-        fs_remove_dir_all(snapshot_dir);
-    }
-    fs_create_dir_all(snapshot_dir);
+    recreate_directory(snapshot_dir);
 
     let receipts_dir: string = path_join(snapshot_dir, "receipts");
-    fs_create_dir_all(receipts_dir);
+    ensure_directory(receipts_dir);
 
     let entries: [string] = fs_read_dir(source_dir);
     let mut totals: SnapshotTotals = zero_snapshot_totals();
