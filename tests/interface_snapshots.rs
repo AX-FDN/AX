@@ -4452,6 +4452,54 @@ fn main() -> i32 {
 }
 
 #[test]
+fn run_runtime_missing_file_read_json_with_ai_exposes_host_rule_id() {
+    let temp = TempDir::new("run-runtime-missing-file-read-ai");
+    let missing_path = temp.join("missing-input.txt");
+    let missing_literal = missing_path.to_string_lossy().replace('\\', "/");
+    let input = temp.write(
+        "missing_file_read.ax",
+        &format!(
+            "\
+fn main() -> i32 {{
+    let text: string = fs_read_to_string(\"{missing_literal}\");
+    println(text);
+    return 0;
+}}
+"
+        ),
+    );
+
+    let output = run_axc([
+        OsStr::new("run"),
+        input.as_os_str(),
+        OsStr::new("--json"),
+        OsStr::new("--ai"),
+    ]);
+    assert_eq!(output.status.code(), Some(1));
+    assert_clean_stderr(&output);
+
+    let diagnostics: Value =
+        serde_json::from_slice(&output.stdout).expect("run diagnostics output should be JSON");
+    let diagnostics = diagnostics
+        .as_array()
+        .expect("run diagnostics output should be an array");
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0]["code"], Value::from("R0061"));
+    assert_eq!(
+        diagnostics[0]["ai"]["rule_id"],
+        Value::from("readable_file_path_required")
+    );
+    assert_eq!(
+        diagnostics[0]["ai"]["repair_goal"],
+        Value::from("Pass an existing readable file path before reading file contents or file metadata.")
+    );
+    assert_eq!(
+        diagnostics[0]["suggestion"],
+        Value::from("pass an existing readable text file path or guard with `fs_exists(path)` first")
+    );
+}
+
+#[test]
 fn project_build_manifest_matches_snapshot() {
     let temp = TempDir::new("project-build");
     temp.write(

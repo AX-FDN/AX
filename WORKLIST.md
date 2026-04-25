@@ -220,6 +220,7 @@
   - 不做范围：不一口气做大而全标准库，不先做网络、GUI、并发运行时或包生态。
   - 进展：2026-04-25 已通过 [`examples/project_command_capture/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_command_capture/)、[`examples/project_release_promote/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_release_promote/)、[`examples/project_directory_index/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_directory_index/)、[`examples/project_command_batch/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_command_batch/) 与 [`examples/project_text_normalize/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_text_normalize/) 把 `process / env / path / fs / string` 这批接口压过第一轮。
   - 进展：2026-04-25 共享 AX 基础层 [`foundation/`](C:/Users/xiaoy/Desktop/A语言/AX/foundation/) 已沉淀 `cli / report / text / search / file_kind / workspace`，说明这一批能力不再只是零散样例调用，而是开始形成可复用边界。
+  - 进展：2026-04-25 已为首批宿主运行期误用补上稳定 AI 规则卡与接口验证，当前覆盖 `fs_read_to_string` / `fs_file_size` 的可读文件要求、`fs_read_dir` 的可读目录要求，以及 `process_run_in` / `process_capture` 的常见启动失败与非零退出反馈。
   - 当前剩余收口：把接口边界、误用 diagnostics、AI guidance 与代表样例验证链一起收稳，而不是继续无上限加新宿主 API。
 
 - [x] `P1-11` 固化代表样例集并接入更硬验证链

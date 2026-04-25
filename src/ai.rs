@@ -240,6 +240,10 @@ fn match_rule(source: &SourceFile, diagnostic: &Diagnostic) -> Option<RuleTempla
         "R0030" => Some(RULE_ARRAY_INDEX_NON_NEGATIVE),
         "R0031" => Some(RULE_ARRAY_INDEX_IN_BOUNDS),
         "R0040" => Some(RULE_LEN_BUILTIN_REQUIRES_COUNTABLE_VALUE),
+        "R0061" | "R0103" => Some(RULE_READABLE_FILE_PATH_REQUIRED),
+        "R0090" | "R0116" | "R0119" => Some(RULE_PROCESS_COMMAND_MUST_BE_LAUNCHABLE),
+        "R0094" | "R0120" => Some(RULE_PROCESS_CAPTURE_REQUIRES_SUCCESSFUL_EXIT),
+        "R0123" => Some(RULE_READABLE_DIRECTORY_PATH_REQUIRED),
         _ => None,
     }
 }
@@ -673,12 +677,56 @@ const RULE_SLICE_VALUES_ARE_READ_ONLY: RuleTemplate = RuleTemplate {
 const RULE_LEN_BUILTIN_REQUIRES_COUNTABLE_VALUE: RuleTemplate = RuleTemplate {
     rule_id: "len_builtin_requires_countable_value",
     normalized_pattern: "len_builtin_requires_countable_value",
-    repair_goal: "Call `len(value)` only with a `string`, fixed-size array, or slice value.",
-    summary: "AX uses `len(value)` as the unified length helper for strings and sequence-like values that already have a stable length in the prototype.",
+    repair_goal: "Call `len(value)` only with a `string`, `string_list`, fixed-size array, or slice value.",
+    summary: "AX uses `len(value)` as the unified length helper for strings, `string_list`, and sequence-like values that already have a stable length in the prototype.",
     pattern: "let size: i32 = len(values);",
     minimal_example: "let values: [i32; 3] = [1, 2, 3]; return len(values);",
     anti_pattern: Some("return len(true);"),
-    default_fixit: "pass a string, array, or slice to `len(...)`",
+    default_fixit: "pass a string, string_list, array, or slice to `len(...)`",
+};
+
+const RULE_READABLE_FILE_PATH_REQUIRED: RuleTemplate = RuleTemplate {
+    rule_id: "readable_file_path_required",
+    normalized_pattern: "readable_file_path_required",
+    repair_goal: "Pass an existing readable file path before reading file contents or file metadata.",
+    summary: "Host file-reading builtins such as `fs_read_to_string` and `fs_file_size` fail at runtime when the target path is missing, unreadable, or not a regular readable file.",
+    pattern: "if (fs_is_file(path)) { let text: string = fs_read_to_string(path); }",
+    minimal_example: "let size: i32 = fs_file_size(path);",
+    anti_pattern: Some("let text: string = fs_read_to_string(\"missing.txt\");"),
+    default_fixit: "guard with `fs_is_file(path)` or pass an existing readable file path",
+};
+
+const RULE_READABLE_DIRECTORY_PATH_REQUIRED: RuleTemplate = RuleTemplate {
+    rule_id: "readable_directory_path_required",
+    normalized_pattern: "readable_directory_path_required",
+    repair_goal: "Pass an existing readable directory path before calling `fs_read_dir(path)`.",
+    summary: "`fs_read_dir` only succeeds on readable directory paths; missing paths, files, and unreadable directories fail at runtime.",
+    pattern: "if (fs_is_dir(path)) { let children: [string] = fs_read_dir(path); }",
+    minimal_example: "let children: [string] = fs_read_dir(root_dir);",
+    anti_pattern: Some("let children: [string] = fs_read_dir(\"missing-dir\");"),
+    default_fixit: "guard with `fs_is_dir(path)` or pass an existing readable directory path",
+};
+
+const RULE_PROCESS_COMMAND_MUST_BE_LAUNCHABLE: RuleTemplate = RuleTemplate {
+    rule_id: "process_command_must_be_launchable",
+    normalized_pattern: "process_command_must_be_launchable",
+    repair_goal: "Use a shell command the host can start, and when using `*_in`, pass an existing working directory.",
+    summary: "AX process builtins delegate to the host shell, so runtime launch fails if the command cannot start or the selected working directory does not exist.",
+    pattern: "let status: i32 = process_run(command);",
+    minimal_example: "let output: string = process_capture_in(work_dir, command);",
+    anti_pattern: Some("let status: i32 = process_run_in(\"missing-dir\", \"echo ready\");"),
+    default_fixit: "fix the command text or working directory so the host shell can start the process",
+};
+
+const RULE_PROCESS_CAPTURE_REQUIRES_SUCCESSFUL_EXIT: RuleTemplate = RuleTemplate {
+    rule_id: "process_capture_requires_successful_exit",
+    normalized_pattern: "process_capture_requires_successful_exit",
+    repair_goal: "Use `process_capture` only when the command is expected to exit with status 0, or switch to `process_run` when non-zero exit codes are part of the workflow.",
+    summary: "`process_capture` treats non-zero exit status as a runtime error instead of returning stdout, so failing commands must be rewritten or run with the status-oriented builtin.",
+    pattern: "let output: string = process_capture(command);",
+    minimal_example: "let output: string = process_capture(\"echo ready\");",
+    anti_pattern: Some("let output: string = process_capture(\"exit 7\");"),
+    default_fixit: "fix the command so it exits 0 or switch to `process_run(...)` / `process_run_in(...)`",
 };
 
 const RULE_ARRAY_INDEX_IN_BOUNDS: RuleTemplate = RuleTemplate {
@@ -1772,6 +1820,131 @@ mod tests {
             ai.repair_goal,
             "Prove that the divisor is never zero before dividing."
         );
+    }
+
+    #[test]
+    fn enhances_runtime_missing_file_read_with_host_rule_card() {
+        let missing_path = unique_session_path("missing-file-read").with_extension("txt");
+        let _ = fs::remove_file(&missing_path);
+        let missing_text = missing_path.to_string_lossy().replace('\\', "/");
+        let source = SourceFile::anonymous(&format!(
+            "fn main() -> i32 {{ let text: string = fs_read_to_string(\"{missing_text}\"); println(text); return 0; }}"
+        ));
+        let analysis = analyze(&source);
+        assert!(
+            analysis.diagnostics.is_empty(),
+            "analysis should succeed before runtime failure"
+        );
+
+        let hir = analysis
+            .hir
+            .as_ref()
+            .expect("HIR should be available after successful analysis");
+        let runtime_error = run_program(&source, hir).expect_err("program should fail at runtime");
+        let mut diagnostics = vec![runtime_error];
+
+        enhance_diagnostics(&source, &analysis.program, &mut diagnostics, None)
+            .expect("ai enhancement should succeed for runtime diagnostics");
+
+        let ai = diagnostics[0]
+            .ai
+            .as_ref()
+            .expect("runtime diagnostic should have ai payload");
+        assert_eq!(diagnostics[0].code, "R0061");
+        assert_eq!(ai.rule_id, "readable_file_path_required");
+    }
+
+    #[test]
+    fn enhances_runtime_missing_directory_read_with_host_rule_card() {
+        let missing_path = unique_session_path("missing-dir-read");
+        let _ = fs::remove_dir_all(&missing_path);
+        let missing_text = missing_path.to_string_lossy().replace('\\', "/");
+        let source = SourceFile::anonymous(&format!(
+            "fn main() -> i32 {{ let entries: [string] = fs_read_dir(\"{missing_text}\"); println(len(entries)); return 0; }}"
+        ));
+        let analysis = analyze(&source);
+        assert!(
+            analysis.diagnostics.is_empty(),
+            "analysis should succeed before runtime failure"
+        );
+
+        let hir = analysis
+            .hir
+            .as_ref()
+            .expect("HIR should be available after successful analysis");
+        let runtime_error = run_program(&source, hir).expect_err("program should fail at runtime");
+        let mut diagnostics = vec![runtime_error];
+
+        enhance_diagnostics(&source, &analysis.program, &mut diagnostics, None)
+            .expect("ai enhancement should succeed for runtime diagnostics");
+
+        let ai = diagnostics[0]
+            .ai
+            .as_ref()
+            .expect("runtime diagnostic should have ai payload");
+        assert_eq!(diagnostics[0].code, "R0123");
+        assert_eq!(ai.rule_id, "readable_directory_path_required");
+    }
+
+    #[test]
+    fn enhances_runtime_process_launch_failure_with_host_rule_card() {
+        let missing_path = unique_session_path("missing-process-dir");
+        let _ = fs::remove_dir_all(&missing_path);
+        let missing_text = missing_path.to_string_lossy().replace('\\', "/");
+        let source = SourceFile::anonymous(&format!(
+            "fn main() -> i32 {{ return process_run_in(\"{missing_text}\", \"echo ready\"); }}"
+        ));
+        let analysis = analyze(&source);
+        assert!(
+            analysis.diagnostics.is_empty(),
+            "analysis should succeed before runtime failure"
+        );
+
+        let hir = analysis
+            .hir
+            .as_ref()
+            .expect("HIR should be available after successful analysis");
+        let runtime_error = run_program(&source, hir).expect_err("program should fail at runtime");
+        let mut diagnostics = vec![runtime_error];
+
+        enhance_diagnostics(&source, &analysis.program, &mut diagnostics, None)
+            .expect("ai enhancement should succeed for runtime diagnostics");
+
+        let ai = diagnostics[0]
+            .ai
+            .as_ref()
+            .expect("runtime diagnostic should have ai payload");
+        assert_eq!(diagnostics[0].code, "R0116");
+        assert_eq!(ai.rule_id, "process_command_must_be_launchable");
+    }
+
+    #[test]
+    fn enhances_runtime_process_capture_failure_with_host_rule_card() {
+        let source = SourceFile::anonymous(
+            "fn main() -> i32 { let output: string = process_capture(\"exit 7\"); println(output); return 0; }",
+        );
+        let analysis = analyze(&source);
+        assert!(
+            analysis.diagnostics.is_empty(),
+            "analysis should succeed before runtime failure"
+        );
+
+        let hir = analysis
+            .hir
+            .as_ref()
+            .expect("HIR should be available after successful analysis");
+        let runtime_error = run_program(&source, hir).expect_err("program should fail at runtime");
+        let mut diagnostics = vec![runtime_error];
+
+        enhance_diagnostics(&source, &analysis.program, &mut diagnostics, None)
+            .expect("ai enhancement should succeed for runtime diagnostics");
+
+        let ai = diagnostics[0]
+            .ai
+            .as_ref()
+            .expect("runtime diagnostic should have ai payload");
+        assert_eq!(diagnostics[0].code, "R0094");
+        assert_eq!(ai.rule_id, "process_capture_requires_successful_exit");
     }
 
     #[test]
