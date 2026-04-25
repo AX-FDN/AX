@@ -292,8 +292,10 @@
   - 通过条件：最小模块项目可稳定 `check`；模块路径与文件路径错配、重复模块、导入缺失等错误有稳定 diagnostics；现有非模块项目保持兼容。
   - 回归保障：parser / resolver / interface snapshots、迁移样例 `check / run`、必要的 AI rule 与 benchmark 资产补充。
   - 不做范围：本项不扩成完整包系统，不做 alias / wildcard / `pub` / 远程依赖，不顺手重写整套工程模型。
-  - 进展：2026-04-25 已接上 `module` / `import` 词法与 parser，`Program.source_units` 现可保留每个源文件的 header 元信息；同时 `Project` 已能从 `AX.toml + sources` 推导 support source 的期望模块路径并拒绝重复根别名。
-  - 进展：2026-04-25 已补第一批模块语义诊断：support source 缺少 `module`、模块路径与文件路径错配、重复模块、重复 `import`、导入不存在模块、跨模块引用缺少 `import`；并新增迁移样例 [`examples/project_module_smoke/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_module_smoke/) 与 CLI `check` 回归。
+- 进展：2026-04-25 已接上 `module` / `import` 词法与 parser，`Program.source_units` 现可保留每个源文件的 header 元信息；同时 `Project` 已能从 `AX.toml + sources` 推导 support source 的期望模块路径并拒绝重复根别名。
+- 进展：2026-04-25 已补第一批模块语义诊断：support source 缺少 `module`、模块路径与文件路径错配、重复模块、重复 `import`、导入不存在模块、跨模块引用缺少 `import`；并新增迁移样例 [`examples/project_module_smoke/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_module_smoke/) 与 CLI `check` 回归。
+- 进展：2026-04-25 已补 qualified function/type/enum 的 HIR lowering 兼容，`examples/project_module_smoke/` 现已可稳定走到 `axc hir` 与 `axc run`；剩余收尾重点转为 AI rule/benchmark 资产同步，以及更完整的模块模式回归覆盖。
+- 进展：2026-04-25 已把 AI 反馈层对齐当前模块实现，移除旧的 “import/module 尚未支持” guidance，改为稳定覆盖 `S0037`-`S0043` 模块诊断；并补上 project 级 AI rule 测试，确认缺少 `module` 声明、缺少 `import`、导入不存在模块等场景都有稳定 `rule_id`。
 
 ## P2
 

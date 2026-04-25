@@ -3187,6 +3187,17 @@ fn project_directory_run_executes_manifest_entry_with_support_sources() {
 }
 
 #[test]
+fn project_module_smoke_run_executes_manifest_entry_with_module_support_sources() {
+    let output = run_axc([
+        OsStr::new("run"),
+        OsStr::new("examples/project_module_smoke"),
+    ]);
+    assert_eq!(output.status.code(), Some(7));
+    assert_clean_stderr(&output);
+    assert_eq!(normalize_text(&string_output(&output.stdout)), "");
+}
+
+#[test]
 fn project_check_reports_support_source_file_in_json_diagnostics() {
     let temp = TempDir::new("project-support-diagnostic");
     temp.write(
@@ -3666,7 +3677,10 @@ fn project_text_normalize_runs_on_controlled_fixture() {
     assert_clean_stderr(&output);
 
     let stdout = normalize_temp_output(&string_output(&output.stdout), &temp);
-    assert_eq!(stdout, "normalized=<root>/normalized/notes.normalized.txt\n");
+    assert_eq!(
+        stdout,
+        "normalized=<root>/normalized/notes.normalized.txt\n"
+    );
 
     let normalized_output = normalize_text(
         &fs::read_to_string(output_dir.join("notes.normalized.txt"))
@@ -4257,11 +4271,9 @@ still stable
 ";
 
     fs::write(workspace_dir.join("app.ax"), app_text).expect("app.ax should exist");
-    fs::write(api_dir.join("guide.md"), guide_text)
-        .expect("guide.md should exist");
+    fs::write(api_dir.join("guide.md"), guide_text).expect("guide.md should exist");
     fs::write(workspace_dir.join("notes.md"), notes_text).expect("notes.md should exist");
-    fs::write(docs_dir.join("blob.bin"), b"\x01\x02\x03")
-        .expect("blob.bin should exist");
+    fs::write(docs_dir.join("blob.bin"), b"\x01\x02\x03").expect("blob.bin should exist");
 
     let output_path = temp.join("search.txt");
     let output = run_axc([
@@ -4503,11 +4515,15 @@ fn main() -> i32 {{
     );
     assert_eq!(
         diagnostics[0]["ai"]["repair_goal"],
-        Value::from("Pass an existing readable file path before reading file contents or file metadata.")
+        Value::from(
+            "Pass an existing readable file path before reading file contents or file metadata."
+        )
     );
     assert_eq!(
         diagnostics[0]["suggestion"],
-        Value::from("pass an existing readable text file path or guard with `fs_exists(path)` first")
+        Value::from(
+            "pass an existing readable text file path or guard with `fs_exists(path)` first"
+        )
     );
 }
 
@@ -4775,24 +4791,24 @@ fn project_workspace_search_report_build_copies_real_example_source_tree() {
             .exists(),
         "build should copy the example helper sources"
     );
-      assert!(
-          out_dir
-              .join("project-sources")
-              .join("external")
-              .join("foundation")
-              .join("cli.ax")
-              .exists(),
-          "build should copy shared sibling foundation sources"
-      );
-      assert!(
-          out_dir
-              .join("project-sources")
-              .join("external")
-              .join("foundation")
-              .join("search.ax")
-              .exists(),
-          "build should copy shared foundation search helpers"
-      );
+    assert!(
+        out_dir
+            .join("project-sources")
+            .join("external")
+            .join("foundation")
+            .join("cli.ax")
+            .exists(),
+        "build should copy shared sibling foundation sources"
+    );
+    assert!(
+        out_dir
+            .join("project-sources")
+            .join("external")
+            .join("foundation")
+            .join("search.ax")
+            .exists(),
+        "build should copy shared foundation search helpers"
+    );
 
     let manifest: Value = serde_json::from_str(
         &fs::read_to_string(out_dir.join("build-manifest.json"))

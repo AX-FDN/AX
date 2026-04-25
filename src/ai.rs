@@ -167,18 +167,6 @@ fn match_rule(source: &SourceFile, diagnostic: &Diagnostic) -> Option<RuleTempla
         "L0003" => Some(RULE_INTEGER_LITERAL_SYNTAX),
         "L0004" => Some(RULE_FLOAT_LITERAL_SYNTAX),
         "L0005" => Some(RULE_SUPPORTED_STRING_ESCAPE_REQUIRED),
-        "P0001"
-            if diagnostic.message == "expected a top-level declaration"
-                && note_contains(diagnostic, "identifier `import`") =>
-        {
-            Some(RULE_IMPORT_NOT_SUPPORTED)
-        }
-        "P0001"
-            if diagnostic.message == "expected a top-level declaration"
-                && note_contains(diagnostic, "identifier `module`") =>
-        {
-            Some(RULE_MODULE_NOT_SUPPORTED)
-        }
         "P0001" if looks_like_match_attempt(source, diagnostic) => Some(RULE_MATCH_NOT_SUPPORTED),
         "P0001" if diagnostic.message.contains("expected `;`") || expects.contains("`;`") => {
             Some(RULE_MISSING_SEMICOLON)
@@ -235,6 +223,18 @@ fn match_rule(source: &SourceFile, diagnostic: &Diagnostic) -> Option<RuleTempla
         "S0033" => Some(RULE_INDEX_BASE_MUST_BE_ARRAY),
         "S0034" => Some(RULE_SLICE_BASE_MUST_BE_ARRAY_OR_SLICE),
         "S0035" => Some(RULE_SLICE_VALUES_ARE_READ_ONLY),
+        "S0037" => Some(RULE_ENTRY_FILE_MUST_NOT_DECLARE_MODULE),
+        "S0038" if looks_like_support_source_missing_module_declaration(diagnostic) => {
+            Some(RULE_SUPPORT_SOURCE_MUST_DECLARE_MODULE)
+        }
+        "S0038" if looks_like_support_source_missing_manifest_listing(diagnostic) => {
+            Some(RULE_SUPPORT_SOURCE_MUST_BE_LISTED_IN_MANIFEST)
+        }
+        "S0039" => Some(RULE_MODULE_PATH_MUST_MATCH_SOURCE_PATH),
+        "S0040" => Some(RULE_MODULE_PATH_MUST_BE_UNIQUE),
+        "S0041" => Some(RULE_MODULE_IMPORT_MUST_BE_UNIQUE),
+        "S0042" => Some(RULE_IMPORTED_MODULE_MUST_EXIST),
+        "S0043" => Some(RULE_CROSS_MODULE_REFERENCE_REQUIRES_IMPORT),
         "R0012" | "R0018" | "R0019" | "R0020" | "R0022" => Some(RULE_INTEGER_ARITHMETIC_IN_RANGE),
         "R0021" => Some(RULE_DIVISION_BY_ZERO),
         "R0030" => Some(RULE_ARRAY_INDEX_NON_NEGATIVE),
@@ -248,8 +248,16 @@ fn match_rule(source: &SourceFile, diagnostic: &Diagnostic) -> Option<RuleTempla
     }
 }
 
-fn note_contains(diagnostic: &Diagnostic, needle: &str) -> bool {
-    diagnostic.notes.iter().any(|note| note.contains(needle))
+fn looks_like_support_source_missing_module_declaration(diagnostic: &Diagnostic) -> bool {
+    diagnostic
+        .message
+        .contains("missing a `module` declaration in module mode")
+}
+
+fn looks_like_support_source_missing_manifest_listing(diagnostic: &Diagnostic) -> bool {
+    diagnostic
+        .message
+        .contains("is not declared in `[package].sources`")
 }
 
 fn looks_like_function_argument_type_mismatch(diagnostic: &Diagnostic) -> bool {
@@ -377,28 +385,6 @@ const RULE_SUPPORTED_STRING_ESCAPE_REQUIRED: RuleTemplate = RuleTemplate {
     default_fixit: "replace this escape with `\\\\`, `\\\"`, `\\n`, or `\\t`",
 };
 
-const RULE_IMPORT_NOT_SUPPORTED: RuleTemplate = RuleTemplate {
-    rule_id: "import_declarations_not_supported",
-    normalized_pattern: "import_declarations_not_supported",
-    repair_goal: "Keep the needed declarations in the current file because `import` is not implemented yet.",
-    summary: "The current AX prototype does not support `import` declarations or multi-file symbol loading.",
-    pattern: "fn helper() -> i32 { return 1; }\nfn main() -> i32 { return helper(); }",
-    minimal_example: "fn helper() -> i32 { return 1; }\nfn main() -> i32 { return helper(); }",
-    anti_pattern: Some("import math"),
-    default_fixit: "move the needed declarations into the same file for now",
-};
-
-const RULE_MODULE_NOT_SUPPORTED: RuleTemplate = RuleTemplate {
-    rule_id: "module_declarations_not_supported",
-    normalized_pattern: "module_declarations_not_supported",
-    repair_goal: "Keep the program in a single file because module declarations are not implemented yet.",
-    summary: "The current AX prototype does not support `module` declarations or namespace files yet.",
-    pattern: "struct Point { x: i32, y: i32 }\nfn main() -> i32 { return 0; }",
-    minimal_example: "fn helper() -> i32 { return 1; }\nfn main() -> i32 { return helper(); }",
-    anti_pattern: Some("module math"),
-    default_fixit: "remove the module declaration and keep the code in one file",
-};
-
 const RULE_MATCH_NOT_SUPPORTED: RuleTemplate = RuleTemplate {
     rule_id: "match_expressions_not_supported",
     normalized_pattern: "match_expressions_not_supported",
@@ -413,12 +399,100 @@ const RULE_MATCH_NOT_SUPPORTED: RuleTemplate = RuleTemplate {
 const RULE_TOP_LEVEL_DECLARATION_REQUIRED: RuleTemplate = RuleTemplate {
     rule_id: "top_level_item_required",
     normalized_pattern: "top_level_item_required",
-    repair_goal: "Rewrite this top-level code as a `fn`, `struct`, or `enum` declaration.",
-    summary: "Top-level AX source currently only allows `fn`, `struct`, and `enum` declarations.",
-    pattern: "fn helper() -> i32 { return 0; }",
+    repair_goal: "Rewrite this top-level code as a `module`, `import`, `fn`, `struct`, or `enum` item.",
+    summary: "Top-level AX source currently only allows `module`, `import`, `fn`, `struct`, and `enum` items.",
+    pattern: "import lib.report;\nfn helper() -> i32 { return 0; }",
     minimal_example: "struct Point { x: i32, y: i32 }",
     anti_pattern: Some("let value: i32 = 1;"),
-    default_fixit: "start this top-level item with `fn`, `struct`, or `enum`",
+    default_fixit: "start this top-level item with `module`, `import`, `fn`, `struct`, or `enum`",
+};
+
+const RULE_ENTRY_FILE_MUST_NOT_DECLARE_MODULE: RuleTemplate = RuleTemplate {
+    rule_id: "entry_file_must_not_declare_module",
+    normalized_pattern: "entry_file_must_not_declare_module",
+    repair_goal: "Keep the manifest entry file as the root unit and remove its `module` declaration.",
+    summary: "In AX minimal module mode, only support sources declare `module`; the entry file stays manifest-owned and provides `fn main() -> i32`.",
+    pattern: "src/main.ax: import lib.report;\nfn main() -> i32 { return lib.report.helper(); }",
+    minimal_example: "lib/report.ax: module lib.report;\nfn helper() -> i32 { return 1; }",
+    anti_pattern: Some("src/main.ax: module app.main;"),
+    default_fixit: "remove the `module ...;` line from the entry file",
+};
+
+const RULE_SUPPORT_SOURCE_MUST_DECLARE_MODULE: RuleTemplate = RuleTemplate {
+    rule_id: "support_source_must_declare_module",
+    normalized_pattern: "support_source_must_declare_module",
+    repair_goal: "Add a top-of-file `module ...;` declaration to each support source in module mode.",
+    summary: "Every support source discovered from `[package].sources` must declare its module path before top-level items.",
+    pattern: "lib/report.ax: module lib.report;\nfn helper() -> i32 { return 1; }",
+    minimal_example: "src/main.ax: import lib.report;\nfn main() -> i32 { return lib.report.helper(); }",
+    anti_pattern: Some("lib/report.ax: fn helper() -> i32 { return 1; }"),
+    default_fixit: "add a top-of-file `module ...;` declaration",
+};
+
+const RULE_SUPPORT_SOURCE_MUST_BE_LISTED_IN_MANIFEST: RuleTemplate = RuleTemplate {
+    rule_id: "support_source_must_be_listed_in_manifest",
+    normalized_pattern: "support_source_must_be_listed_in_manifest",
+    repair_goal: "List each support source file or directory under `[package].sources` so module discovery can see it.",
+    summary: "AX only loads support modules from paths declared in `[package].sources` inside `AX.toml`.",
+    pattern: "sources = [\"foundation\", \"lib\"]",
+    minimal_example: "sources = [\"lib/report.ax\"]",
+    anti_pattern: Some("sources = []"),
+    default_fixit: "add this file or its parent directory to `[package].sources`",
+};
+
+const RULE_MODULE_PATH_MUST_MATCH_SOURCE_PATH: RuleTemplate = RuleTemplate {
+    rule_id: "module_path_must_match_source_path",
+    normalized_pattern: "module_path_must_match_source_path",
+    repair_goal: "Change the `module` declaration so it matches the support-source root alias and relative file path.",
+    summary: "AX derives the minimal module path from `[package].sources` and the support file path, so the declaration must match that derived path exactly.",
+    pattern: "lib/report.ax: module lib.report;",
+    minimal_example: "lib/search/index.ax: module lib.search.index;",
+    anti_pattern: Some("lib/report.ax: module report;"),
+    default_fixit: "change the declaration to the expected module path",
+};
+
+const RULE_MODULE_PATH_MUST_BE_UNIQUE: RuleTemplate = RuleTemplate {
+    rule_id: "module_path_must_be_unique",
+    normalized_pattern: "module_path_must_be_unique",
+    repair_goal: "Rename, move, or merge support files so each module path is owned by exactly one file.",
+    summary: "Minimal module mode requires a one-to-one mapping between support files and module paths.",
+    pattern: "lib/report.ax: module lib.report;\nlib/summary.ax: module lib.summary;",
+    minimal_example: "foundation/text.ax: module foundation.text;",
+    anti_pattern: Some("lib/report.ax: module lib.report;\nlib/report_copy.ax: module lib.report;"),
+    default_fixit: "rename or move one support file so the module paths are unique",
+};
+
+const RULE_MODULE_IMPORT_MUST_BE_UNIQUE: RuleTemplate = RuleTemplate {
+    rule_id: "module_import_must_be_unique",
+    normalized_pattern: "module_import_must_be_unique",
+    repair_goal: "Keep only one `import` line for each module path in the current file.",
+    summary: "Repeated `import` lines for the same module do not add behavior and should be collapsed to a single import.",
+    pattern: "import lib.report;\nfn main() -> i32 { return lib.report.helper(); }",
+    minimal_example: "import foundation.text;\nimport lib.report;",
+    anti_pattern: Some("import lib.report;\nimport lib.report;"),
+    default_fixit: "remove the duplicate import",
+};
+
+const RULE_IMPORTED_MODULE_MUST_EXIST: RuleTemplate = RuleTemplate {
+    rule_id: "imported_module_must_exist",
+    normalized_pattern: "imported_module_must_exist",
+    repair_goal: "Import a support module that actually exists in the current project.",
+    summary: "An `import` path must match a support source module declared somewhere under the current project's `[package].sources` roots.",
+    pattern: "import lib.report;",
+    minimal_example: "lib/report.ax: module lib.report;",
+    anti_pattern: Some("import lib.missing;"),
+    default_fixit: "import an existing support module declared in this project",
+};
+
+const RULE_CROSS_MODULE_REFERENCE_REQUIRES_IMPORT: RuleTemplate = RuleTemplate {
+    rule_id: "cross_module_reference_requires_import",
+    normalized_pattern: "cross_module_reference_requires_import",
+    repair_goal: "Add the missing `import module.path;` line before using a cross-module qualified name.",
+    summary: "AX minimal module mode requires explicit imports for cross-module references, even when the code already uses a fully qualified name.",
+    pattern: "import lib.report;\nfn main() -> i32 { return lib.report.helper(); }",
+    minimal_example: "import lib.flag;\nlet value: lib.flag.Flag = lib.flag.Flag.On;",
+    anti_pattern: Some("fn main() -> i32 { return lib.report.helper(); }"),
+    default_fixit: "add the required `import module.path;` line near the top of this file",
 };
 
 const RULE_TYPE_NAME_REQUIRED: RuleTemplate = RuleTemplate {
@@ -1417,10 +1491,11 @@ fn snippet_text(source: &SourceFile, span: Span, max_lines: usize) -> String {
 mod tests {
     use super::{TeachingLevel, enhance_diagnostics};
     use std::fs;
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
 
-    use crate::frontend::analyze;
+    use crate::frontend::{analyze, analyze_with_project};
     use crate::interpreter::run_program;
+    use crate::project::resolve_input;
     use crate::source::SourceFile;
 
     fn unique_session_path(label: &str) -> PathBuf {
@@ -1432,6 +1507,26 @@ mod tests {
                 .expect("time should be monotonic")
                 .as_nanos()
         ))
+    }
+
+    fn unique_project_root(label: &str) -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("target")
+            .join(format!(
+                "ax-ai-project-{label}-{}-{}",
+                std::process::id(),
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .expect("time should be monotonic")
+                    .as_nanos()
+            ))
+    }
+
+    fn write_project_file(path: &Path, text: &str) {
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).expect("parent directory should exist");
+        }
+        fs::write(path, text).expect("project file should be written");
     }
 
     #[test]
@@ -1640,23 +1735,100 @@ mod tests {
     }
 
     #[test]
-    fn adds_import_guidance_for_unsupported_feature_attempts() {
-        let source = SourceFile::anonymous("import math\nfn main() -> i32 { return 0; }");
-        let mut analysis = analyze(&source);
-        enhance_diagnostics(&source, &analysis.program, &mut analysis.diagnostics, None)
-            .expect("ai enhancement should succeed");
+    fn adds_module_declaration_guidance_for_support_sources() {
+        let project_root = unique_project_root("missing-module-declaration");
+        let _ = fs::remove_dir_all(&project_root);
+        write_project_file(
+            &project_root.join("AX.toml"),
+            "\
+manifest_version = 1
+
+[package]
+name = \"ai_module_missing_decl\"
+entry = \"src/main.ax\"
+sources = [\"lib\"]
+",
+        );
+        write_project_file(
+            &project_root.join("lib").join("report.ax"),
+            "fn helper() -> i32 { return 1; }\n",
+        );
+        write_project_file(
+            &project_root.join("src").join("main.ax"),
+            "import lib.report;\nfn main() -> i32 { return lib.report.helper(); }\n",
+        );
+
+        let resolved = resolve_input(&project_root).expect("project should resolve");
+        let mut analysis = analyze_with_project(&resolved.source, resolved.project.as_ref());
+        enhance_diagnostics(
+            &resolved.source,
+            &analysis.program,
+            &mut analysis.diagnostics,
+            None,
+        )
+        .expect("ai enhancement should succeed");
 
         let diagnostic = analysis
             .diagnostics
             .iter()
-            .find(|diagnostic| {
-                diagnostic.code == "P0001"
-                    && diagnostic.message == "expected a top-level declaration"
-            })
-            .expect("import parse diagnostic should exist");
+            .find(|diagnostic| diagnostic.code == "S0038")
+            .expect("missing module declaration diagnostic should exist");
         let ai = diagnostic.ai.as_ref().expect("ai payload should exist");
-        assert_eq!(ai.rule_id, "import_declarations_not_supported");
+        assert_eq!(ai.rule_id, "support_source_must_declare_module");
         assert_eq!(ai.teaching_level, TeachingLevel::L1);
+
+        let _ = fs::remove_dir_all(project_root);
+    }
+
+    #[test]
+    fn adds_missing_import_guidance_for_cross_module_references() {
+        let project_root = unique_project_root("missing-module-import");
+        let _ = fs::remove_dir_all(&project_root);
+        write_project_file(
+            &project_root.join("AX.toml"),
+            "\
+manifest_version = 1
+
+[package]
+name = \"ai_module_missing_import\"
+entry = \"src/main.ax\"
+sources = [\"lib\"]
+",
+        );
+        write_project_file(
+            &project_root.join("lib").join("report.ax"),
+            "module lib.report;\nfn helper() -> i32 { return 1; }\n",
+        );
+        write_project_file(
+            &project_root.join("src").join("main.ax"),
+            "fn main() -> i32 { return lib.report.helper(); }\n",
+        );
+
+        let resolved = resolve_input(&project_root).expect("project should resolve");
+        let mut analysis = analyze_with_project(&resolved.source, resolved.project.as_ref());
+        enhance_diagnostics(
+            &resolved.source,
+            &analysis.program,
+            &mut analysis.diagnostics,
+            None,
+        )
+        .expect("ai enhancement should succeed");
+
+        let diagnostic = analysis
+            .diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.code == "S0043")
+            .expect("missing import diagnostic should exist");
+        let ai = diagnostic.ai.as_ref().expect("ai payload should exist");
+        assert_eq!(ai.rule_id, "cross_module_reference_requires_import");
+        assert_eq!(ai.teaching_level, TeachingLevel::L1);
+        assert!(
+            ai.fixits
+                .iter()
+                .any(|fixit| fixit.contains("import lib.report;"))
+        );
+
+        let _ = fs::remove_dir_all(project_root);
     }
 
     #[test]
@@ -2170,6 +2342,65 @@ mod tests {
             .as_ref()
             .expect("runtime diagnostic should include ai payload");
         assert_eq!(ai.rule_id, "division_by_zero_must_be_avoided");
+
+        let project_root = unique_project_root("stable-module-rule");
+        let _ = fs::remove_dir_all(&project_root);
+        write_project_file(
+            &project_root.join("AX.toml"),
+            "\
+manifest_version = 1
+
+[package]
+name = \"ai_stable_module_rules\"
+entry = \"src/main.ax\"
+sources = [\"lib\"]
+",
+        );
+        write_project_file(
+            &project_root.join("lib").join("report.ax"),
+            "module lib.report;\nfn helper() -> i32 { return 1; }\n",
+        );
+        write_project_file(
+            &project_root.join("src").join("main.ax"),
+            "import lib.missing;\nfn main() -> i32 { return lib.report.helper(); }\n",
+        );
+
+        let resolved = resolve_input(&project_root).expect("project should resolve");
+        let mut analysis = analyze_with_project(&resolved.source, resolved.project.as_ref());
+        enhance_diagnostics(
+            &resolved.source,
+            &analysis.program,
+            &mut analysis.diagnostics,
+            None,
+        )
+        .expect("project diagnostics should enhance");
+
+        let imported_module = analysis
+            .diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.code == "S0042")
+            .expect("missing module diagnostic should exist");
+        let imported_module_ai = imported_module
+            .ai
+            .as_ref()
+            .expect("missing module diagnostic should include ai payload");
+        assert_eq!(imported_module_ai.rule_id, "imported_module_must_exist");
+
+        let missing_import = analysis
+            .diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.code == "S0043")
+            .expect("cross-module import diagnostic should exist");
+        let missing_import_ai = missing_import
+            .ai
+            .as_ref()
+            .expect("cross-module import diagnostic should include ai payload");
+        assert_eq!(
+            missing_import_ai.rule_id,
+            "cross_module_reference_requires_import"
+        );
+
+        let _ = fs::remove_dir_all(project_root);
     }
 
     #[test]

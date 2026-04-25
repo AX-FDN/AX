@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use serde::Serialize;
 
@@ -211,29 +211,46 @@ pub fn lower_program(source: &SourceFile, program: &ast::Program) -> Result<Prog
 
 struct LoweringContext<'a> {
     source: &'a SourceFile,
+    unit_modules: HashMap<String, String>,
+    function_names: HashSet<String>,
     struct_names: HashSet<String>,
     enum_names: HashSet<String>,
 }
 
 impl<'a> LoweringContext<'a> {
     fn new(source: &'a SourceFile, program: &ast::Program) -> Self {
+        let unit_modules = program
+            .source_units
+            .iter()
+            .filter_map(|unit| {
+                unit.module
+                    .as_ref()
+                    .map(|module| (unit.path.clone(), module.path.clone()))
+            })
+            .collect::<HashMap<_, _>>();
+        let mut function_names = HashSet::new();
         let mut struct_names = HashSet::new();
         let mut enum_names = HashSet::new();
 
         for item in &program.items {
+            let canonical_name = canonical_item_name(source, &unit_modules, item);
             match &item.kind {
-                ast::ItemKind::Struct { name, .. } => {
-                    struct_names.insert(name.clone());
+                ast::ItemKind::Function { .. } => {
+                    function_names.insert(canonical_name);
                 }
-                ast::ItemKind::Enum { name, .. } => {
-                    enum_names.insert(name.clone());
+                ast::ItemKind::Struct { .. } => {
+                    struct_names.insert(canonical_name);
                 }
-                ast::ItemKind::Function { .. } => {}
+                ast::ItemKind::Enum { .. } => {
+                    enum_names.insert(canonical_name);
+                }
             }
         }
 
         Self {
             source,
+            unit_modules,
+            function_names,
             struct_names,
             enum_names,
         }
@@ -257,7 +274,7 @@ impl<'a> LoweringContext<'a> {
                 return_type,
                 body,
             } => ItemKind::Function {
-                name: name.clone(),
+                name: self.canonical_name(name, item.span),
                 params: params
                     .iter()
                     .map(|param| {
@@ -272,7 +289,7 @@ impl<'a> LoweringContext<'a> {
                 body: self.lower_block(body)?,
             },
             ast::ItemKind::Struct { name, fields } => ItemKind::Struct {
-                name: name.clone(),
+                name: self.canonical_name(name, item.span),
                 fields: fields
                     .iter()
                     .map(|field| {
@@ -285,7 +302,7 @@ impl<'a> LoweringContext<'a> {
                     .collect::<Result<Vec<_>, Diagnostic>>()?,
             },
             ast::ItemKind::Enum { name, variants } => ItemKind::Enum {
-                name: name.clone(),
+                name: self.canonical_name(name, item.span),
                 variants: variants
                     .iter()
                     .map(|variant| EnumVariant {
@@ -310,17 +327,22 @@ impl<'a> LoweringContext<'a> {
                 "f32" => Ok(Type::F32),
                 "string" => Ok(Type::String),
                 "string_list" => Ok(Type::StringList),
-                name if self.struct_names.contains(name) => Ok(Type::Struct {
-                    name: name.to_string(),
-                }),
-                name if self.enum_names.contains(name) => Ok(Type::Enum {
-                    name: name.to_string(),
-                }),
-                _ => Err(self.lowering_error(
-                    "H0001",
-                    format!("cannot lower unknown type `{}` into HIR", name),
-                    ty.span,
-                )),
+                _ => {
+                    if let Some(name) =
+                        self.resolve_canonical_name(name, ty.span, &self.struct_names)
+                    {
+                        return Ok(Type::Struct { name });
+                    }
+                    if let Some(name) = self.resolve_canonical_name(name, ty.span, &self.enum_names)
+                    {
+                        return Ok(Type::Enum { name });
+                    }
+                    Err(self.lowering_error(
+                        "H0001",
+                        format!("cannot lower unknown type `{}` into HIR", name),
+                        ty.span,
+                    ))
+                }
             },
             (None, Some(element), None) => Ok(Type::Slice {
                 element: Box::new(self.lower_type_ref(element)?),
@@ -546,7 +568,7 @@ impl<'a> LoweringContext<'a> {
                 right: Box::new(self.lower_expr(right)?),
             },
             ast::ExprKind::Call { callee, arguments } => {
-                let ast::ExprKind::Name { value } = &callee.kind else {
+                let Some(function) = callee.qualified_name() else {
                     return Err(self.lowering_error(
                         "H0006",
                         "HIR calls require a direct function name",
@@ -554,7 +576,7 @@ impl<'a> LoweringContext<'a> {
                     ));
                 };
                 ExprKind::Call {
-                    function: value.clone(),
+                    function: self.resolve_function_name(&function, callee.span),
                     arguments: arguments
                         .iter()
                         .map(|argument| self.lower_expr(argument))
@@ -562,7 +584,9 @@ impl<'a> LoweringContext<'a> {
                 }
             }
             ast::ExprKind::StructLiteral { name, fields } => ExprKind::StructLiteral {
-                name: name.clone(),
+                name: self
+                    .resolve_canonical_name(name, expr.span, &self.struct_names)
+                    .unwrap_or_else(|| name.clone()),
                 fields: fields
                     .iter()
                     .map(|field| {
@@ -581,11 +605,11 @@ impl<'a> LoweringContext<'a> {
                     .collect::<Result<Vec<_>, _>>()?,
             },
             ast::ExprKind::Field { base, field } => {
-                if let ast::ExprKind::Name { value: enum_name } = &base.kind
-                    && self.enum_names.contains(enum_name)
-                {
+                if let Some(enum_name) = base.qualified_name().and_then(|name| {
+                    self.resolve_canonical_name(&name, base.span, &self.enum_names)
+                }) {
                     ExprKind::EnumVariant {
-                        enum_name: enum_name.clone(),
+                        enum_name,
                         variant: field.clone(),
                     }
                 } else {
@@ -622,6 +646,56 @@ impl<'a> LoweringContext<'a> {
     fn lowering_error(&self, code: &str, message: impl Into<String>, span: Span) -> Diagnostic {
         Diagnostic::new(code, message.into(), self.source, span)
     }
+
+    fn canonical_name(&self, name: &str, span: Span) -> String {
+        self.resolve_same_unit_name(name, span)
+            .unwrap_or_else(|| name.to_string())
+    }
+
+    fn resolve_function_name(&self, name: &str, span: Span) -> String {
+        self.resolve_canonical_name(name, span, &self.function_names)
+            .unwrap_or_else(|| name.to_string())
+    }
+
+    fn resolve_canonical_name(
+        &self,
+        name: &str,
+        span: Span,
+        known_names: &HashSet<String>,
+    ) -> Option<String> {
+        if known_names.contains(name) {
+            return Some(name.to_string());
+        }
+
+        let local_name = self.resolve_same_unit_name(name, span)?;
+        known_names.contains(&local_name).then_some(local_name)
+    }
+
+    fn resolve_same_unit_name(&self, name: &str, span: Span) -> Option<String> {
+        if name.contains('.') {
+            return None;
+        }
+
+        let unit_path = self.source.display_path_for_offset(span.start);
+        let module_path = self.unit_modules.get(unit_path)?;
+        Some(format!("{module_path}.{name}"))
+    }
+}
+
+fn canonical_item_name(
+    source: &SourceFile,
+    unit_modules: &HashMap<String, String>,
+    item: &ast::Item,
+) -> String {
+    let unit_path = source.display_path_for_offset(item.span.start);
+    match &item.kind {
+        ast::ItemKind::Function { name, .. }
+        | ast::ItemKind::Struct { name, .. }
+        | ast::ItemKind::Enum { name, .. } => unit_modules
+            .get(unit_path)
+            .map(|module_path| format!("{module_path}.{name}"))
+            .unwrap_or_else(|| name.clone()),
+    }
 }
 
 #[cfg(test)]
@@ -631,9 +705,14 @@ mod tests {
     use crate::parser::parse;
     use crate::semantic::check_program;
     use crate::source::SourceFile;
+    use std::path::PathBuf;
 
     fn lower(source_text: &str) -> super::Program {
         let source = SourceFile::anonymous(source_text);
+        lower_source(&source)
+    }
+
+    fn lower_source(source: &SourceFile) -> super::Program {
         let tokens = tokenize(&source);
         let parsed = parse(&source, tokens.tokens);
         let diagnostics = check_program(&source, &parsed.program);
@@ -647,6 +726,119 @@ mod tests {
         );
 
         lower_program(&source, &parsed.program).expect("HIR lowering should succeed")
+    }
+
+    #[test]
+    fn lowers_module_qualified_types_and_calls() {
+        let source = SourceFile::from_segments(
+            "src/main.ax",
+            vec![
+                (
+                    PathBuf::from("lib/report.ax"),
+                    "\
+module lib.report;
+
+struct Summary {
+    count: i32,
+}
+
+fn build_summary() -> Summary {
+    return Summary { count: 7 };
+}
+"
+                    .to_string(),
+                ),
+                (
+                    PathBuf::from("src/main.ax"),
+                    "\
+import lib.report;
+
+fn main() -> i32 {
+    let summary: lib.report.Summary = lib.report.build_summary();
+    return summary.count;
+}
+"
+                    .to_string(),
+                ),
+            ],
+        );
+
+        let program = lower_source(&source);
+
+        assert!(matches!(
+            program.items[0].kind,
+            ItemKind::Struct { ref name, .. } if name == "lib.report.Summary"
+        ));
+        assert!(matches!(
+            program.items[1].kind,
+            ItemKind::Function { ref name, .. } if name == "lib.report.build_summary"
+        ));
+
+        let ItemKind::Function { body, .. } = &program.items[2].kind else {
+            panic!("expected main function");
+        };
+        let StmtKind::Let {
+            ty, initializer, ..
+        } = &body.statements[0].kind
+        else {
+            panic!("expected let statement");
+        };
+        assert!(matches!(
+            ty,
+            Type::Struct { name } if name == "lib.report.Summary"
+        ));
+        assert!(matches!(
+            initializer.kind,
+            ExprKind::Call { ref function, .. } if function == "lib.report.build_summary"
+        ));
+    }
+
+    #[test]
+    fn lowers_module_qualified_enum_variants() {
+        let source = SourceFile::from_segments(
+            "src/main.ax",
+            vec![
+                (
+                    PathBuf::from("lib/flag.ax"),
+                    "\
+module lib.flag;
+
+enum Flag {
+    On,
+    Off,
+}
+"
+                    .to_string(),
+                ),
+                (
+                    PathBuf::from("src/main.ax"),
+                    "\
+import lib.flag;
+
+fn main() -> i32 {
+    let flag: lib.flag.Flag = lib.flag.Flag.On;
+    println(flag);
+    return 0;
+}
+"
+                    .to_string(),
+                ),
+            ],
+        );
+
+        let program = lower_source(&source);
+
+        let ItemKind::Function { body, .. } = &program.items[1].kind else {
+            panic!("expected main function");
+        };
+        let StmtKind::Let { initializer, .. } = &body.statements[0].kind else {
+            panic!("expected let statement");
+        };
+        assert!(matches!(
+            initializer.kind,
+            ExprKind::EnumVariant { ref enum_name, ref variant }
+                if enum_name == "lib.flag.Flag" && variant == "On"
+        ));
     }
 
     #[test]
