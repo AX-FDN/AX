@@ -3,6 +3,8 @@ use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
+use std::thread;
+use std::time::Duration;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::Deserialize;
@@ -14,6 +16,52 @@ fn repo_root() -> PathBuf {
 
 fn axc_binary() -> PathBuf {
     PathBuf::from(env!("CARGO_BIN_EXE_axc"))
+}
+
+fn invocable_axc_binary() -> PathBuf {
+    let source = axc_binary();
+    let extension = source
+        .extension()
+        .and_then(|value| value.to_str())
+        .map(|value| format!(".{value}"))
+        .unwrap_or_default();
+    let nonce = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("clock should be after unix epoch")
+        .as_nanos();
+    let path = std::env::temp_dir().join(format!(
+        "axc-interface-bin-{}-{nonce}{extension}",
+        std::process::id()
+    ));
+    fs::copy(&source, &path).unwrap_or_else(|error| {
+        panic!(
+            "failed to create invocable AX binary copy from `{}` to `{}`: {error}",
+            source.display(),
+            path.display()
+        )
+    });
+    path
+}
+
+fn remove_temp_file_best_effort(path: &Path) {
+    for _ in 0..20 {
+        match fs::remove_file(path) {
+            Ok(()) => return,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return,
+            Err(_) => thread::sleep(Duration::from_millis(100)),
+        }
+    }
+}
+
+fn write_temp_text(path: &Path, text: &str) {
+    if path.extension().and_then(|value| value.to_str()) == Some("ps1") {
+        let mut bytes = vec![0xEF, 0xBB, 0xBF];
+        bytes.extend_from_slice(text.as_bytes());
+        fs::write(path, bytes).expect("failed to write temp file");
+        return;
+    }
+
+    fs::write(path, text).expect("failed to write temp file");
 }
 
 fn snapshots_dir() -> PathBuf {
@@ -36,11 +84,14 @@ where
     I: IntoIterator<Item = S>,
     S: AsRef<OsStr>,
 {
-    Command::new(axc_binary())
+    let binary = invocable_axc_binary();
+    let output = Command::new(&binary)
         .args(args)
         .current_dir(repo_root())
         .output()
-        .expect("failed to execute axc")
+        .expect("failed to execute axc");
+    remove_temp_file_best_effort(&binary);
+    output
 }
 
 fn powershell_executable() -> &'static str {
@@ -56,6 +107,7 @@ where
     I: IntoIterator<Item = S>,
     S: AsRef<OsStr>,
 {
+    let binary = invocable_axc_binary();
     let mut command = Command::new(powershell_executable());
     command.arg("-NoProfile");
     if cfg!(windows) {
@@ -64,11 +116,18 @@ where
     command
         .arg("-File")
         .arg(script)
-        .env("AXC_BINARY", axc_binary())
+        .env("AXC_BINARY", &binary)
         .args(args)
         .current_dir(repo_root())
         .output()
-        .expect("failed to execute PowerShell script")
+        .map(|output| {
+            remove_temp_file_best_effort(&binary);
+            output
+        })
+        .unwrap_or_else(|error| {
+            remove_temp_file_best_effort(&binary);
+            panic!("failed to execute PowerShell script: {error}")
+        })
 }
 
 struct TempDir {
@@ -95,7 +154,7 @@ impl TempDir {
 
     fn write(&self, name: &str, text: &str) -> PathBuf {
         let path = self.join(name);
-        fs::write(&path, text).expect("failed to write temp file");
+        write_temp_text(&path, text);
         path
     }
 
@@ -104,7 +163,7 @@ impl TempDir {
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent).expect("failed to create temp subdirectory");
         }
-        fs::write(&path, text).expect("failed to write temp file");
+        write_temp_text(&path, text);
         path
     }
 }

@@ -1,4 +1,4 @@
-module math
+module math;
 fn main() -> i32 {
     return 0;
 }

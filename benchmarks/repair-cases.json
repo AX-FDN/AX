@@ -227,20 +227,20 @@
     {
       "id": "import_declaration_unsupported",
       "file": "examples/import_unsupported.ax",
-      "category": "unsupported",
-      "expected_codes": ["P0001"],
-      "expected_ai_rule_ids": ["import_declarations_not_supported"],
-      "repair_goal": "Remove the import and keep the runnable prototype in a single file.",
-      "notes": "First unsupported-feature benchmark case for module-system syntax."
+      "category": "module",
+      "expected_codes": ["S0042"],
+      "expected_ai_rule_ids": ["imported_module_must_exist"],
+      "repair_goal": "Remove the stray import or point it at a support module that actually exists in the current project.",
+      "notes": "Minimal module-mode benchmark case for imports that do not resolve to any declared support source."
     },
     {
       "id": "module_declaration_unsupported",
       "file": "examples/module_unsupported.ax",
-      "category": "unsupported",
-      "expected_codes": ["P0001"],
-      "expected_ai_rule_ids": ["module_declarations_not_supported"],
-      "repair_goal": "Remove the module declaration and keep the prototype program flat.",
-      "notes": "Covers unsupported namespace syntax with a stable parse diagnostic."
+      "category": "module",
+      "expected_codes": ["S0037"],
+      "expected_ai_rule_ids": ["entry_file_must_not_declare_module"],
+      "repair_goal": "Remove the module declaration from the entry file so the manifest-owned root stays flat.",
+      "notes": "Minimal module-mode benchmark case for an entry file that incorrectly declares its own module path."
     },
     {
       "id": "empty_array_literal_unsupported",

@@ -153,8 +153,12 @@ function Invoke-Axc {
         [string[]] $Arguments
     )
 
+    $binaryExtension = [System.IO.Path]::GetExtension($BinaryPath)
+    $invocableBinary = Join-Path ([System.IO.Path]::GetTempPath()) ("axc-score-" + [guid]::NewGuid().ToString() + $binaryExtension)
+    Copy-Item -LiteralPath $BinaryPath -Destination $invocableBinary -Force
+
     $startInfo = New-Object System.Diagnostics.ProcessStartInfo
-    $startInfo.FileName = $BinaryPath
+    $startInfo.FileName = $invocableBinary
     $startInfo.UseShellExecute = $false
     $startInfo.CreateNoWindow = $true
     $startInfo.RedirectStandardOutput = $true
@@ -167,15 +171,26 @@ function Invoke-Axc {
         }
     }) -join ' '
 
-    $process = [System.Diagnostics.Process]::Start($startInfo)
-    $stdout = $process.StandardOutput.ReadToEnd()
-    $stderr = $process.StandardError.ReadToEnd()
-    $process.WaitForExit()
+    try {
+        $process = [System.Diagnostics.Process]::Start($startInfo)
+        $stdout = $process.StandardOutput.ReadToEnd()
+        $stderr = $process.StandardError.ReadToEnd()
+        $process.WaitForExit()
 
-    return [pscustomobject]@{
-        ExitCode = $process.ExitCode
-        StdOut   = $stdout
-        StdErr   = $stderr
+        return [pscustomobject]@{
+            ExitCode = $process.ExitCode
+            StdOut   = $stdout
+            StdErr   = $stderr
+        }
+    } finally {
+        for ($attempt = 0; $attempt -lt 20; $attempt++) {
+            try {
+                Remove-Item -LiteralPath $invocableBinary -Force -ErrorAction Stop
+                break
+            } catch {
+                Start-Sleep -Milliseconds 100
+            }
+        }
     }
 }
 

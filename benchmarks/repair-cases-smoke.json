@@ -98,11 +98,11 @@
     {
       "id": "import_declaration_unsupported",
       "file": "examples/import_unsupported.ax",
-      "category": "unsupported",
-      "expected_codes": ["P0001"],
-      "expected_ai_rule_ids": ["import_declarations_not_supported"],
-      "repair_goal": "Remove the unsupported import and keep the program runnable as a single file.",
-      "notes": "CI smoke unsupported-feature case."
+      "category": "module",
+      "expected_codes": ["S0042"],
+      "expected_ai_rule_ids": ["imported_module_must_exist"],
+      "repair_goal": "Remove the stray import or point it at a support module that actually exists in the current project.",
+      "notes": "CI smoke coverage for a minimal module-mode import that does not resolve."
     }
   ]
 }

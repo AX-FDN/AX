@@ -41,6 +41,29 @@ impl RunContext {
             current_dir: std::env::current_dir()?,
         })
     }
+
+    fn env_contains(&self, name: &str) -> bool {
+        self.env_value(name).is_some()
+    }
+
+    fn env_value(&self, name: &str) -> Option<&str> {
+        if let Some(value) = self.env.get(name) {
+            return Some(value.as_str());
+        }
+
+        #[cfg(windows)]
+        {
+            self.env
+                .iter()
+                .find(|(key, _)| key.eq_ignore_ascii_case(name))
+                .map(|(_, value)| value.as_str())
+        }
+
+        #[cfg(not(windows))]
+        {
+            None
+        }
+    }
 }
 
 pub fn run_program(source: &SourceFile, program: &Program) -> Result<RunOutput, Diagnostic> {
@@ -741,7 +764,7 @@ impl<'a> Interpreter<'a> {
                 .next()
                 .expect("env_has argument should exist");
             return match name {
-                Value::String(name) => Ok(Value::Bool(self.host.env.contains_key(&name))),
+                Value::String(name) => Ok(Value::Bool(self.host.env_contains(&name))),
                 other => Err(self
                     .runtime_error(
                         "R0050",
@@ -774,16 +797,20 @@ impl<'a> Interpreter<'a> {
                 .next()
                 .expect("env_get argument should exist");
             return match name {
-                Value::String(name) => self.host.env.get(&name).cloned().map(Value::String).ok_or_else(|| {
-                    self.runtime_error(
-                        "R0053",
-                        format!("environment variable `{name}` is not available"),
-                        span,
-                    )
-                    .with_suggestion(
-                        "check the variable first with `env_has(name)` or set it in the host environment",
-                    )
-                }),
+                Value::String(name) => self
+                    .host
+                    .env_value(&name)
+                    .map(|value| Value::String(value.to_string()))
+                    .ok_or_else(|| {
+                        self.runtime_error(
+                            "R0053",
+                            format!("environment variable `{name}` is not available"),
+                            span,
+                        )
+                        .with_suggestion(
+                            "check the variable first with `env_has(name)` or set it in the host environment",
+                        )
+                    }),
                 other => Err(self
                     .runtime_error(
                         "R0052",
@@ -2566,7 +2593,9 @@ fn place_root_name<'a>(place: &'a Place) -> &'a str {
 
 #[cfg(test)]
 mod tests {
-    use super::run_program;
+    use std::collections::BTreeMap;
+
+    use super::{RunContext, run_program, run_program_with_context};
     use crate::frontend::analyze;
     use crate::source::SourceFile;
 
@@ -2762,6 +2791,42 @@ fn main() -> i32 {
         let output = run_program(&source, &hir).expect("program should run");
         assert_eq!(output.exit_code, 1);
         assert_eq!(output.stdout, vec!["1"]);
+    }
+
+    #[test]
+    fn env_lookup_matches_windows_case_insensitive_behavior() {
+        let (source, hir) = analyzed_hir(
+            "\
+fn main() -> i32 {
+    let present: bool = env_has(\"PATH\");
+    println(present);
+    if (present) {
+        let value: string = env_get(\"PATH\");
+        println(value);
+        return len(value);
+    }
+    return 0;
+}
+",
+        );
+
+        let mut env = BTreeMap::new();
+        env.insert("Path".to_string(), "ready".to_string());
+        let context = RunContext {
+            argv: Vec::new(),
+            env,
+            current_dir: ".".into(),
+        };
+
+        let output = run_program_with_context(&source, &hir, context).expect("program should run");
+
+        if cfg!(windows) {
+            assert_eq!(output.exit_code, 5);
+            assert_eq!(output.stdout, vec!["true", "ready"]);
+        } else {
+            assert_eq!(output.exit_code, 0);
+            assert_eq!(output.stdout, vec!["false"]);
+        }
     }
 
     #[test]

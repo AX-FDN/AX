@@ -281,7 +281,7 @@ AX constraints:
 - Struct literals use TypeName { field: expr, ... }.
 - let, assignment, expression, and return statements must end with ;.
 - Slices are supported, and empty array literals are only valid with explicit zero-length array types such as [i32; 0].
-- Do not introduce unsupported features such as match, modules or imports, generics, exceptions, or async.
+- Do not introduce unsupported features such as match, generics, exceptions, or async.
 
 Case id: $CaseId
 Feedback mode: $FeedbackMode
@@ -304,8 +304,12 @@ function Invoke-Axc {
         [string[]] $Arguments
     )
 
+    $binaryExtension = [System.IO.Path]::GetExtension($BinaryPath)
+    $invocableBinary = Join-Path ([System.IO.Path]::GetTempPath()) ("axc-export-" + [guid]::NewGuid().ToString() + $binaryExtension)
+    Copy-Item -LiteralPath $BinaryPath -Destination $invocableBinary -Force
+
     $startInfo = New-Object System.Diagnostics.ProcessStartInfo
-    $startInfo.FileName = $BinaryPath
+    $startInfo.FileName = $invocableBinary
     $startInfo.UseShellExecute = $false
     $startInfo.CreateNoWindow = $true
     $startInfo.RedirectStandardOutput = $true
@@ -318,15 +322,26 @@ function Invoke-Axc {
         }
     }) -join ' '
 
-    $process = [System.Diagnostics.Process]::Start($startInfo)
-    $stdout = $process.StandardOutput.ReadToEnd()
-    $stderr = $process.StandardError.ReadToEnd()
-    $process.WaitForExit()
+    try {
+        $process = [System.Diagnostics.Process]::Start($startInfo)
+        $stdout = $process.StandardOutput.ReadToEnd()
+        $stderr = $process.StandardError.ReadToEnd()
+        $process.WaitForExit()
 
-    return [pscustomobject]@{
-        ExitCode = $process.ExitCode
-        StdOut   = $stdout
-        StdErr   = $stderr
+        return [pscustomobject]@{
+            ExitCode = $process.ExitCode
+            StdOut   = $stdout
+            StdErr   = $stderr
+        }
+    } finally {
+        for ($attempt = 0; $attempt -lt 20; $attempt++) {
+            try {
+                Remove-Item -LiteralPath $invocableBinary -Force -ErrorAction Stop
+                break
+            } catch {
+                Start-Sleep -Milliseconds 100
+            }
+        }
     }
 }
 

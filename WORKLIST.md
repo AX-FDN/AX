@@ -224,6 +224,8 @@
   - 进展：2026-04-25 已把缺可读文件的宿主运行期坏例子接入 full repair benchmark，并为其补上共享修复候选与 full-manifest 回归测试，说明这批宿主反馈已经进入可重复证据链。
   - 进展：2026-04-25 已继续把 `process_capture` 非零退出坏例子接入 full repair benchmark，并补上共享修复候选；当前 full manifest 已能回归两类宿主 runtime 修复：缺可读文件与 capture 非零退出。
   - 进展：2026-04-25 已继续把 `fs_read_dir` 缺可读目录坏例子接入 full repair benchmark，并补上共享修复候选；当前 full manifest 已能回归三类宿主 runtime 修复：缺可读文件、缺可读目录与 capture 非零退出。
+  - 进展：2026-04-25 已修复 Windows 下 `env_has/env_get` 对宿主环境变量大小写敏感导致的误判；解释器现在会在 Windows 上按大小写不敏感方式查询环境变量，并补上 `src/interpreter.rs` 单测与 [`tests/interface_snapshots.rs`](C:/Users/xiaoy/Desktop/A语言/AX/tests/interface_snapshots.rs) 的 `project_command_batch` 回归验证。
+  - 进展：2026-04-25 已补强 Windows 下 benchmark / interface snapshot 的 PowerShell 运行链：临时 runner 脚本现在按 BOM 方式落盘，benchmark 导出/打分脚本也改为用可清理的临时 `axc` 副本执行，避免中文路径和可执行文件锁导致的伪失败。
   - 当前剩余收口：把接口边界、误用 diagnostics、AI guidance 与代表样例验证链一起收稳，而不是继续无上限加新宿主 API。
 
 - [x] `P1-11` 固化代表样例集并接入更硬验证链
@@ -296,6 +298,7 @@
 - 进展：2026-04-25 已补第一批模块语义诊断：support source 缺少 `module`、模块路径与文件路径错配、重复模块、重复 `import`、导入不存在模块、跨模块引用缺少 `import`；并新增迁移样例 [`examples/project_module_smoke/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_module_smoke/) 与 CLI `check` 回归。
 - 进展：2026-04-25 已补 qualified function/type/enum 的 HIR lowering 兼容，`examples/project_module_smoke/` 现已可稳定走到 `axc hir` 与 `axc run`；剩余收尾重点转为 AI rule/benchmark 资产同步，以及更完整的模块模式回归覆盖。
 - 进展：2026-04-25 已把 AI 反馈层对齐当前模块实现，移除旧的 “import/module 尚未支持” guidance，改为稳定覆盖 `S0037`-`S0043` 模块诊断；并补上 project 级 AI rule 测试，确认缺少 `module` 声明、缺少 `import`、导入不存在模块等场景都有稳定 `rule_id`。
+- 进展：2026-04-25 已把 repair benchmark 的旧模块占位 case 同步到当前实现：`examples/import_unsupported.ax` / `examples/module_unsupported.ax` 现改为最小模块模式误用样例，manifest 预期也切到 `S0042` / `S0037` 与对应 `rule_id`；同时更新了 [`docs/import-module-minimal-design.md`](C:/Users/xiaoy/Desktop/A语言/AX/docs/import-module-minimal-design.md) 和 benchmark prompt 文案，去掉“modules/imports 尚未实现”的过时说法。
 
 ## P2
 
