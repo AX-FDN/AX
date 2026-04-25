@@ -1,6 +1,6 @@
 # Import/Module Minimal Design
 
-Status: frozen design for `P1-15` and now partially landed in the compiler prototype. The current implementation already covers lexer/parser headers, project module-path derivation, semantic diagnostics, HIR lowering for qualified names, and `axc run` for the minimal module smoke project. The remaining work is benchmark asset sync, broader interface regression coverage, and later-stage `build` / backend boundary follow-up.
+Status: frozen design for `P1-15`. This is not implemented in the parser, resolver, or interpreter yet.
 
 ## Why AX needs this now
 

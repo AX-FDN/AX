@@ -3,7 +3,7 @@
 
 # AX
 
-### AX — AI-first Source Protocol and Execution Language Prototype
+### 面向 Coding AI 的源码协议与执行语言原型
 
 [![CI](https://img.shields.io/github/actions/workflow/status/AX-FDN/AX/ci.yml?branch=main&label=CI)](https://github.com/AX-FDN/AX/actions/workflows/ci.yml)
 [![License](https://img.shields.io/github/license/AX-FDN/AX)](./LICENSE)
@@ -14,238 +14,94 @@
 
 </div>
 
-AX 不是一个“再造通用语言”的口号项目。
+AX 是一个面向 Coding AI 的源码协议项目，也是一个持续工程化的执行语言原型。
+它把源码形态、编译器诊断、修复反馈契约、benchmark 证据链放进同一条链路里，目标是让代码模型在真实任务上生成更稳定、理解更聚焦、修复更可比较。
 
-它更准确的定位是：一个面向 Coding AI 的源码协议实验。AX 把受约束的语言表面、结构化诊断、修复反馈契约和 benchmark 证据链一起工程化，用来回答一个更现实的问题：
+AX 当前最适合的场景，是小而确定的工具程序：CLI、构建辅助、文本处理、工作区扫描、发布脚本、项目自动化。
+仓库已经具备可运行的 `axc check / run / fmt / build`、结构化 `diagnostics`、`--json --ai` 输出、project-backed 多文件组织、第一阶段 `import/module` 模式、AX 侧共享 foundation，以及 repair benchmark 的导出、评分、对比、smoke 与 CI 资产。
 
-> 当越来越多的代码由 Codex、Claude 这类 Coding AI 生成时，什么样的源码形式、错误反馈和修复上下文，能让它们生成得更稳定、修得更稳、比较得更清楚？
+## 一眼看懂 AX
 
-AX 想做的，不只是“发明一种新语法”，而是把这件事做成可验证的工程系统。
-
-## What AX Is Building
-
-AX 当前同时在建设三层东西：
-
-- 一套低歧义、可规范化的源码形式，主动收敛等价写法和高漂移语法
-- 一套面向 agent 的编译器反馈协议，围绕 `rule_id`、`repair_goal`、`fixits`、`context_snippets` 输出结构化修复上下文
-- 一条可重复的 repair benchmark 证据链，用真实坏例子、候选修复、评分脚本、smoke 和对比报告验证这些设计是否真的有效
-
-这也是 AX 最有价值的地方：它不只讨论“AI 更适合什么语言”，而是把“怎样让 Coding AI 在真实任务上更稳定”拆成可实现、可测试、可比较的部件。
-
-## What AX Is Not
-
-AX 不把自己建立在“贴合某个隐藏 tokenizer”这种无法验证的前提上。
-
-我们能控制的是：
-
-- 源码的规范化形式是否更低熵
-- 诊断结构是否更稳定、更容易被模型消费
-- 修复上下文是否更聚焦、更少漂移
-- benchmark 结果是否在真实模型任务上更有说服力
-
-所以 AX 更应该被理解成：
-
-- AI-first constrained language
-- compiler diagnostics and repair contract
-- benchmark methodology for coding agents
-
-而不是一句“这是下一代通用语言”。
-
-## Why Not Existing Language Subsets
-
-AX does not get to exist just because it has different syntax.
-The only serious case for AX is that four things are owned together and measured together:
-
-- canonical syntax
-- structured diagnostics
-- repair contract
-- benchmark evidence
-
-If those four do not produce measurable repair lift, then a constrained Rust / Go / Python subset is the simpler answer.
-The sharper version of that argument is in [`docs/why-not-language-subsets.md`](./docs/why-not-language-subsets.md).
-
-## Why This Direction
-
-传统语言默认服务的是“人类自由书写”。
-AX 更在意的是“模型稳定生成、稳定理解、稳定修复”。
-
-一旦代码开始大量由模型产出，真正影响结果的往往不是语法看起来多先进，而是下面这些基础设施是否扎实：
-
-- 一个语义是否能尽量收敛到更少的主写法
-- 编译器是否能给出稳定、机器可消费的 diagnostics
-- 修复接口是否能明确告诉 agent 错在哪、改什么、哪些上下文相关
-- benchmark 是否能把“感觉更好”变成可比较的数据
-
-AX 追求的不是最大化写法自由，而是：
-
-- 生成更确定
-- 诊断更结构化
-- 修复更可控
-- 对比更可复现
-
-## What Exists Today
-
-AX 已经不是纸上概念。当前仓库里已经有一条可以真实跑通的原型链路：
-
-- `axc check / run / ast / hir / mir / fmt / build`
-- `Lexer -> Parser -> AST -> HIR -> Semantic Check -> Interpreter`
-- 结构化 diagnostics，与 `--json --ai` AI 增强反馈
-- 第一版最小 collections：`string_list` 与 `string_list_new / string_list_push / string_list_join`
-- repair benchmark、adapter、comparison、smoke 脚本和 CI
-- 项目 manifest、接口快照测试、稳定文档入口
-
-这意味着 AX 现在更像一个正在被工程化推进的编译器前端与协议实验，而不是单纯的“语言哲学”。
-
-## Quickstart
-
-AX now uses platform tiers instead of treating every workflow as equally supported everywhere.
-
-- `Windows`: full workflow support
-- `Linux`: core compiler/runtime support
-- `macOS`: planned after Linux core is stable
-
-If you want the current install entry points, start with:
-
-- [`docs/quickstart.md`](./docs/quickstart.md)
-  Quickstart index for all supported platform paths.
-- [`docs/quickstart-windows.md`](./docs/quickstart-windows.md)
-  Full Windows source-install path, including the current PowerShell benchmark/orchestration workflow.
-- [`docs/quickstart-linux.md`](./docs/quickstart-linux.md)
-  Linux core compiler/runtime path for `axc build / check / run / fmt`.
-- [`docs/platform-support.md`](./docs/platform-support.md)
-  Current platform tiers and what remains Windows-only.
-
-Current full-workflow path:
-
-```powershell
-rustup toolchain install stable-x86_64-pc-windows-gnu --profile minimal -c rustfmt
-.\scripts\cargo-gnu.ps1 build
-.\target\debug\axc.exe check examples\hello.ax
-.\target\debug\axc.exe check examples\slice_assignment.ax --json --ai
-.\target\debug\axc.exe run examples\extract_markdown_headings.ax -- README.md target\headings-demo.txt
-```
-
-## Medium Workload Examples
-
-AX now includes medium, end-to-end tool-style examples that exercise the current host boundary instead of only showing toy syntax fragments.
-
-Under that example layer, AX now also has a first shared AX-side foundation in [`foundation/`](./foundation/). It holds reusable helpers for CLI guards, report assembly, text analysis and search, file-kind filters, and workspace labels so multi-file AX projects can start sharing code instead of cloning one-off helpers.
-
-- [`examples/workspace_audit.ax`](./examples/workspace_audit.ax)
-  Audits a workspace at top level plus one nested level and writes a report with file counts, bytes, lines, headings, and action items.
-- [`examples/docs_release_snapshot.ax`](./examples/docs_release_snapshot.ax)
-  Snapshots a docs directory, copies markdown files, emits per-file receipts, and writes a summary file for release review.
-- [`examples/workspace_search_report.ax`](./examples/workspace_search_report.ax)
-  Searches a workspace for a keyword and writes a report with matched files and matched line counts.
-
-```powershell
-.\target\debug\axc.exe run examples\workspace_audit.ax -- . target\workspace-audit.txt
-.\target\debug\axc.exe run examples\docs_release_snapshot.ax -- docs target\docs-release
-.\target\debug\axc.exe run examples\workspace_search_report.ax -- . repair target\workspace-search.txt
-```
-
-These are intentionally medium single-file programs rather than fake "large systems".
-The current ceiling is still module/import/library organization, so the right proof point today is useful 100-300 line workflows that actually check and run.
-
-## Multi-file Projects
-
-AX still does not support language-level `import` or `module` declarations.
-The current minimal code-organization mechanism is project-level source loading through `AX.toml`.
-
-```toml
-manifest_version = 1
-
-[package]
-name = "project_split"
-entry = "src/main.ax"
-sources = ["lib", "src/report.ax"]
-```
-
-When you run `axc check`, `axc run`, or `axc build` on a project directory such as [`examples/project_split`](./examples/project_split), AX loads the listed support sources first and then the entry file.
-Each `sources` entry may point to a support `.ax` file or a support directory. Directory entries expand recursively in deterministic path order.
-Diagnostics still point back to the original `.ax` file that triggered the failure.
-
-Current boundary:
-
-- This is a project-level composition feature, not a language keyword.
-- `axc fmt <project-root>` formats every configured support source plus the entry file in manifest order.
-- `axc build <project-root>` keeps the merged `source.ax` artifact and also copies the original project source tree into `project-sources/`.
-
-See also:
-
-- [`examples/project_split/`](./examples/project_split)
-  Minimal multi-file function split.
-- [`examples/project_foundation_report/`](./examples/project_foundation_report)
-  A minimal project that consumes the shared AX foundation layer to build a reusable text-report workflow.
-- [`examples/project_docs_release/`](./examples/project_docs_release)
-  A multi-file AX project version of the docs snapshot workflow, combining shared foundation helpers with project-local snapshot logic.
-- [`examples/project_workspace_audit/`](./examples/project_workspace_audit)
-  A multi-file AX project version of the workspace audit workflow, with shared foundation helpers plus project-local auditing logic.
-- [`examples/project_workspace_search_report/`](./examples/project_workspace_search_report)
-  A multi-file AX project version of the workspace search workflow, with shared foundation helpers plus project-local search aggregation.
-- [`examples/project_command_capture/`](./examples/project_command_capture)
-  A project-backed AX command capture tool that exercises `process / env / path / fs` through the shared foundation layer.
-- [`examples/project_release_promote/`](./examples/project_release_promote)
-  A project-backed AX release tool that exercises `fs_exists / fs_remove_file / fs_rename / path_*` through the shared foundation layer.
-- [`examples/project_directory_index/`](./examples/project_directory_index)
-  A project-backed AX directory inventory tool that exercises `fs_read_dir / file_kind / workspace-report` through the shared foundation layer.
-- [`examples/project_command_batch/`](./examples/project_command_batch)
-  A project-backed AX batch runner that exercises `process_run / process_run_in / env_get` through a multi-artifact workflow.
-- [`examples/project_text_normalize/`](./examples/project_text_normalize)
-  A project-backed AX text rewrite tool that exercises `fs_read_to_string / fs_write_string / string_*` through a normalize-and-report workflow.
-
-## How AX Should Be Evaluated
-
-AX 最终不该靠口号成立，而要靠证据成立。
-
-当前最关键的问题不是“还能再加多少新语法”，而是下面这些指标是否真的改善：
-
-- 同一任务上，AI 首次生成成功率是否提升
-- 同一坏例子上，单轮 repair 成功率是否提升
-- 同等语义下，输入输出 token 和上下文消耗是否更可控
-- 同一 benchmark 上，不同模型和不同版本是否都能稳定受益
-- 结构化反馈是否真的比普通报错更能指导修复
-
-如果这些问题没有数据支撑，AX 就只是一个有想法的原型。
-如果这些问题能持续拿出证据，AX 才有资格被看成一套成立的 AI-oriented source protocol。
-
-## Start Here
-
-- [`docs/why-not-language-subsets.md`](./docs/why-not-language-subsets.md)
-  Why AX is not justified by syntax novelty alone, and why the project only makes sense if canonical syntax, structured diagnostics, repair contract, and benchmark evidence land together.
-- [`docs/killer-demo.md`](./docs/killer-demo.md)
-  A sharp demo built around the same bad example, the same single-round budget, and a cleaner repair chain.
-- [`docs/benchmark-showcase.md`](./docs/benchmark-showcase.md)
-  Current benchmark evidence with case-set breakdown, method table, failure sample, and reproduced results summary.
-- [`docs/quickstart.md`](./docs/quickstart.md)
-  Quickstart index for the current Windows and Linux entry paths.
-- [`docs/platform-support.md`](./docs/platform-support.md)
-  Current support tiers: Windows full workflow, Linux core compiler/runtime, macOS deferred.
-
-Important boundary:
-
-- The current public evidence is a deterministic AX-internal benchmark and replay baseline.
-- The cross-language claim against Rust / Go / Python subsets is still a next-step benchmark target, not a completed result.
-
-## What Makes AX Different
-
-| 传统语言默认假设 | AX 的设计选择 |
+| 项目维度 | AX 当前提供什么 |
 | --- | --- |
-| 代码主要由人写 | 代码越来越多地由模型生成 |
-| 编译器主要负责报错 | 编译器同时负责提供可修复反馈契约 |
-| 报错给人看懂就够了 | 诊断既要给人看，也要给 agent 稳定消费 |
-| 同一个意思允许多种写法 | 尽量收敛到更少、更稳的表达形式 |
-| 修复靠自由发挥 | 修复围绕固定字段、规则卡和上下文切片收敛 |
+| 项目定位 | `AI-first Source Protocol + Execution Language Prototype` |
+| 核心问题 | 什么样的源码形式、诊断结构和修复上下文，更适合 Coding AI 稳定生成与修复代码 |
+| 主要场景 | 小型确定性工具程序、自动化脚本、文本处理、工作区扫描、构建辅助 |
+| 当前形态 | 编译器前端 + 解释执行 + structured diagnostics + repair contract + benchmark evidence |
+| 核心价值 | 把 canonical syntax、diagnostics、repair contract、benchmark 四件事放进同一个可运行仓库 |
 
-所以 AX 不是只在设计语法，而是在同时建设：
+## AX 的核心优势
 
-- 语言本体
-- 编译器前中端
-- 结构化诊断协议
-- AI 修复反馈层
-- benchmark 验证闭环
+| 优势 | 具体体现 | 对真实使用的意义 |
+| --- | --- | --- |
+| 同时拥有源码、诊断、修复、benchmark | AX 同时定义语法、结构化诊断、AI 反馈字段、repair case 和 compare 链路 | 设计价值可以直接通过工程链路验证 |
+| 约束明确、表面形式稳定 | 显式类型、较少隐式规则、`fmt` 驱动的规范化输出 | 更容易让模型稳定生成，也更容易让人审阅 |
+| 编译器反馈可直接给 Agent 消费 | `rule_id`、`repair_goal`、`fixits`、`context_snippets` 等字段已经进入输出层 | 错误反馈可直接进入自动化修复链 |
+| 真工具样例已经进入仓库主线 | 仓库里已经有 workspace audit、release snapshot、search report、directory index 等样例 | 可以直接观察 AX 在真实工具型任务上的表达能力 |
+| 多文件工程组织开始成型 | `AX.toml + sources` 已经稳定，第一阶段 `import/module` 已接入主线 | foundation 代码与项目私有逻辑开始拥有清晰边界 |
+| benchmark 证据链是一等公民 | repair cases、adapter spec、export、score、compare、smoke、CI 都在仓库里 | 项目价值可以靠数据、回放和对比来建立 |
 
-## Quick Look
+## AX 的工作原理
+
+```mermaid
+flowchart LR
+    A["AX Source / AX Project"] --> B["Lexer / Parser / AST"]
+    B --> C["HIR / MIR / Semantic Check"]
+    C --> D["Structured Diagnostics"]
+    D --> E["AI Feedback<br/>rule_id / repair_goal / fixits / context"]
+    C --> F["Interpreter / Host Runtime Boundary"]
+    D --> G["Repair Benchmark / Replay / Compare / Smoke"]
+    E --> G
+    F --> G
+```
+
+AX 把一段源码送入编译器后，会同步产出三层结果：
+
+1. 语言前端结果  
+   `Lexer -> Parser -> AST -> HIR -> MIR -> Semantic Check`
+
+2. 结构化诊断结果  
+   统一的 `Diagnostic` schema，支持文本、JSON 和 AI 增强字段
+
+3. 可回放证据结果  
+   repair benchmark、adapter 输出、评分结果、compare 报告、smoke 回归
+
+AX 把“源码如何被模型消费、错误如何被模型修复、修复结果如何被验证”一起工程化。
+这也是 AX 和一般实验语言项目最有区分度的地方。
+
+## AX 现在已经具备的成熟度
+
+| 方面 | 当前状态 | 仓库位置 |
+| --- | --- | --- |
+| 编译器前端 | 已打通 `Lexer -> Parser -> AST -> HIR -> MIR -> Semantic Check` 主链 | [`src/`](./src/) |
+| 执行能力 | 已支持解释执行，能够运行真实 tool-style examples | [`src/interpreter.rs`](./src/interpreter.rs) |
+| 诊断输出 | 已支持文本诊断、`--json`、`--json --ai` 三层输出 | [`docs/diagnostics-schema.md`](./docs/diagnostics-schema.md) |
+| AI 修复反馈 | 已沉淀 `rule_id / repair_goal / fixits / context_snippets` | [`src/ai.rs`](./src/ai.rs) |
+| 项目组织 | 已支持 `AX.toml + sources` 的 project-backed 多文件项目 | [`src/project.rs`](./src/project.rs) |
+| 模块模式 | 第一阶段 `import/module` 已接入 parser、project、semantic check，并有 smoke 项目验证 | [`examples/project_module_smoke/`](./examples/project_module_smoke/) |
+| AX 侧共享库 | 已沉淀 `foundation/cli / report / text / search / file_kind / workspace` | [`foundation/`](./foundation/) |
+| 构建产物 | `build` 已稳定导出 `source.ax`、HIR、MIR、manifest、project-sources 快照 | [`src/build.rs`](./src/build.rs) |
+| benchmark 证据链 | repair cases、adapter、export、score、compare、smoke、CI 均已进入仓库主线 | [`docs/repair-benchmark.md`](./docs/repair-benchmark.md) |
+| 平台支持 | Windows 工作流最完整；Linux 已打通核心 compiler/runtime 命令 | [`docs/platform-support.md`](./docs/platform-support.md) |
+
+## 我们现在在做什么
+
+当前主线聚焦把下面几件事做硬：
+
+| 当前主线 | 目的 | 结果会体现在哪里 |
+| --- | --- | --- |
+| 稳定 repair contract 与 benchmark evidence | 让每次变更都能进入可回放、可对比、可评分的证据链 | `benchmarks/`、`scripts/`、`docs/benchmark-showcase.md` |
+| 做硬 host runtime boundary | 让 AX 真正能承载工具程序 | `process / env / path / fs / string` 内建能力与 project 样例 |
+| 推进最小可写工具内核 | 继续补最值钱的表达能力和 AX 侧 foundation | `foundation/`、`examples/project_*` |
+| 推进显式、确定的模块组织 | 让 shared foundation 和 project-private logic 有清晰边界 | `AX.toml + sources`、`module`、`import`、全限定名 |
+| 用代表性样例反向驱动语言设计 | 每补一项能力，都要求它能支撑一个更真实的工具样例 | `examples/`、`tests/interface_snapshots.rs` |
+
+这条主线的判断标准很直接：
+新能力需要同时提升可写性、可测性、可修复性，才能进入更高优先级。
+
+## 快速理解 AX 现在能做什么
+
+### 1. 单文件 AX 程序
 
 ```ax
 struct Point {
@@ -265,79 +121,180 @@ fn main() -> i32 {
 }
 ```
 
-```powershell
-.\scripts\cargo-gnu.ps1 run -- check examples\syntax_overview.ax
-.\scripts\cargo-gnu.ps1 run -- run examples\hello.ax
-.\scripts\cargo-gnu.ps1 run -- check examples\missing_semicolon.ax --json --ai
+### 2. 多文件项目与模块模式
+
+```toml
+manifest_version = 1
+
+[package]
+name = "project_module_smoke"
+entry = "src/main.ax"
+sources = ["lib"]
 ```
 
-更多命令、示例、benchmark 工作流和 Windows 使用方式，请看 [`详细介绍.md`](./详细介绍.md)。
+```ax
+import lib.report;
 
-## Repository Guide
+fn main() -> i32 {
+    let summary: lib.report.Summary = lib.report.build_summary();
+    return summary.count;
+}
+```
 
-- [`详细介绍.md`](./详细介绍.md)
-  当前原型已经支持的命令、示例、repair benchmark、adapter 和实践说明。
+```ax
+module lib.report;
+
+struct Summary {
+    count: i32,
+}
+
+fn build_summary() -> Summary {
+    return Summary { count: 7 };
+}
+```
+
+### 3. 命令行链路
+
+```powershell
+rustup toolchain install stable-x86_64-pc-windows-gnu --profile minimal -c rustfmt
+.\scripts\cargo-gnu.ps1 build
+.\target\debug\axc.exe check examples\hello.ax
+.\target\debug\axc.exe run examples\workspace_audit.ax -- . target\workspace-audit.txt
+.\target\debug\axc.exe check examples\missing_semicolon.ax --json --ai
+```
+
+## 真实样例与代表性工作负载
+
+AX 当前靠代表性样例证明自己。
+
+| 样例 | 说明 | 它证明什么 |
+| --- | --- | --- |
+| [`examples/workspace_audit.ax`](./examples/workspace_audit.ax) | 工作区扫描与摘要报告 | AX 能写真实文本/目录审计工具 |
+| [`examples/docs_release_snapshot.ax`](./examples/docs_release_snapshot.ax) | 文档快照、复制、收据与汇总 | AX 能写发布辅助与文件处理逻辑 |
+| [`examples/workspace_search_report.ax`](./examples/workspace_search_report.ax) | 关键字搜索与匹配报告 | AX 能承载递归扫描和报告生成 |
+| [`examples/project_directory_index/`](./examples/project_directory_index/) | project-backed 目录索引工具 | foundation 与项目私有逻辑已经能协同 |
+| [`examples/project_release_promote/`](./examples/project_release_promote/) | 构建产物整理与提升 | path/fs 边界已经可用于真实自动化流程 |
+| [`examples/project_text_normalize/`](./examples/project_text_normalize/) | 文本读取、重写、输出报告 | 文本处理链条已经具备基础可写性 |
+| [`examples/project_module_smoke/`](./examples/project_module_smoke/) | 第一阶段模块模式 smoke 工程 | `import/module` 已经进入主线验证链 |
+
+## 多文件项目与第一阶段模块模式
+
+AX 当前采用“manifest 控制文件集合，module/import 控制命名边界”的方式组织工程。
+
+| 层级 | 当前做法 |
+| --- | --- |
+| 文件发现 | 继续由 `AX.toml` 的 `[package].sources` 控制 |
+| 入口文件 | 继续由 `entry` 指定，并保持 manifest-owned root unit |
+| 支撑文件 | support source 可以是单个 `.ax` 文件，也可以是目录 |
+| 模块声明 | 支撑文件在模块模式下使用显式 `module ...;` |
+| 导入方式 | 入口或支撑文件通过显式 `import ...;` 引入模块 |
+| 跨模块引用 | 采用全限定名，如 `lib.report.build_summary()` |
+| 设计风格 | 第一阶段追求显式、确定、可检查、可映射 |
+
+这个设计的关键点是：
+
+- `AX.toml` 继续作为项目文件集合的唯一来源
+- `module` 路径由 source root 与文件路径推导并校验
+- foundation 代码与项目私有代码开始拥有清晰命名边界
+- `check / run / fmt / build` 依旧围绕整个 manifest 项目运作
+
+对应设计文档见 [`docs/import-module-minimal-design.md`](./docs/import-module-minimal-design.md)。
+
+## AX 的诊断与修复链为什么重要
+
+AX 的诊断层直接服务于修复链。
+
+一个 AX 诊断可以同时提供：
+
+- 文本错误信息
+- 结构化 JSON diagnostics
+- AI 可消费的 `rule_id`
+- 明确的 `repair_goal`
+- 可操作的 `fixits`
+- 与当前错误直接相关的 `context_snippets`
+
+这意味着 AX 的编译器反馈可以直接进入 Coding AI 的修复上下文，减少临时 prompt 拼接。
+这也是 [`src/ai.rs`](./src/ai.rs) 和 [`docs/diagnostics-schema.md`](./docs/diagnostics-schema.md) 在仓库中如此核心的原因。
+
+## AX 的 benchmark 证据链
+
+AX 的 benchmark 是主线能力的一部分。
+
+当前仓库已经包含：
+
+- repair cases 与 expected contract
+- repair candidate 资产
+- export / score / compare 脚本
+- smoke 与 replay 回归
+- benchmark 展示文档与结果入口
+
+对应入口：
+
 - [`docs/repair-benchmark.md`](./docs/repair-benchmark.md)
-  benchmark 资产、导出链路、评分方法和对比方式。
 - [`docs/repair-adapter-spec.md`](./docs/repair-adapter-spec.md)
-  外部 repair adapter 的输入输出契约。
-- [`docs/diagnostics-schema.md`](./docs/diagnostics-schema.md)
-  结构化 diagnostics 与 AI 修复字段定义。
-- [`docs/host-runtime-boundary.md`](./docs/host-runtime-boundary.md)
-  AX 官方接口层、Rust 宿主实现层、项目库与未来包系统边界。
-- [`SYNTAX.md`](./SYNTAX.md)
-  当前 AX 原型语法、支持范围与 EBNF。
-- [`PLAN.md`](./PLAN.md)
-  项目路线、边界、核心原则与阶段目标。
-- [`规划.md`](./规划.md)
-  从当前原型收口到 benchmark、后端与产品化的执行顺序。
-- [`WORKLIST.md`](./WORKLIST.md)
-  当前施工项、优先级和已完成记录。
-- [`docs/README.md`](./docs/README.md)
-  稳定外部文档入口。
-
 - [`docs/benchmark-showcase.md`](./docs/benchmark-showcase.md)
-  Current benchmark evidence, with explicit separation between verified internal results and next public comparison targets.
-- [`docs/killer-demo.md`](./docs/killer-demo.md)
-  A concise demo script for showing AX's repair protocol and tool-script direction in a few minutes.
-- [`docs/why-not-language-subsets.md`](./docs/why-not-language-subsets.md)
-  The sharper positioning argument for why AX is trying to own a source protocol instead of only defining a constrained subset.
+
+AX 希望最终回答的是：
+
+1. 同一个坏例子上，模型在 AX 上是否更容易单轮修好  
+2. 同一个任务上，结构化诊断是否更容易被模型消费  
+3. 同一种语义下，AX 的源码形式是否更利于稳定生成  
+4. 同一批 case 上，结果能否被稳定回放、评分和比较
+
+## Quickstart
+
+平台入口：
+
 - [`docs/quickstart.md`](./docs/quickstart.md)
-  Source install and a minimal sanity-check sequence for new users.
+  Windows / Linux 总入口
+- [`docs/quickstart-windows.md`](./docs/quickstart-windows.md)
+  Windows 完整工作流入口
+- [`docs/quickstart-linux.md`](./docs/quickstart-linux.md)
+  Linux 核心 compiler/runtime 入口
+- [`docs/platform-support.md`](./docs/platform-support.md)
+  平台支持分层说明
 
-## Current Position
+## 文档导航
 
-AX 现在的状态很明确：
+- [`SYNTAX.md`](./SYNTAX.md)
+  当前语法、内建类型、内建函数、示例与 EBNF
+- [`docs/diagnostics-schema.md`](./docs/diagnostics-schema.md)
+  结构化 diagnostics 与 AI 增强字段
+- [`docs/repair-benchmark.md`](./docs/repair-benchmark.md)
+  benchmark 资产、导出链路、评分与 compare 方式
+- [`docs/repair-adapter-spec.md`](./docs/repair-adapter-spec.md)
+  外部 repair adapter 的输入输出契约
+- [`docs/host-runtime-boundary.md`](./docs/host-runtime-boundary.md)
+  AX 接口层、Rust 宿主实现层、未来包系统边界
+- [`docs/import-module-minimal-design.md`](./docs/import-module-minimal-design.md)
+  第一阶段 `import/module` 规则与迁移边界
+- [`docs/why-not-language-subsets.md`](./docs/why-not-language-subsets.md)
+  为什么 AX 要把 canonical syntax、diagnostics、repair contract、benchmark 一起拥有
+- [`docs/killer-demo.md`](./docs/killer-demo.md)
+  适合对外展示的短 demo 脚本
+- [`docs/benchmark-showcase.md`](./docs/benchmark-showcase.md)
+  当前 benchmark 展示页
+- [`WORKLIST.md`](./WORKLIST.md)
+  当前施工项、优先级与完成记录
+- [`规划.md`](./规划.md)
+  项目阶段与推进顺序
 
-- 它已经不是概念项目
-- 它也还不是一个已经被大规模证据证明成立的成熟语言系统
-- 它当前更接近“编译器前端 + 解释执行 + AI 修复协议”的原型，而不是完整的成熟后端生态
+## 当前阶段的对外理解
 
-当前阶段最重要的，不是继续堆叠宏大叙事，而是把三件事做硬：
+AX 现在已经是一个可以检查、运行、格式化、组织项目、输出结构化诊断、跑 benchmark 的原型仓库。
+它正在把“给 Coding AI 用的源码协议与修复协议”这件事，从概念推进成可运行、可验证、可对比的工程系统。
 
-- 低歧义源码形式
-- 可消费的修复协议
-- 可重复的 benchmark 证据链
+对 AX 更准确的理解是：
 
-AX 接下来要赢的，不是“特性数量”，而是“证据质量”。
+- 一套面向 Coding AI 的源码约束
+- 一条可消费的编译器反馈链
+- 一套可回放的修复 benchmark 方法
+- 一个持续向真实工具工作负载推进的执行语言原型
 
-## Read This First If You Are An Agent
+如果这条路线继续成立，AX 的价值会同时落在三个层面：
 
-- 只使用仓库当前已经实现的原型语法
-- 不要擅自发明 `match`、泛型、模块系统、异常或 `async`
-- 切片目前已支持，写法是 `[Type]` 和 `values[start:end]`
-- 字符串与遍历辅助目前已支持 `string + string`、`string_len(text)`、`string_list_new()`、`string_list_push(list, value)`、`string_list_join(list, separator)`、统一长度查询 `len(value)` 和最小格式化能力 `to_string(value)`
-- 数据结构写入目前已支持可变路径赋值，包括 `outer.inner.value = expr;` 和 `tokens[index].value = expr;`
-- 循环控制目前已支持 `break;`，可直接退出最近一层 `while` 或 `for`
-- `main` 必须写成 `fn main() -> i32 { ... }`
-- 局部变量、参数、返回值都应显式标注类型
-- 先参考 [`SYNTAX.md`](./SYNTAX.md)，再生成 AX 代码
-- 如果要消费结构化修复反馈，请优先参考 [`docs/diagnostics-schema.md`](./docs/diagnostics-schema.md)
+- 语言本体
+- 编译器诊断与修复协议
+- benchmark 与证据方法学
 
-## Closing
-
-AX 要做的，不是把“新语言”三个字喊得更响。
-
-AX 要做的，是把一套面向 Coding AI 的源码约束、编译器反馈协议和 benchmark 方法学做扎实。
-
-如果这条路走通，AX 的价值不会只是“又一个语言项目”，而会是一套真正可验证、可复用、可对比的 AI 时代编程协议。
+这也是 AX 值得持续关注的原因。
