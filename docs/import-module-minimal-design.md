@@ -1,6 +1,6 @@
 # Import/Module Minimal Design
 
-Status: frozen design for `P1-15`. This is not implemented in the parser, resolver, or interpreter yet.
+Status: frozen design for `P1-15`, with the first parser / project / semantic-check slice now implemented. Package-system expansion and later module-system depth remain future work.
 
 ## Why AX needs this now
 
