@@ -1,6 +1,15 @@
-fn append_match_line(report: string, path: string, depth: i32, size: i32, stats: SearchStats) -> string {
+fn append_match_line(match_lines: string_list, path: string, depth: i32, size: i32, stats: SearchStats) -> string_list {
     let details: string = "bytes=" + to_string(size) + " | lines=" + to_string(stats.lines) + " | matched_lines=" + to_string(stats.matched_lines);
-    return append_workspace_line(report, path, depth, details);
+    let line: string = depth_prefix(depth) + display_label(path, depth) + " | " + details;
+    return string_list_push(match_lines, line);
+}
+
+fn render_match_lines(match_lines: string_list) -> string {
+    if (len(match_lines) == 0) {
+        return "";
+    }
+
+    return string_list_join(match_lines, "\n") + "\n";
 }
 
 fn build_summary(root_dir: string, needle: string, totals: SearchTotals) -> string {

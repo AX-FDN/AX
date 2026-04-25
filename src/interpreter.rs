@@ -86,6 +86,7 @@ enum Value {
     F32(f32),
     Bool(bool),
     String(String),
+    StringList(Vec<String>),
     Array(Vec<Value>),
     Slice(Vec<Value>),
     Enum {
@@ -118,6 +119,10 @@ impl Value {
             }
             Self::Bool(value) => value.to_string(),
             Self::String(value) => value.clone(),
+            Self::StringList(values) => {
+                let values = values.join(", ");
+                format!("[{values}]")
+            }
             Self::Array(elements) => {
                 let elements = elements
                     .iter()
@@ -486,6 +491,100 @@ impl<'a> Interpreter<'a> {
             };
         }
 
+        if name == "string_list_new" {
+            if !arguments.is_empty() {
+                return Err(self.runtime_error(
+                    "R0128",
+                    format!(
+                        "function `string_list_new` expected 0 argument(s), got {}",
+                        arguments.len()
+                    ),
+                    span,
+                ));
+            }
+
+            return Ok(Value::StringList(Vec::new()));
+        }
+
+        if name == "string_list_push" {
+            if arguments.len() != 2 {
+                return Err(self.runtime_error(
+                    "R0129",
+                    format!(
+                        "function `string_list_push` expected 2 argument(s), got {}",
+                        arguments.len()
+                    ),
+                    span,
+                ));
+            }
+
+            let mut arguments = arguments.into_iter();
+            let list = arguments
+                .next()
+                .expect("string_list_push list argument should exist");
+            let value = arguments
+                .next()
+                .expect("string_list_push value argument should exist");
+            return match (list, value) {
+                (Value::StringList(mut values), Value::String(value)) => {
+                    values.push(value);
+                    Ok(Value::StringList(values))
+                }
+                (list, value) => Err(self
+                    .runtime_error(
+                        "R0130",
+                        format!(
+                            "function `string_list_push` requires `string_list` and `string` arguments, got `{}` and `{}`",
+                            list.display(),
+                            value.display()
+                        ),
+                        span,
+                    )
+                    .with_suggestion(
+                        "call `string_list_push` like `items = string_list_push(items, \"value\")`",
+                    )),
+            };
+        }
+
+        if name == "string_list_join" {
+            if arguments.len() != 2 {
+                return Err(self.runtime_error(
+                    "R0131",
+                    format!(
+                        "function `string_list_join` expected 2 argument(s), got {}",
+                        arguments.len()
+                    ),
+                    span,
+                ));
+            }
+
+            let mut arguments = arguments.into_iter();
+            let list = arguments
+                .next()
+                .expect("string_list_join list argument should exist");
+            let separator = arguments
+                .next()
+                .expect("string_list_join separator argument should exist");
+            return match (list, separator) {
+                (Value::StringList(values), Value::String(separator)) => {
+                    Ok(Value::String(values.join(&separator)))
+                }
+                (list, separator) => Err(self
+                    .runtime_error(
+                        "R0132",
+                        format!(
+                            "function `string_list_join` requires `string_list` and `string` arguments, got `{}` and `{}`",
+                            list.display(),
+                            separator.display()
+                        ),
+                        span,
+                    )
+                    .with_suggestion(
+                        "call `string_list_join` like `string_list_join(items, \"\\n\")`",
+                    )),
+            };
+        }
+
         if name == "len" {
             if arguments.len() != 1 {
                 return Err(self.runtime_error(
@@ -504,6 +603,7 @@ impl<'a> Interpreter<'a> {
                 .expect("len argument should exist");
             return match value {
                 Value::String(text) => Ok(Value::I32(text.chars().count() as i32)),
+                Value::StringList(values) => Ok(Value::I32(values.len() as i32)),
                 Value::Array(elements) | Value::Slice(elements) => {
                     Ok(Value::I32(elements.len() as i32))
                 }
@@ -511,12 +611,14 @@ impl<'a> Interpreter<'a> {
                     .runtime_error(
                         "R0040",
                         format!(
-                            "function `len` requires a `string`, array, or slice argument, got `{}`",
+                            "function `len` requires a `string`, `string_list`, array, or slice argument, got `{}`",
                             other.display()
                         ),
                         span,
                     )
-                    .with_suggestion("call `len` with a string, array, or slice value like `len(values)`")),
+                    .with_suggestion(
+                        "call `len` with a string, string list, array, or slice value like `len(values)`",
+                    )),
             };
         }
 
@@ -544,7 +646,7 @@ impl<'a> Interpreter<'a> {
                         span,
                     )
                     .with_suggestion(
-                        "call `to_string` on a string, number, bool, enum, struct, array, or slice value",
+                        "call `to_string` on a string, number, bool, string list, enum, struct, array, or slice value",
                     )),
                 other => Ok(Value::String(other.display())),
             };
@@ -2845,6 +2947,26 @@ fn main() -> i32 {
         let output = run_program(&source, &hir).expect("program should run");
         assert_eq!(output.exit_code, 15);
         assert_eq!(output.stdout, vec!["2", "5", "3", "9"]);
+    }
+
+    #[test]
+    fn runs_string_list_builtins() {
+        let (source, hir) = analyzed_hir(
+            "\
+fn main() -> i32 {
+    let mut lines: string_list = string_list_new();
+    lines = string_list_push(lines, \"alpha\");
+    lines = string_list_push(lines, \"beta\");
+    println(len(lines));
+    println(string_list_join(lines, \", \"));
+    return len(lines);
+}
+",
+        );
+
+        let output = run_program(&source, &hir).expect("program should run");
+        assert_eq!(output.exit_code, 2);
+        assert_eq!(output.stdout, vec!["2", "alpha, beta"]);
     }
 
     #[test]

@@ -72,6 +72,7 @@ pub enum Type {
     I32,
     F32,
     String,
+    StringList,
     Slice { element: Box<Type> },
     Array { element: Box<Type>, length: usize },
     Struct { name: String },
@@ -308,6 +309,7 @@ impl<'a> LoweringContext<'a> {
                 "i32" => Ok(Type::I32),
                 "f32" => Ok(Type::F32),
                 "string" => Ok(Type::String),
+                "string_list" => Ok(Type::StringList),
                 name if self.struct_names.contains(name) => Ok(Type::Struct {
                     name: name.to_string(),
                 }),

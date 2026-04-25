@@ -54,6 +54,7 @@ enum Flag {
 - `i32`
 - `f32`
 - `string`
+- `string_list`
 - 只读切片：`[Type]`
 - 固定长度数组：`[Type; N]`
 - 用户声明的 `struct` 名
@@ -225,7 +226,12 @@ values[1:3]
 ```ax
 "AX " + "report"
 string_len("AX report")
+let mut items: string_list = string_list_new();
+items = string_list_push(items, "alpha");
+items = string_list_push(items, "beta");
+string_list_join(items, ", ")
 len("AX report")
+len(items)
 to_string(42)
 ```
 
@@ -327,6 +333,7 @@ array_type        := "[" type_ref ";" INT "]"
 `axc run` 当前已经可以执行：
 
 - `main`
+- `string_list` 类型与 `string_list_new / string_list_push / string_list_join`
 - 只读切片类型、切片表达式与切片索引读取
 - 局部变量
 - 变量赋值
@@ -376,8 +383,8 @@ Rules:
 - Every function parameter, return type, and local variable must have an explicit type.
 - main must be exactly: fn main() -> i32 { ... }.
 - End let/assignment/expression/return/`break` statements with semicolons.
-- Supported primitive types are bool, i32, f32, string.
-- Builtin helpers are println(...), string_len(text), len(value), and to_string(value).
+- Supported builtin types are bool, i32, f32, string, and string_list.
+- Builtin helpers are println(...), string_len(text), string_list_new(), string_list_push(list, value), string_list_join(list, separator), len(value), and to_string(value).
 - Enum values must use EnumName.Variant.
 - Construct structs with TypeName { field: expr, ... }.
 - Use for loops only as for (init; condition; step) { ... }.

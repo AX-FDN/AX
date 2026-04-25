@@ -3840,6 +3840,17 @@ fn string_tools_example_runs() {
 }
 
 #[test]
+fn string_list_example_runs() {
+    let output = run_axc([OsStr::new("run"), OsStr::new("examples/string_list.ax")]);
+    assert_eq!(output.status.code(), Some(2));
+    assert_clean_stderr(&output);
+    assert_eq!(
+        normalize_text(&string_output(&output.stdout)),
+        "2\nalpha, beta\n"
+    );
+}
+
+#[test]
 fn traversal_example_runs() {
     let output = run_axc([OsStr::new("run"), OsStr::new("examples/traversal.ax")]);
     assert_eq!(output.status.code(), Some(15));

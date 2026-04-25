@@ -17,15 +17,15 @@ fn main() -> i32 {
     ensure_output_parent(output_path);
     let entries: [string] = fs_read_dir(root_dir);
     let mut totals: SearchTotals = zero_search_totals();
-    let mut match_report: string = "";
+    let mut match_lines: string_list = string_list_new();
 
     for (let mut i: i32 = 0; i < len(entries); i = i + 1) {
-        let searched: FileSearch = search_path(match_report, totals, entries[i], 0, needle);
-        match_report = searched.report;
+        let searched: FileSearch = search_path(match_lines, totals, entries[i], 0, needle);
+        match_lines = searched.match_lines;
         totals = searched.totals;
     }
 
-    let summary: string = append_section_details_or_none(build_summary(root_dir, needle, totals), "matches", match_report, "(none)");
+    let summary: string = append_section_details_or_none(build_summary(root_dir, needle, totals), "matches", render_match_lines(match_lines), "(none)");
     fs_write_string(output_path, summary);
     println("searched=" + output_path);
     return 0;

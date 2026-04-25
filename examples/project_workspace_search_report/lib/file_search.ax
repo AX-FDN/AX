@@ -1,39 +1,39 @@
 struct FileSearch {
-    report: string,
+    match_lines: string_list,
     totals: SearchTotals,
 }
 
-fn search_file(report: string, totals: SearchTotals, path: string, depth: i32, needle: string) -> FileSearch {
+fn search_file(match_lines: string_list, totals: SearchTotals, path: string, depth: i32, needle: string) -> FileSearch {
     let size: i32 = fs_file_size(path);
     let stats: SearchStats = search_text(fs_read_to_string(path), needle);
-    let mut next_report: string = report;
+    let mut next_match_lines: string_list = match_lines;
     if (stats.matched_lines != 0) {
-        next_report = append_match_line(report, path, depth, size, stats);
+        next_match_lines = append_match_line(match_lines, path, depth, size, stats);
     }
-    return FileSearch { report: next_report, totals: add_search_result(totals, size, stats) };
+    return FileSearch { match_lines: next_match_lines, totals: add_search_result(totals, size, stats) };
 }
 
-fn search_path(report: string, totals: SearchTotals, path: string, depth: i32, needle: string) -> FileSearch {
+fn search_path(match_lines: string_list, totals: SearchTotals, path: string, depth: i32, needle: string) -> FileSearch {
     if (fs_is_file(path)) {
         if (is_searchable_file(path)) {
-            return search_file(report, totals, path, depth, needle);
+            return search_file(match_lines, totals, path, depth, needle);
         }
-        return FileSearch { report: report, totals: totals };
+        return FileSearch { match_lines: match_lines, totals: totals };
     }
 
     if (fs_is_dir(path)) {
         let children: [string] = fs_read_dir(path);
-        let mut next_report: string = report;
+        let mut next_match_lines: string_list = match_lines;
         let mut next_totals: SearchTotals = totals;
 
         for (let mut i: i32 = 0; i < len(children); i = i + 1) {
-            let searched: FileSearch = search_path(next_report, next_totals, children[i], depth + 1, needle);
-            next_report = searched.report;
+            let searched: FileSearch = search_path(next_match_lines, next_totals, children[i], depth + 1, needle);
+            next_match_lines = searched.match_lines;
             next_totals = searched.totals;
         }
 
-        return FileSearch { report: next_report, totals: next_totals };
+        return FileSearch { match_lines: next_match_lines, totals: next_totals };
     }
 
-    return FileSearch { report: report, totals: totals };
+    return FileSearch { match_lines: match_lines, totals: totals };
 }

@@ -90,6 +90,7 @@ AX 已经不是纸上概念。当前仓库里已经有一条可以真实跑通�
 - `axc check / run / ast / hir / mir / fmt / build`
 - `Lexer -> Parser -> AST -> HIR -> Semantic Check -> Interpreter`
 - 结构化 diagnostics，与 `--json --ai` AI 增强反馈
+- 第一版最小 collections：`string_list` 与 `string_list_new / string_list_push / string_list_join`
 - repair benchmark、adapter、comparison、smoke 脚本和 CI
 - 项目 manifest、接口快照测试、稳定文档入口
 
@@ -325,7 +326,7 @@ AX 接下来要赢的，不是“特性数量”，而是“证据质量”。
 - 只使用仓库当前已经实现的原型语法
 - 不要擅自发明 `match`、泛型、模块系统、异常或 `async`
 - 切片目前已支持，写法是 `[Type]` 和 `values[start:end]`
-- 字符串与遍历辅助目前已支持 `string + string`、`string_len(text)`、统一长度查询 `len(value)` 和最小格式化能力 `to_string(value)`
+- 字符串与遍历辅助目前已支持 `string + string`、`string_len(text)`、`string_list_new()`、`string_list_push(list, value)`、`string_list_join(list, separator)`、统一长度查询 `len(value)` 和最小格式化能力 `to_string(value)`
 - 数据结构写入目前已支持可变路径赋值，包括 `outer.inner.value = expr;` 和 `tokens[index].value = expr;`
 - 循环控制目前已支持 `break;`，可直接退出最近一层 `while` 或 `for`
 - `main` 必须写成 `fn main() -> i32 { ... }`

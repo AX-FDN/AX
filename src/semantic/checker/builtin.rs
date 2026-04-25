@@ -274,6 +274,104 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     element: Box::new(Type::String),
                 })
             }
+            "string_list_new" => {
+                for argument in arguments {
+                    self.check_expr(argument);
+                }
+
+                if !arguments.is_empty() {
+                    self.diagnostics.push(Diagnostic::new(
+                        "S0017",
+                        format!(
+                            "function `string_list_new` expects 0 argument(s), found {}",
+                            arguments.len()
+                        ),
+                        self.info.source,
+                        expr.span,
+                    ));
+                    return Some(Type::Error);
+                }
+
+                Some(Type::StringList)
+            }
+            "string_list_push" => {
+                let argument_types = arguments
+                    .iter()
+                    .map(|argument| self.check_expr(argument))
+                    .collect::<Vec<_>>();
+
+                if argument_types.len() != 2 {
+                    self.diagnostics.push(Diagnostic::new(
+                        "S0017",
+                        format!(
+                            "function `string_list_push` expects 2 argument(s), found {}",
+                            argument_types.len()
+                        ),
+                        self.info.source,
+                        expr.span,
+                    ));
+                    return Some(Type::Error);
+                }
+
+                self.expect_type_match(
+                    &Type::StringList,
+                    &argument_types[0],
+                    expr.span,
+                    format!(
+                        "function `string_list_push` expects argument `list` to be `string_list`, found `{}`",
+                        argument_types[0].describe()
+                    ),
+                );
+                self.expect_type_match(
+                    &Type::String,
+                    &argument_types[1],
+                    expr.span,
+                    format!(
+                        "function `string_list_push` expects argument `value` to be `string`, found `{}`",
+                        argument_types[1].describe()
+                    ),
+                );
+                Some(Type::StringList)
+            }
+            "string_list_join" => {
+                let argument_types = arguments
+                    .iter()
+                    .map(|argument| self.check_expr(argument))
+                    .collect::<Vec<_>>();
+
+                if argument_types.len() != 2 {
+                    self.diagnostics.push(Diagnostic::new(
+                        "S0017",
+                        format!(
+                            "function `string_list_join` expects 2 argument(s), found {}",
+                            argument_types.len()
+                        ),
+                        self.info.source,
+                        expr.span,
+                    ));
+                    return Some(Type::Error);
+                }
+
+                self.expect_type_match(
+                    &Type::StringList,
+                    &argument_types[0],
+                    expr.span,
+                    format!(
+                        "function `string_list_join` expects argument `list` to be `string_list`, found `{}`",
+                        argument_types[0].describe()
+                    ),
+                );
+                self.expect_type_match(
+                    &Type::String,
+                    &argument_types[1],
+                    expr.span,
+                    format!(
+                        "function `string_list_join` expects argument `separator` to be `string`, found `{}`",
+                        argument_types[1].describe()
+                    ),
+                );
+                Some(Type::String)
+            }
             "len" => {
                 let argument_types = arguments
                     .iter()
@@ -294,23 +392,26 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 }
 
                 match &argument_types[0] {
-                    Type::String | Type::Array { .. } | Type::Slice { .. } => Some(Type::I32),
+                    Type::String
+                    | Type::StringList
+                    | Type::Array { .. }
+                    | Type::Slice { .. } => Some(Type::I32),
                     actual => {
                         self.diagnostics.push(
                             Diagnostic::new(
                                 "S0022",
                                 format!(
-                                    "function `len` expects argument `value` to be `string`, array, or slice, found `{}`",
+                                    "function `len` expects argument `value` to be `string`, `string_list`, array, or slice, found `{}`",
                                     actual.describe()
                                 ),
                                 self.info.source,
                                 expr.span,
                             )
                             .with_note(
-                                "`len` is the general traversal-length builtin for strings, fixed-size arrays, and slices",
+                                "`len` is the general traversal-length builtin for strings, string lists, fixed-size arrays, and slices",
                             )
                             .with_suggestion(
-                                "call `len` with a string, array, or slice value like `len(values)`",
+                                "call `len` with a string, string list, array, or slice value like `len(values)`",
                             ),
                         );
                         Some(Type::Error)

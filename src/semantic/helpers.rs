@@ -36,6 +36,7 @@ pub(super) fn builtin_types() -> HashMap<String, Type> {
         ("i32", Type::I32),
         ("f32", Type::F32),
         ("string", Type::String),
+        ("string_list", Type::StringList),
     ]
     .into_iter()
     .map(|(name, ty)| (name.to_string(), ty))
@@ -74,6 +75,9 @@ pub(super) fn type_mismatch_suggestion(expected: &Type, actual: &Type) -> String
         Type::String => format!(
             "make the expression produce `string`, or change the declared type if `{}` is intended",
             actual.describe()
+        ),
+        Type::StringList => format!(
+            "make the expression produce `string_list`, or build one with `string_list_new()` and `string_list_push(...)`",
         ),
         Type::Slice { .. } => format!(
             "make the expression produce `{}`, or pass/slice an array so the expected view type matches",

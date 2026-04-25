@@ -1,0 +1,8 @@
+fn main() -> i32 {
+    let mut items: string_list = string_list_new();
+    items = string_list_push(items, "alpha");
+    items = string_list_push(items, "beta");
+    println(len(items));
+    println(string_list_join(items, ", "));
+    return len(items);
+}

@@ -251,13 +251,15 @@
   - 完成于：2026-04-25
   - 备注：已把 [`examples/project_directory_index/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_directory_index/) 与 [`examples/project_workspace_search_report/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_workspace_search_report/) 推到递归目录遍历，证明“更深目录遍历”在当前 AX 上可以用现有函数递归 + 共享 foundation helper 落地，不再是下一编译器主缺口。当前新排序已收敛为：`最小 collections > import / module > 继续样例侧递归遍历增强`。
 
-- [ ] `P1-13` 最小 collections 第一批
+- [x] `P1-13` 最小 collections 第一批
   - 目标：补上代表样例已经开始真实需要、但当前只能靠“边遍历边拼字符串”勉强绕开的最小集合能力。
   - 输入：[`examples/project_directory_index/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_directory_index/)、[`examples/project_text_normalize/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_text_normalize/)、[`examples/project_command_batch/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_command_batch/) 与最新的 [`能力缺口排序.md`](C:/Users/xiaoy/Desktop/A语言/AX/能力缺口排序.md)。
   - 输出：最小 collections 方案边界、第一版实现、误用 diagnostics / AI guidance、代表样例验证与文档同步。
   - 通过条件：至少一类真实工具样例可以不再依赖“纯流式字符串累积”来表达动态条目聚合；新能力不破坏 `check/json/ai`、build 打包与代表样例 smoke。
   - 回归保障：语义 / 解释器 / interface snapshots、代表样例 smoke、必要时补 repair case。
   - 不做范围：不直接扩成大而全容器库，不一次引入 map/set/iterator 全家桶。
+  - 完成于：2026-04-25
+  - 备注：第一版刻意收敛为内建 `string_list`，只解决“动态收集字符串条目”这一类最常见工具场景；当前已落地 `string_list_new / string_list_push / string_list_join`、`len(string_list)`、[`examples/string_list.ax`](C:/Users/xiaoy/Desktop/A语言/AX/examples/string_list.ax) 与 [`examples/project_workspace_search_report/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_workspace_search_report/) 的真实接入，证明代表样例不再只能靠纯流式字符串累积来维护匹配明细。
 
 ## P2
 
