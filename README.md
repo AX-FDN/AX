@@ -177,6 +177,116 @@ AX 当前靠代表性样例证明自己。
 | [`examples/project_text_normalize/`](./examples/project_text_normalize/) | 文本读取、重写、输出报告 | 文本处理链条已经具备基础可写性 |
 | [`examples/project_module_smoke/`](./examples/project_module_smoke/) | 第一阶段模块模式 smoke 工程 | `import/module` 已经进入主线验证链 |
 
+## 当前已经落地的语法面
+
+更完整的规则、边界与 EBNF 请看 [`SYNTAX.md`](./SYNTAX.md)。
+
+### 顶层与项目组织
+
+| 语法面 | 当前状态 | 说明 |
+| --- | --- | --- |
+| `fn` | 已支持 | 显式参数类型、显式返回类型 |
+| `struct` | 已支持 | 结构体声明、字面量、字段访问 |
+| `enum` | 已支持 | 枚举声明、`EnumName.Variant` 值 |
+| `module ...;` | 已支持第一版 | support source 显式声明模块路径 |
+| `import ...;` | 已支持第一版 | entry / support source 显式导入模块 |
+| `AX.toml + sources` | 已支持 | project-backed 多文件组织主路径 |
+
+### 语句能力
+
+| 语法面 | 当前状态 | 说明 |
+| --- | --- | --- |
+| `let` / `let mut` | 已支持 | 局部变量必须显式类型 |
+| 赋值 | 已支持 | 支持变量、结构体字段路径、数组元素路径 |
+| `return` | 已支持 | 函数路径会做缺失返回检查 |
+| `if / else` | 已支持 | 条件必须为 `bool` |
+| `while` | 已支持 | 可与 `break;` / `continue;` 配合 |
+| `for (init; cond; step)` | 已支持 | 当前主循环表头形态 |
+| `break;` | 已支持 | 只能出现在 `while` / `for` 中 |
+| `continue;` | 已支持 | 已打通 `for -> while` lowering 下的 step 语义 |
+| `match (...) { ... }` | 已支持第一版 | 已进入 parser / semantic / interpreter / AI feedback 主链 |
+
+### 表达式与类型能力
+
+| 语法面 | 当前状态 | 说明 |
+| --- | --- | --- |
+| 基础类型 | 已支持 | `bool` `i32` `f32` `string` `string_list` |
+| 结构体值 | 已支持 | `Point { x: 1, y: 2 }`、`point.x` |
+| 枚举值 | 已支持 | `Flag.On`、枚举值比较 |
+| 固定长度数组 | 已支持 | `[Type; N]`、数组字面量、索引读取 |
+| 只读 slice | 已支持 | `[Type]`、`values[start:end]` |
+| 嵌套可写路径 | 已支持 | `outer.inner.value = ...`、`items[index].field = ...` |
+| 字符串拼接 | 已支持 | `string + string` |
+| 常用 helpers | 已支持 | `len(value)`、`string_len(text)`、`to_string(value)` |
+| `string_list` helpers | 已支持 | `string_list_new / push / join` |
+
+### 最近补进并已经进入主链的语法点
+
+这些不是“文档规划”，而是已经接进编译器、运行时、AI 反馈和回归链的能力：
+
+- `continue;`
+  - 已支持在 `while` / `for` 中使用
+  - `for` 场景下会先执行 step，再进入下一轮
+- 最小 `match`
+  - 当前是语句形态，不是表达式形态
+  - pattern 目前支持 `true` / `false`、整数、枚举值与最终 `_`
+  - 会做穷尽检查：
+    - `bool` 要覆盖 `true / false`
+    - enum 要覆盖全部 variant
+    - `i32` 当前需要最终 `_`
+- 第一阶段 `module / import`
+  - support source 使用 `module ...;`
+  - entry 与 support source 都可写显式 `import ...;`
+  - 当前采用全限定名跨模块调用，如 `lib.report.build_summary()`
+- 数组 / slice / 嵌套写路径
+  - 已不只是“能读数组”，而是能支持固定长度数组、slice、数组元素赋值、结构体字段路径赋值和数组元素字段路径赋值
+
+### 一个更接近当前 AX 水位的语法片段
+
+```ax
+module lib.report;
+
+enum Flag {
+    On,
+    Off,
+}
+
+struct Summary {
+    count: i32,
+}
+
+fn classify(flag: Flag, values: [i32]) -> Summary {
+    let mut total: i32 = 0;
+
+    for (let mut i: i32 = 0; i < len(values); i = i + 1) {
+        if (i == 1) {
+            continue;
+        }
+        total = total + values[i];
+    }
+
+    match (flag) {
+        Flag.On => {
+            return Summary { count: total };
+        }
+        Flag.Off => {
+            return Summary { count: 0 };
+        }
+    }
+}
+```
+
+上面这段代码把当前已经落地的几条关键语法放在一起：
+
+- `module`
+- `enum`
+- `struct`
+- slice 参数
+- `for`
+- `continue`
+- 最小 `match`
+- 结构体字面量返回
+
 ## 多文件项目与第一阶段模块模式
 
 AX 当前采用“manifest 控制文件集合，module/import 控制命名边界”的方式组织工程。
