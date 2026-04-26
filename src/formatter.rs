@@ -1,8 +1,8 @@
 use std::fmt::Write;
 
 use crate::ast::{
-    BinaryOp, Block, Expr, ExprKind, Item, ItemKind, Param, Program, Stmt, StmtKind, StructField,
-    StructLiteralField, TypeRef, UnaryOp,
+    BinaryOp, Block, Expr, ExprKind, Item, ItemKind, MatchArm, MatchPattern, MatchPatternKind,
+    Param, Program, Stmt, StmtKind, StructField, StructLiteralField, TypeRef, UnaryOp,
 };
 use crate::diagnostics::Diagnostic;
 use crate::lexer::tokenize;
@@ -192,6 +192,7 @@ impl Formatter {
             }
             StmtKind::Break => self.out.push_str("break;"),
             StmtKind::Continue => self.out.push_str("continue;"),
+            StmtKind::Match { scrutinee, arms } => self.format_match_statement(scrutinee, arms),
             StmtKind::If {
                 condition,
                 then_branch,
@@ -256,6 +257,26 @@ impl Formatter {
         }
     }
 
+    fn format_match_statement(&mut self, scrutinee: &Expr, arms: &[MatchArm]) {
+        let _ = write!(self.out, "match ({}) ", format_expr(scrutinee));
+        if arms.is_empty() {
+            self.out.push_str("{}");
+            return;
+        }
+
+        self.out.push_str("{\n");
+        self.indent += 1;
+        for arm in arms {
+            self.write_indent();
+            let _ = write!(self.out, "{} => ", format_match_pattern(&arm.pattern));
+            self.format_block(&arm.body);
+            self.out.push('\n');
+        }
+        self.indent -= 1;
+        self.write_indent();
+        self.out.push('}');
+    }
+
     fn write_indent(&mut self) {
         for _ in 0..self.indent {
             self.out.push_str("    ");
@@ -296,6 +317,16 @@ fn format_for_header_statement(statement: &Stmt) -> String {
         }
         StmtKind::Expr { expr } => format_expr(expr),
         _ => "<unsupported-for-header>".to_string(),
+    }
+}
+
+fn format_match_pattern(pattern: &MatchPattern) -> String {
+    match &pattern.kind {
+        MatchPatternKind::Wildcard => "_".to_string(),
+        MatchPatternKind::Bool { value } => value.to_string(),
+        MatchPatternKind::Int { value } => value.to_string(),
+        MatchPatternKind::EnumVariant { path } => path.clone(),
+        MatchPatternKind::Error => "<invalid-pattern>".to_string(),
     }
 }
 
@@ -542,6 +573,35 @@ mod tests {
                 "fn take(window: [i32]) -> i32 {\n",
                 "    let head: [i32] = window[0:2];\n",
                 "    return head[1];\n",
+                "}\n"
+            )
+        );
+    }
+
+    #[test]
+    fn formats_match_statements() {
+        let source = SourceFile::anonymous(
+            "enum Flag{On,Off} fn choose(flag:Flag)->i32{match(flag){Flag.On=>{return 1;} Flag.Off=>{return 0;}}}",
+        );
+
+        let formatted = format_source(&source).expect("source should format");
+        assert_eq!(
+            formatted,
+            concat!(
+                "enum Flag {\n",
+                "    On,\n",
+                "    Off,\n",
+                "}\n",
+                "\n",
+                "fn choose(flag: Flag) -> i32 {\n",
+                "    match (flag) {\n",
+                "        Flag.On => {\n",
+                "            return 1;\n",
+                "        }\n",
+                "        Flag.Off => {\n",
+                "            return 0;\n",
+                "        }\n",
+                "    }\n",
                 "}\n"
             )
         );

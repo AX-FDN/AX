@@ -63,6 +63,11 @@ impl<'a> Lexer<'a> {
                     self.push_token(TokenKind::BangEqual, Span::new(start, self.cursor));
                 }
                 '!' => self.simple_token(TokenKind::Bang, start),
+                '=' if self.peek_next_char() == Some('>') => {
+                    self.advance_char();
+                    self.advance_char();
+                    self.push_token(TokenKind::FatArrow, Span::new(start, self.cursor));
+                }
                 '=' if self.peek_next_char() == Some('=') => {
                     self.advance_char();
                     self.advance_char();
@@ -136,6 +141,7 @@ impl<'a> Lexer<'a> {
             "enum" => TokenKind::EnumKw,
             "module" => TokenKind::ModuleKw,
             "import" => TokenKind::ImportKw,
+            "match" => TokenKind::MatchKw,
             "let" => TokenKind::LetKw,
             "mut" => TokenKind::MutKw,
             "return" => TokenKind::ReturnKw,
@@ -319,6 +325,22 @@ mod tests {
         assert!(output.diagnostics.is_empty());
         assert!(kinds.contains(&TokenKind::ModuleKw));
         assert!(kinds.contains(&TokenKind::ImportKw));
+    }
+
+    #[test]
+    fn tokenizes_match_keyword_and_fat_arrow() {
+        let source = SourceFile::anonymous(
+            "fn main() -> i32 { match (true) { true => { return 1; } false => { return 0; } } }",
+        );
+        let output = tokenize(&source);
+        let kinds = output
+            .tokens
+            .iter()
+            .map(|token| token.kind)
+            .collect::<Vec<_>>();
+        assert!(output.diagnostics.is_empty());
+        assert!(kinds.contains(&TokenKind::MatchKw));
+        assert!(kinds.contains(&TokenKind::FatArrow));
     }
 
     #[test]

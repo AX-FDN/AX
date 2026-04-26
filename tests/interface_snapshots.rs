@@ -3955,6 +3955,14 @@ fn continue_example_runs() {
 }
 
 #[test]
+fn match_example_runs() {
+    let output = run_axc([OsStr::new("run"), OsStr::new("examples/match.ax")]);
+    assert_eq!(output.status.code(), Some(25));
+    assert_clean_stderr(&output);
+    assert_eq!(normalize_text(&string_output(&output.stdout)), "25\n");
+}
+
+#[test]
 fn format_report_example_runs() {
     let output = run_axc([OsStr::new("run"), OsStr::new("examples/format_report.ax")]);
     assert_eq!(output.status.code(), Some(34));

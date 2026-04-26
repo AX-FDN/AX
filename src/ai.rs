@@ -4,7 +4,10 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
-use crate::ast::{Block, Expr, ExprKind, Item, ItemKind, Program, Stmt, StmtKind, TypeRef};
+use crate::ast::{
+    Block, Expr, ExprKind, Item, ItemKind, MatchPattern, MatchPatternKind, Program, Stmt, StmtKind,
+    TypeRef,
+};
 use crate::diagnostics::{Diagnostic, DiagnosticKind};
 use crate::source::{SourceFile, Span};
 
@@ -159,11 +162,7 @@ struct RuleTemplate {
     default_fixit: &'static str,
 }
 
-fn match_rule(source: &SourceFile, diagnostic: &Diagnostic) -> Option<RuleTemplate> {
-    if diagnostic.code == "P0001" && looks_like_match_attempt(source, diagnostic) {
-        return Some(RULE_MATCH_NOT_SUPPORTED);
-    }
-
+fn match_rule(_source: &SourceFile, diagnostic: &Diagnostic) -> Option<RuleTemplate> {
     if let Some(kind) = diagnostic.kind()
         && let Some(rule) = match_rule_by_kind(kind)
     {
@@ -244,6 +243,14 @@ fn match_rule_by_kind(kind: DiagnosticKind) -> Option<RuleTemplate> {
         }
         DiagnosticKind::BreakOutsideLoop => Some(RULE_BREAK_REQUIRES_LOOP_CONTEXT),
         DiagnosticKind::ContinueOutsideLoop => Some(RULE_CONTINUE_REQUIRES_LOOP_CONTEXT),
+        DiagnosticKind::MatchScrutineeTypeUnsupported => {
+            Some(RULE_MATCH_INPUT_MUST_USE_SUPPORTED_TYPE)
+        }
+        DiagnosticKind::MatchPatternTypeMismatch => Some(RULE_MATCH_PATTERN_MUST_MATCH_INPUT),
+        DiagnosticKind::DuplicateMatchPattern => Some(RULE_MATCH_PATTERNS_MUST_BE_UNIQUE),
+        DiagnosticKind::MatchWildcardMustBeLast => Some(RULE_MATCH_WILDCARD_MUST_BE_LAST),
+        DiagnosticKind::MatchNotExhaustive => Some(RULE_MATCH_MUST_BE_EXHAUSTIVE),
+        DiagnosticKind::MatchRequiresConcretePattern => Some(RULE_MATCH_REQUIRES_CONCRETE_PATTERN),
         DiagnosticKind::FunctionArgumentTypeMismatch => {
             Some(RULE_FUNCTION_ARGUMENT_TYPE_MUST_MATCH)
         }
@@ -267,51 +274,6 @@ fn match_rule_by_kind(kind: DiagnosticKind) -> Option<RuleTemplate> {
             Some(RULE_PROCESS_CAPTURE_REQUIRES_SUCCESSFUL_EXIT)
         }
     }
-}
-
-fn looks_like_match_attempt(source: &SourceFile, diagnostic: &Diagnostic) -> bool {
-    if !diagnostic
-        .message
-        .contains("expected `;` after expression statement")
-    {
-        return false;
-    }
-
-    let window = diagnostic_window(source, diagnostic.span, 48);
-    has_keyword_followed_by(window, "match", '(') && window.contains('{')
-}
-
-fn diagnostic_window(source: &SourceFile, span: Span, radius: usize) -> &str {
-    let start = span.start.saturating_sub(radius);
-    let end = span.end.saturating_add(radius).min(source.text().len());
-    source.slice(Span::new(start, end))
-}
-
-fn has_keyword_followed_by(text: &str, keyword: &str, next: char) -> bool {
-    text.match_indices(keyword).any(|(index, _)| {
-        if text[..index]
-            .chars()
-            .next_back()
-            .is_some_and(is_identifier_char)
-        {
-            return false;
-        }
-
-        let tail = &text[index + keyword.len()..];
-        let mut tail_chars = tail.chars();
-        while let Some(ch) = tail_chars.next() {
-            if ch.is_whitespace() {
-                continue;
-            }
-            return ch == next;
-        }
-
-        false
-    })
-}
-
-fn is_identifier_char(ch: char) -> bool {
-    ch.is_ascii_alphanumeric() || ch == '_'
 }
 
 const RULE_UNEXPECTED_CHARACTER: RuleTemplate = RuleTemplate {
@@ -367,17 +329,6 @@ const RULE_SUPPORTED_STRING_ESCAPE_REQUIRED: RuleTemplate = RuleTemplate {
     minimal_example: "let path: string = \"C:\\\\temp\";",
     anti_pattern: Some("println(\"\\r\");"),
     default_fixit: "replace this escape with `\\\\`, `\\\"`, `\\n`, or `\\t`",
-};
-
-const RULE_MATCH_NOT_SUPPORTED: RuleTemplate = RuleTemplate {
-    rule_id: "match_expressions_not_supported",
-    normalized_pattern: "match_expressions_not_supported",
-    repair_goal: "Rewrite this control flow with `if / else` because `match` is not in the current prototype.",
-    summary: "The current AX prototype supports `if / else`, but it does not support `match` yet.",
-    pattern: "if (flag) { return 1; } else { return 0; }",
-    minimal_example: "if (value == 0) { return 1; } else { return 2; }",
-    anti_pattern: Some("match (value) { ... }"),
-    default_fixit: "rewrite this branch with `if / else`",
 };
 
 const RULE_TOP_LEVEL_DECLARATION_REQUIRED: RuleTemplate = RuleTemplate {
@@ -697,6 +648,72 @@ const RULE_CONTINUE_REQUIRES_LOOP_CONTEXT: RuleTemplate = RuleTemplate {
     minimal_example: "while (count < 3) { count = count + 1; if (count == 2) { continue; } println(count); }",
     anti_pattern: Some("fn main() -> i32 { continue; return 0; }"),
     default_fixit: "move `continue;` into a loop body or rewrite the surrounding control flow with `if` / `else`",
+};
+
+const RULE_MATCH_INPUT_MUST_USE_SUPPORTED_TYPE: RuleTemplate = RuleTemplate {
+    rule_id: "match_input_must_use_supported_type",
+    normalized_pattern: "match_input_must_use_supported_type",
+    repair_goal: "Match only on `bool`, `i32`, or enum values in the current AX prototype.",
+    summary: "The first AX `match` rollout only supports boolean inputs, integer inputs, and enum values.",
+    pattern: "match (flag) { true => { return 1; } false => { return 0; } }",
+    minimal_example: "match (status) { Status.Ready => { return 1; } _ => { return 0; } }",
+    anti_pattern: Some("match (message) { \"ok\" => { return 1; } _ => { return 0; } }"),
+    default_fixit: "rewrite this branch with `if / else`, or match on a `bool`, `i32`, or enum value",
+};
+
+const RULE_MATCH_PATTERN_MUST_MATCH_INPUT: RuleTemplate = RuleTemplate {
+    rule_id: "match_pattern_must_match_input",
+    normalized_pattern: "match_pattern_must_match_input",
+    repair_goal: "Keep every `match` arm pattern in the same value domain as the matched input.",
+    summary: "AX `match` patterns must align with the scrutinee type: `bool` uses `true`/`false`, `i32` uses integer literals, and enums use `EnumName.Variant`.",
+    pattern: "match (flag) { true => { return 1; } false => { return 0; } }",
+    minimal_example: "match (value) { 0 => { return 1; } _ => { return 2; } }",
+    anti_pattern: Some("match (flag) { 0 => { return 1; } }"),
+    default_fixit: "rewrite this arm pattern so it matches the same type as the input",
+};
+
+const RULE_MATCH_PATTERNS_MUST_BE_UNIQUE: RuleTemplate = RuleTemplate {
+    rule_id: "match_patterns_must_be_unique",
+    normalized_pattern: "match_patterns_must_be_unique",
+    repair_goal: "Keep only one arm for each concrete `match` pattern.",
+    summary: "Duplicate `match` patterns make later arms unreachable and should be merged or removed.",
+    pattern: "match (value) { 0 => { return 1; } 1 => { return 2; } _ => { return 3; } }",
+    minimal_example: "match (flag) { true => { return 1; } false => { return 0; } }",
+    anti_pattern: Some("match (value) { 0 => { return 1; } 0 => { return 2; } }"),
+    default_fixit: "remove the duplicate arm or merge its logic into the earlier arm",
+};
+
+const RULE_MATCH_WILDCARD_MUST_BE_LAST: RuleTemplate = RuleTemplate {
+    rule_id: "match_wildcard_must_be_last",
+    normalized_pattern: "match_wildcard_must_be_last",
+    repair_goal: "Place at most one `_` arm at the end of the `match`.",
+    summary: "The catch-all `_` arm in AX `match` is a final fallback and cannot appear before later arms.",
+    pattern: "match (value) { 0 => { return 1; } _ => { return 2; } }",
+    minimal_example: "match (flag) { true => { return 1; } _ => { return 0; } }",
+    anti_pattern: Some("match (value) { _ => { return 1; } 0 => { return 2; } }"),
+    default_fixit: "move the `_` arm to the end or remove the extra wildcard arm",
+};
+
+const RULE_MATCH_MUST_BE_EXHAUSTIVE: RuleTemplate = RuleTemplate {
+    rule_id: "match_must_be_exhaustive",
+    normalized_pattern: "match_must_be_exhaustive",
+    repair_goal: "Cover every remaining input case before the `match` can compile.",
+    summary: "AX `match` must be exhaustive: `bool` needs both values, enums need every variant, and `i32` currently needs a final `_` arm.",
+    pattern: "match (flag) { true => { return 1; } false => { return 0; } }",
+    minimal_example: "match (state) { State.Ready => { return 1; } State.Done => { return 2; } }",
+    anti_pattern: Some("match (flag) { true => { return 1; } }"),
+    default_fixit: "add the missing arm(s) or finish the `match` with `_ => { ... }`",
+};
+
+const RULE_MATCH_REQUIRES_CONCRETE_PATTERN: RuleTemplate = RuleTemplate {
+    rule_id: "match_requires_concrete_pattern",
+    normalized_pattern: "match_requires_concrete_pattern",
+    repair_goal: "Start each `match` with at least one concrete literal or enum-variant arm.",
+    summary: "AX uses the concrete arms to establish the typed branch set, so a wildcard-only `match` is rejected.",
+    pattern: "match (value) { 0 => { return 1; } _ => { return 2; } }",
+    minimal_example: "match (flag) { true => { return 1; } false => { return 0; } }",
+    anti_pattern: Some("match (value) { _ => { return 1; } }"),
+    default_fixit: "add a concrete pattern before `_`, or replace the `match` with a normal block",
 };
 
 const RULE_NON_EMPTY_ARRAY_LITERAL_REQUIRED: RuleTemplate = RuleTemplate {
@@ -1373,6 +1390,13 @@ fn collect_statement_names(statement: &Stmt, names: &mut BTreeSet<String>) {
         }
         StmtKind::Break => {}
         StmtKind::Continue => {}
+        StmtKind::Match { scrutinee, arms } => {
+            collect_expr_names(scrutinee, names);
+            for arm in arms {
+                collect_match_pattern_names(&arm.pattern, names);
+                collect_block_names(&arm.body, names);
+            }
+        }
         StmtKind::If {
             condition,
             then_branch,
@@ -1406,6 +1430,14 @@ fn collect_statement_names(statement: &Stmt, names: &mut BTreeSet<String>) {
             collect_block_names(body, names);
         }
         StmtKind::Block { block } => collect_block_names(block, names),
+    }
+}
+
+fn collect_match_pattern_names(pattern: &MatchPattern, names: &mut BTreeSet<String>) {
+    if let MatchPatternKind::EnumVariant { path } = &pattern.kind
+        && let Some((enum_path, _)) = path.rsplit_once('.')
+    {
+        names.insert(enum_path.to_string());
     }
 }
 
@@ -1475,6 +1507,13 @@ fn find_smallest_statement_span(block: &Block, target: Span) -> Option<Span> {
 
         found = Some(statement.span);
         match &statement.kind {
+            StmtKind::Match { arms, .. } => {
+                for arm in arms {
+                    if let Some(inner) = find_smallest_statement_span(&arm.body, target) {
+                        found = Some(inner);
+                    }
+                }
+            }
             StmtKind::If {
                 then_branch,
                 else_branch,
@@ -1657,6 +1696,42 @@ mod tests {
                 message: "continue loop context placeholder",
                 kind: DiagnosticKind::ContinueOutsideLoop,
                 expected_rule_id: "continue_requires_loop_context",
+            },
+            KindCase {
+                code: "S0045",
+                message: "match input placeholder",
+                kind: DiagnosticKind::MatchScrutineeTypeUnsupported,
+                expected_rule_id: "match_input_must_use_supported_type",
+            },
+            KindCase {
+                code: "S0046",
+                message: "match pattern placeholder",
+                kind: DiagnosticKind::MatchPatternTypeMismatch,
+                expected_rule_id: "match_pattern_must_match_input",
+            },
+            KindCase {
+                code: "S0047",
+                message: "match duplicate placeholder",
+                kind: DiagnosticKind::DuplicateMatchPattern,
+                expected_rule_id: "match_patterns_must_be_unique",
+            },
+            KindCase {
+                code: "S0048",
+                message: "match wildcard placeholder",
+                kind: DiagnosticKind::MatchWildcardMustBeLast,
+                expected_rule_id: "match_wildcard_must_be_last",
+            },
+            KindCase {
+                code: "S0049",
+                message: "match exhaustive placeholder",
+                kind: DiagnosticKind::MatchNotExhaustive,
+                expected_rule_id: "match_must_be_exhaustive",
+            },
+            KindCase {
+                code: "S0050",
+                message: "match concrete placeholder",
+                kind: DiagnosticKind::MatchRequiresConcretePattern,
+                expected_rule_id: "match_requires_concrete_pattern",
             },
             KindCase {
                 code: "S0022",
@@ -2048,8 +2123,10 @@ sources = [\"lib\"]
     }
 
     #[test]
-    fn adds_match_guidance_for_unsupported_feature_attempts() {
-        let source = SourceFile::anonymous("fn main() -> i32 { match (true) { } return 0; }");
+    fn enhances_non_exhaustive_match_with_specific_rule_card() {
+        let source = SourceFile::anonymous(
+            "fn main() -> i32 { let flag: bool = true; match (flag) { true => { return 1; } } }",
+        );
         let mut analysis = analyze(&source);
         enhance_diagnostics(&source, &analysis.program, &mut analysis.diagnostics, None)
             .expect("ai enhancement should succeed");
@@ -2057,19 +2134,30 @@ sources = [\"lib\"]
         let diagnostic = analysis
             .diagnostics
             .iter()
-            .find(|diagnostic| {
-                diagnostic.code == "P0001"
-                    && diagnostic
-                        .message
-                        .contains("expected `;` after expression statement")
-            })
-            .expect("match parse diagnostic should exist");
+            .find(|diagnostic| diagnostic.code == "S0049")
+            .expect("match exhaustiveness diagnostic should exist");
         let ai = diagnostic.ai.as_ref().expect("ai payload should exist");
-        assert_eq!(ai.rule_id, "match_expressions_not_supported");
-        assert_eq!(
-            ai.fixits,
-            vec!["insert `;` before the next statement or closing `}`".to_string()]
+        assert_eq!(ai.rule_id, "match_must_be_exhaustive");
+        assert_eq!(ai.teaching_level, TeachingLevel::L1);
+    }
+
+    #[test]
+    fn enhances_match_pattern_mismatch_with_specific_rule_card() {
+        let source = SourceFile::anonymous(
+            "fn main() -> i32 { let flag: bool = true; match (flag) { 0 => { return 1; } _ => { return 0; } } }",
         );
+        let mut analysis = analyze(&source);
+        enhance_diagnostics(&source, &analysis.program, &mut analysis.diagnostics, None)
+            .expect("ai enhancement should succeed");
+
+        let diagnostic = analysis
+            .diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.code == "S0046")
+            .expect("match pattern mismatch diagnostic should exist");
+        let ai = diagnostic.ai.as_ref().expect("ai payload should exist");
+        assert_eq!(ai.rule_id, "match_pattern_must_match_input");
+        assert_eq!(ai.teaching_level, TeachingLevel::L1);
     }
 
     #[test]

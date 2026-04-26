@@ -281,7 +281,7 @@ AX constraints:
 - Struct literals use TypeName { field: expr, ... }.
 - let, assignment, expression, and return statements must end with ;.
 - Slices are supported, and empty array literals are only valid with explicit zero-length array types such as [i32; 0].
-- Do not introduce unsupported features such as match, generics, exceptions, or async.
+- Do not introduce unsupported features such as generics, exceptions, async, binding-pattern matches, or expression-form match.
 
 Case id: $CaseId
 Feedback mode: $FeedbackMode

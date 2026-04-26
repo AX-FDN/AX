@@ -9,13 +9,14 @@
 
 - 块语法固定为大括号：`{ ... }`
 - 注释当前只支持 `//` 单行注释
-- 顶层声明只支持 `fn`、`struct`、`enum`
+- 顶层声明当前支持 `module`、`import`、`fn`、`struct`、`enum`
 - 所有函数参数、返回类型、局部变量都必须显式写出类型
 - `main` 必须是 `fn main() -> i32`
 - `let`、赋值、表达式语句、`return` 必须带分号
 - `if`、`while`、`for` 必须写成 `if (cond) { ... }`、`while (cond) { ... }`、`for (init; cond; step) { ... }`
 - `break;` 当前已支持，可用于提前退出最近一层 `while` 或 `for`
 - `continue;` 当前已支持，可用于跳过最近一层 `while` 或 `for` 的本次迭代并进入下一轮
+- `match (...) { ... }` 当前已支持最小语句形态：模式只支持 `true` / `false`、整数、枚举值与 `_`
 - 枚举值必须写成 `EnumName.Variant`
 - 可写目标当前支持嵌套路径：`point.x = expr;`、`outer.inner.value = expr;`、`tokens[index].value = expr;`
 
@@ -47,6 +48,18 @@ enum Flag {
 }
 ```
 
+模块头（support source）：
+
+```ax
+module lib.report;
+```
+
+导入（entry 或 support source）：
+
+```ax
+import lib.report;
+```
+
 ## 3. 类型
 
 当前支持的类型只有下面这些：
@@ -65,13 +78,13 @@ enum Flag {
 
 - 泛型
 - `Option` / `Result` 的完整表面语法
-- 语言内的模块与 import
 
 补充说明：
 
-- AX 当前仍然没有语言关键字层的 `module`、命名空间和 `import` 声明。
-- 当前最小的代码组织方式是项目清单：可以在 `AX.toml` 里用 `[package].sources = ["src/lib.ax", "lib", ...]` 列出额外源文件或源目录，在 `check / run / build` 时与 `entry` 一起装载；目录项会递归展开为稳定路径顺序的 `.ax` 文件列表。
-- `P1-15` 已先冻结最小设计方向，但还没有进入实现：保留 `AX.toml + sources` 做文件发现，支持文件声明 `module ...;`，入口文件显式写 `import ...;`，跨模块名称默认走全限定路径。设计草案见 [`docs/import-module-minimal-design.md`](C:/Users/xiaoy/Desktop/A语言/AX/docs/import-module-minimal-design.md)。
+- AX 当前已经支持最小 `module / import` 模式：support source 可声明 `module ...;`，entry 与 support source 都可显式写 `import ...;`。
+- 当前最小的代码组织方式仍然是项目清单：可以在 `AX.toml` 里用 `[package].sources = ["src/lib.ax", "lib", ...]` 列出额外源文件或源目录，在 `check / run / build` 时与 `entry` 一起装载；目录项会递归展开为稳定路径顺序的 `.ax` 文件列表。
+- `module` 当前只允许出现在 support source，manifest `entry` 文件仍必须保持根入口身份并提供 `fn main() -> i32`。
+- 当前仍不做 alias / wildcard import / `pub` / 远程依赖；设计说明见 [`docs/import-module-minimal-design.md`](C:/Users/xiaoy/Desktop/A语言/AX/docs/import-module-minimal-design.md)。
 
 ## 4. 语句
 
@@ -159,6 +172,30 @@ for (let mut i: i32 = 0; i < 4; i = i + 1) {
         continue;
     }
     println(i);
+}
+```
+
+`match`：
+
+```ax
+match (flag) {
+    true => {
+        println(1);
+    }
+    false => {
+        println(0);
+    }
+}
+```
+
+```ax
+match (value) {
+    0 => {
+        return 7;
+    }
+    _ => {
+        return value;
+    }
 }
 ```
 
@@ -256,7 +293,10 @@ Flag.Off
 ## 6. 当前 EBNF
 
 ```text
-program           := item*
+program           := source_unit+
+source_unit       := module_decl? import_decl* item*
+module_decl       := "module" qualified_name ";"
+import_decl       := "import" qualified_name ";"
 item              := function | struct_decl | enum_decl
 
 function          := "fn" IDENT "(" param_list? ")" "->" type_ref block
@@ -275,6 +315,7 @@ stmt              := let_stmt
                   | return_stmt
                   | break_stmt
                   | continue_stmt
+                  | match_stmt
                   | if_stmt
                   | while_stmt
                   | for_stmt
@@ -286,6 +327,9 @@ let_stmt          := "let" "mut"? IDENT ":" type_ref "=" expr ";"
 return_stmt       := "return" expr? ";"
 break_stmt        := "break" ";"
 continue_stmt     := "continue" ";"
+match_stmt        := "match" "(" expr ")" "{" match_arm+ "}"
+match_arm         := match_pattern "=>" block
+match_pattern     := "_" | "true" | "false" | INT | qualified_name
 if_stmt           := "if" "(" expr ")" block ("else" (block | if_stmt))?
 while_stmt        := "while" "(" expr ")" block
 for_stmt          := "for" "(" for_init? ";" expr? ";" for_step? ")" block
@@ -295,6 +339,7 @@ for_step          := for_expr_stmt
 for_expr_stmt     := expr ("=" expr)?
 assign_stmt       := expr "=" expr ";"
 expr_stmt         := expr ";"
+qualified_name    := IDENT ("." IDENT)*
 
 expr              := binary_expr
 binary_expr       := unary_expr (BINARY_OP unary_expr)*
@@ -337,6 +382,9 @@ array_type        := "[" type_ref ";" INT "]"
 - 只读切片仍然不能写入，因此 `view[index] = expr;` 和 `view[index].field = expr;` 都会被拒绝
 - `break;` 只能出现在 `while` 或 `for` 的循环体内
 - `continue;` 只能出现在 `while` 或 `for` 的循环体内
+- `match` 当前只支持语句形态，不支持表达式形态
+- `match` 模式当前只支持 `bool`、`i32`、枚举值与 `_`
+- `match` 要求穷尽：`bool` 必须覆盖 `true/false`，枚举必须覆盖全部 variant，`i32` 当前必须以 `_` 兜底
 - `for` 当前支持的表头子句是：
 - 初始化：空、`let`、赋值、表达式
 - 条件：空或任意会检查为 `bool` 的表达式
@@ -359,6 +407,8 @@ array_type        := "[" type_ref ";" INT "]"
 - `while`
 - `for`
 - `break`
+- `continue`
+- `match`
 - 用户函数调用
 - 递归
 - 内置 `string_len`
@@ -372,8 +422,6 @@ array_type        := "[" type_ref ";" INT "]"
 
 下面这些请不要在当前原型里使用：
 
-- `match`
-- 语言内的 import / module 声明
 - 异常
 - async / await
 - 泛型
@@ -385,7 +433,8 @@ array_type        := "[" type_ref ";" INT "]"
 - 空数组字面量 `[]` 不是“完全不支持”。
 - 当前只支持带显式零长度数组上下文的写法：`let values: [i32; 0] = [];`
 - 如果上下文不是零长度数组，例如 `let values: [i32; 1] = [];`，会报 `S0032`。
-- `import / module` 的最小方案已经冻结，但当前 parser / resolver / interpreter 还没有实现，所以它依然属于“设计已明确、执行面未开放”的能力。
+- `match` 当前是最小第一版：不支持绑定模式、解构、guard、表达式返回值或多模式合并。
+- `module / import` 当前是最小第一版：不支持 alias、wildcard import、`pub`、包管理与远程依赖。
 
 ## 9. 给 AI 的直接提示词
 
@@ -393,9 +442,11 @@ array_type        := "[" type_ref ";" INT "]"
 Generate code in the current AX prototype syntax only.
 Rules:
 - Use braces for all blocks.
-- Use only fn, struct, enum, let, let mut, return, if/else, while, for.
+- Use only module, import, fn, struct, enum, let, let mut, return, if/else, while, for, and statement-form match.
 - `break;` may be used to exit the nearest `while` or `for` loop early.
 - `continue;` may be used to skip to the next iteration of the nearest `while` or `for` loop.
+- `match` is statement-only and uses `match (value) { pattern => { ... } ... }`.
+- `match` patterns currently support only `true`, `false`, integer literals, enum variants, and final `_`.
 - Every function parameter, return type, and local variable must have an explicit type.
 - main must be exactly: fn main() -> i32 { ... }.
 - End let/assignment/expression/return/`break`/`continue` statements with semicolons.
@@ -409,7 +460,8 @@ Rules:
 - Empty array literals are allowed only in explicit zero-length array context, for example: let values: [i32; 0] = [];.
 - Mutable write paths may target variables, nested struct fields, and fields selected from mutable array elements.
 - Slice values remain read-only, so assignments through values[start:end] are not allowed.
-- Do not use match, modules, imports, exceptions, async, or generics.
+- In project mode, support sources may declare `module ...;` and files may use explicit `import module.path;`.
+- Do not use exceptions, async, generics, binding-pattern match arms, or expression-form match.
 - Use [] only when the target type is explicitly a zero-length array like [i32; 0].
 - Return 0 from main on success unless a different exit code is explicitly needed.
 ```

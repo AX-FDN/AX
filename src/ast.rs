@@ -149,6 +149,30 @@ pub struct Block {
 }
 
 #[derive(Debug, Clone, Serialize)]
+pub struct MatchArm {
+    pub pattern: MatchPattern,
+    pub body: Block,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct MatchPattern {
+    #[serde(flatten)]
+    pub kind: MatchPatternKind,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum MatchPatternKind {
+    Wildcard,
+    Bool { value: bool },
+    Int { value: i64 },
+    EnumVariant { path: String },
+    Error,
+}
+
+#[derive(Debug, Clone, Serialize)]
 pub struct Stmt {
     #[serde(flatten)]
     pub kind: StmtKind,
@@ -176,6 +200,10 @@ pub enum StmtKind {
     },
     Break,
     Continue,
+    Match {
+        scrutinee: Expr,
+        arms: Vec<MatchArm>,
+    },
     If {
         condition: Expr,
         then_branch: Block,

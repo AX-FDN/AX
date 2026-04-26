@@ -305,7 +305,7 @@
 - 进展：2026-04-25 已把 AI 反馈层对齐当前模块实现，移除旧的 “import/module 尚未支持” guidance，改为稳定覆盖 `S0037`-`S0043` 模块诊断；并补上 project 级 AI rule 测试，确认缺少 `module` 声明、缺少 `import`、导入不存在模块等场景都有稳定 `rule_id`。
 - 进展：2026-04-25 已把 repair benchmark 的旧模块占位 case 同步到当前实现：`examples/import_unsupported.ax` / `examples/module_unsupported.ax` 现改为最小模块模式误用样例，manifest 预期也切到 `S0042` / `S0037` 与对应 `rule_id`；同时更新了 [`docs/import-module-minimal-design.md`](C:/Users/xiaoy/Desktop/A语言/AX/docs/import-module-minimal-design.md) 和 benchmark prompt 文案，去掉“modules/imports 尚未实现”的过时说法。
 - 进展：2026-04-25 已给这批模块诊断和首批高价值 `S0022` 变体补上稳定 `DiagnosticKind`，`src/ai.rs` 现会优先按内部语义标签映射 `rule_id`，而不是继续把规则绑定在 `message.contains(...)` 上；新增 `stable_diagnostic_kinds_drive_rule_matching_without_old_message_text` 回归测试，并已通过 `cargo +stable-x86_64-pc-windows-gnu test --lib`。
-- 进展：2026-04-25 已继续把 parser 侧高频 `P0001` 诊断接入稳定 `DiagnosticKind`，当前覆盖缺分号、缺右括号、缺右花括号与顶层声明错误；`src/ai.rs` 对这批规则也已优先走 kind 映射，同时保留 `match` 误写场景的特判，避免被普通缺分号规则吞掉。
+- 进展：2026-04-25 已继续把 parser 侧高频 `P0001` 诊断接入稳定 `DiagnosticKind`，当前覆盖缺分号、缺右括号、缺右花括号与顶层声明错误；`src/ai.rs` 对这批规则也已优先走 kind 映射，不再继续把高价值修复入口绑死在文案特判上。
 - 进展：2026-04-25 已让 parser 的详细提示生成也优先消费 `DiagnosticKind`，不再只靠 `message.contains(...)` 决定补充 note/suggestion；新增 “文案改掉但 kind 不变时，帮助信息仍保留” 的回归测试，并复跑 `cargo +stable-x86_64-pc-windows-gnu test --lib` 与两条 diagnostics interface snapshot。
 - 进展：2026-04-25 又把缺右中括号、类型名缺失、表达式缺失也接进稳定 `DiagnosticKind`，并补上 `close_bracketed_construct` 规则卡；这说明 parser 高频基础错误现在已经不只是“能分类”，而是开始形成更完整的稳定 AI 修复入口。
 
@@ -318,6 +318,15 @@
   - 不做范围：本轮不顺手引入 `match`、`loop`、标签循环或更高层集合遍历语法。
   - 完成于：2026-04-26
   - 备注：这一轮的关键不是“把关键字塞进 parser”，而是把 `continue;` 在 `for` lowering 下的 step 语义补对；当前实现会在 lowered `for` body 内对 `continue;` 做局部重写，保证进入下一轮前仍先跑 step。
+- [x] `P1-18` 最小 `match` 语法全链路落地
+  - 目标：补一版真正可执行、可诊断、可给 AI 稳定反馈的最小 `match`，而不是只把关键字塞进 parser。
+  - 输入：现有 `if / else` 控制流、`break/continue` 后的 control-flow 检查、HIR lowering、AI kind-based rule 映射、模块模式与当前 examples / benchmark prompt。
+  - 输出：`match` 词法 / parser / formatter / semantic / return analysis / HIR lowering / interpreter 支持，最小模式规则（`bool` / `i32` / enum / `_`）、AI 规则卡、示例、文档与接口回归。
+  - 通过条件：`match` 可在 `bool`、`i32`、enum 输入上稳定 `check / run`；不穷尽、重复 pattern、wildcard 位置错误、pattern 类型不匹配、缺少 concrete pattern 都有稳定诊断与 `rule_id`；文档与 benchmark prompt 不再把 `match` 说成“不支持”。
+  - 回归保障：`cargo +stable-x86_64-pc-windows-gnu test --lib -j 1`、`cargo +stable-x86_64-pc-windows-gnu test --test interface_snapshots match_example_runs -j 1`、`examples/match.ax`。
+  - 不做范围：本轮不做 binding pattern、解构、guard、表达式形态 `match`、多模式合并或更高级 pattern DSL。
+  - 完成于：2026-04-26
+  - 备注：这一轮先把 `match` 固定成“语句级、穷尽式、最小 pattern 集”的版本，并通过 lowering 复用现有 `if` / `else` 执行链，避免为第一版引入新的 HIR/MIR 语义面。
 - 进展：2026-04-25 又把运行时高价值 host diagnostics 接进稳定 `DiagnosticKind`，当前覆盖 `argv_get` 负索引/越界、缺失环境变量、不可读文件/目录、`process` 启动失败与 `capture` 非零退出；`src/ai.rs` 对这批宿主误用现也优先按 kind 映射 `rule_id`，并已补上 env/argv runtime AI 回归测试与 diagnostics snapshot 复跑。
 
 ## P2

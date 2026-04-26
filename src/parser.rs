@@ -1,6 +1,7 @@
 use crate::ast::{
-    BinaryOp, Block, EnumVariant, Expr, ExprKind, ImportDecl, Item, ItemKind, ModuleDecl, Param,
-    Program, SourceUnit, Stmt, StmtKind, StructField, StructLiteralField, TypeRef, UnaryOp,
+    BinaryOp, Block, EnumVariant, Expr, ExprKind, ImportDecl, Item, ItemKind, MatchArm,
+    MatchPattern, MatchPatternKind, ModuleDecl, Param, Program, SourceUnit, Stmt, StmtKind,
+    StructField, StructLiteralField, TypeRef, UnaryOp,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticKind};
 use crate::source::{SourceFile, Span};
@@ -373,6 +374,10 @@ impl<'a> Parser<'a> {
                 let start = self.advance().span.start;
                 Some(self.parse_continue_statement(start))
             }
+            TokenKind::MatchKw => {
+                let start = self.advance().span.start;
+                Some(self.parse_match_statement(start))
+            }
             TokenKind::IfKw => {
                 let start = self.advance().span.start;
                 Some(self.parse_if_statement(start))
@@ -462,6 +467,120 @@ impl<'a> Parser<'a> {
         Stmt {
             span: Span::new(start, end.span.end),
             kind: StmtKind::Continue,
+        }
+    }
+
+    fn parse_match_statement(&mut self, start: usize) -> Stmt {
+        self.expect(TokenKind::LParen, "expected `(` after `match`", &["`(`"]);
+        let scrutinee = self.parse_expression();
+        self.expect(
+            TokenKind::RParen,
+            "expected `)` after match input",
+            &["`)`"],
+        );
+
+        let open = self.expect(
+            TokenKind::LBrace,
+            "expected `{` to start match arms",
+            &["`{`"],
+        );
+        let mut arms = Vec::new();
+        while !self.check(TokenKind::RBrace) && !self.is_at_end() {
+            arms.push(self.parse_match_arm());
+            if self.matches(&[TokenKind::Comma]) && self.check(TokenKind::RBrace) {
+                break;
+            }
+        }
+        let close = self.expect(TokenKind::RBrace, "expected `}` after match arms", &["`}`"]);
+
+        Stmt {
+            span: Span::new(start, close.span.end),
+            kind: StmtKind::Match {
+                scrutinee,
+                arms: if arms.is_empty() && open.span.end == close.span.start {
+                    Vec::new()
+                } else {
+                    arms
+                },
+            },
+        }
+    }
+
+    fn parse_match_arm(&mut self) -> MatchArm {
+        let pattern = self.parse_match_pattern();
+        self.expect(
+            TokenKind::FatArrow,
+            "expected `=>` after match pattern",
+            &["`=>`"],
+        );
+        let body = self.parse_block();
+        MatchArm {
+            span: Span::new(pattern.span.start, body.span.end),
+            pattern,
+            body,
+        }
+    }
+
+    fn parse_match_pattern(&mut self) -> MatchPattern {
+        let token = self.advance();
+        match token.kind {
+            TokenKind::TrueKw => MatchPattern {
+                span: token.span,
+                kind: MatchPatternKind::Bool { value: true },
+            },
+            TokenKind::FalseKw => MatchPattern {
+                span: token.span,
+                kind: MatchPatternKind::Bool { value: false },
+            },
+            TokenKind::IntLiteral => MatchPattern {
+                span: token.span,
+                kind: MatchPatternKind::Int {
+                    value: token.lexeme.parse().unwrap_or(0),
+                },
+            },
+            TokenKind::Minus => {
+                let literal = self.expect(
+                    TokenKind::IntLiteral,
+                    "expected an integer literal after `-` in match pattern",
+                    &["integer literal"],
+                );
+                MatchPattern {
+                    span: Span::new(token.span.start, literal.span.end),
+                    kind: MatchPatternKind::Int {
+                        value: -literal.lexeme.parse::<i64>().unwrap_or(0),
+                    },
+                }
+            }
+            TokenKind::Identifier => {
+                if token.lexeme == "_" && !self.check(TokenKind::Dot) {
+                    return MatchPattern {
+                        span: token.span,
+                        kind: MatchPatternKind::Wildcard,
+                    };
+                }
+
+                let (path, span) = self.finish_qualified_identifier_path(
+                    token,
+                    "expected an identifier after `.` in match pattern",
+                );
+                MatchPattern {
+                    span,
+                    kind: MatchPatternKind::EnumVariant { path },
+                }
+            }
+            _ => {
+                let diagnostic = enrich_parse_error(
+                    Diagnostic::new("P0003", "expected a match pattern", self.source, token.span)
+                        .with_expected("match pattern"),
+                    &token,
+                    "expected a match pattern",
+                );
+                self.diagnostics.push(diagnostic);
+                MatchPattern {
+                    span: token.span,
+                    kind: MatchPatternKind::Error,
+                }
+            }
         }
     }
 
@@ -904,6 +1023,7 @@ impl<'a> Parser<'a> {
                 TokenKind::LetKw
                 | TokenKind::ReturnKw
                 | TokenKind::BreakKw
+                | TokenKind::MatchKw
                 | TokenKind::IfKw
                 | TokenKind::WhileKw
                 | TokenKind::ForKw
@@ -1183,7 +1303,7 @@ fn describe_token(token: &Token) -> String {
 #[cfg(test)]
 mod tests {
     use super::{enrich_parse_error, parse};
-    use crate::ast::{ExprKind, ItemKind, StmtKind};
+    use crate::ast::{ExprKind, ItemKind, MatchPatternKind, StmtKind};
     use crate::diagnostics::{Diagnostic, DiagnosticKind};
     use crate::lexer::tokenize;
     use crate::source::{SourceFile, Span};
@@ -1402,6 +1522,49 @@ fn main() -> i32 {
             },
             _ => panic!("expected function"),
         }
+    }
+
+    #[test]
+    fn parses_match_statement() {
+        let source = SourceFile::anonymous(
+            "\
+enum Flag { On, Off }
+fn main() -> i32 {
+    match (Flag.On) {
+        Flag.On => {
+            return 1;
+        }
+        Flag.Off => {
+            return 0;
+        }
+    }
+}
+",
+        );
+        let tokens = tokenize(&source).tokens;
+        let output = parse(&source, tokens);
+        assert!(
+            output.diagnostics.is_empty(),
+            "unexpected diagnostics: {:?}",
+            output.diagnostics
+        );
+
+        let ItemKind::Function { body, .. } = &output.program.items[1].kind else {
+            panic!("expected main function");
+        };
+        let StmtKind::Match { scrutinee, arms } = &body.statements[0].kind else {
+            panic!("expected match statement");
+        };
+        assert!(matches!(scrutinee.kind, ExprKind::Field { .. }));
+        assert_eq!(arms.len(), 2);
+        assert!(matches!(
+            arms[0].pattern.kind,
+            MatchPatternKind::EnumVariant { ref path } if path == "Flag.On"
+        ));
+        assert!(matches!(
+            arms[1].pattern.kind,
+            MatchPatternKind::EnumVariant { ref path } if path == "Flag.Off"
+        ));
     }
 
     #[test]

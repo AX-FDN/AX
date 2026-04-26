@@ -72,8 +72,14 @@ pub fn check_program_with_project(
             }
 
             checker.check_block(body);
-            let missing_return =
-                missing_return_diagnostic(source, name, checker.return_type(), body);
+            let missing_return = missing_return_diagnostic(
+                source,
+                name,
+                checker.return_type(),
+                body,
+                &program_info,
+                &current_unit_path,
+            );
             drop(checker);
 
             if let Some(diagnostic) = missing_return {
@@ -475,6 +481,54 @@ fn main() -> i32 {
     }
 
     #[test]
+    fn accepts_exhaustive_bool_match() {
+        let codes = check(
+            "\
+fn main() -> i32 {
+    let flag: bool = true;
+    match (flag) {
+        true => {
+            return 1;
+        }
+        false => {
+            return 0;
+        }
+    }
+}
+",
+        );
+        assert!(codes.is_empty(), "unexpected diagnostics: {codes:?}");
+    }
+
+    #[test]
+    fn accepts_exhaustive_enum_match_that_returns_on_all_arms() {
+        let codes = check(
+            "\
+enum Flag {
+    On,
+    Off,
+}
+
+fn choose(flag: Flag) -> i32 {
+    match (flag) {
+        Flag.On => {
+            return 1;
+        }
+        Flag.Off => {
+            return 2;
+        }
+    }
+}
+
+fn main() -> i32 {
+    return choose(Flag.On);
+}
+",
+        );
+        assert!(codes.is_empty(), "unexpected diagnostics: {codes:?}");
+    }
+
+    #[test]
     fn reports_for_initializer_variable_used_outside_loop() {
         let codes = check(
             "\
@@ -499,6 +553,103 @@ fn main() -> i32 {
     fn reports_continue_outside_loop() {
         let codes = check("fn main() -> i32 { continue; return 0; }");
         assert!(codes.iter().any(|code| code == "S0044"));
+    }
+
+    #[test]
+    fn reports_non_exhaustive_bool_match() {
+        let codes = check(
+            "\
+fn main() -> i32 {
+    let flag: bool = true;
+    match (flag) {
+        true => {
+            return 1;
+        }
+    }
+}
+",
+        );
+        assert!(codes.iter().any(|code| code == "S0049"));
+    }
+
+    #[test]
+    fn reports_duplicate_match_pattern() {
+        let codes = check(
+            "\
+fn main() -> i32 {
+    let value: i32 = 1;
+    match (value) {
+        0 => {
+            return 1;
+        }
+        0 => {
+            return 2;
+        }
+        _ => {
+            return 3;
+        }
+    }
+}
+",
+        );
+        assert!(codes.iter().any(|code| code == "S0047"));
+    }
+
+    #[test]
+    fn reports_match_wildcard_before_final_arm() {
+        let codes = check(
+            "\
+fn main() -> i32 {
+    let value: i32 = 1;
+    match (value) {
+        _ => {
+            return 1;
+        }
+        0 => {
+            return 2;
+        }
+    }
+}
+",
+        );
+        assert!(codes.iter().any(|code| code == "S0048"));
+    }
+
+    #[test]
+    fn reports_match_pattern_type_mismatch() {
+        let codes = check(
+            "\
+fn main() -> i32 {
+    let flag: bool = true;
+    match (flag) {
+        0 => {
+            return 1;
+        }
+        _ => {
+            return 0;
+        }
+    }
+}
+",
+        );
+        assert!(codes.iter().any(|code| code == "S0046"));
+    }
+
+    #[test]
+    fn reports_match_without_concrete_pattern() {
+        let codes = check(
+            "\
+fn main() -> i32 {
+    let value: i32 = 1;
+    match (value) {
+        _ => {
+            return value;
+        }
+    }
+}
+",
+        );
+        assert!(codes.iter().any(|code| code == "S0050"));
     }
 
     #[test]

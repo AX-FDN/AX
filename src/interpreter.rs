@@ -2817,6 +2817,63 @@ fn main() -> i32 {
     }
 
     #[test]
+    fn runs_match_statements() {
+        let (source, hir) = analyzed_hir(
+            "\
+enum Flag {
+    On,
+    Off,
+}
+
+fn choose(flag: Flag) -> i32 {
+    match (flag) {
+        Flag.On => {
+            return 1;
+        }
+        Flag.Off => {
+            return 2;
+        }
+    }
+}
+
+fn classify(value: i32) -> i32 {
+    match (value) {
+        0 => {
+            return 7;
+        }
+        _ => {
+            return value;
+        }
+    }
+}
+
+fn main() -> i32 {
+    let truthy: bool = true;
+    let mut total: i32 = 0;
+    match (truthy) {
+        true => {
+            total = total + 10;
+        }
+        false => {
+            total = total + 1;
+        }
+    }
+    total = total + choose(Flag.On);
+    total = total + choose(Flag.Off);
+    total = total + classify(0);
+    total = total + classify(5);
+    println(total);
+    return total;
+}
+",
+        );
+
+        let output = run_program(&source, &hir).expect("program should run");
+        assert_eq!(output.exit_code, 25);
+        assert_eq!(output.stdout, vec!["25"]);
+    }
+
+    #[test]
     fn runs_break_inside_loops() {
         let (source, hir) = analyzed_hir(
             "\

@@ -1,7 +1,16 @@
-use crate::ast::{Block, Expr, Stmt, StmtKind};
+use std::collections::HashSet;
+
+use crate::ast::{Block, Expr, MatchArm, MatchPattern, MatchPatternKind, Stmt, StmtKind};
 use crate::diagnostics::{Diagnostic, DiagnosticKind};
+use crate::source::Span;
 
 use super::{Type, TypeChecker, return_type_message};
+
+enum ResolvedMatchPattern {
+    Bool(bool),
+    Int(i32),
+    EnumVariant { variant: String },
+}
 
 impl<'a, 'b> TypeChecker<'a, 'b> {
     pub(super) fn check_break_statement(&mut self, statement: &Stmt) {
@@ -42,6 +51,209 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 "move `continue;` into a loop body, or rewrite the control flow with `if` / `else`",
             ),
         );
+    }
+
+    pub(super) fn check_match_statement(
+        &mut self,
+        statement: &Stmt,
+        scrutinee: &Expr,
+        arms: &[MatchArm],
+    ) {
+        let scrutinee_type = self.check_expr(scrutinee);
+
+        if arms.is_empty() {
+            self.diagnostics.push(
+                Diagnostic::new(
+                    "S0050",
+                    "`match` requires at least one arm",
+                    self.info.source,
+                    statement.span,
+                )
+                .with_kind(DiagnosticKind::MatchRequiresConcretePattern)
+                .with_suggestion("add at least one arm like `value => { ... }` inside the match"),
+            );
+            return;
+        }
+
+        let scrutinee_supported = match &scrutinee_type {
+            Type::Bool | Type::I32 | Type::Enum(_) => true,
+            Type::Error => false,
+            _ => {
+                self.diagnostics.push(
+                    Diagnostic::new(
+                        "S0045",
+                        format!(
+                            "`match` currently requires `bool`, `i32`, or enum input, found `{}`",
+                            scrutinee_type.describe()
+                        ),
+                        self.info.source,
+                        scrutinee.span,
+                    )
+                    .with_kind(DiagnosticKind::MatchScrutineeTypeUnsupported)
+                    .with_note(
+                        "the first AX `match` only covers boolean values, integer literals, and enum variants",
+                    )
+                    .with_suggestion(
+                        "rewrite this with `if / else`, or change the match input to `bool`, `i32`, or an enum value",
+                    ),
+                );
+                false
+            }
+        };
+
+        let mut wildcard_seen = false;
+        let mut concrete_pattern_seen = false;
+        let mut seen_bools = HashSet::new();
+        let mut seen_ints = HashSet::new();
+        let mut seen_variants = HashSet::new();
+
+        for (index, arm) in arms.iter().enumerate() {
+            match &arm.pattern.kind {
+                MatchPatternKind::Wildcard => {
+                    if wildcard_seen || index + 1 < arms.len() {
+                        self.diagnostics.push(
+                            Diagnostic::new(
+                                "S0048",
+                                "the catch-all `_` match arm must appear at most once and only as the final arm",
+                                self.info.source,
+                                arm.pattern.span,
+                            )
+                            .with_kind(DiagnosticKind::MatchWildcardMustBeLast)
+                            .with_suggestion(
+                                "keep a single `_ => { ... }` arm at the end of the match, or remove it",
+                            ),
+                        );
+                    }
+                    wildcard_seen = true;
+                }
+                MatchPatternKind::Error => {}
+                _ => {
+                    concrete_pattern_seen = true;
+                }
+            }
+
+            if scrutinee_supported {
+                if let Some(resolved) = self.resolve_match_pattern(&arm.pattern, &scrutinee_type) {
+                    match resolved {
+                        ResolvedMatchPattern::Bool(value) => {
+                            if !seen_bools.insert(value) {
+                                self.report_duplicate_match_pattern(
+                                    arm.pattern.span,
+                                    pattern_label(&arm.pattern),
+                                );
+                            }
+                        }
+                        ResolvedMatchPattern::Int(value) => {
+                            if !seen_ints.insert(value) {
+                                self.report_duplicate_match_pattern(
+                                    arm.pattern.span,
+                                    pattern_label(&arm.pattern),
+                                );
+                            }
+                        }
+                        ResolvedMatchPattern::EnumVariant { variant } => {
+                            if !seen_variants.insert(variant.clone()) {
+                                self.report_duplicate_match_pattern(
+                                    arm.pattern.span,
+                                    pattern_label(&arm.pattern),
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+
+            self.check_block(&arm.body);
+        }
+
+        if !concrete_pattern_seen {
+            self.diagnostics.push(
+                Diagnostic::new(
+                    "S0050",
+                    "`match` requires at least one concrete pattern before an optional `_` arm",
+                    self.info.source,
+                    statement.span,
+                )
+                .with_kind(DiagnosticKind::MatchRequiresConcretePattern)
+                .with_note("a wildcard-only match does not establish a stable, typed branch set")
+                .with_suggestion(
+                    "add at least one literal or enum-variant pattern, or replace the whole construct with a normal block",
+                ),
+            );
+        }
+
+        if !scrutinee_supported || wildcard_seen || !concrete_pattern_seen {
+            return;
+        }
+
+        match &scrutinee_type {
+            Type::Bool => {
+                if seen_bools.len() != 2 {
+                    let missing = [true, false]
+                        .into_iter()
+                        .filter(|value| !seen_bools.contains(value))
+                        .map(|value| value.to_string())
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    self.diagnostics.push(
+                        Diagnostic::new(
+                            "S0049",
+                            format!("non-exhaustive `match`: missing arm(s) for `{missing}`"),
+                            self.info.source,
+                            statement.span,
+                        )
+                        .with_kind(DiagnosticKind::MatchNotExhaustive)
+                        .with_suggestion(
+                            "cover the remaining boolean case or add a final `_ => { ... }` arm",
+                        ),
+                    );
+                }
+            }
+            Type::I32 => {
+                self.diagnostics.push(
+                    Diagnostic::new(
+                        "S0049",
+                        "non-exhaustive `match`: `i32` matches require a final `_` arm",
+                        self.info.source,
+                        statement.span,
+                    )
+                    .with_kind(DiagnosticKind::MatchNotExhaustive)
+                    .with_note("AX does not allow integer matches to fall through silently")
+                    .with_suggestion(
+                        "add a final `_ => { ... }` arm to cover the remaining values",
+                    ),
+                );
+            }
+            Type::Enum(enum_name) => {
+                let Some(enum_info) = self.info.enums.get(enum_name) else {
+                    return;
+                };
+                let missing = enum_info
+                    .variants
+                    .iter()
+                    .filter(|variant| !seen_variants.contains(*variant))
+                    .cloned()
+                    .collect::<Vec<_>>();
+                if !missing.is_empty() {
+                    self.diagnostics.push(
+                        Diagnostic::new(
+                            "S0049",
+                            format!(
+                                "non-exhaustive `match`: missing enum arm(s) for {}",
+                                missing.join(", ")
+                            ),
+                            self.info.source,
+                            statement.span,
+                        )
+                        .with_kind(DiagnosticKind::MatchNotExhaustive)
+                        .with_suggestion(
+                            "cover the remaining enum variants or add a final `_ => { ... }` arm",
+                        ),
+                    );
+                }
+            }
+            _ => {}
+        }
     }
 
     pub(super) fn check_return_statement(&mut self, statement: &Stmt, value: Option<&Expr>) {
@@ -139,5 +351,157 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             ),
             DiagnosticKind::ConditionTypeMismatch,
         );
+    }
+
+    fn resolve_match_pattern(
+        &mut self,
+        pattern: &MatchPattern,
+        scrutinee_type: &Type,
+    ) -> Option<ResolvedMatchPattern> {
+        match &pattern.kind {
+            MatchPatternKind::Wildcard | MatchPatternKind::Error => None,
+            MatchPatternKind::Bool { value } => {
+                if !matches!(scrutinee_type, Type::Bool | Type::Error) {
+                    self.report_match_pattern_type_mismatch(pattern, scrutinee_type);
+                    return None;
+                }
+                Some(ResolvedMatchPattern::Bool(*value))
+            }
+            MatchPatternKind::Int { value } => {
+                let Ok(value) = i32::try_from(*value) else {
+                    self.diagnostics.push(
+                        Diagnostic::new(
+                            "S0009",
+                            "integer literal is out of range for `i32`",
+                            self.info.source,
+                            pattern.span,
+                        )
+                        .with_suggestion("use a value that fits in the AX `i32` range"),
+                    );
+                    return None;
+                };
+                if !matches!(scrutinee_type, Type::I32 | Type::Error) {
+                    self.report_match_pattern_type_mismatch(pattern, scrutinee_type);
+                    return None;
+                }
+                Some(ResolvedMatchPattern::Int(value))
+            }
+            MatchPatternKind::EnumVariant { path } => {
+                let Some((enum_path, variant)) = path.rsplit_once('.') else {
+                    self.diagnostics.push(
+                        Diagnostic::new(
+                            "S0046",
+                            format!(
+                                "match pattern `{path}` must be a literal, `_`, or `EnumName.Variant`",
+                            ),
+                            self.info.source,
+                            pattern.span,
+                        )
+                        .with_kind(DiagnosticKind::MatchPatternTypeMismatch)
+                        .with_suggestion(
+                            "rewrite this pattern as `true`, `false`, an integer literal, `_`, or `EnumName.Variant`",
+                        ),
+                    );
+                    return None;
+                };
+
+                let current_unit_path = self.current_unit_path().to_string();
+                let Some(resolved_key) = self.info.resolve_named_type_key(
+                    enum_path,
+                    &current_unit_path,
+                    pattern.span,
+                    self.diagnostics,
+                ) else {
+                    return None;
+                };
+                let Some(Type::Enum(enum_name)) = self.info.named_types.get(&resolved_key).cloned()
+                else {
+                    self.diagnostics.push(
+                        Diagnostic::new(
+                            "S0046",
+                            format!("match pattern `{path}` does not name an enum variant"),
+                            self.info.source,
+                            pattern.span,
+                        )
+                        .with_kind(DiagnosticKind::MatchPatternTypeMismatch)
+                        .with_suggestion("use a real enum variant like `Flag.On`"),
+                    );
+                    return None;
+                };
+
+                let Some(enum_info) = self.info.enums.get(&enum_name) else {
+                    return None;
+                };
+                if !enum_info.variants.contains(variant) {
+                    self.diagnostics.push(
+                        Diagnostic::new(
+                            "S0029",
+                            format!("unknown enum variant `{variant}` for enum `{enum_name}`"),
+                            self.info.source,
+                            pattern.span,
+                        )
+                        .with_suggestion("use one of the declared enum variants"),
+                    );
+                    return None;
+                }
+
+                if !matches!(scrutinee_type, Type::Enum(name) if name == &enum_name)
+                    && !matches!(scrutinee_type, Type::Error)
+                {
+                    self.report_match_pattern_type_mismatch(pattern, scrutinee_type);
+                    return None;
+                }
+
+                Some(ResolvedMatchPattern::EnumVariant {
+                    variant: variant.to_string(),
+                })
+            }
+        }
+    }
+
+    fn report_match_pattern_type_mismatch(
+        &mut self,
+        pattern: &MatchPattern,
+        scrutinee_type: &Type,
+    ) {
+        self.diagnostics.push(
+            Diagnostic::new(
+                "S0046",
+                format!(
+                    "match pattern `{}` does not match input type `{}`",
+                    pattern_label(pattern),
+                    scrutinee_type.describe()
+                ),
+                self.info.source,
+                pattern.span,
+            )
+            .with_kind(DiagnosticKind::MatchPatternTypeMismatch)
+            .with_suggestion(
+                "change the pattern so it uses the same type as the match input, or change the matched value",
+            ),
+        );
+    }
+
+    fn report_duplicate_match_pattern(&mut self, span: Span, pattern: String) {
+        self.diagnostics.push(
+            Diagnostic::new(
+                "S0047",
+                format!("duplicate match pattern `{pattern}`"),
+                self.info.source,
+                span,
+            )
+            .with_kind(DiagnosticKind::DuplicateMatchPattern)
+            .with_suggestion("remove the duplicate arm or merge its logic into the earlier arm"),
+        );
+    }
+}
+
+fn pattern_label(pattern: &MatchPattern) -> String {
+    match &pattern.kind {
+        MatchPatternKind::Wildcard => "_".to_string(),
+        MatchPatternKind::Bool { value } => value.to_string(),
+        MatchPatternKind::Int { value } => value.to_string(),
+        MatchPatternKind::EnumVariant { path } => path.clone(),
+        MatchPatternKind::Error => "<invalid-pattern>".to_string(),
     }
 }

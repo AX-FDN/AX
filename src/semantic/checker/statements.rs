@@ -34,6 +34,9 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             }
             StmtKind::Break => self.check_break_statement(statement),
             StmtKind::Continue => self.check_continue_statement(statement),
+            StmtKind::Match { scrutinee, arms } => {
+                self.check_match_statement(statement, scrutinee, arms)
+            }
             StmtKind::Expr { expr } => {
                 self.check_expr(expr);
             }
