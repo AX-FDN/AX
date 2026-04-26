@@ -5,12 +5,9 @@
 
 ### 面向 Coding AI 的源码协议与执行语言原型
 
-[![CI](https://img.shields.io/github/actions/workflow/status/AX-FDN/AX/ci.yml?branch=main&label=CI)](https://github.com/AX-FDN/AX/actions/workflows/ci.yml)
 [![License](https://img.shields.io/github/license/AX-FDN/AX)](./LICENSE)
 [![Prototype](https://img.shields.io/badge/status-prototype-0ea5e9)](./规划.md)
-[![Diagnostics](https://img.shields.io/badge/diagnostics-structured-111827)](./docs/diagnostics-schema.md)
 [![Benchmark](https://img.shields.io/badge/repair%20benchmark-included-2563eb)](./docs/repair-benchmark.md)
-[![Syntax](https://img.shields.io/badge/syntax-frozen%20prototype-1d4ed8)](./SYNTAX.md)
 
 </div>
 
