@@ -218,6 +218,7 @@ struct LoweringContext<'a> {
     struct_names: HashSet<String>,
     enum_names: HashSet<String>,
     next_match_temp: Cell<u32>,
+    next_for_in_temp: Cell<u32>,
 }
 
 impl<'a> LoweringContext<'a> {
@@ -257,6 +258,7 @@ impl<'a> LoweringContext<'a> {
             struct_names,
             enum_names,
             next_match_temp: Cell::new(0),
+            next_for_in_temp: Cell::new(0),
         }
     }
 
@@ -441,6 +443,13 @@ impl<'a> LoweringContext<'a> {
                     body,
                 );
             }
+            ast::StmtKind::ForIn {
+                binding,
+                iterable,
+                body,
+            } => {
+                return self.lower_for_in_statement(statement.span, binding, iterable, body);
+            }
             ast::StmtKind::Block { block } => StmtKind::Block {
                 block: self.lower_block(block)?,
             },
@@ -494,6 +503,154 @@ impl<'a> LoweringContext<'a> {
         }];
 
         self.finish_lowered_for_block(span, condition, block_statements, loop_body_statements)
+    }
+
+    fn lower_for_in_statement(
+        &self,
+        span: Span,
+        binding: &ast::ForInBinding,
+        iterable: &ast::Expr,
+        body: &ast::Block,
+    ) -> Result<Stmt, Diagnostic> {
+        let iterable_name = self.fresh_for_in_temp_name("values");
+        let index_name = self.fresh_for_in_temp_name("index");
+        let element_type = self.lower_type_ref(&binding.ty)?;
+
+        let iterable_binding = Stmt {
+            kind: StmtKind::Let {
+                mutable: false,
+                name: iterable_name.clone(),
+                ty: Type::Slice {
+                    element: Box::new(element_type.clone()),
+                },
+                initializer: self.lower_expr(iterable)?,
+            },
+            span: iterable.span,
+        };
+        let index_binding = Stmt {
+            kind: StmtKind::Let {
+                mutable: true,
+                name: index_name.clone(),
+                ty: Type::I32,
+                initializer: Expr {
+                    kind: ExprKind::Int { value: 0 },
+                    span: binding.span,
+                },
+            },
+            span: binding.span,
+        };
+
+        let element_binding = Stmt {
+            kind: StmtKind::Let {
+                mutable: binding.mutable,
+                name: binding.name.clone(),
+                ty: element_type,
+                initializer: Expr {
+                    kind: ExprKind::Index {
+                        base: Box::new(Expr {
+                            kind: ExprKind::Name {
+                                value: iterable_name.clone(),
+                            },
+                            span: iterable.span,
+                        }),
+                        index: Box::new(Expr {
+                            kind: ExprKind::Name {
+                                value: index_name.clone(),
+                            },
+                            span: binding.span,
+                        }),
+                    },
+                    span: Span::new(iterable.span.start, binding.span.end.max(iterable.span.end)),
+                },
+            },
+            span: binding.span,
+        };
+
+        let step = Stmt {
+            kind: StmtKind::Assign {
+                target: Place {
+                    kind: PlaceKind::Local {
+                        name: index_name.clone(),
+                    },
+                    span: binding.span,
+                },
+                value: Expr {
+                    kind: ExprKind::Binary {
+                        op: BinaryOp::Add,
+                        left: Box::new(Expr {
+                            kind: ExprKind::Name {
+                                value: index_name.clone(),
+                            },
+                            span: binding.span,
+                        }),
+                        right: Box::new(Expr {
+                            kind: ExprKind::Int { value: 1 },
+                            span: binding.span,
+                        }),
+                    },
+                    span: binding.span,
+                },
+            },
+            span: binding.span,
+        };
+
+        let mut lowered_body = self.lower_block(body)?;
+        lowered_body.statements.insert(0, element_binding);
+        Self::rewrite_for_continues(&mut lowered_body, &step);
+
+        let while_condition = Expr {
+            kind: ExprKind::Binary {
+                op: BinaryOp::Less,
+                left: Box::new(Expr {
+                    kind: ExprKind::Name {
+                        value: index_name.clone(),
+                    },
+                    span: binding.span,
+                }),
+                right: Box::new(Expr {
+                    kind: ExprKind::Call {
+                        function: "len".to_string(),
+                        arguments: vec![Expr {
+                            kind: ExprKind::Name {
+                                value: iterable_name.clone(),
+                            },
+                            span: iterable.span,
+                        }],
+                    },
+                    span: iterable.span,
+                }),
+            },
+            span,
+        };
+
+        Ok(Stmt {
+            kind: StmtKind::Block {
+                block: Block {
+                    statements: vec![
+                        iterable_binding,
+                        index_binding,
+                        Stmt {
+                            kind: StmtKind::While {
+                                condition: while_condition,
+                                body: Block {
+                                    statements: vec![
+                                        Stmt {
+                                            kind: StmtKind::Block { block: lowered_body },
+                                            span: body.span,
+                                        },
+                                        step,
+                                    ],
+                                    span,
+                                },
+                            },
+                            span,
+                        },
+                    ],
+                    span,
+                },
+            },
+            span,
+        })
     }
 
     fn lower_match_statement(
@@ -901,6 +1058,12 @@ impl<'a> LoweringContext<'a> {
         format!("__match_scrutinee_{next}")
     }
 
+    fn fresh_for_in_temp_name(&self, suffix: &str) -> String {
+        let next = self.next_for_in_temp.get();
+        self.next_for_in_temp.set(next + 1);
+        format!("__for_in_{suffix}_{next}")
+    }
+
     fn canonical_name(&self, name: &str, span: Span) -> String {
         self.resolve_same_unit_name(name, span)
             .unwrap_or_else(|| name.to_string())
@@ -1138,6 +1301,47 @@ fn main() -> i32 {
             while_body.statements[1].kind,
             StmtKind::Assign { .. }
         ));
+    }
+
+    #[test]
+    fn lowers_for_in_into_indexed_while_with_binding() {
+        let program = lower(
+            "\
+fn main() -> i32 {
+    let values: [i32; 3] = [1, 2, 3];
+    for (let value: i32 in values) {
+        println(value);
+    }
+    return 0;
+}
+",
+        );
+
+        let ItemKind::Function { body, .. } = &program.items[0].kind else {
+            panic!("expected function item");
+        };
+
+        let StmtKind::Block { block } = &body.statements[1].kind else {
+            panic!("expected lowered for-in outer block");
+        };
+        assert_eq!(block.statements.len(), 3);
+        assert!(matches!(block.statements[0].kind, StmtKind::Let { .. }));
+        assert!(matches!(block.statements[1].kind, StmtKind::Let { .. }));
+
+        let StmtKind::While { body: while_body, .. } = &block.statements[2].kind else {
+            panic!("expected lowered while statement");
+        };
+        assert_eq!(while_body.statements.len(), 2);
+
+        let StmtKind::Block { block: loop_block } = &while_body.statements[0].kind else {
+            panic!("expected lowered loop body block");
+        };
+        let StmtKind::Let { name, initializer, .. } = &loop_block.statements[0].kind else {
+            panic!("expected synthesized element binding");
+        };
+        assert_eq!(name, "value");
+        assert!(matches!(initializer.kind, ExprKind::Index { .. }));
+        assert!(matches!(while_body.statements[1].kind, StmtKind::Assign { .. }));
     }
 
     #[test]

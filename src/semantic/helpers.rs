@@ -92,10 +92,13 @@ pub(super) fn type_mismatch_suggestion(expected: &Type, actual: &Type) -> String
 
 pub(super) fn binary_op_name(op: BinaryOp) -> &'static str {
     match op {
+        BinaryOp::LogicalOr => "||",
+        BinaryOp::LogicalAnd => "&&",
         BinaryOp::Add => "+",
         BinaryOp::Subtract => "-",
         BinaryOp::Multiply => "*",
         BinaryOp::Divide => "/",
+        BinaryOp::Remainder => "%",
         BinaryOp::Equal => "==",
         BinaryOp::NotEqual => "!=",
         BinaryOp::Less => "<",

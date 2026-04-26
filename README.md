@@ -215,7 +215,10 @@ AX 当前靠代表性样例证明自己。
 | 枚举值 | 已支持 | `Flag.On`、枚举值比较 |
 | 固定长度数组 | 已支持 | `[Type; N]`、数组字面量、索引读取 |
 | 只读 slice | 已支持 | `[Type]`、`values[start:end]` |
+| `for in` 遍历 | 已支持 | 第一版只支持 `for (let value: T in values) { ... }`，目标为数组 / slice |
 | 嵌套可写路径 | 已支持 | `outer.inner.value = ...`、`items[index].field = ...` |
+| 逻辑运算 | 已支持 | `&&`、`||`，并按短路语义执行 |
+| 余数运算 | 已支持 | `%`，当前按 `i32` 运算处理 |
 | 字符串拼接 | 已支持 | `string + string` |
 | 常用 helpers | 已支持 | `len(value)`、`string_len(text)`、`to_string(value)` |
 | `string_list` helpers | 已支持 | `string_list_new / push / join` |
@@ -238,6 +241,18 @@ AX 当前靠代表性样例证明自己。
   - support source 使用 `module ...;`
   - entry 与 support source 都可写显式 `import ...;`
   - 当前采用全限定名跨模块调用，如 `lib.report.build_summary()`
+- 逻辑与 / 或 `&&` / `||`
+  - 已支持
+  - 语义层要求两边都为 `bool`
+  - 运行时按短路语义执行，不会无意义地强制求值右侧
+- 余数运算 `%`
+  - 已支持
+  - 当前只接受 `i32` 操作数
+  - 运行时会检查 `% 0`
+- 第一版 `for in`
+  - 已支持 `for (let value: T in values) { ... }`
+  - 当前只覆盖数组 / slice
+  - loop variable 仍保持 AX 的显式类型风格，不走隐式推断
 - 数组 / slice / 嵌套写路径
   - 已不只是“能读数组”，而是能支持固定长度数组、slice、数组元素赋值、结构体字段路径赋值和数组元素字段路径赋值
 

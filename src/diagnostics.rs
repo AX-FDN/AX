@@ -35,6 +35,8 @@ pub enum DiagnosticKind {
     ConditionTypeMismatch,
     ArrayIndexTypeMismatch,
     LenBuiltinTypeMismatch,
+    ForInIterableTypeMismatch,
+    ForInBindingTypeMismatch,
     ArgvIndexNegative,
     ArgvIndexOutOfBounds,
     EnvironmentVariableUnavailable,

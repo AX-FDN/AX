@@ -1,0 +1,7 @@
+fn main() -> i32 {
+    let bucket: i32 = 10 % 3;
+    let wrapped: i32 = (bucket + 5) % 4;
+    println(bucket);
+    println(wrapped);
+    return bucket + wrapped;
+}

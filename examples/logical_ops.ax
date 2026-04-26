@@ -1,0 +1,16 @@
+fn main() -> i32 {
+    let ready: bool = true;
+    let has_input: bool = false;
+    let should_run: bool = ready && !has_input || false;
+
+    if (false && 8 / 0 == 0) {
+        return 1;
+    }
+
+    if (should_run || true) {
+        println("logical");
+        return 7;
+    }
+
+    return 0;
+}

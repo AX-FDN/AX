@@ -168,6 +168,10 @@ fn missing_return_note(body: &Block, info: &ProgramInfo<'_>, current_unit_path: 
             "a `for` loop may not run, so the function still needs a fallback `return` after the loop"
                 .to_string()
         }
+        Some(StmtKind::ForIn { .. }) => {
+            "a `for in` loop may not run, so the function still needs a fallback `return` after the loop"
+                .to_string()
+        }
         Some(StmtKind::Match { arms, .. }) => {
             if match_is_exhaustive(arms, info, current_unit_path) {
                 "every `match` arm must still return; add a `return` to each arm or a fallback after the match"

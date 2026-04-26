@@ -2287,6 +2287,30 @@ impl<'a> Interpreter<'a> {
                 }
             }
             ExprKind::Binary { op, left, right } => {
+                if matches!(*op, BinaryOp::LogicalAnd | BinaryOp::LogicalOr) {
+                    let left_value = self.eval_expr(left, frame)?;
+                    return match (*op, left_value) {
+                        (BinaryOp::LogicalAnd, Value::Bool(false)) => Ok(Value::Bool(false)),
+                        (BinaryOp::LogicalAnd, Value::Bool(true)) => {
+                            let right_value = self.eval_expr(right, frame)?;
+                            self.eval_binary(*op, Value::Bool(true), right_value, expr.span)
+                        }
+                        (BinaryOp::LogicalOr, Value::Bool(true)) => Ok(Value::Bool(true)),
+                        (BinaryOp::LogicalOr, Value::Bool(false)) => {
+                            let right_value = self.eval_expr(right, frame)?;
+                            self.eval_binary(*op, Value::Bool(false), right_value, expr.span)
+                        }
+                        (_, other) => Err(self.runtime_error(
+                            "R0023",
+                            format!(
+                                "invalid binary operation for runtime values `{}` and `<unevaluated>`",
+                                other.display()
+                            ),
+                            expr.span,
+                        )),
+                    };
+                }
+
                 let left = self.eval_expr(left, frame)?;
                 let right = self.eval_expr(right, frame)?;
                 self.eval_binary(*op, left, right, expr.span)
@@ -2499,6 +2523,12 @@ impl<'a> Interpreter<'a> {
         span: Span,
     ) -> Result<Value, Diagnostic> {
         match (op, left, right) {
+            (BinaryOp::LogicalAnd, Value::Bool(left), Value::Bool(right)) => {
+                Ok(Value::Bool(left && right))
+            }
+            (BinaryOp::LogicalOr, Value::Bool(left), Value::Bool(right)) => {
+                Ok(Value::Bool(left || right))
+            }
             (BinaryOp::Add, Value::I32(left), Value::I32(right)) => left
                 .checked_add(right)
                 .map(Value::I32)
@@ -2525,6 +2555,16 @@ impl<'a> Interpreter<'a> {
                 .checked_div(right)
                 .map(Value::I32)
                 .ok_or_else(|| self.runtime_error("R0022", "integer division overflowed", span)),
+            (BinaryOp::Remainder, Value::I32(_), Value::I32(0)) => Err(self
+                .runtime_error("R0021", "modulo by zero", span)
+                .with_note("AX checks integer remainder by zero at runtime")
+                .with_suggestion(
+                    "guard the divisor or rewrite the calculation so the right-hand side cannot be zero",
+                )),
+            (BinaryOp::Remainder, Value::I32(left), Value::I32(right)) => left
+                .checked_rem(right)
+                .map(Value::I32)
+                .ok_or_else(|| self.runtime_error("R0024", "integer remainder overflowed", span)),
             (BinaryOp::Add, Value::F32(left), Value::F32(right)) => Ok(Value::F32(left + right)),
             (BinaryOp::Subtract, Value::F32(left), Value::F32(right)) => {
                 Ok(Value::F32(left - right))
@@ -2871,6 +2911,45 @@ fn main() -> i32 {
         let output = run_program(&source, &hir).expect("program should run");
         assert_eq!(output.exit_code, 25);
         assert_eq!(output.stdout, vec!["25"]);
+    }
+
+    #[test]
+    fn runs_logical_short_circuit_operators() {
+        let (source, hir) = analyzed_hir(
+            "\
+fn main() -> i32 {
+    if (false && 8 / 0 == 0) {
+        return 1;
+    }
+    if (true || 8 / 0 == 0) {
+        println(\"short-circuit\");
+        return 7;
+    }
+    return 0;
+}
+",
+        );
+
+        let output = run_program(&source, &hir).expect("program should run");
+        assert_eq!(output.exit_code, 7);
+        assert_eq!(output.stdout, vec!["short-circuit"]);
+    }
+
+    #[test]
+    fn runs_modulo_operator() {
+        let (source, hir) = analyzed_hir(
+            "\
+fn main() -> i32 {
+    let bucket: i32 = 10 % 3;
+    println(bucket);
+    return bucket;
+}
+",
+        );
+
+        let output = run_program(&source, &hir).expect("program should run");
+        assert_eq!(output.exit_code, 1);
+        assert_eq!(output.stdout, vec!["1"]);
     }
 
     #[test]

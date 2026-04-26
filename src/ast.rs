@@ -163,6 +163,14 @@ pub struct MatchPattern {
 }
 
 #[derive(Debug, Clone, Serialize)]
+pub struct ForInBinding {
+    pub mutable: bool,
+    pub name: String,
+    pub ty: TypeRef,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum MatchPatternKind {
     Wildcard,
@@ -217,6 +225,11 @@ pub enum StmtKind {
         initializer: Option<Box<Stmt>>,
         condition: Option<Expr>,
         step: Option<Box<Stmt>>,
+        body: Block,
+    },
+    ForIn {
+        binding: ForInBinding,
+        iterable: Expr,
         body: Block,
     },
     Block {
@@ -310,10 +323,13 @@ pub enum UnaryOp {
 #[derive(Debug, Clone, Copy, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum BinaryOp {
+    LogicalOr,
+    LogicalAnd,
     Add,
     Subtract,
     Multiply,
     Divide,
+    Remainder,
     Equal,
     NotEqual,
     Less,

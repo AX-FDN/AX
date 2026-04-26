@@ -60,6 +60,11 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     body,
                 );
             }
+            StmtKind::ForIn {
+                binding,
+                iterable,
+                body,
+            } => self.check_for_in_statement(binding, iterable, body),
             StmtKind::Block { block } => self.check_block(block),
         }
     }

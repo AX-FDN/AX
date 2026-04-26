@@ -9,13 +9,15 @@ use crate::lexer::tokenize;
 use crate::parser::parse;
 use crate::source::SourceFile;
 
-const PREC_EQUALITY: u8 = 10;
-const PREC_COMPARISON: u8 = 20;
-const PREC_ADDITIVE: u8 = 30;
-const PREC_MULTIPLICATIVE: u8 = 40;
-const PREC_UNARY: u8 = 50;
-const PREC_POSTFIX: u8 = 60;
-const PREC_PRIMARY: u8 = 70;
+const PREC_LOGICAL_OR: u8 = 5;
+const PREC_LOGICAL_AND: u8 = 10;
+const PREC_EQUALITY: u8 = 20;
+const PREC_COMPARISON: u8 = 30;
+const PREC_ADDITIVE: u8 = 40;
+const PREC_MULTIPLICATIVE: u8 = 50;
+const PREC_UNARY: u8 = 60;
+const PREC_POSTFIX: u8 = 70;
+const PREC_PRIMARY: u8 = 80;
 
 pub fn format_source(source: &SourceFile) -> Result<String, Vec<Diagnostic>> {
     let lexer_output = tokenize(source);
@@ -225,6 +227,22 @@ impl Formatter {
                         .push_str(&format_for_header_statement(statement.as_ref()));
                 }
                 self.out.push_str(") ");
+                self.format_block(body);
+            }
+            StmtKind::ForIn {
+                binding,
+                iterable,
+                body,
+            } => {
+                let binding_prefix = if binding.mutable { "let mut" } else { "let" };
+                let _ = write!(
+                    self.out,
+                    "for ({} {}: {} in {}) ",
+                    binding_prefix,
+                    binding.name,
+                    format_type_ref(&binding.ty),
+                    format_expr(iterable)
+                );
                 self.format_block(body);
             }
             StmtKind::Block { block } => self.format_block(block),
@@ -442,12 +460,14 @@ fn expr_precedence(expr: &Expr) -> u8 {
 
 fn binary_precedence(op: BinaryOp) -> u8 {
     match op {
+        BinaryOp::LogicalOr => PREC_LOGICAL_OR,
+        BinaryOp::LogicalAnd => PREC_LOGICAL_AND,
         BinaryOp::Equal | BinaryOp::NotEqual => PREC_EQUALITY,
         BinaryOp::Less | BinaryOp::LessEqual | BinaryOp::Greater | BinaryOp::GreaterEqual => {
             PREC_COMPARISON
         }
         BinaryOp::Add | BinaryOp::Subtract => PREC_ADDITIVE,
-        BinaryOp::Multiply | BinaryOp::Divide => PREC_MULTIPLICATIVE,
+        BinaryOp::Multiply | BinaryOp::Divide | BinaryOp::Remainder => PREC_MULTIPLICATIVE,
     }
 }
 
@@ -460,10 +480,13 @@ fn unary_op_text(op: UnaryOp) -> &'static str {
 
 fn binary_op_text(op: BinaryOp) -> &'static str {
     match op {
+        BinaryOp::LogicalOr => "||",
+        BinaryOp::LogicalAnd => "&&",
         BinaryOp::Add => "+",
         BinaryOp::Subtract => "-",
         BinaryOp::Multiply => "*",
         BinaryOp::Divide => "/",
+        BinaryOp::Remainder => "%",
         BinaryOp::Equal => "==",
         BinaryOp::NotEqual => "!=",
         BinaryOp::Less => "<",
@@ -602,6 +625,61 @@ mod tests {
                 "            return 0;\n",
                 "        }\n",
                 "    }\n",
+                "}\n"
+            )
+        );
+    }
+
+    #[test]
+    fn formats_logical_operator_precedence() {
+        let source =
+            SourceFile::anonymous("fn main()->i32{if(!(true||false)&&true){return 1;}return 0;}");
+
+        let formatted = format_source(&source).expect("source should format");
+        assert_eq!(
+            formatted,
+            concat!(
+                "fn main() -> i32 {\n",
+                "    if (!(true || false) && true) {\n",
+                "        return 1;\n",
+                "    }\n",
+                "    return 0;\n",
+                "}\n"
+            )
+        );
+    }
+
+    #[test]
+    fn formats_modulo_operator_precedence() {
+        let source = SourceFile::anonymous("fn main()->i32{return 8%3*2+1;}");
+
+        let formatted = format_source(&source).expect("source should format");
+        assert_eq!(
+            formatted,
+            concat!(
+                "fn main() -> i32 {\n",
+                "    return 8 % 3 * 2 + 1;\n",
+                "}\n"
+            )
+        );
+    }
+
+    #[test]
+    fn formats_for_in_statements() {
+        let source = SourceFile::anonymous(
+            "fn main()->i32{let values:[i32;3]=[1,2,3];for(let value:i32 in values){println(value);}return 0;}",
+        );
+
+        let formatted = format_source(&source).expect("source should format");
+        assert_eq!(
+            formatted,
+            concat!(
+                "fn main() -> i32 {\n",
+                "    let values: [i32; 3] = [1, 2, 3];\n",
+                "    for (let value: i32 in values) {\n",
+                "        println(value);\n",
+                "    }\n",
+                "    return 0;\n",
                 "}\n"
             )
         );

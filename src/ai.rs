@@ -199,6 +199,7 @@ fn match_rule(_source: &SourceFile, diagnostic: &Diagnostic) -> Option<RuleTempl
         "S0029" => Some(RULE_ENUM_VARIANT_MUST_EXIST),
         "S0030" => Some(RULE_MUTABLE_STRUCT_FIELD_ASSIGNMENT_REQUIRED),
         "S0031" => Some(RULE_FOR_HEADER_CLAUSE_SUPPORTED),
+        "S0052" => Some(RULE_FOR_IN_REQUIRES_SEQUENCE_VALUE),
         "S0032" => Some(RULE_NON_EMPTY_ARRAY_LITERAL_REQUIRED),
         "S0033" => Some(RULE_INDEX_BASE_MUST_BE_ARRAY),
         "S0034" => Some(RULE_SLICE_BASE_MUST_BE_ARRAY_OR_SLICE),
@@ -209,7 +210,9 @@ fn match_rule(_source: &SourceFile, diagnostic: &Diagnostic) -> Option<RuleTempl
         "S0041" => Some(RULE_MODULE_IMPORT_MUST_BE_UNIQUE),
         "S0042" => Some(RULE_IMPORTED_MODULE_MUST_EXIST),
         "S0043" => Some(RULE_CROSS_MODULE_REFERENCE_REQUIRES_IMPORT),
-        "R0012" | "R0018" | "R0019" | "R0020" | "R0022" => Some(RULE_INTEGER_ARITHMETIC_IN_RANGE),
+        "R0012" | "R0018" | "R0019" | "R0020" | "R0022" | "R0024" => {
+            Some(RULE_INTEGER_ARITHMETIC_IN_RANGE)
+        }
         "R0021" => Some(RULE_DIVISION_BY_ZERO),
         "R0030" => Some(RULE_ARRAY_INDEX_NON_NEGATIVE),
         "R0031" => Some(RULE_ARRAY_INDEX_IN_BOUNDS),
@@ -258,6 +261,10 @@ fn match_rule_by_kind(kind: DiagnosticKind) -> Option<RuleTemplate> {
         DiagnosticKind::ConditionTypeMismatch => Some(RULE_CONDITION_MUST_BE_BOOL),
         DiagnosticKind::ArrayIndexTypeMismatch => Some(RULE_ARRAY_INDEX_MUST_BE_I32),
         DiagnosticKind::LenBuiltinTypeMismatch => Some(RULE_LEN_BUILTIN_REQUIRES_COUNTABLE_VALUE),
+        DiagnosticKind::ForInIterableTypeMismatch => Some(RULE_FOR_IN_REQUIRES_SEQUENCE_VALUE),
+        DiagnosticKind::ForInBindingTypeMismatch => {
+            Some(RULE_FOR_IN_BINDING_MUST_MATCH_ELEMENT_TYPE)
+        }
         DiagnosticKind::ArgvIndexNegative => Some(RULE_ARGV_INDEX_NON_NEGATIVE),
         DiagnosticKind::ArgvIndexOutOfBounds => Some(RULE_ARGV_INDEX_IN_BOUNDS),
         DiagnosticKind::EnvironmentVariableUnavailable => {
@@ -626,6 +633,28 @@ const RULE_FOR_HEADER_CLAUSE_SUPPORTED: RuleTemplate = RuleTemplate {
     minimal_example: "for (let i: i32 = 0; i < 3; i = i + 1) { return i; }",
     anti_pattern: Some("for (return 0; true; step()) { }"),
     default_fixit: "rewrite the header using only `let`, assignment, or expression clauses",
+};
+
+const RULE_FOR_IN_REQUIRES_SEQUENCE_VALUE: RuleTemplate = RuleTemplate {
+    rule_id: "for_in_requires_array_or_slice",
+    normalized_pattern: "for_in_requires_array_or_slice",
+    repair_goal: "Iterate over an array or slice value, or rewrite the loop as an indexed `for (...)` loop.",
+    summary: "The first AX `for in` prototype only iterates `[T; N]` arrays and `[T]` slices.",
+    pattern: "for (let value: i32 in values) { println(value); }",
+    minimal_example: "let values: [i32; 3] = [1, 2, 3];",
+    anti_pattern: Some("for (let ch: string in message) { println(ch); }"),
+    default_fixit: "change the iterated value to an array or slice, or fall back to an indexed `for (...)` loop",
+};
+
+const RULE_FOR_IN_BINDING_MUST_MATCH_ELEMENT_TYPE: RuleTemplate = RuleTemplate {
+    rule_id: "for_in_binding_must_match_element_type",
+    normalized_pattern: "for_in_binding_must_match_element_type",
+    repair_goal: "Declare the loop variable with the iterable's element type.",
+    summary: "AX `for in` loop variables must use the same element type as the array or slice being iterated.",
+    pattern: "for (let value: i32 in values) { println(value); }",
+    minimal_example: "let names: [string; 2] = [\"a\", \"b\"];",
+    anti_pattern: Some("for (let value: bool in values) { println(value); }"),
+    default_fixit: "change the loop variable type so it matches the iterated element type",
 };
 
 const RULE_BREAK_REQUIRES_LOOP_CONTEXT: RuleTemplate = RuleTemplate {
@@ -1429,6 +1458,15 @@ fn collect_statement_names(statement: &Stmt, names: &mut BTreeSet<String>) {
             }
             collect_block_names(body, names);
         }
+        StmtKind::ForIn {
+            binding,
+            iterable,
+            body,
+        } => {
+            collect_type_ref_names(&binding.ty, names);
+            collect_expr_names(iterable, names);
+            collect_block_names(body, names);
+        }
         StmtKind::Block { block } => collect_block_names(block, names),
     }
 }
@@ -1534,6 +1572,11 @@ fn find_smallest_statement_span(block: &Block, target: Span) -> Option<Span> {
                 }
             }
             StmtKind::For { body, .. } | StmtKind::Block { block: body } => {
+                if let Some(inner) = find_smallest_statement_span(body, target) {
+                    found = Some(inner);
+                }
+            }
+            StmtKind::ForIn { body, .. } => {
                 if let Some(inner) = find_smallest_statement_span(body, target) {
                     found = Some(inner);
                 }
@@ -1762,6 +1805,18 @@ mod tests {
                 message: "len type placeholder",
                 kind: DiagnosticKind::LenBuiltinTypeMismatch,
                 expected_rule_id: "len_builtin_requires_countable_value",
+            },
+            KindCase {
+                code: "S0052",
+                message: "for in iterable placeholder",
+                kind: DiagnosticKind::ForInIterableTypeMismatch,
+                expected_rule_id: "for_in_requires_array_or_slice",
+            },
+            KindCase {
+                code: "S0022",
+                message: "for in binding type placeholder",
+                kind: DiagnosticKind::ForInBindingTypeMismatch,
+                expected_rule_id: "for_in_binding_must_match_element_type",
             },
             KindCase {
                 code: "R0048",

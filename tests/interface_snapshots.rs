@@ -3963,6 +3963,30 @@ fn match_example_runs() {
 }
 
 #[test]
+fn logical_ops_example_runs() {
+    let output = run_axc([OsStr::new("run"), OsStr::new("examples/logical_ops.ax")]);
+    assert_eq!(output.status.code(), Some(7));
+    assert_clean_stderr(&output);
+    assert_eq!(normalize_text(&string_output(&output.stdout)), "logical\n");
+}
+
+#[test]
+fn modulo_example_runs() {
+    let output = run_axc([OsStr::new("run"), OsStr::new("examples/modulo.ax")]);
+    assert_eq!(output.status.code(), Some(3));
+    assert_clean_stderr(&output);
+    assert_eq!(normalize_text(&string_output(&output.stdout)), "1\n2\n");
+}
+
+#[test]
+fn for_in_example_runs() {
+    let output = run_axc([OsStr::new("run"), OsStr::new("examples/for_in.ax")]);
+    assert_eq!(output.status.code(), Some(9));
+    assert_clean_stderr(&output);
+    assert_eq!(normalize_text(&string_output(&output.stdout)), "1\n3\n5\n");
+}
+
+#[test]
 fn format_report_example_runs() {
     let output = run_axc([OsStr::new("run"), OsStr::new("examples/format_report.ax")]);
     assert_eq!(output.status.code(), Some(34));

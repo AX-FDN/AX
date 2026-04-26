@@ -327,6 +327,33 @@
   - 不做范围：本轮不做 binding pattern、解构、guard、表达式形态 `match`、多模式合并或更高级 pattern DSL。
   - 完成于：2026-04-26
   - 备注：这一轮先把 `match` 固定成“语句级、穷尽式、最小 pattern 集”的版本，并通过 lowering 复用现有 `if` / `else` 执行链，避免为第一版引入新的 HIR/MIR 语义面。
+- [x] `P1-19` 逻辑与 / 或 `&&` `||` 全链路落地
+  - 目标：补齐工具代码高频缺口，让 AX 能写更自然的条件组合，同时保持确定的布尔规则与短路语义。
+  - 输入：现有表达式 parser、布尔类型检查、HIR/MIR 二元表达式链路、解释器表达式求值和当前文档中的语法面清单。
+  - 输出：`&&` / `||` 的 token / lexer / parser / formatter / semantic / interpreter 支持，短路求值行为、示例、文档与定向回归。
+  - 通过条件：`&&` / `||` 可稳定解析、格式化、检查与运行；两边非 `bool` 时会给出明确诊断；运行时不会无意义求值被短路的一侧。
+  - 回归保障：`cargo +stable-x86_64-pc-windows-gnu test --lib -j 1`、`cargo +stable-x86_64-pc-windows-gnu test --test interface_snapshots logical_ops_example_runs -j 1`、`examples/logical_ops.ax`。
+  - 不做范围：本轮不顺手引入 `%`、复合赋值、`for in`、布尔表达式常量折叠或新的 AI 规则家族。
+  - 完成于：2026-04-26
+  - 备注：这一轮刻意不把 `&&` / `||` lower 成更复杂的控制流节点，而是先复用现有二元表达式链路，并在解释器层保证真正的短路执行。
+- [x] `P1-20` 余数运算 `%` 全链路落地
+  - 目标：补齐基础整数运算缺口，让 AX 能更自然地表达分桶、奇偶判断、轮转与索引归类逻辑。
+  - 输入：现有算术表达式 parser、`i32` 数值规则、解释器整数运算链路、逻辑运算补完后的表达式文档面。
+  - 输出：`%` 的 token / lexer / parser / formatter / semantic / interpreter 支持，`i32` 约束、零除检查、示例、文档与定向回归。
+  - 通过条件：`%` 可稳定解析、格式化、检查与运行；非 `i32` 操作数会稳定报错；运行时会检查 `% 0`；文档与缺失语法清单不再把 `%` 记成未支持。
+  - 回归保障：`cargo test --lib modulo -j 1`、`cargo test --test interface_snapshots modulo_example_runs -j 1`、`examples/modulo.ax`。
+  - 不做范围：本轮不顺手引入 `%=`, 浮点 `%`、常量折叠、`for in` 或新的复杂数值类型。
+  - 完成于：2026-04-26
+  - 备注：这一轮把 `%` 收敛为“仅 `i32`、有零除检查、优先服务工具代码”的版本，没有为了表面完整度去扩成更大的数值系统。
+- [x] `P1-21` 第一版 `for in` 全链路落地
+  - 目标：补上真实工具代码最常见的顺序遍历缺口，让 AX 不必所有集合遍历都手写索引型 `for`。
+  - 输入：现有数组 / slice、`for` lowering、`continue;` 语义、`len(value)` 统一 helper、缺失语法排序。
+  - 输出：`for (let value: T in values) { ... }` 的 token / lexer / parser / formatter / semantic / HIR lowering / interpreter 执行链、示例、文档与 AI 规则映射。
+  - 通过条件：第一版 `for in` 可稳定 `check / run / format`；当前只接受数组 / slice；loop variable 类型必须与元素类型一致；`continue;` 在 `for in` 中不会跳过索引推进。
+  - 回归保障：`cargo test --lib for_in -j 1`、`cargo test --lib stable_diagnostic_kinds_drive_rule_matching_without_old_message_text -j 1`、`cargo test --test interface_snapshots for_in_example_runs -j 1`、`examples/for_in.ax`。
+  - 不做范围：本轮不顺手引入隐式类型推断式 `for in`、iterator trait、`for in` over `string_list` / map / set，也不补 destructuring pattern。
+  - 完成于：2026-04-26
+  - 备注：第一版刻意保持 AX 的显式类型风格，只支持 `for (let value: T in values)` 这一条轨道；lowering 走“slice temp + index while”以复用现有执行面，并显式保证 `continue;` 前仍会推进索引。
 - 进展：2026-04-25 又把运行时高价值 host diagnostics 接进稳定 `DiagnosticKind`，当前覆盖 `argv_get` 负索引/越界、缺失环境变量、不可读文件/目录、`process` 启动失败与 `capture` 非零退出；`src/ai.rs` 对这批宿主误用现也优先按 kind 映射 `rule_id`，并已补上 env/argv runtime AI 回归测试与 diagnostics snapshot 复跑。
 
 ## P2

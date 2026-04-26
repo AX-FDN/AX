@@ -138,6 +138,29 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 }
 
                 match op {
+                    BinaryOp::LogicalOr | BinaryOp::LogicalAnd => {
+                        if left_type == Type::Bool && right_type == Type::Bool {
+                            Type::Bool
+                        } else {
+                            self.diagnostics.push(
+                                Diagnostic::new(
+                                    "S0051",
+                                    format!(
+                                        "operator `{}` expects `bool` operands, found `{}` and `{}`",
+                                        binary_op_name(*op),
+                                        left_type.describe(),
+                                        right_type.describe()
+                                    ),
+                                    self.info.source,
+                                    expr.span,
+                                )
+                                .with_suggestion(
+                                    "rewrite both sides so they produce `bool`, for example with comparisons like `count > 0`",
+                                ),
+                            );
+                            Type::Error
+                        }
+                    }
                     BinaryOp::Add => {
                         if left_type == Type::String && right_type == Type::String {
                             Type::String
@@ -175,6 +198,29 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                                     ),
                                     self.info.source,
                                     expr.span,
+                                ),
+                            );
+                            Type::Error
+                        }
+                    }
+                    BinaryOp::Remainder => {
+                        if left_type == Type::I32 && right_type == Type::I32 {
+                            Type::I32
+                        } else {
+                            self.diagnostics.push(
+                                Diagnostic::new(
+                                    "S0014",
+                                    format!(
+                                        "operator `{}` expects matching `i32` operands, found `{}` and `{}`",
+                                        binary_op_name(*op),
+                                        left_type.describe(),
+                                        right_type.describe()
+                                    ),
+                                    self.info.source,
+                                    expr.span,
+                                )
+                                .with_suggestion(
+                                    "rewrite both sides so they produce `i32` values before using `%`",
                                 ),
                             );
                             Type::Error

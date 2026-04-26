@@ -13,10 +13,12 @@
 - 所有函数参数、返回类型、局部变量都必须显式写出类型
 - `main` 必须是 `fn main() -> i32`
 - `let`、赋值、表达式语句、`return` 必须带分号
-- `if`、`while`、`for` 必须写成 `if (cond) { ... }`、`while (cond) { ... }`、`for (init; cond; step) { ... }`
+- `if`、`while`、`for` 必须写成带括号的头部：`if (cond) { ... }`、`while (cond) { ... }`、`for (init; cond; step) { ... }`、`for (let value: T in values) { ... }`
 - `break;` 当前已支持，可用于提前退出最近一层 `while` 或 `for`
 - `continue;` 当前已支持，可用于跳过最近一层 `while` 或 `for` 的本次迭代并进入下一轮
 - `match (...) { ... }` 当前已支持最小语句形态：模式只支持 `true` / `false`、整数、枚举值与 `_`
+- 逻辑运算当前已支持 `&&` 与 `||`，并按短路语义执行
+- 余数运算 `%` 当前已支持，且当前只接受 `i32` 操作数
 - 枚举值必须写成 `EnumName.Variant`
 - 可写目标当前支持嵌套路径：`point.x = expr;`、`outer.inner.value = expr;`、`tokens[index].value = expr;`
 
@@ -158,6 +160,18 @@ for (let mut i: i32 = 0; i < 3; i = i + 1) {
 }
 ```
 
+第一版 `for in`：
+
+```ax
+for (let value: i32 in values) {
+    println(value);
+}
+```
+
+- 第一版 `for in` 当前只支持数组 `[T; N]` 与 slice `[T]`
+- loop variable 仍要求显式类型：`let value: T`
+- 如果需要更底层控制，仍可退回 `for (init; cond; step)`
+
 ```ax
 while (true) {
     if (ready) {
@@ -224,6 +238,9 @@ left + right
 left - right
 left * right
 left / right
+left % right
+left && right
+left || right
 left == right
 left != right
 left < right
@@ -385,10 +402,14 @@ array_type        := "[" type_ref ";" INT "]"
 - `match` 当前只支持语句形态，不支持表达式形态
 - `match` 模式当前只支持 `bool`、`i32`、枚举值与 `_`
 - `match` 要求穷尽：`bool` 必须覆盖 `true/false`，枚举必须覆盖全部 variant，`i32` 当前必须以 `_` 兜底
+- `&&` 与 `||` 当前要求两边都为 `bool`
+- `%` 当前要求两边都为 `i32`
 - `for` 当前支持的表头子句是：
 - 初始化：空、`let`、赋值、表达式
 - 条件：空或任意会检查为 `bool` 的表达式
 - 迭代：空、赋值、表达式
+- `for in` 当前只支持 `for (let value: T in values) { ... }`
+- `for in` 中的 `values` 当前必须是数组或 slice，且 `T` 必须与元素类型一致
 
 ## 7. 当前解释器可执行范围
 
@@ -406,9 +427,12 @@ array_type        := "[" type_ref ";" INT "]"
 - `if / else`
 - `while`
 - `for`
+- `for in`
 - `break`
 - `continue`
 - `match`
+- 逻辑短路 `&&` / `||`
+- 余数运算 `%`
 - 用户函数调用
 - 递归
 - 内置 `string_len`
@@ -447,6 +471,8 @@ Rules:
 - `continue;` may be used to skip to the next iteration of the nearest `while` or `for` loop.
 - `match` is statement-only and uses `match (value) { pattern => { ... } ... }`.
 - `match` patterns currently support only `true`, `false`, integer literals, enum variants, and final `_`.
+- `&&` and `||` are supported and both sides must produce `bool`.
+- `%` is supported and currently requires `i32` operands.
 - Every function parameter, return type, and local variable must have an explicit type.
 - main must be exactly: fn main() -> i32 { ... }.
 - End let/assignment/expression/return/`break`/`continue` statements with semicolons.
@@ -454,7 +480,7 @@ Rules:
 - Builtin helpers are println(...), string_len(text), string_list_new(), string_list_push(list, value), string_list_join(list, separator), len(value), and to_string(value).
 - Enum values must use EnumName.Variant.
 - Construct structs with TypeName { field: expr, ... }.
-- Use for loops only as for (init; condition; step) { ... }.
+- Use for loops only as `for (init; condition; step) { ... }` or `for (let value: T in values) { ... }`.
 - Read-only slices are allowed as [Type] and values[start:end].
 - Fixed-size arrays are allowed as [Type; N], [a, b, c], and values[index].
 - Empty array literals are allowed only in explicit zero-length array context, for example: let values: [i32; 0] = [];.

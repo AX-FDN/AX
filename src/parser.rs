@@ -1,7 +1,7 @@
 use crate::ast::{
-    BinaryOp, Block, EnumVariant, Expr, ExprKind, ImportDecl, Item, ItemKind, MatchArm,
-    MatchPattern, MatchPatternKind, ModuleDecl, Param, Program, SourceUnit, Stmt, StmtKind,
-    StructField, StructLiteralField, TypeRef, UnaryOp,
+    BinaryOp, Block, EnumVariant, Expr, ExprKind, ForInBinding, ImportDecl, Item, ItemKind,
+    MatchArm, MatchPattern, MatchPatternKind, ModuleDecl, Param, Program, SourceUnit, Stmt,
+    StmtKind, StructField, StructLiteralField, TypeRef, UnaryOp,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticKind};
 use crate::source::{SourceFile, Span};
@@ -640,6 +640,16 @@ impl<'a> Parser<'a> {
 
     fn parse_for_statement(&mut self, start: usize) -> Stmt {
         self.expect(TokenKind::LParen, "expected `(` after `for`", &["`(`"]);
+        let checkpoint = self.current;
+        let diagnostics_checkpoint = self.diagnostics.len();
+        if self.check(TokenKind::LetKw)
+            && let Some(statement) = self.try_parse_for_in_statement(start)
+        {
+            return statement;
+        }
+        self.current = checkpoint;
+        self.diagnostics.truncate(diagnostics_checkpoint);
+
         let initializer = self.parse_for_initializer_statement();
 
         let condition = if self.check(TokenKind::Semicolon) {
@@ -674,6 +684,51 @@ impl<'a> Parser<'a> {
                 step,
                 body,
             },
+        }
+    }
+
+    fn try_parse_for_in_statement(&mut self, start: usize) -> Option<Stmt> {
+        if !self.check(TokenKind::LetKw) {
+            return None;
+        }
+
+        let binding = self.parse_for_in_binding();
+        if !self.matches(&[TokenKind::InKw]) {
+            return None;
+        }
+
+        let iterable = self.parse_expression();
+        self.expect(
+            TokenKind::RParen,
+            "expected `)` after `for in` header",
+            &["`)`"],
+        );
+        let body = self.parse_block();
+        Some(Stmt {
+            span: Span::new(start, body.span.end),
+            kind: StmtKind::ForIn {
+                binding,
+                iterable,
+                body,
+            },
+        })
+    }
+
+    fn parse_for_in_binding(&mut self) -> ForInBinding {
+        let start = self.advance().span.start;
+        let mutable = self.matches(&[TokenKind::MutKw]);
+        let name = self.expect_identifier("expected a loop variable name after `let`");
+        self.expect(
+            TokenKind::Colon,
+            "expected `:` after loop variable name",
+            &["`:`"],
+        );
+        let ty = self.parse_type();
+        ForInBinding {
+            mutable,
+            name: name.lexeme,
+            span: Span::new(start, ty.span.end),
+            ty,
         }
     }
 
@@ -985,6 +1040,8 @@ impl<'a> Parser<'a> {
 
     fn current_binary_op(&self) -> Option<(BinaryOp, u8)> {
         match self.peek().kind {
+            TokenKind::PipePipe => Some((BinaryOp::LogicalOr, 5)),
+            TokenKind::AmpAmp => Some((BinaryOp::LogicalAnd, 6)),
             TokenKind::EqualEqual => Some((BinaryOp::Equal, 10)),
             TokenKind::BangEqual => Some((BinaryOp::NotEqual, 10)),
             TokenKind::Less => Some((BinaryOp::Less, 20)),
@@ -995,6 +1052,7 @@ impl<'a> Parser<'a> {
             TokenKind::Minus => Some((BinaryOp::Subtract, 30)),
             TokenKind::Star => Some((BinaryOp::Multiply, 40)),
             TokenKind::Slash => Some((BinaryOp::Divide, 40)),
+            TokenKind::Percent => Some((BinaryOp::Remainder, 40)),
             _ => None,
         }
     }
@@ -1409,6 +1467,60 @@ mod tests {
     }
 
     #[test]
+    fn respects_logical_operator_precedence() {
+        let source = SourceFile::anonymous("fn main() -> i32 { return true || false && false; }");
+        let tokens = tokenize(&source).tokens;
+        let output = parse(&source, tokens);
+        let function = &output.program.items[0];
+        match &function.kind {
+            ItemKind::Function { body, .. } => match &body.statements[0].kind {
+                StmtKind::Return { value: Some(expr) } => match &expr.kind {
+                    ExprKind::Binary { op, right, .. } => {
+                        assert!(matches!(op, crate::ast::BinaryOp::LogicalOr));
+                        assert!(matches!(
+                            right.kind,
+                            ExprKind::Binary {
+                                op: crate::ast::BinaryOp::LogicalAnd,
+                                ..
+                            }
+                        ));
+                    }
+                    _ => panic!("expected logical binary expr"),
+                },
+                _ => panic!("expected return"),
+            },
+            _ => panic!("expected function"),
+        }
+    }
+
+    #[test]
+    fn respects_modulo_precedence() {
+        let source = SourceFile::anonymous("fn main() -> i32 { return 8 % 3 * 2; }");
+        let tokens = tokenize(&source).tokens;
+        let output = parse(&source, tokens);
+        let function = &output.program.items[0];
+        match &function.kind {
+            ItemKind::Function { body, .. } => match &body.statements[0].kind {
+                StmtKind::Return { value: Some(expr) } => match &expr.kind {
+                    ExprKind::Binary { op, left, .. } => {
+                        assert!(matches!(op, crate::ast::BinaryOp::Multiply));
+                        assert!(matches!(
+                            left.kind,
+                            ExprKind::Binary {
+                                op: crate::ast::BinaryOp::Remainder,
+                                ..
+                            }
+                        ));
+                    }
+                    _ => panic!("expected multiplicative binary expr"),
+                },
+                _ => panic!("expected return"),
+            },
+            _ => panic!("expected function"),
+        }
+    }
+
+    #[test]
     fn parses_struct_literal_and_field_access() {
         let source = SourceFile::anonymous(
             "fn main() -> i32 { let point: Point = Point { x: 1, y: 2 }; return point.x; }",
@@ -1459,6 +1571,41 @@ fn main() -> i32 {
                     assert!(step.is_some());
                 }
                 _ => panic!("expected for statement"),
+            },
+            _ => panic!("expected function"),
+        }
+    }
+
+    #[test]
+    fn parses_for_in_statement() {
+        let source = SourceFile::anonymous(
+            "\
+fn main() -> i32 {
+    let values: [i32; 3] = [1, 2, 3];
+    for (let value: i32 in values) {
+        println(value);
+    }
+    return 0;
+}
+",
+        );
+        let tokens = tokenize(&source).tokens;
+        let output = parse(&source, tokens);
+        assert!(
+            output.diagnostics.is_empty(),
+            "unexpected diagnostics: {:?}",
+            output.diagnostics
+        );
+        match &output.program.items[0].kind {
+            ItemKind::Function { body, .. } => match &body.statements[1].kind {
+                StmtKind::ForIn {
+                    binding, iterable, ..
+                } => {
+                    assert_eq!(binding.name, "value");
+                    assert_eq!(binding.ty.describe(), "i32");
+                    assert!(matches!(iterable.kind, ExprKind::Name { ref value } if value == "values"));
+                }
+                _ => panic!("expected for-in statement"),
             },
             _ => panic!("expected function"),
         }

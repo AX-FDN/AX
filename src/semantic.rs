@@ -481,6 +481,37 @@ fn main() -> i32 {
     }
 
     #[test]
+    fn accepts_logical_and_or_expressions() {
+        let codes = check(
+            "\
+fn main() -> i32 {
+    let ready: bool = true;
+    let has_input: bool = false;
+    let should_run: bool = ready && !has_input || false;
+    if (should_run) {
+        return 1;
+    }
+    return 0;
+}
+",
+        );
+        assert!(codes.is_empty(), "unexpected diagnostics: {codes:?}");
+    }
+
+    #[test]
+    fn accepts_modulo_expressions() {
+        let codes = check(
+            "\
+fn main() -> i32 {
+    let bucket: i32 = 10 % 3;
+    return bucket;
+}
+",
+        );
+        assert!(codes.is_empty(), "unexpected diagnostics: {codes:?}");
+    }
+
+    #[test]
     fn accepts_exhaustive_bool_match() {
         let codes = check(
             "\
@@ -553,6 +584,67 @@ fn main() -> i32 {
     fn reports_continue_outside_loop() {
         let codes = check("fn main() -> i32 { continue; return 0; }");
         assert!(codes.iter().any(|code| code == "S0044"));
+    }
+
+    #[test]
+    fn reports_non_bool_logical_operands() {
+        let codes = check("fn main() -> i32 { let value: bool = 1 && true; return 0; }");
+        assert!(codes.iter().any(|code| code == "S0051"));
+    }
+
+    #[test]
+    fn reports_non_i32_modulo_operands() {
+        let codes = check("fn main() -> i32 { let value: i32 = 1.0 % 2.0; return value; }");
+        assert!(codes.iter().any(|code| code == "S0014"));
+    }
+
+    #[test]
+    fn accepts_for_in_over_arrays() {
+        let codes = check(
+            "\
+fn main() -> i32 {
+    let values: [i32; 3] = [1, 2, 3];
+    let mut total: i32 = 0;
+    for (let value: i32 in values) {
+        total = total + value;
+    }
+    return total;
+}
+",
+        );
+        assert!(codes.is_empty(), "unexpected diagnostics: {codes:?}");
+    }
+
+    #[test]
+    fn reports_non_sequence_for_in_iterable() {
+        let codes = check(
+            "\
+fn main() -> i32 {
+    let message: string = \"AX\";
+    for (let value: string in message) {
+        println(value);
+    }
+    return 0;
+}
+",
+        );
+        assert!(codes.iter().any(|code| code == "S0052"));
+    }
+
+    #[test]
+    fn reports_for_in_binding_type_mismatch() {
+        let codes = check(
+            "\
+fn main() -> i32 {
+    let values: [i32; 2] = [1, 2];
+    for (let value: bool in values) {
+        println(value);
+    }
+    return 0;
+}
+",
+        );
+        assert!(codes.iter().any(|code| code == "S0022"));
     }
 
     #[test]

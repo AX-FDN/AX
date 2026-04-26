@@ -51,6 +51,17 @@ impl<'a> Lexer<'a> {
                 ';' => self.simple_token(TokenKind::Semicolon, start),
                 '+' => self.simple_token(TokenKind::Plus, start),
                 '*' => self.simple_token(TokenKind::Star, start),
+                '%' => self.simple_token(TokenKind::Percent, start),
+                '&' if self.peek_next_char() == Some('&') => {
+                    self.advance_char();
+                    self.advance_char();
+                    self.push_token(TokenKind::AmpAmp, Span::new(start, self.cursor));
+                }
+                '|' if self.peek_next_char() == Some('|') => {
+                    self.advance_char();
+                    self.advance_char();
+                    self.push_token(TokenKind::PipePipe, Span::new(start, self.cursor));
+                }
                 '-' if self.peek_next_char() == Some('>') => {
                     self.advance_char();
                     self.advance_char();
@@ -151,6 +162,7 @@ impl<'a> Lexer<'a> {
             "else" => TokenKind::ElseKw,
             "while" => TokenKind::WhileKw,
             "for" => TokenKind::ForKw,
+            "in" => TokenKind::InKw,
             "true" => TokenKind::TrueKw,
             "false" => TokenKind::FalseKw,
             _ => TokenKind::Identifier,
@@ -344,9 +356,9 @@ mod tests {
     }
 
     #[test]
-    fn tokenizes_for_keyword() {
+    fn tokenizes_for_and_in_keywords() {
         let source = SourceFile::anonymous(
-            "fn main() -> i32 { for (let i: i32 = 0; i < 1; i = i + 1) { } return 0; }",
+            "fn main() -> i32 { let values: [i32; 1] = [1]; for (let value: i32 in values) { } return 0; }",
         );
         let output = tokenize(&source);
         let kinds = output
@@ -356,6 +368,7 @@ mod tests {
             .collect::<Vec<_>>();
         assert!(output.diagnostics.is_empty());
         assert!(kinds.contains(&TokenKind::ForKw));
+        assert!(kinds.contains(&TokenKind::InKw));
     }
 
     #[test]
@@ -412,6 +425,35 @@ mod tests {
             .collect::<Vec<_>>();
         assert!(output.diagnostics.is_empty());
         assert!(kinds.contains(&TokenKind::Slash));
+    }
+
+    #[test]
+    fn tokenizes_modulo_operator() {
+        let source = SourceFile::anonymous("fn main() -> i32 { return 8 % 3; }");
+        let output = tokenize(&source);
+        let kinds = output
+            .tokens
+            .iter()
+            .map(|token| token.kind)
+            .collect::<Vec<_>>();
+        assert!(output.diagnostics.is_empty());
+        assert!(kinds.contains(&TokenKind::Percent));
+    }
+
+    #[test]
+    fn tokenizes_logical_operators() {
+        let source = SourceFile::anonymous(
+            "fn main() -> i32 { if (true && false || true) { return 1; } return 0; }",
+        );
+        let output = tokenize(&source);
+        let kinds = output
+            .tokens
+            .iter()
+            .map(|token| token.kind)
+            .collect::<Vec<_>>();
+        assert!(output.diagnostics.is_empty());
+        assert!(kinds.contains(&TokenKind::AmpAmp));
+        assert!(kinds.contains(&TokenKind::PipePipe));
     }
 
     #[test]

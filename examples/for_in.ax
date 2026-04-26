@@ -1,0 +1,15 @@
+fn main() -> i32 {
+    let values: [i32; 5] = [1, 2, 3, 4, 5];
+    let mut total: i32 = 0;
+
+    for (let value: i32 in values) {
+        if (value % 2 == 0) {
+            continue;
+        }
+
+        println(value);
+        total = total + value;
+    }
+
+    return total;
+}

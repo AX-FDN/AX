@@ -1,6 +1,8 @@
 use std::collections::HashSet;
 
-use crate::ast::{Block, Expr, MatchArm, MatchPattern, MatchPatternKind, Stmt, StmtKind};
+use crate::ast::{
+    Block, Expr, ForInBinding, MatchArm, MatchPattern, MatchPatternKind, Stmt, StmtKind,
+};
 use crate::diagnostics::{Diagnostic, DiagnosticKind};
 use crate::source::Span;
 
@@ -315,6 +317,69 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             self.check_for_header_statement(statement);
         }
 
+        self.scopes.pop();
+    }
+
+    pub(super) fn check_for_in_statement(
+        &mut self,
+        binding: &ForInBinding,
+        iterable: &Expr,
+        body: &Block,
+    ) {
+        let current_unit_path = self.current_unit_path().to_string();
+        let binding_type =
+            self.info
+                .resolve_type_ref(&binding.ty, &current_unit_path, self.diagnostics);
+        let iterable_type = self.check_expr(iterable);
+
+        match &iterable_type {
+            Type::Array { element, .. } | Type::Slice { element } => {
+                self.expect_type_match_with_kind(
+                    element,
+                    &binding_type,
+                    binding.span,
+                    format!(
+                        "`for in` loop variable `{}` must use element type `{}`, found `{}`",
+                        binding.name,
+                        element.describe(),
+                        binding_type.describe()
+                    ),
+                    DiagnosticKind::ForInBindingTypeMismatch,
+                );
+            }
+            Type::Error => {}
+            _ => {
+                self.diagnostics.push(
+                    Diagnostic::new(
+                        "S0052",
+                        format!(
+                            "`for in` currently only supports arrays and slices, found `{}`",
+                            iterable_type.describe()
+                        ),
+                        self.info.source,
+                        iterable.span,
+                    )
+                    .with_kind(DiagnosticKind::ForInIterableTypeMismatch)
+                    .with_note(
+                        "the first `for in` prototype only iterates `[T; N]` arrays and `[T]` slices",
+                    )
+                    .with_suggestion(
+                        "iterate over an array or slice value, or rewrite this loop as an indexed `for (...)`",
+                    ),
+                );
+            }
+        }
+
+        self.scopes.push(Default::default());
+        self.declare(
+            &binding.name,
+            binding_type,
+            binding.mutable,
+            binding.span.start,
+        );
+        self.loop_depth += 1;
+        self.check_block(body);
+        self.loop_depth -= 1;
         self.scopes.pop();
     }
 
