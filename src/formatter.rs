@@ -693,6 +693,31 @@ mod tests {
     }
 
     #[test]
+    fn formats_payload_enum_variants_and_patterns() {
+        let source = SourceFile::anonymous(
+            "enum Result{Ok(i32),Err(string),Empty} fn main()->i32{let result:Result=Result.Ok(7);let value:i32=match(result){Result.Ok(found)=>found,Result.Err(_)=>0,Result.Empty=>-1};return value;}",
+        );
+
+        let formatted = format_source(&source).expect("source should format");
+        assert_eq!(
+            formatted,
+            concat!(
+                "enum Result {\n",
+                "    Ok(i32),\n",
+                "    Err(string),\n",
+                "    Empty,\n",
+                "}\n",
+                "\n",
+                "fn main() -> i32 {\n",
+                "    let result: Result = Result.Ok(7);\n",
+                "    let value: i32 = match (result) { Result.Ok(found) => found, Result.Err(_) => 0, Result.Empty => -1 };\n",
+                "    return value;\n",
+                "}\n"
+            )
+        );
+    }
+
+    #[test]
     fn formats_logical_operator_precedence() {
         let source =
             SourceFile::anonymous("fn main()->i32{if(!(true||false)&&true){return 1;}return 0;}");

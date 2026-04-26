@@ -1453,7 +1453,7 @@ fn describe_token(token: &Token) -> String {
 #[cfg(test)]
 mod tests {
     use super::{enrich_parse_error, parse};
-    use crate::ast::{ExprKind, ItemKind, MatchPatternKind, StmtKind};
+    use crate::ast::{EnumVariantPayloadPattern, ExprKind, ItemKind, MatchPatternKind, StmtKind};
     use crate::diagnostics::{Diagnostic, DiagnosticKind};
     use crate::lexer::tokenize;
     use crate::source::{SourceFile, Span};
@@ -1865,6 +1865,81 @@ fn main() -> i32 {
         assert!(matches!(
             arms[1].pattern.kind,
             MatchPatternKind::Binding { ref name } if name == "other"
+        ));
+    }
+
+    #[test]
+    fn parses_payload_enum_variants_and_patterns() {
+        let source = SourceFile::anonymous(
+            "\
+enum Result {
+    Ok(i32),
+    Err(string),
+    Empty,
+}
+
+fn main() -> i32 {
+    let result: Result = Result.Ok(7);
+    let value: i32 = match (result) { Result.Ok(found) => found, Result.Err(_) => 0, Result.Empty => -1 };
+    return value;
+}
+",
+        );
+        let tokens = tokenize(&source).tokens;
+        let output = parse(&source, tokens);
+        assert!(output.diagnostics.is_empty(), "{:?}", output.diagnostics);
+
+        let ItemKind::Enum { variants, .. } = &output.program.items[0].kind else {
+            panic!("expected enum item");
+        };
+        assert_eq!(variants.len(), 3);
+        assert_eq!(
+            variants[0]
+                .payload
+                .as_ref()
+                .expect("payload variant should record its payload type")
+                .describe(),
+            "i32"
+        );
+        assert_eq!(
+            variants[1]
+                .payload
+                .as_ref()
+                .expect("payload variant should record its payload type")
+                .describe(),
+            "string"
+        );
+        assert!(variants[2].payload.is_none());
+
+        let ItemKind::Function { body, .. } = &output.program.items[1].kind else {
+            panic!("expected function");
+        };
+        let StmtKind::Let { initializer, .. } = &body.statements[1].kind else {
+            panic!("expected let statement");
+        };
+        let ExprKind::Match { arms, .. } = &initializer.kind else {
+            panic!("expected match expression");
+        };
+        assert!(matches!(
+            arms[0].pattern.kind,
+            MatchPatternKind::EnumVariant {
+                ref path,
+                payload: Some(EnumVariantPayloadPattern::Binding { ref name }),
+            } if path == "Result.Ok" && name == "found"
+        ));
+        assert!(matches!(
+            arms[1].pattern.kind,
+            MatchPatternKind::EnumVariant {
+                ref path,
+                payload: Some(EnumVariantPayloadPattern::Wildcard),
+            } if path == "Result.Err"
+        ));
+        assert!(matches!(
+            arms[2].pattern.kind,
+            MatchPatternKind::EnumVariant {
+                ref path,
+                payload: None,
+            } if path == "Result.Empty"
         ));
     }
 

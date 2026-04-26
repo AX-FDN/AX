@@ -372,6 +372,15 @@
   - 不做范围：本轮不做 `mut` 绑定模式、解构、guard、多模式合并、payload enum 或 block-valued expression arm。
   - 完成于：2026-04-26
   - 备注：这一刀把 binding pattern 明确收敛成“有名字的 wildcard”，继续坚持 AX 的小步扩面原则：先把高频工具代码里真正有用的一条轨道打通，再决定是否继续向 destructuring / payload pattern 扩张。
+- [x] `P1-24` `payload enum` 第一刀：单 payload variant 全链路落地
+  - 目标：补上最小但真正有用的 payload enum，让 AX 能稳定建模 `Result.Ok(7)` / `Result.Err("bad")` 这类工具代码常见结果值，而不是继续只停在 unit enum。
+  - 输入：现有 unit enum、`match v2` 前两刀、HIR/MIR/解释器 `match` 执行链、kind-based AI 规则与缺失语法排序。
+  - 输出：单 payload variant 声明（如 `Ok(i32)`）、构造（`Result.Ok(7)`）、第一版 payload pattern（`Result.Ok(value)` / `Result.Err(_)`）的 AST / parser / semantic / HIR / MIR / interpreter / formatter / AI 规则 / 示例 / 文档 / 接口回归。
+  - 通过条件：payload enum 可稳定 `check / run / format`；unit variant 与 payload variant 的构造/匹配形状会被稳定诊断；payload 绑定只在当前 arm 内可见；文档与提示词不再把 payload enum 记成未支持。
+  - 回归保障：`cargo test --lib payload -j 1`、`cargo test --test interface_snapshots payload_enum_example_runs -j 1`、`examples/payload_enum.ax`。
+  - 不做范围：本轮不做命名 payload 字段、多 payload tuple variant、payload 解构链、match guard、multi-pattern arm 或 enum field-style payload 访问。
+  - 完成于：2026-04-26
+  - 备注：这一刀继续坚持“小步快跑但全链路收口”——先把最值钱的一条 payload enum 轨道做硬，再决定是否继续向更重的数据建模系统扩张。
 - 进展：2026-04-25 又把运行时高价值 host diagnostics 接进稳定 `DiagnosticKind`，当前覆盖 `argv_get` 负索引/越界、缺失环境变量、不可读文件/目录、`process` 启动失败与 `capture` 非零退出；`src/ai.rs` 对这批宿主误用现也优先按 kind 映射 `rule_id`，并已补上 env/argv runtime AI 回归测试与 diagnostics snapshot 复跑。
 
 ## P2

@@ -3198,6 +3198,41 @@ fn main() -> i32 {
     }
 
     #[test]
+    fn runs_payload_enum_constructors_and_matches() {
+        let (source, hir) = analyzed_hir(
+            "\
+enum Result {
+    Ok(i32),
+    Err(string),
+    Empty,
+}
+
+fn score(result: Result) -> i32 {
+    return match (result) {
+        Result.Ok(value) => value,
+        Result.Err(_) => 0,
+        Result.Empty => -1,
+    };
+}
+
+fn main() -> i32 {
+    let ok: Result = Result.Ok(7);
+    let err: Result = Result.Err(\"bad\");
+    let empty: Result = Result.Empty;
+    println(score(ok));
+    println(score(err));
+    println(score(empty));
+    return score(ok);
+}
+",
+        );
+
+        let output = run_program(&source, &hir).expect("program should run");
+        assert_eq!(output.exit_code, 7);
+        assert_eq!(output.stdout, vec!["7", "0", "-1"]);
+    }
+
+    #[test]
     fn runs_logical_short_circuit_operators() {
         let (source, hir) = analyzed_hir(
             "\

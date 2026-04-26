@@ -16,10 +16,10 @@
 - `if`、`while`、`for` 必须写成带括号的头部：`if (cond) { ... }`、`while (cond) { ... }`、`for (init; cond; step) { ... }`、`for (let value: T in values) { ... }`
 - `break;` 当前已支持，可用于提前退出最近一层 `while` 或 `for`
 - `continue;` 当前已支持，可用于跳过最近一层 `while` 或 `for` 的本次迭代并进入下一轮
-- `match (...) { ... }` 当前已支持最小语句形态、表达式前两刀，以及最终裸标识符绑定模式；模式当前支持 `true` / `false`、整数、枚举值、最终 `_` 与最终裸标识符（如 `other`）
+- `match (...) { ... }` 当前已支持最小语句形态、表达式前三刀，以及最终裸标识符绑定模式与第一版 payload enum pattern；模式当前支持 `true` / `false`、整数、枚举值、最终 `_`、最终裸标识符（如 `other`），以及 `Enum.Variant(name)` / `Enum.Variant(_)`
 - 逻辑运算当前已支持 `&&` 与 `||`，并按短路语义执行
 - 余数运算 `%` 当前已支持，且当前只接受 `i32` 操作数
-- 枚举值必须写成 `EnumName.Variant`
+- 枚举值必须写成 `EnumName.Variant`；如果该 variant 声明了 payload，则当前写成 `EnumName.Variant(value)`
 - 可写目标当前支持嵌套路径：`point.x = expr;`、`outer.inner.value = expr;`、`tokens[index].value = expr;`
 
 ## 2. 顶层声明
@@ -47,6 +47,14 @@ struct Point {
 enum Flag {
     On,
     Off,
+}
+```
+
+```ax
+enum Result {
+    Ok(i32),
+    Err(string),
+    Empty,
 }
 ```
 
@@ -221,6 +229,14 @@ let code: i32 = match (flag) {
 ```
 
 ```ax
+let code: i32 = match (result) {
+    Result.Ok(value) => value,
+    Result.Err(_) => 0,
+    Result.Empty => -1,
+};
+```
+
+```ax
 match (flag) {
     true => {
         println("true");
@@ -241,6 +257,8 @@ let code: i32 = match (value) {
 - 语句形态使用 `pattern => { ... }`
 - 表达式形态当前使用 `pattern => expr`
 - 裸标识符 pattern 是最终 catch-all，并在当前 arm 内引入一个不可变局部名
+- payload enum pattern 当前只支持单名字绑定或 `_`：`Result.Ok(value)`、`Result.Err(_)`
+- payload enum 当前只支持 unit variant 与单 payload variant，不支持多 payload、命名字段或更深解构
 - 表达式形态的所有 arm 必须返回同类型
 
 ## 5. 表达式
@@ -335,6 +353,9 @@ to_string(42)
 ```ax
 Flag.On
 Flag.Off
+Result.Ok(7)
+Result.Err("bad")
+Result.Empty
 ```
 
 ## 6. 当前 EBNF
@@ -355,7 +376,8 @@ struct_field_list := struct_field ("," struct_field)* ","?
 struct_field      := IDENT ":" type_ref
 
 enum_decl         := "enum" IDENT "{" enum_variant_list? "}"
-enum_variant_list := IDENT ("," IDENT)* ","?
+enum_variant_list := enum_variant ("," enum_variant)* ","?
+enum_variant      := IDENT ("(" type_ref ")")?
 
 block             := "{" stmt* "}"
 stmt              := let_stmt
@@ -376,7 +398,14 @@ break_stmt        := "break" ";"
 continue_stmt     := "continue" ";"
 match_stmt        := "match" "(" expr ")" "{" match_arm+ "}"
 match_arm         := match_pattern "=>" block
-match_pattern     := "_" | "true" | "false" | INT | qualified_name | binding_name
+match_pattern     := "_"
+                  | "true"
+                  | "false"
+                  | INT
+                  | enum_pattern
+                  | qualified_name
+                  | binding_name
+enum_pattern      := qualified_name ("(" ("_" | IDENT) ")")?
 binding_name      := IDENT  // bare identifier without `.`; catch-all and must be final
 if_stmt           := "if" "(" expr ")" block ("else" (block | if_stmt))?
 while_stmt        := "while" "(" expr ")" block
@@ -434,11 +463,12 @@ array_type        := "[" type_ref ";" INT "]"
 - 只读切片仍然不能写入，因此 `view[index] = expr;` 和 `view[index].field = expr;` 都会被拒绝
 - `break;` 只能出现在 `while` 或 `for` 的循环体内
 - `continue;` 只能出现在 `while` 或 `for` 的循环体内
-- `match` 当前支持语句形态、表达式前两刀与最终绑定 catch-all
-- `match` 模式当前只支持 `bool`、`i32`、枚举值、最终 `_` 与最终裸标识符绑定
+- `match` 当前支持语句形态、表达式前三刀、最终绑定 catch-all 与第一版 payload enum pattern
+- `match` 模式当前只支持 `bool`、`i32`、枚举值、最终 `_`、最终裸标识符绑定，以及 `Enum.Variant(name)` / `Enum.Variant(_)`
 - `_` 与裸标识符绑定都属于 catch-all，必须出现在最后一个 arm
 - `match` 要求穷尽：`bool` 必须覆盖 `true/false` 或最终 catch-all，枚举必须覆盖全部 variant 或最终 catch-all，`i32` 当前必须以 `_` 或最终绑定兜底
 - 表达式 `match` 当前要求所有 arm 返回同类型，且 arm body 仍然必须是单个表达式
+- payload enum 当前只支持单 payload variant：声明 `Ok(i32)`，构造 `Result.Ok(7)`，pattern 写成 `Result.Ok(value)` 或 `Result.Ok(_)`
 - `&&` 与 `||` 当前要求两边都为 `bool`
 - `%` 当前要求两边都为 `i32`
 - `for` 当前支持的表头子句是：
@@ -494,7 +524,7 @@ array_type        := "[" type_ref ";" INT "]"
 - 空数组字面量 `[]` 不是“完全不支持”。
 - 当前只支持带显式零长度数组上下文的写法：`let values: [i32; 0] = [];`
 - 如果上下文不是零长度数组，例如 `let values: [i32; 1] = [];`，会报 `S0032`。
-- `match` 当前是 `v2` 的前两小步：已支持表达式形态与最终绑定模式，但仍不支持解构、guard、多模式合并，表达式形态也还不支持 block-valued arm。
+- `match` 当前是 `v2` 的前三小步：已支持表达式形态、最终绑定模式与第一版 payload enum pattern，但仍不支持解构、guard、多模式合并，表达式形态也还不支持 block-valued arm。
 - `module / import` 当前是最小第一版：不支持 alias、wildcard import、`pub`、包管理与远程依赖。
 
 ## 9. 给 AI 的直接提示词
@@ -507,7 +537,7 @@ Rules:
 - `break;` may be used to exit the nearest `while` or `for` loop early.
 - `continue;` may be used to skip to the next iteration of the nearest `while` or `for` loop.
 - `match` supports statement form `match (value) { pattern => { ... } ... }` and expression form `match (value) { pattern => expr, ... }`.
-- `match` patterns currently support `true`, `false`, integer literals, enum variants, final `_`, and final bare binding names like `other`.
+- `match` patterns currently support `true`, `false`, integer literals, enum variants, payload enum patterns like `Result.Ok(value)` / `Result.Err(_)`, final `_`, and final bare binding names like `other`.
 - A bare binding pattern is a final catch-all and introduces an immutable arm-local name.
 - Expression-form `match` arms must stay single expressions and all arms must produce the same type.
 - `&&` and `||` are supported and both sides must produce `bool`.
@@ -517,7 +547,7 @@ Rules:
 - End let/assignment/expression/return/`break`/`continue` statements with semicolons.
 - Supported builtin types are bool, i32, f32, string, and string_list.
 - Builtin helpers are println(...), string_len(text), string_list_new(), string_list_push(list, value), string_list_join(list, separator), len(value), and to_string(value).
-- Enum values must use EnumName.Variant.
+- Enum values must use `EnumName.Variant` or `EnumName.Variant(value)` when the variant declares a payload.
 - Construct structs with TypeName { field: expr, ... }.
 - Use for loops only as `for (init; condition; step) { ... }` or `for (let value: T in values) { ... }`.
 - Read-only slices are allowed as [Type] and values[start:end].
@@ -526,7 +556,7 @@ Rules:
 - Mutable write paths may target variables, nested struct fields, and fields selected from mutable array elements.
 - Slice values remain read-only, so assignments through values[start:end] are not allowed.
 - In project mode, support sources may declare `module ...;` and files may use explicit `import module.path;`.
-- Do not use exceptions, async, generics, destructuring match patterns, match guards, or multi-pattern match arms.
+- Do not use exceptions, async, generics, destructuring match patterns, match guards, multi-pattern match arms, named payload fields, or multi-payload enum variants.
 - Use [] only when the target type is explicitly a zero-length array like [i32; 0].
 - Return 0 from main on success unless a different exit code is explicitly needed.
 ```

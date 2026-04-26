@@ -1368,7 +1368,8 @@ fn canonical_item_name(
 #[cfg(test)]
 mod tests {
     use super::{
-        ExprKind, ItemKind, MatchPatternKind, PlaceKind, StmtKind, Type, lower_program,
+        EnumVariantPayloadPattern, ExprKind, ItemKind, MatchPatternKind, PlaceKind, StmtKind,
+        Type, lower_program,
     };
     use crate::lexer::tokenize;
     use crate::parser::parse;
@@ -1948,6 +1949,80 @@ fn main() -> i32 {
             MatchPatternKind::Binding { ref name } if name == "other"
         ));
         assert!(matches!(arms[1].value.kind, ExprKind::Name { ref value } if value == "other"));
+    }
+
+    #[test]
+    fn lowers_payload_enum_constructors_and_patterns() {
+        let program = lower(
+            "\
+enum Result { Ok(i32), Err(string), Empty }
+
+fn score(result: Result) -> i32 {
+    return match (result) {
+        Result.Ok(value) => value,
+        Result.Err(_) => 0,
+        Result.Empty => -1,
+    };
+}
+
+fn main() -> i32 {
+    let ok: Result = Result.Ok(7);
+    return score(ok);
+}
+",
+        );
+
+        let ItemKind::Function { body, .. } = &program.items[1].kind else {
+            panic!("expected score function");
+        };
+        let StmtKind::Return { value: expr } = &body.statements[0].kind else {
+            panic!("expected return statement");
+        };
+        let ExprKind::Match { arms, .. } = &expr.kind else {
+            panic!("expected lowered match expression");
+        };
+        assert!(matches!(
+            arms[0].pattern.kind,
+            MatchPatternKind::EnumVariant {
+                ref enum_name,
+                ref variant,
+                payload: Some(EnumVariantPayloadPattern::Binding { ref name }),
+                payload_type: Some(Type::I32),
+            } if enum_name == "Result" && variant == "Ok" && name == "value"
+        ));
+        assert!(matches!(
+            arms[1].pattern.kind,
+            MatchPatternKind::EnumVariant {
+                ref enum_name,
+                ref variant,
+                payload: Some(EnumVariantPayloadPattern::Wildcard),
+                payload_type: Some(Type::String),
+            } if enum_name == "Result" && variant == "Err"
+        ));
+        assert!(matches!(
+            arms[2].pattern.kind,
+            MatchPatternKind::EnumVariant {
+                ref enum_name,
+                ref variant,
+                payload: None,
+                payload_type: None,
+            } if enum_name == "Result" && variant == "Empty"
+        ));
+
+        let ItemKind::Function { body, .. } = &program.items[2].kind else {
+            panic!("expected main function");
+        };
+        let StmtKind::Let { initializer, .. } = &body.statements[0].kind else {
+            panic!("expected let statement");
+        };
+        assert!(matches!(
+            initializer.kind,
+            ExprKind::EnumVariant {
+                ref enum_name,
+                ref variant,
+                payload: Some(_),
+            } if enum_name == "Result" && variant == "Ok"
+        ));
     }
 
     #[test]

@@ -3979,6 +3979,14 @@ fn match_binding_example_runs() {
 }
 
 #[test]
+fn payload_enum_example_runs() {
+    let output = run_axc([OsStr::new("run"), OsStr::new("examples/payload_enum.ax")]);
+    assert_eq!(output.status.code(), Some(7));
+    assert_clean_stderr(&output);
+    assert_eq!(normalize_text(&string_output(&output.stdout)), "7\n0\n-1\n");
+}
+
+#[test]
 fn logical_ops_example_runs() {
     let output = run_axc([OsStr::new("run"), OsStr::new("examples/logical_ops.ax")]);
     assert_eq!(output.status.code(), Some(7));

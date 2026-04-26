@@ -94,7 +94,7 @@ pub fn check_program_with_project(
 #[cfg(test)]
 mod tests {
     use super::{check_program, check_program_with_project};
-    use crate::diagnostics::Diagnostic;
+    use crate::diagnostics::{Diagnostic, DiagnosticKind};
     use crate::lexer::tokenize;
     use crate::parser::parse;
     use crate::project::resolve_input;
@@ -638,6 +638,93 @@ fn main() -> i32 {
 ",
         );
         assert!(codes.is_empty(), "unexpected diagnostics: {codes:?}");
+    }
+
+    #[test]
+    fn accepts_payload_enum_construction_and_match_patterns() {
+        let codes = check(
+            "\
+enum Result {
+    Ok(i32),
+    Err(string),
+    Empty,
+}
+
+fn score(result: Result) -> i32 {
+    return match (result) {
+        Result.Ok(value) => value,
+        Result.Err(_) => 0,
+        Result.Empty => -1,
+    };
+}
+
+fn main() -> i32 {
+    let ok: Result = Result.Ok(7);
+    let err: Result = Result.Err(\"bad\");
+    println(score(ok));
+    println(score(err));
+    return score(ok);
+}
+",
+        );
+        assert!(codes.is_empty(), "unexpected diagnostics: {codes:?}");
+    }
+
+    #[test]
+    fn reports_payload_enum_variant_used_without_payload() {
+        let diagnostics = diagnostics(
+            "\
+enum Result { Ok(i32), Err(string) }
+
+fn main() -> i32 {
+    let result: Result = Result.Ok;
+    return 0;
+}
+",
+        );
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "S0053"
+                && diagnostic.kind() == Some(DiagnosticKind::EnumVariantPayloadShapeMismatch)
+        }));
+    }
+
+    #[test]
+    fn reports_payload_enum_constructor_type_mismatch() {
+        let diagnostics = diagnostics(
+            "\
+enum Result { Ok(i32) }
+
+fn main() -> i32 {
+    let result: Result = Result.Ok(true);
+    return 0;
+}
+",
+        );
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "S0022"
+                && diagnostic.kind() == Some(DiagnosticKind::EnumVariantPayloadTypeMismatch)
+        }));
+    }
+
+    #[test]
+    fn reports_payload_enum_pattern_without_payload_binding() {
+        let diagnostics = diagnostics(
+            "\
+enum Result { Ok(i32), Err(string) }
+
+fn main() -> i32 {
+    let result: Result = Result.Ok(7);
+    return match (result) {
+        Result.Ok => 1,
+        Result.Err(_) => 0,
+    };
+}
+",
+        );
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "S0055"
+                && diagnostic.kind() == Some(DiagnosticKind::MatchEnumVariantPayloadShapeMismatch)
+        }));
     }
 
     #[test]
