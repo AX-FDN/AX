@@ -1,14 +1,17 @@
 use std::collections::BTreeMap;
-use std::ffi::OsStr;
+use std::ffi::{OsStr, OsString};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::thread;
 use std::time::Duration;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::Deserialize;
 use serde_json::Value;
+
+static INVOCABLE_AXC_COPY_SERIAL: AtomicU64 = AtomicU64::new(0);
 
 fn repo_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -29,9 +32,10 @@ fn invocable_axc_binary() -> PathBuf {
         .duration_since(UNIX_EPOCH)
         .expect("clock should be after unix epoch")
         .as_nanos();
+    let serial = INVOCABLE_AXC_COPY_SERIAL.fetch_add(1, Ordering::Relaxed);
     let path = std::env::temp_dir().join(format!(
-        "axc-interface-bin-{}-{nonce}{extension}",
-        std::process::id()
+        "axc-interface-bin-{}-{nonce}-{serial}{extension}",
+        std::process::id(),
     ));
     fs::copy(&source, &path).unwrap_or_else(|error| {
         panic!(
@@ -79,19 +83,59 @@ fn snapshot(name: &str) -> String {
     )
 }
 
+fn normalize_build_manifest_value(manifest: &mut Value) {
+    if let Some(path) = manifest
+        .get("artifacts")
+        .and_then(|artifacts| artifacts.get("planned_executable"))
+        .and_then(Value::as_str)
+    {
+        let normalized = path.strip_suffix(".exe").unwrap_or(path).to_string();
+        manifest["artifacts"]["planned_executable"] = Value::String(normalized);
+    }
+}
+
+fn normalized_build_manifest_json(text: &str) -> String {
+    let mut manifest: Value =
+        serde_json::from_str(text).expect("build manifest snapshot should be valid JSON");
+    normalize_build_manifest_value(&mut manifest);
+    serde_json::to_string_pretty(&manifest).expect("build manifest JSON should serialize") + "\n"
+}
+
 fn run_axc<I, S>(args: I) -> Output
 where
     I: IntoIterator<Item = S>,
     S: AsRef<OsStr>,
 {
+    let args: Vec<OsString> = args
+        .into_iter()
+        .map(|arg| arg.as_ref().to_os_string())
+        .collect();
     let binary = invocable_axc_binary();
-    let output = Command::new(&binary)
-        .args(args)
-        .current_dir(repo_root())
-        .output()
-        .expect("failed to execute axc");
+    let mut last_busy_error = None;
+    for _ in 0..20 {
+        match Command::new(&binary)
+            .args(&args)
+            .current_dir(repo_root())
+            .output()
+        {
+            Ok(output) => {
+                remove_temp_file_best_effort(&binary);
+                return output;
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::ExecutableFileBusy => {
+                last_busy_error = Some(error);
+                thread::sleep(Duration::from_millis(50));
+            }
+            Err(error) => {
+                remove_temp_file_best_effort(&binary);
+                panic!("failed to execute axc: {error}");
+            }
+        }
+    }
+
     remove_temp_file_best_effort(&binary);
-    output
+    let error = last_busy_error.expect("executable file busy retries should record an error");
+    panic!("failed to execute axc after retries: {error}");
 }
 
 fn powershell_executable() -> &'static str {
@@ -4750,8 +4794,8 @@ fn main() -> i32 {
         .expect("project build manifest JSON should serialize")
         + "\n";
     assert_eq!(
-        normalize_text(&rendered),
-        snapshot("build_project_hello_manifest.json")
+        normalized_build_manifest_json(&rendered),
+        normalized_build_manifest_json(&snapshot("build_project_hello_manifest.json"))
     );
 }
 
@@ -5062,8 +5106,8 @@ fn main() -> i32 {
         .expect("build manifest JSON should serialize")
         + "\n";
     assert_eq!(
-        normalize_text(&rendered),
-        snapshot("build_hello_manifest.json")
+        normalized_build_manifest_json(&rendered),
+        normalized_build_manifest_json(&snapshot("build_hello_manifest.json"))
     );
 
     let stdout = normalize_text(&string_output(&output.stdout));
