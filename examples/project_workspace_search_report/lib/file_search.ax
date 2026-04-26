@@ -8,7 +8,13 @@ fn search_file(match_lines: string_list, totals: SearchTotals, path: string, dep
     let stats: SearchStats = search_text(fs_read_to_string(path), needle);
     let mut next_match_lines: string_list = match_lines;
     if (stats.matched_lines != 0) {
-        next_match_lines = append_match_line(match_lines, path, depth, size, stats);
+        let mut details: string = "bytes=" + to_string(size);
+        details = details + " | lines=";
+        details = details + to_string(stats.lines);
+        details = details + " | matched_lines=";
+        details = details + to_string(stats.matched_lines);
+        let line: string = depth_prefix(depth) + display_label(path, depth) + " | " + details;
+        next_match_lines = string_list_push(match_lines, line);
     }
     return FileSearch { match_lines: next_match_lines, totals: add_search_result(totals, size, stats) };
 }

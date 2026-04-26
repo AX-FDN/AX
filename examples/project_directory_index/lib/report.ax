@@ -2,17 +2,6 @@ fn append_directory_entry(report: string, path: string, depth: i32, child_count:
     return append_workspace_line(report, path, depth, "dir | children=" + to_string(child_count));
 }
 
-fn append_file_entry(report: string, path: string, depth: i32, kind: string, counted_as_text: bool, size: i32) -> string {
-    let details: string =
-        "file | kind="
-        + kind
-        + " | text="
-        + to_string(counted_as_text)
-        + " | bytes="
-        + to_string(size);
-    return append_workspace_line(report, path, depth, details);
-}
-
 fn append_other_entry(report: string, path: string, depth: i32, kind: string) -> string {
     return append_workspace_line(report, path, depth, "other | kind=" + kind);
 }

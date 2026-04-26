@@ -22,8 +22,14 @@ fn index_entry(report: string, totals: IndexTotals, path: string, depth: i32) ->
         let kind: string = classify_file_kind(path);
         let counted_as_text: bool = is_text_file(path);
         let size: i32 = fs_file_size(path);
+        let mut details: string = "file | kind=";
+        details = details + kind;
+        details = details + " | text=";
+        details = details + to_string(counted_as_text);
+        details = details + " | bytes=";
+        details = details + to_string(size);
         return IndexedEntry {
-            report: append_file_entry(report, path, depth, kind, counted_as_text, size),
+            report: append_workspace_line(report, path, depth, details),
             totals: add_file(totals, size, counted_as_text),
         };
     }
