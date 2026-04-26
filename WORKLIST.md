@@ -3,7 +3,7 @@
 > 阅读提示：本文件是当前施工清单，不是项目概览，也不是能力宣传页。  
 > 如果你想先看“AX 现在到底做到了什么”，请先看 [`PROJECT_FACTS.md`](./PROJECT_FACTS.md) 和 [`docs/feature-matrix.md`](./docs/feature-matrix.md)；本文件主要回答“我们此刻正在做什么”。
 
-最后更新：2026-04-25
+最后更新：2026-04-26
 
 状态说明：
 
@@ -26,7 +26,8 @@
 3. 继续提高 AI 修复协议质量
 4. 把 full repair benchmark 与 compare replay 资产做厚
 5. 把现有五类 project-backed 样例固化成代表集，并接进更硬的验证链
-6. 用代表样例决定下一批缺口，再推进宿主能力补口、更大的语言面或后端
+6. 把架构上下文协议第一阶段钉成稳定外部契约
+7. 用代表样例和上下文协议决定下一批缺口，再推进宿主能力补口、更大的语言面或后端
 
 说明：
 
@@ -118,6 +119,38 @@
   - 不做范围：不追求一次性覆盖所有运行期异常。
   - 完成于：2026-04-23
   - 备注：已补强高频 runtime error 的基础 `notes/suggestion`，并新增 `run_division_by_zero.json` 快照覆盖基础 JSON 契约。
+
+- [ ] `P0-28` 冻结 `context overview / boundaries` v1 schema
+  - 目标：把架构上下文协议第一阶段收成稳定外部契约，而不是继续停留在设计草案。
+  - 输入：[`架构上下文文档.md`](C:/Users/xiaoy/Desktop/A语言/AX/架构上下文文档.md)、现有 `Project` / `ProgramInfo` / builtin / diagnostics 事实层。
+  - 输出：`overview` 与 `boundaries` 的 `schema_version`、`facts / hints / validation` 三段式结构、字段清单与明确的不做范围。
+  - 通过条件：第一版 schema 能稳定回答“项目是什么、入口在哪、哪些 unit 触碰了宿主边界”；文档、命令口径和后续测试目标一致。
+  - 回归保障：设计文档同步、[`规划.md`](C:/Users/xiaoy/Desktop/A语言/AX/规划.md) / [`WORKLIST.md`](C:/Users/xiaoy/Desktop/A语言/AX/WORKLIST.md) 同步审计。
+  - 不做范围：不导出全量源码，不做主观架构评判，不先做 `flow / impact / evidence`。
+
+- [ ] `P0-29` 实现 `axc context overview / boundaries --json`
+  - 目标：把第一阶段上下文协议真正接进 CLI，让 AX 对外稳定导出“锚点 + 安全网”。
+  - 输入：`src/project.rs`、`src/semantic/program_info.rs`、builtin 调用信息、当前 project-backed 代表样例。
+  - 输出：`axc context overview <path> --json` 与 `axc context boundaries <path> --json` 命令、第一版 `constraint_candidates`、对应 JSON 输出。
+  - 通过条件：至少一组 project 样例能稳定导出 overview / boundaries；`boundaries` 能覆盖 `fs / process / env / argv / stdout` 这批高价值宿主边界；`constraint_candidates` 保持保守和低风险。
+  - 回归保障：CLI 定向测试、project 样例 smoke、后续接口快照。
+  - 不做范围：不先做完整 call graph，不做业务不变量自动推断，不引入手写规则 DSL。
+
+- [ ] `P0-30` 固定 context 接口快照与 smoke
+  - 目标：让上下文协议和 `check/json/ai` 一样成为可快照、可比较、可回归的外部资产。
+  - 输入：`overview / boundaries` CLI 输出、[`examples/project_module_smoke/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_module_smoke/)、[`examples/project_workspace_search_report/`](C:/Users/xiaoy/Desktop/A语言/AX/examples/project_workspace_search_report/)。
+  - 输出：interface snapshots、必要的 smoke 脚本或 CLI 回归、对应文档说明。
+  - 通过条件：相同输入下 overview / boundaries JSON 结构稳定；代表项目可重复导出；Windows 路径与 project 模式不会把输出打散。
+  - 回归保障：[`tests/interface_snapshots.rs`](C:/Users/xiaoy/Desktop/A语言/AX/tests/interface_snapshots.rs) 与必要的脚本 smoke。
+  - 不做范围：不在这一项里补更深层流程推断或 benchmark 提升结论。
+
+- [ ] `P0-31` 给 benchmark / repair adapter 预留 context 输入通道
+  - 目标：让架构上下文协议不只是“旁边摆着的 JSON”，而能进入后续 A/B 比较与 repair 实验。
+  - 输入：现有 repair benchmark/export/adapter 链路、`overview / boundaries` 输出。
+  - 输出：可选 context 输入位、最小文档说明、不会破坏现有 benchmark 协议的兼容改动。
+  - 通过条件：benchmark / repair adapter 至少能在不开启时维持现状，在开启时消费 context 文件而不破坏当前主链。
+  - 回归保障：现有 benchmark smoke、adapter spec 文档、必要的接口回归。
+  - 不做范围：不要求这一项立刻证明 repair lift，只先把 context 变成可比较变量。
 
 ## P1
 
@@ -381,6 +414,23 @@
   - 不做范围：本轮不做命名 payload 字段、多 payload tuple variant、payload 解构链、match guard、multi-pattern arm 或 enum field-style payload 访问。
   - 完成于：2026-04-26
   - 备注：这一刀继续坚持“小步快跑但全链路收口”——先把最值钱的一条 payload enum 轨道做硬，再决定是否继续向更重的数据建模系统扩张。
+
+- [ ] `P1-25` `topology` v1：结构层上下文协议
+  - 目标：在 overview / boundaries 站稳后，导出 module / import / export / 基础 symbol 边，给 agent 提供真正可导航的结构图。
+  - 输入：`Project`、`ProgramInfo`、当前 `module / import` 实现、project-backed 样例。
+  - 输出：`axc context topology <path> --json`、`module_edges / symbol_edges`、`role_hints / role_evidence`。
+  - 通过条件：最小模块项目和 project-backed 样例都能稳定导出结构层 JSON；`role_hints` 基于可说明的证据而不是拍脑袋总结。
+  - 回归保障：interface snapshots、模块样例 `check / run`、必要的 docs 同步。
+  - 不做范围：不追求完整静态调用图，不做跨项目依赖管理，不顺手扩成完整包系统。
+
+- [ ] `P1-26` `symbol` v1：任务切片层第一刀
+  - 目标：围绕当前改动目标导出局部上下文，让 agent 不必每次吃整仓。
+  - 输入：AST / HIR 中的符号信息、结构层输出、当前 diagnostics / AI focus item 经验。
+  - 输出：`axc context symbol <path> <symbol> --json`、`declared_in / signature / callers / callees / related_types / change_risk`。
+  - 通过条件：至少一组真实样例能围绕核心 symbol 稳定导出局部切片；输出能帮助判断“该改哪”和“别碰哪”。
+  - 回归保障：interface snapshots、代表样例 smoke、必要的 symbol 级 CLI 回归。
+  - 不做范围：不先做复杂影响面估计，不自动总结业务语义，不生成大段自然语言摘要。
+
 - 进展：2026-04-25 又把运行时高价值 host diagnostics 接进稳定 `DiagnosticKind`，当前覆盖 `argv_get` 负索引/越界、缺失环境变量、不可读文件/目录、`process` 启动失败与 `capture` 非零退出；`src/ai.rs` 对这批宿主误用现也优先按 kind 映射 `rule_id`，并已补上 env/argv runtime AI 回归测试与 diagnostics snapshot 复跑。
 
 ## P2
@@ -412,3 +462,24 @@
   - 必须产物：AX 版子模块、双实现对照流程、输入输出一致性验证、能力缺口清单。
   - 通过条件：AX 子实现可稳定运行，且与 Rust 基线对照结果可重复；不会压垮当前主线开发效率。
   - 不做范围：不提前追求“一口气自举整个编译器”，不为了自举重排当前所有工作。
+
+- [ ] `P2-5` `flow` v1：流程层上下文协议
+  - 进入条件：`overview / boundaries / topology / symbol` 已冻结第一版 schema，且入口与基础 symbol 边已稳定可用。
+  - 目标：导出入口流程、主调用链、关键分支点和递归点，让 agent 能沿主流程追问题。
+  - 必须产物：`axc context flow <path> --json`、`entry_symbol / entry_flow / branch_points / recursive_symbols`。
+  - 通过条件：至少一组真实工具样例能稳定给出可用的入口流程近似；不会把流程层做成脆弱 call graph 炫技。
+  - 不做范围：不追求全程序完美调用图，不做复杂静态分析框架。
+
+- [ ] `P2-6` `impact` v1：任务切片层第二刀
+  - 进入条件：`symbol` 视图已稳定，且已有足够结构边支撑“改一个 symbol 会波及谁”的近似判断。
+  - 目标：给 agent 提供最小影响面估计，让修改前能看到 caller / callee / related unit 的风险。
+  - 必须产物：`axc context impact <path> <symbol> --json`、`affected_units / change_risk / likely_breakages`。
+  - 通过条件：影响面输出在代表样例上有稳定可解释依据；不会因为半吊子分析制造过强误导。
+  - 不做范围：不输出主观“最佳重构方案”，不做业务层不变量自动推理。
+
+- [ ] `P2-7` `evidence` v1：证据层与 context A/B
+  - 进入条件：前面几层已经形成稳定 schema，benchmark / repair adapter 已能可选消费 context 输入。
+  - 目标：把上下文协议真正接进验证闭环，输出相关 examples / tests / benchmarks，并为后续 A/B 提供统一入口。
+  - 必须产物：`axc context evidence <path> <symbol> --json`、`related_examples / related_tests / related_docs / related_benchmarks / recommended_commands`，以及 context on/off 的实验入口。
+  - 通过条件：evidence 输出能稳定指向真实验证资产；context 已从“好看的 JSON”变成 benchmark 可比较变量。
+  - 不做范围：不要求这一项立刻证明巨大 lift，但要能开始测量“给 context 和不给 context”的差异。

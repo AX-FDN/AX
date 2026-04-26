@@ -66,6 +66,542 @@ AX 把一段源码送入编译器后，会同步产出三层结果：
 AX 把“源码如何被模型消费、错误如何被模型修复、修复结果如何被验证”一起工程化。
 这也是 AX 和一般实验语言项目最有区分度的地方。
 
+## AX 的六层协议上下文
+
+AX 不只输出编译结果和修复反馈，也输出一套专门给 agent 消费的架构上下文协议。
+
+这套协议的目标不是“再写一份项目说明书”，而是把项目结构、宿主边界、主流程、局部修改切片和验证证据压缩成稳定 JSON，让模型在真正改代码之前先拿到一份可执行上下文。
+
+### 六层协议，一套视图
+
+| 协议层 | 视图 / 命令 | 解决什么问题 | 对 agent 的意义 |
+| --- | --- | --- | --- |
+| 总览层 | `overview` | 这个项目是什么，入口在哪，规模多大 | 3 秒定向，不再全仓乱读 |
+| 结构层 | `topology` | 模块、导入、导出、基础 symbol 关系是什么 | 快速知道该改哪一层 |
+| 边界层 | `boundaries` | 哪些文件触碰了 `fs / process / env / argv` | 给模型一个真实安全网 |
+| 流程层 | `flow` | 主流程从哪里进入，经过哪些关键调用 | 帮模型沿流程追问题 |
+| 任务切片层 | `symbol / impact` | 围绕当前目标符号的一圈上下文与影响面 | 减少无关上下文，控制改动半径 |
+| 证据层 | `evidence` | 改完要看哪些 tests / examples / benchmarks | 让修复进入验证闭环 |
+
+### 统一协议壳层
+
+AX 的上下文协议和 diagnostics 一样，不靠长段自然语言堆信息，而是使用稳定壳层：
+
+```json
+{
+  "schema_version": 1,
+  "view": "boundaries",
+  "subject": {
+    "kind": "project",
+    "path": "examples/project_workspace_search_report"
+  },
+  "facts": {},
+  "hints": {},
+  "validation": {}
+}
+```
+
+三段式含义固定：
+
+- `facts`
+  编译器能稳定确认的事实
+- `hints`
+  带依据的弱提示，不伪装成事实
+- `validation`
+  建议的验证命令、检查路径和预期产物
+
+### 协议视图总览
+
+```powershell
+axc context overview <path> --json
+axc context topology <path> --json
+axc context boundaries <path> --json
+axc context flow <path> --json
+axc context symbol <path> <symbol> --json
+axc context impact <path> <symbol> --json
+axc context evidence <path> <symbol> --json
+```
+
+### `overview`：先给模型一个稳定锚点
+
+```powershell
+axc context overview examples/project_module_smoke --json
+```
+
+预期返回：
+
+```json
+{
+  "schema_version": 1,
+  "view": "overview",
+  "subject": {
+    "kind": "project",
+    "path": "examples/project_module_smoke"
+  },
+  "facts": {
+    "project_name": "project_module_smoke",
+    "entry": "src/main.ax",
+    "module_mode": true,
+    "source_roots": ["lib"],
+    "summary": {
+      "source_unit_count": 2,
+      "module_count": 1,
+      "function_count": 2,
+      "type_count": 1
+    }
+  },
+  "hints": {
+    "entrypoints": ["main"],
+    "core_symbols": [
+      "main",
+      "lib.report.build_summary",
+      "lib.report.Summary"
+    ]
+  },
+  "validation": {
+    "recommended_commands": [
+      "axc check examples/project_module_smoke",
+      "axc run examples/project_module_smoke"
+    ]
+  }
+}
+```
+
+这一层的价值很直接：
+
+- 不让 agent 一上来读整个仓库
+- 先知道入口和项目规模
+- 先知道哪几个 symbol 最值得关注
+
+### `topology`：把模块关系压成稳定结构图
+
+```powershell
+axc context topology examples/project_module_smoke --json
+```
+
+预期返回：
+
+```json
+{
+  "schema_version": 1,
+  "view": "topology",
+  "subject": {
+    "kind": "project",
+    "path": "examples/project_module_smoke"
+  },
+  "facts": {
+    "modules": [
+      {
+        "unit": "src/main.ax",
+        "module_path": null,
+        "is_entry": true,
+        "imports": ["lib.report"],
+        "exports": ["main"]
+      },
+      {
+        "unit": "lib/report.ax",
+        "module_path": "lib.report",
+        "is_entry": false,
+        "imports": [],
+        "exports": [
+          "lib.report.Summary",
+          "lib.report.build_summary"
+        ]
+      }
+    ],
+    "module_edges": [
+      {
+        "from": "src/main.ax",
+        "to": "lib.report",
+        "kind": "import"
+      }
+    ],
+    "symbol_edges": [
+      {
+        "from": "main",
+        "to": "lib.report.build_summary",
+        "kind": "call"
+      },
+      {
+        "from": "main",
+        "to": "lib.report.Summary",
+        "kind": "type_ref"
+      }
+    ]
+  },
+  "hints": {
+    "role_hints": [
+      {
+        "unit": "src/main.ax",
+        "roles": ["entry_orchestrator"],
+        "evidence": ["declares_main", "imports_support_module"]
+      },
+      {
+        "unit": "lib/report.ax",
+        "roles": ["project_library"],
+        "evidence": ["declares_exported_type", "declares_exported_function"]
+      }
+    ]
+  },
+  "validation": {}
+}
+```
+
+这层解决的是：
+
+- 该去哪一个 unit 改
+- 当前模块和 support module 怎么连
+- 哪些 symbol 是入口层，哪些 symbol 是库层
+
+### `boundaries`：给 agent 一个真正的安全网
+
+```powershell
+axc context boundaries examples/project_workspace_search_report --json
+```
+
+预期返回：
+
+```json
+{
+  "schema_version": 1,
+  "view": "boundaries",
+  "subject": {
+    "kind": "project",
+    "path": "examples/project_workspace_search_report"
+  },
+  "facts": {
+    "host_boundary_classes": [
+      "argv",
+      "filesystem"
+    ],
+    "unit_boundary_usage": [
+      {
+        "unit": "src/main.ax",
+        "argv_builtins": ["argv_len", "argv_get"],
+        "fs_builtins": ["fs_read_dir", "fs_write_string"],
+        "process_builtins": [],
+        "env_builtins": []
+      },
+      {
+        "unit": "lib/file_search.ax",
+        "argv_builtins": [],
+        "fs_builtins": [
+          "fs_is_file",
+          "fs_is_dir",
+          "fs_read_dir",
+          "fs_read_to_string",
+          "fs_file_size"
+        ],
+        "process_builtins": [],
+        "env_builtins": []
+      },
+      {
+        "unit": "lib/report.ax",
+        "argv_builtins": [],
+        "fs_builtins": [],
+        "process_builtins": [],
+        "env_builtins": []
+      }
+    ]
+  },
+  "hints": {
+    "host_heavy_units": [
+      {
+        "unit": "lib/file_search.ax",
+        "reason": "recursive_filesystem_calls"
+      },
+      {
+        "unit": "src/main.ax",
+        "reason": "entry_argument_and_output_boundary"
+      }
+    ],
+    "safe_logic_units": [
+      "lib/report.ax",
+      "lib/search_totals.ax"
+    ],
+    "constraint_candidates": [
+      {
+        "kind": "keep_host_free",
+        "target": "lib/report.ax",
+        "evidence": [
+          "host_builtin_count=0",
+          "used_as_shared_logic=true"
+        ]
+      },
+      {
+        "kind": "entry_only_write",
+        "target": "src/main.ax",
+        "evidence": [
+          "fs_write_string_seen_in_entry=true",
+          "non_entry_write_count=0"
+        ]
+      }
+    ]
+  },
+  "validation": {
+    "invariants": [
+      "filesystem writes stay concentrated in entry orchestration",
+      "pure report formatting remains host-free"
+    ]
+  }
+}
+```
+
+这层是 AX 特别重要的一层，因为它直接回答：
+
+- 哪些地方危险
+- 哪些模块是 pure logic
+- 哪些 unit 已经深入宿主边界
+- 哪些低风险约束可以直接作为 agent 的候选护栏
+
+### `flow`：让模型沿主流程追代码
+
+```powershell
+axc context flow examples/project_workspace_search_report --json
+```
+
+预期返回：
+
+```json
+{
+  "schema_version": 1,
+  "view": "flow",
+  "subject": {
+    "kind": "project",
+    "path": "examples/project_workspace_search_report"
+  },
+  "facts": {
+    "entry_symbol": "main",
+    "entry_unit": "src/main.ax",
+    "entry_flow": [
+      "main",
+      "require_min_args",
+      "require_directory",
+      "search_path",
+      "build_summary",
+      "render_match_lines",
+      "fs_write_string"
+    ],
+    "branch_points": [
+      "argument_and_directory_validation",
+      "file_or_directory_dispatch"
+    ],
+    "recursive_symbols": [
+      "search_path"
+    ]
+  },
+  "hints": {
+    "primary_workload": "recursive_workspace_search_and_report_write"
+  },
+  "validation": {}
+}
+```
+
+这一层把“代码树”变成“流程图”，让模型知道：
+
+- 主流程从哪里进
+- 哪些函数是真正编排点
+- 哪些位置是递归和分支热点
+
+### `symbol`：围绕当前改动目标输出局部切片
+
+```powershell
+axc context symbol examples/project_module_smoke lib.report.build_summary --json
+```
+
+预期返回：
+
+```json
+{
+  "schema_version": 1,
+  "view": "symbol",
+  "subject": {
+    "kind": "symbol",
+    "path": "examples/project_module_smoke",
+    "symbol": "lib.report.build_summary"
+  },
+  "facts": {
+    "symbol_kind": "function",
+    "declared_in": "lib/report.ax",
+    "module_path": "lib.report",
+    "signature": {
+      "params": [],
+      "returns": "lib.report.Summary"
+    },
+    "depends_on_types": ["lib.report.Summary"],
+    "direct_callers": ["main"],
+    "direct_callees": [],
+    "host_capabilities": []
+  },
+  "hints": {
+    "edit_scope": "local",
+    "change_risk": "low",
+    "coupled_symbols": [
+      "lib.report.Summary",
+      "main"
+    ]
+  },
+  "validation": {
+    "recommended_commands": [
+      "axc check examples/project_module_smoke",
+      "axc run examples/project_module_smoke"
+    ]
+  }
+}
+```
+
+这层是 AX 给 agent 的“局部手术刀”：
+
+- 不用把整个项目重新读一遍
+- 直接围绕当前目标 symbol 提供最相关的一圈上下文
+- 让修改范围和风险控制更可预期
+
+### `impact`：修改前先看会波及谁
+
+```powershell
+axc context impact examples/project_workspace_search_report search_path --json
+```
+
+预期返回：
+
+```json
+{
+  "schema_version": 1,
+  "view": "impact",
+  "subject": {
+    "kind": "symbol",
+    "path": "examples/project_workspace_search_report",
+    "symbol": "search_path"
+  },
+  "facts": {
+    "declared_in": "lib/file_search.ax",
+    "direct_callers": [
+      "main",
+      "search_path"
+    ],
+    "direct_callees": [
+      "fs_is_file",
+      "is_searchable_file",
+      "search_file",
+      "fs_is_dir",
+      "fs_read_dir"
+    ],
+    "affected_units": [
+      "src/main.ax",
+      "lib/file_search.ax",
+      "lib/search_totals.ax"
+    ]
+  },
+  "hints": {
+    "change_risk": "medium_high",
+    "risk_reasons": [
+      "entry_reachable",
+      "recursive_symbol",
+      "host_boundary"
+    ]
+  },
+  "validation": {
+    "invariants": [
+      "search_path must keep recursive traversal semantics",
+      "search_path must still return FileSearch"
+    ]
+  }
+}
+```
+
+这层回答的是：
+
+- 改一个 symbol 会炸到谁
+- 哪些 caller / callee / unit 会被带上
+- 这次修改大概属于低风险还是高风险
+
+### `evidence`：把上下文接进验证闭环
+
+```powershell
+axc context evidence examples/project_workspace_search_report search_path --json
+```
+
+预期返回：
+
+```json
+{
+  "schema_version": 1,
+  "view": "evidence",
+  "subject": {
+    "kind": "symbol",
+    "path": "examples/project_workspace_search_report",
+    "symbol": "search_path"
+  },
+  "facts": {
+    "related_units": [
+      "src/main.ax",
+      "lib/file_search.ax",
+      "lib/report.ax",
+      "lib/search_totals.ax"
+    ],
+    "related_examples": [
+      "examples/workspace_search_report.ax",
+      "examples/project_directory_index"
+    ],
+    "related_docs": [
+      "docs/host-runtime-boundary.md",
+      "架构上下文文档.md"
+    ],
+    "related_benchmarks": [
+      "repair-benchmark",
+      "compare-repair-modes"
+    ]
+  },
+  "hints": {
+    "best_reading_order": [
+      "src/main.ax",
+      "lib/file_search.ax",
+      "lib/search_totals.ax",
+      "lib/report.ax"
+    ]
+  },
+  "validation": {
+    "recommended_commands": [
+      "axc check examples/project_workspace_search_report",
+      "axc run examples/project_workspace_search_report -- <root_dir> <needle> <output>"
+    ],
+    "expected_artifacts": [
+      "output report file",
+      "summary with root / needle / matched_lines"
+    ]
+  }
+}
+```
+
+这一层的意义不是“再讲一遍项目背景”，而是：
+
+- 直接告诉 agent 该用什么验证命令
+- 当前改动最相关的 example / test / benchmark 是什么
+- 让“改代码”进入“可证明改对了”的闭环
+
+### 这套协议真正带来的变化
+
+AX 的六层协议上下文，不只是让模型“更快读懂项目”，更重要的是让上下文从静态文档变成一组可执行视图：
+
+- `overview`
+  负责定向
+- `topology`
+  负责结构导航
+- `boundaries`
+  负责安全网
+- `flow`
+  负责主流程跟踪
+- `symbol / impact`
+  负责局部改动切片与影响面
+- `evidence`
+  负责验证闭环
+
+这也是 AX 和普通“编译器能吐 AST / HIR / MIR JSON”的项目很不一样的地方：
+
+- AX 不只输出编译结果
+- AX 还输出专门给 agent 消费的项目上下文协议
+- diagnostics、repair contract、context protocol、benchmark evidence 共用同一条工程主线
+
 ## AX 现在已经具备的成熟度
 
 | 方面 | 当前状态 | 仓库位置 |
@@ -458,6 +994,8 @@ AX 希望最终回答的是：
   外部 repair adapter 的输入输出契约
 - [`docs/host-runtime-boundary.md`](./docs/host-runtime-boundary.md)
   AX 接口层、Rust 宿主实现层、未来包系统边界
+- [`架构上下文文档.md`](./架构上下文文档.md)
+  六层协议上下文、视图设计与执行顺序
 - [`docs/import-module-minimal-design.md`](./docs/import-module-minimal-design.md)
   第一阶段 `import/module` 规则与迁移边界
 - [`docs/why-not-language-subsets.md`](./docs/why-not-language-subsets.md)
