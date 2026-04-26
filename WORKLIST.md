@@ -1,5 +1,8 @@
 # AX Worklist
 
+> 阅读提示：本文件是当前施工清单，不是项目概览，也不是能力宣传页。  
+> 如果你想先看“AX 现在到底做到了什么”，请先看 [`PROJECT_FACTS.md`](./PROJECT_FACTS.md) 和 [`docs/feature-matrix.md`](./docs/feature-matrix.md)；本文件主要回答“我们此刻正在做什么”。
+
 最后更新：2026-04-25
 
 状态说明：
@@ -38,6 +41,8 @@
 - [x] 已完成 repair benchmark、comparison、smoke 与 CI 骨架
 - [x] 已完成 `run --json` 与首批 runtime AI diagnostics
 - [x] 已完成固定长度数组、结构体、枚举与解释器贯通
+- [x] 已补对外事实层文档：
+  [`PROJECT_FACTS.md`](C:/Users/xiaoy/Desktop/A语言/AX/PROJECT_FACTS.md) 与 [`docs/feature-matrix.md`](C:/Users/xiaoy/Desktop/A语言/AX/docs/feature-matrix.md)
 - [x] 已完成 `semantic` 的第一轮必要拆层，消除明显“大厨房”问题
 - [x] 已新增首个工具风格 AX 示例：
   [`examples/bootstrap_token_scan.ax`](C:/Users/xiaoy/Desktop/A语言/AX/examples/bootstrap_token_scan.ax)
@@ -195,7 +200,7 @@
   - 输出：`break;` 语法、循环内语义检查、HIR/MIR/解释器支持、示例与回归测试。
   - 通过条件：`break;` 可在 `while` 和 `for` 中稳定提前退出；循环外使用稳定报错；现有 `for -> while` lowering 与接口测试不回退。
   - 回归保障：`src/lexer.rs`、`src/parser.rs`、`src/formatter.rs`、`src/semantic.rs`、`src/hir.rs`、`src/mir.rs`、`src/interpreter.rs` 单测与 `.\scripts\cargo-gnu.ps1 test` 全量回归。
-  - 不做范围：本轮不引入 `continue;`，因为当前 `for` lowering 下如果硬上会把 step 语义做错。
+  - 不做范围：本轮只收 `break;`，`continue;` 的 `for` step 语义改在后续独立条目里处理。
   - 完成于：2026-04-24
   - 备注：当前已支持 `break;` 提前退出最近一层 `while` 或 `for`；新增 [`examples/break_loop.ax`](C:/Users/xiaoy/Desktop/A语言/AX/examples/break_loop.ax)，并把 [`examples/bootstrap_block_summary.ax`](C:/Users/xiaoy/Desktop/A语言/AX/examples/bootstrap_block_summary.ax) 的机械退出写法替换为真实 `break;`。
 
@@ -303,6 +308,16 @@
 - 进展：2026-04-25 已继续把 parser 侧高频 `P0001` 诊断接入稳定 `DiagnosticKind`，当前覆盖缺分号、缺右括号、缺右花括号与顶层声明错误；`src/ai.rs` 对这批规则也已优先走 kind 映射，同时保留 `match` 误写场景的特判，避免被普通缺分号规则吞掉。
 - 进展：2026-04-25 已让 parser 的详细提示生成也优先消费 `DiagnosticKind`，不再只靠 `message.contains(...)` 决定补充 note/suggestion；新增 “文案改掉但 kind 不变时，帮助信息仍保留” 的回归测试，并复跑 `cargo +stable-x86_64-pc-windows-gnu test --lib` 与两条 diagnostics interface snapshot。
 - 进展：2026-04-25 又把缺右中括号、类型名缺失、表达式缺失也接进稳定 `DiagnosticKind`，并补上 `close_bracketed_construct` 规则卡；这说明 parser 高频基础错误现在已经不只是“能分类”，而是开始形成更完整的稳定 AI 修复入口。
+
+- [x] `P1-17` 最小 `continue;` 语法全链路落地
+  - 目标：在不破坏现有 `for -> while` lowering 语义的前提下，把 `continue;` 从缺失能力补成可执行能力。
+  - 输入：现有 `while` / `for`、`break;` 控制流实现、HIR `for` lowering、AI kind-based rule 映射与工具风格样例。
+  - 输出：`continue;` 词法 / parser / formatter / semantic / HIR / MIR / interpreter 支持，`for` 场景下的 step-before-continue 重写，AI 规则映射、样例、文档与接口回归。
+  - 通过条件：`continue;` 可在 `while` 与 `for` 中稳定运行；循环外使用稳定报 `S0044`；`for` 中命中 `continue;` 时 step 仍会先执行；现有 `break;` 与模块/benchmark 回归不退化。
+  - 回归保障：`cargo +stable-x86_64-pc-windows-gnu test --lib -j 1`、`cargo +stable-x86_64-pc-windows-gnu test --test interface_snapshots continue_example_runs -j 1`、`examples/continue.ax`。
+  - 不做范围：本轮不顺手引入 `match`、`loop`、标签循环或更高层集合遍历语法。
+  - 完成于：2026-04-26
+  - 备注：这一轮的关键不是“把关键字塞进 parser”，而是把 `continue;` 在 `for` lowering 下的 step 语义补对；当前实现会在 lowered `for` body 内对 `continue;` 做局部重写，保证进入下一轮前仍先跑 step。
 - 进展：2026-04-25 又把运行时高价值 host diagnostics 接进稳定 `DiagnosticKind`，当前覆盖 `argv_get` 负索引/越界、缺失环境变量、不可读文件/目录、`process` 启动失败与 `capture` 非零退出；`src/ai.rs` 对这批宿主误用现也优先按 kind 映射 `rule_id`，并已补上 env/argv runtime AI 回归测试与 diagnostics snapshot 复跑。
 
 ## P2

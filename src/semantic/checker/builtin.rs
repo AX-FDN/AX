@@ -392,10 +392,9 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 }
 
                 match &argument_types[0] {
-                    Type::String
-                    | Type::StringList
-                    | Type::Array { .. }
-                    | Type::Slice { .. } => Some(Type::I32),
+                    Type::String | Type::StringList | Type::Array { .. } | Type::Slice { .. } => {
+                        Some(Type::I32)
+                    }
                     actual => {
                         self.diagnostics.push(
                             Diagnostic::new(

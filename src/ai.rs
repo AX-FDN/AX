@@ -242,6 +242,8 @@ fn match_rule_by_kind(kind: DiagnosticKind) -> Option<RuleTemplate> {
         DiagnosticKind::CrossModuleReferenceMissingImport => {
             Some(RULE_CROSS_MODULE_REFERENCE_REQUIRES_IMPORT)
         }
+        DiagnosticKind::BreakOutsideLoop => Some(RULE_BREAK_REQUIRES_LOOP_CONTEXT),
+        DiagnosticKind::ContinueOutsideLoop => Some(RULE_CONTINUE_REQUIRES_LOOP_CONTEXT),
         DiagnosticKind::FunctionArgumentTypeMismatch => {
             Some(RULE_FUNCTION_ARGUMENT_TYPE_MUST_MATCH)
         }
@@ -673,6 +675,28 @@ const RULE_FOR_HEADER_CLAUSE_SUPPORTED: RuleTemplate = RuleTemplate {
     minimal_example: "for (let i: i32 = 0; i < 3; i = i + 1) { return i; }",
     anti_pattern: Some("for (return 0; true; step()) { }"),
     default_fixit: "rewrite the header using only `let`, assignment, or expression clauses",
+};
+
+const RULE_BREAK_REQUIRES_LOOP_CONTEXT: RuleTemplate = RuleTemplate {
+    rule_id: "break_requires_loop_context",
+    normalized_pattern: "break_requires_loop_context",
+    repair_goal: "Keep `break;` inside a `while` or `for` loop, or replace it with control flow that is valid at the current scope.",
+    summary: "`break;` only exits the nearest enclosing `while` or `for` loop.",
+    pattern: "while (ready == false) { if (stop_now) { break; } }",
+    minimal_example: "for (let i: i32 = 0; i < 3; i = i + 1) { if (i == 1) { break; } }",
+    anti_pattern: Some("fn main() -> i32 { break; return 0; }"),
+    default_fixit: "move `break;` into a loop body or use `return ...;` if you want to exit the function",
+};
+
+const RULE_CONTINUE_REQUIRES_LOOP_CONTEXT: RuleTemplate = RuleTemplate {
+    rule_id: "continue_requires_loop_context",
+    normalized_pattern: "continue_requires_loop_context",
+    repair_goal: "Keep `continue;` inside a `while` or `for` loop so it skips only the next loop iteration.",
+    summary: "`continue;` is only valid inside a loop body, where it jumps to the next iteration of the nearest loop.",
+    pattern: "for (let i: i32 = 0; i < 3; i = i + 1) { if (i == 1) { continue; } println(i); }",
+    minimal_example: "while (count < 3) { count = count + 1; if (count == 2) { continue; } println(count); }",
+    anti_pattern: Some("fn main() -> i32 { continue; return 0; }"),
+    default_fixit: "move `continue;` into a loop body or rewrite the surrounding control flow with `if` / `else`",
 };
 
 const RULE_NON_EMPTY_ARRAY_LITERAL_REQUIRED: RuleTemplate = RuleTemplate {
@@ -1348,6 +1372,7 @@ fn collect_statement_names(statement: &Stmt, names: &mut BTreeSet<String>) {
             }
         }
         StmtKind::Break => {}
+        StmtKind::Continue => {}
         StmtKind::If {
             condition,
             then_branch,
@@ -1620,6 +1645,18 @@ mod tests {
                 message: "support source module declaration placeholder",
                 kind: DiagnosticKind::SupportSourceMissingModuleDeclaration,
                 expected_rule_id: "support_source_must_declare_module",
+            },
+            KindCase {
+                code: "S0036",
+                message: "break loop context placeholder",
+                kind: DiagnosticKind::BreakOutsideLoop,
+                expected_rule_id: "break_requires_loop_context",
+            },
+            KindCase {
+                code: "S0044",
+                message: "continue loop context placeholder",
+                kind: DiagnosticKind::ContinueOutsideLoop,
+                expected_rule_id: "continue_requires_loop_context",
             },
             KindCase {
                 code: "S0022",
@@ -2300,8 +2337,9 @@ sources = [\"lib\"]
 
     #[test]
     fn enhances_runtime_missing_environment_variable_with_host_rule_card() {
-        let source =
-            SourceFile::anonymous("fn main() -> i32 { println(env_get(\"AX_MISSING_KEY\")); return 0; }");
+        let source = SourceFile::anonymous(
+            "fn main() -> i32 { println(env_get(\"AX_MISSING_KEY\")); return 0; }",
+        );
         let analysis = analyze(&source);
         assert!(
             analysis.diagnostics.is_empty(),
@@ -2328,9 +2366,7 @@ sources = [\"lib\"]
 
     #[test]
     fn enhances_runtime_argv_bounds_failure_with_host_rule_card() {
-        let source = SourceFile::anonymous(
-            "fn main() -> i32 { println(argv_get(0)); return 0; }",
-        );
+        let source = SourceFile::anonymous("fn main() -> i32 { println(argv_get(0)); return 0; }");
         let analysis = analyze(&source);
         assert!(
             analysis.diagnostics.is_empty(),
@@ -2357,9 +2393,7 @@ sources = [\"lib\"]
 
     #[test]
     fn enhances_runtime_negative_argv_index_with_host_rule_card() {
-        let source = SourceFile::anonymous(
-            "fn main() -> i32 { println(argv_get(-1)); return 0; }",
-        );
+        let source = SourceFile::anonymous("fn main() -> i32 { println(argv_get(-1)); return 0; }");
         let analysis = analyze(&source);
         assert!(
             analysis.diagnostics.is_empty(),

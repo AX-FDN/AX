@@ -106,6 +106,7 @@ pub enum StmtKind {
         value: Expr,
     },
     Break,
+    Continue,
     Expr {
         expr: Expr,
     },
@@ -388,6 +389,7 @@ impl<'a> LoweringContext<'a> {
                 value: self.lower_expr(value)?,
             },
             ast::StmtKind::Break => StmtKind::Break,
+            ast::StmtKind::Continue => StmtKind::Continue,
             ast::StmtKind::Expr { expr } => StmtKind::Expr {
                 expr: self.lower_expr(expr)?,
             },
@@ -458,18 +460,43 @@ impl<'a> LoweringContext<'a> {
             block_statements.push(self.lower_statement(initializer)?);
         }
 
-        let lowered_body = self.lower_block(body)?;
-        let mut loop_body_statements = vec![Stmt {
+        let mut lowered_body = self.lower_block(body)?;
+
+        if let Some(step) = step {
+            let lowered_step = self.lower_statement(step)?;
+            Self::rewrite_for_continues(&mut lowered_body, &lowered_step);
+            let mut loop_body_statements = vec![Stmt {
+                kind: StmtKind::Block {
+                    block: lowered_body,
+                },
+                span: body.span,
+            }];
+            loop_body_statements.push(lowered_step);
+            return self.finish_lowered_for_block(
+                span,
+                condition,
+                block_statements,
+                loop_body_statements,
+            );
+        }
+
+        let loop_body_statements = vec![Stmt {
             kind: StmtKind::Block {
                 block: lowered_body,
             },
             span: body.span,
         }];
 
-        if let Some(step) = step {
-            loop_body_statements.push(self.lower_statement(step)?);
-        }
+        self.finish_lowered_for_block(span, condition, block_statements, loop_body_statements)
+    }
 
+    fn finish_lowered_for_block(
+        &self,
+        span: Span,
+        condition: Option<&ast::Expr>,
+        mut block_statements: Vec<Stmt>,
+        loop_body_statements: Vec<Stmt>,
+    ) -> Result<Stmt, Diagnostic> {
         let while_condition = match condition {
             Some(condition) => self.lower_expr(condition)?,
             None => Expr {
@@ -498,6 +525,38 @@ impl<'a> LoweringContext<'a> {
             },
             span,
         })
+    }
+
+    fn rewrite_for_continues(block: &mut Block, step: &Stmt) {
+        let mut rewritten = Vec::with_capacity(block.statements.len());
+        for mut statement in std::mem::take(&mut block.statements) {
+            match &mut statement.kind {
+                StmtKind::Continue => {
+                    rewritten.push(step.clone());
+                    rewritten.push(statement);
+                }
+                StmtKind::If {
+                    then_branch,
+                    else_branch,
+                    ..
+                } => {
+                    Self::rewrite_for_continues(then_branch, step);
+                    if let Some(else_branch) = else_branch {
+                        Self::rewrite_for_continues(else_branch, step);
+                    }
+                    rewritten.push(statement);
+                }
+                StmtKind::Block { block } => {
+                    Self::rewrite_for_continues(block, step);
+                    rewritten.push(statement);
+                }
+                StmtKind::While { .. } => {
+                    rewritten.push(statement);
+                }
+                _ => rewritten.push(statement),
+            }
+        }
+        block.statements = rewritten;
     }
 
     fn lower_place(&self, expr: &ast::Expr) -> Result<Place, Diagnostic> {
@@ -1084,5 +1143,87 @@ fn main() -> i32 {
         };
 
         assert!(matches!(body.statements[0].kind, StmtKind::Break));
+    }
+
+    #[test]
+    fn lowers_continue_statements() {
+        let program = lower(
+            "\
+fn main() -> i32 {
+    while (true) {
+        continue;
+    }
+    return 0;
+}
+",
+        );
+
+        let ItemKind::Function { body, .. } = &program.items[0].kind else {
+            panic!("expected function item");
+        };
+
+        let StmtKind::While { body, .. } = &body.statements[0].kind else {
+            panic!("expected while statement");
+        };
+
+        assert!(matches!(body.statements[0].kind, StmtKind::Continue));
+    }
+
+    #[test]
+    fn rewrites_for_continue_to_run_step_before_loop_continue() {
+        let program = lower(
+            "\
+fn main() -> i32 {
+    let mut total: i32 = 0;
+    for (let mut i: i32 = 0; i < 4; i = i + 1) {
+        if (i == 1) {
+            continue;
+        }
+        total = total + i;
+    }
+    return total;
+}
+",
+        );
+
+        let ItemKind::Function { body, .. } = &program.items[0].kind else {
+            panic!("expected function item");
+        };
+
+        let StmtKind::Block { block } = &body.statements[1].kind else {
+            panic!("expected lowered for loop outer block");
+        };
+
+        let StmtKind::While { body, .. } = &block.statements[1].kind else {
+            panic!("expected lowered while statement");
+        };
+
+        let StmtKind::Block {
+            block: lowered_body,
+        } = &body.statements[0].kind
+        else {
+            panic!("expected original for body wrapper block");
+        };
+
+        let StmtKind::If {
+            then_branch: continue_branch,
+            ..
+        } = &lowered_body.statements[0].kind
+        else {
+            panic!("expected if statement guarding continue");
+        };
+
+        assert!(
+            matches!(continue_branch.statements[0].kind, StmtKind::Assign { .. }),
+            "for-loop continue branch should run the step before continuing"
+        );
+        assert!(
+            matches!(continue_branch.statements[1].kind, StmtKind::Continue),
+            "for-loop continue branch should still end with continue"
+        );
+        assert!(
+            matches!(body.statements[1].kind, StmtKind::Assign { .. }),
+            "lowered for loop should keep the normal step at the end of the while body"
+        );
     }
 }

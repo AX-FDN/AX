@@ -33,6 +33,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 self.check_assignment_target(target, &value_type, value.span);
             }
             StmtKind::Break => self.check_break_statement(statement),
+            StmtKind::Continue => self.check_continue_statement(statement),
             StmtKind::Expr { expr } => {
                 self.check_expr(expr);
             }

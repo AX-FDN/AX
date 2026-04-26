@@ -3947,6 +3947,14 @@ fn traversal_example_runs() {
 }
 
 #[test]
+fn continue_example_runs() {
+    let output = run_axc([OsStr::new("run"), OsStr::new("examples/continue.ax")]);
+    assert_eq!(output.status.code(), Some(16));
+    assert_clean_stderr(&output);
+    assert_eq!(normalize_text(&string_output(&output.stdout)), "8\n8\n");
+}
+
+#[test]
 fn format_report_example_runs() {
     let output = run_axc([OsStr::new("run"), OsStr::new("examples/format_report.ax")]);
     assert_eq!(output.status.code(), Some(34));

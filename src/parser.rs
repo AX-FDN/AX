@@ -369,6 +369,10 @@ impl<'a> Parser<'a> {
                 let start = self.advance().span.start;
                 Some(self.parse_break_statement(start))
             }
+            TokenKind::ContinueKw => {
+                let start = self.advance().span.start;
+                Some(self.parse_continue_statement(start))
+            }
             TokenKind::IfKw => {
                 let start = self.advance().span.start;
                 Some(self.parse_if_statement(start))
@@ -446,6 +450,18 @@ impl<'a> Parser<'a> {
         Stmt {
             span: Span::new(start, end.span.end),
             kind: StmtKind::Break,
+        }
+    }
+
+    fn parse_continue_statement(&mut self, start: usize) -> Stmt {
+        let end = self.expect(
+            TokenKind::Semicolon,
+            "expected `;` after `continue`",
+            &["`;`"],
+        );
+        Stmt {
+            span: Span::new(start, end.span.end),
+            kind: StmtKind::Continue,
         }
     }
 
@@ -1359,6 +1375,36 @@ fn main() -> i32 {
     }
 
     #[test]
+    fn parses_continue_statement() {
+        let source = SourceFile::anonymous(
+            "\
+fn main() -> i32 {
+    while (true) {
+        continue;
+    }
+    return 0;
+}
+",
+        );
+        let tokens = tokenize(&source).tokens;
+        let output = parse(&source, tokens);
+        assert!(
+            output.diagnostics.is_empty(),
+            "unexpected diagnostics: {:?}",
+            output.diagnostics
+        );
+        match &output.program.items[0].kind {
+            ItemKind::Function { body, .. } => match &body.statements[0].kind {
+                StmtKind::While { body, .. } => {
+                    assert!(matches!(body.statements[0].kind, StmtKind::Continue));
+                }
+                _ => panic!("expected while statement"),
+            },
+            _ => panic!("expected function"),
+        }
+    }
+
+    #[test]
     fn parses_array_types_literals_and_indexing() {
         let source = SourceFile::anonymous(
             "fn main() -> i32 { let values: [i32; 3] = [1, 2, 3]; return values[1]; }",
@@ -1555,13 +1601,9 @@ fn main() -> i32 {
             lexeme: "}".to_string(),
             span: Span::new(27, 28),
         };
-        let diagnostic = Diagnostic::new(
-            "P0001",
-            "placeholder parser wording",
-            &source,
-            token.span,
-        )
-        .with_kind(DiagnosticKind::MissingSemicolon);
+        let diagnostic =
+            Diagnostic::new("P0001", "placeholder parser wording", &source, token.span)
+                .with_kind(DiagnosticKind::MissingSemicolon);
 
         let enriched = enrich_parse_error(diagnostic, &token, "placeholder parser wording");
 

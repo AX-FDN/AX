@@ -456,6 +456,25 @@ fn main() -> i32 {
     }
 
     #[test]
+    fn accepts_continue_inside_loops() {
+        let codes = check(
+            "\
+fn main() -> i32 {
+    let mut total: i32 = 0;
+    for (let mut i: i32 = 0; i < 4; i = i + 1) {
+        if (i == 1) {
+            continue;
+        }
+        total = total + i;
+    }
+    return total;
+}
+",
+        );
+        assert!(codes.is_empty(), "unexpected diagnostics: {codes:?}");
+    }
+
+    #[test]
     fn reports_for_initializer_variable_used_outside_loop() {
         let codes = check(
             "\
@@ -474,6 +493,12 @@ fn main() -> i32 {
     fn reports_break_outside_loop() {
         let codes = check("fn main() -> i32 { break; return 0; }");
         assert!(codes.iter().any(|code| code == "S0036"));
+    }
+
+    #[test]
+    fn reports_continue_outside_loop() {
+        let codes = check("fn main() -> i32 { continue; return 0; }");
+        assert!(codes.iter().any(|code| code == "S0044"));
     }
 
     #[test]

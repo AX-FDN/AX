@@ -15,6 +15,7 @@
 - `let`、赋值、表达式语句、`return` 必须带分号
 - `if`、`while`、`for` 必须写成 `if (cond) { ... }`、`while (cond) { ... }`、`for (init; cond; step) { ... }`
 - `break;` 当前已支持，可用于提前退出最近一层 `while` 或 `for`
+- `continue;` 当前已支持，可用于跳过最近一层 `while` 或 `for` 的本次迭代并进入下一轮
 - 枚举值必须写成 `EnumName.Variant`
 - 可写目标当前支持嵌套路径：`point.x = expr;`、`outer.inner.value = expr;`、`tokens[index].value = expr;`
 
@@ -152,6 +153,15 @@ while (true) {
 }
 ```
 
+```ax
+for (let mut i: i32 = 0; i < 4; i = i + 1) {
+    if (i == 2) {
+        continue;
+    }
+    println(i);
+}
+```
+
 ## 5. 表达式
 
 字面量：
@@ -264,6 +274,7 @@ block             := "{" stmt* "}"
 stmt              := let_stmt
                   | return_stmt
                   | break_stmt
+                  | continue_stmt
                   | if_stmt
                   | while_stmt
                   | for_stmt
@@ -274,6 +285,7 @@ stmt              := let_stmt
 let_stmt          := "let" "mut"? IDENT ":" type_ref "=" expr ";"
 return_stmt       := "return" expr? ";"
 break_stmt        := "break" ";"
+continue_stmt     := "continue" ";"
 if_stmt           := "if" "(" expr ")" block ("else" (block | if_stmt))?
 while_stmt        := "while" "(" expr ")" block
 for_stmt          := "for" "(" for_init? ";" expr? ";" for_step? ")" block
@@ -324,6 +336,7 @@ array_type        := "[" type_ref ";" INT "]"
 - 数组元素路径赋值：`name[index] = expr;`、`name[index].field = expr;`
 - 只读切片仍然不能写入，因此 `view[index] = expr;` 和 `view[index].field = expr;` 都会被拒绝
 - `break;` 只能出现在 `while` 或 `for` 的循环体内
+- `continue;` 只能出现在 `while` 或 `for` 的循环体内
 - `for` 当前支持的表头子句是：
 - 初始化：空、`let`、赋值、表达式
 - 条件：空或任意会检查为 `bool` 的表达式
@@ -382,9 +395,10 @@ Rules:
 - Use braces for all blocks.
 - Use only fn, struct, enum, let, let mut, return, if/else, while, for.
 - `break;` may be used to exit the nearest `while` or `for` loop early.
+- `continue;` may be used to skip to the next iteration of the nearest `while` or `for` loop.
 - Every function parameter, return type, and local variable must have an explicit type.
 - main must be exactly: fn main() -> i32 { ... }.
-- End let/assignment/expression/return/`break` statements with semicolons.
+- End let/assignment/expression/return/`break`/`continue` statements with semicolons.
 - Supported builtin types are bool, i32, f32, string, and string_list.
 - Builtin helpers are println(...), string_len(text), string_list_new(), string_list_push(list, value), string_list_join(list, separator), len(value), and to_string(value).
 - Enum values must use EnumName.Variant.

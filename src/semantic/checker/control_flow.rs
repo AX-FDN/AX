@@ -16,9 +16,30 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 self.info.source,
                 statement.span,
             )
+            .with_kind(DiagnosticKind::BreakOutsideLoop)
             .with_note("AX uses `break;` to exit the nearest enclosing loop early")
             .with_suggestion(
                 "move `break;` into a loop body, or use `return ...;` to exit the function",
+            ),
+        );
+    }
+
+    pub(super) fn check_continue_statement(&mut self, statement: &Stmt) {
+        if self.loop_depth > 0 {
+            return;
+        }
+
+        self.diagnostics.push(
+            Diagnostic::new(
+                "S0044",
+                "`continue` may only be used inside `while` or `for` loops",
+                self.info.source,
+                statement.span,
+            )
+            .with_kind(DiagnosticKind::ContinueOutsideLoop)
+            .with_note("AX uses `continue;` to skip to the next iteration of the nearest loop")
+            .with_suggestion(
+                "move `continue;` into a loop body, or rewrite the control flow with `if` / `else`",
             ),
         );
     }

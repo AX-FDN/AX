@@ -140,6 +140,7 @@ impl<'a> Lexer<'a> {
             "mut" => TokenKind::MutKw,
             "return" => TokenKind::ReturnKw,
             "break" => TokenKind::BreakKw,
+            "continue" => TokenKind::ContinueKw,
             "if" => TokenKind::IfKw,
             "else" => TokenKind::ElseKw,
             "while" => TokenKind::WhileKw,
@@ -347,6 +348,20 @@ mod tests {
             .collect::<Vec<_>>();
         assert!(output.diagnostics.is_empty());
         assert!(kinds.contains(&TokenKind::BreakKw));
+    }
+
+    #[test]
+    fn tokenizes_continue_keyword() {
+        let source =
+            SourceFile::anonymous("fn main() -> i32 { while (true) { continue; } return 0; }");
+        let output = tokenize(&source);
+        let kinds = output
+            .tokens
+            .iter()
+            .map(|token| token.kind)
+            .collect::<Vec<_>>();
+        assert!(output.diagnostics.is_empty());
+        assert!(kinds.contains(&TokenKind::ContinueKw));
     }
 
     #[test]

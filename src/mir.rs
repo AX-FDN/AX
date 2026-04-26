@@ -284,6 +284,7 @@ struct BasicBlockBuilder {
 #[derive(Clone, Copy)]
 struct LoopTargets {
     break_target: u32,
+    continue_target: u32,
 }
 
 impl FunctionLowerer {
@@ -375,6 +376,13 @@ impl FunctionLowerer {
                 self.set_terminator(current, goto(loop_targets.break_target, statement.span));
                 Ok(self.new_block(statement.span))
             }
+            hir::StmtKind::Continue => {
+                let Some(loop_targets) = self.loop_stack.last().copied() else {
+                    return Err("internal MIR lowering error: `continue` used outside loop".into());
+                };
+                self.set_terminator(current, goto(loop_targets.continue_target, statement.span));
+                Ok(self.new_block(statement.span))
+            }
             hir::StmtKind::Expr { expr } => {
                 self.push_statement(
                     current,
@@ -460,6 +468,7 @@ impl FunctionLowerer {
 
                 self.loop_stack.push(LoopTargets {
                     break_target: exit_block,
+                    continue_target: condition_block,
                 });
                 let body_exit = self.lower_block(body, body_block)?;
                 self.loop_stack.pop();
@@ -940,6 +949,41 @@ fn main() -> i32 {
         assert!(matches!(
             blocks[2].terminator.kind,
             TerminatorKind::Goto { target: 3 }
+        ));
+    }
+
+    #[test]
+    fn lowers_continue_to_loop_condition_block() {
+        let program = lower(
+            "\
+fn main() -> i32 {
+    while (true) {
+        continue;
+    }
+    return 0;
+}
+",
+        );
+
+        let ItemKind::Function { blocks, .. } = &program.items[0].kind else {
+            panic!("expected function item");
+        };
+
+        assert!(matches!(
+            blocks[0].terminator.kind,
+            TerminatorKind::Goto { target: 1 }
+        ));
+        assert!(matches!(
+            blocks[1].terminator.kind,
+            TerminatorKind::Branch {
+                then_block: 2,
+                else_block: 3,
+                ..
+            }
+        ));
+        assert!(matches!(
+            blocks[2].terminator.kind,
+            TerminatorKind::Goto { target: 1 }
         ));
     }
 }

@@ -126,6 +126,7 @@ enum Value {
 enum ControlFlow {
     Continue,
     Break,
+    LoopContinue,
     Return(Value),
 }
 
@@ -2004,6 +2005,21 @@ impl<'a> Interpreter<'a> {
                 .with_suggestion(
                     "keep `break;` inside loops and ensure the function still returns a value",
                 )),
+            ControlFlow::LoopContinue => Err(self
+                .runtime_error(
+                    "R0005",
+                    format!(
+                        "function `{}` completed without returning a value",
+                        function.name
+                    ),
+                    function.span,
+                )
+                .with_note(
+                    "runtime reached the end of the function body after an unexpected `continue`",
+                )
+                .with_suggestion(
+                    "keep `continue;` inside loops and ensure the function still returns a value",
+                )),
             ControlFlow::Continue => Err(self
                 .runtime_error(
                     "R0005",
@@ -2028,6 +2044,10 @@ impl<'a> Interpreter<'a> {
                 ControlFlow::Break => {
                     frame.scopes.pop();
                     return Ok(ControlFlow::Break);
+                }
+                ControlFlow::LoopContinue => {
+                    frame.scopes.pop();
+                    return Ok(ControlFlow::LoopContinue);
                 }
                 ControlFlow::Return(value) => {
                     frame.scopes.pop();
@@ -2067,6 +2087,7 @@ impl<'a> Interpreter<'a> {
                 Ok(ControlFlow::Continue)
             }
             StmtKind::Break => Ok(ControlFlow::Break),
+            StmtKind::Continue => Ok(ControlFlow::LoopContinue),
             StmtKind::Expr { expr } => {
                 self.eval_expr(expr, frame)?;
                 Ok(ControlFlow::Continue)
@@ -2093,6 +2114,7 @@ impl<'a> Interpreter<'a> {
                     match self.exec_block(body, frame)? {
                         ControlFlow::Continue => {}
                         ControlFlow::Break => break,
+                        ControlFlow::LoopContinue => continue,
                         ControlFlow::Return(value) => {
                             return Ok(ControlFlow::Return(value));
                         }

@@ -22,6 +22,8 @@ pub enum DiagnosticKind {
     DuplicateModuleImport,
     ImportedModuleMissing,
     CrossModuleReferenceMissingImport,
+    BreakOutsideLoop,
+    ContinueOutsideLoop,
     FunctionArgumentTypeMismatch,
     ReturnTypeMismatch,
     ConditionTypeMismatch,

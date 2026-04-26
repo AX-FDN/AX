@@ -1,5 +1,8 @@
 # AX 项目总计划
 
+> 阅读提示：本文件是 AX 的长期设计基线与主计划，不是“当前已实现能力总览”。  
+> 如果你想先快速判断 AX 今天到底做到哪了，请先看 [`PROJECT_FACTS.md`](./PROJECT_FACTS.md) 和 [`docs/feature-matrix.md`](./docs/feature-matrix.md)；如果你想看当前施工项，再看 [`WORKLIST.md`](./WORKLIST.md)。
+
 ## 文档定位
 
 - 本文件是 AX 项目的**唯一主计划、唯一设计基线、唯一路线基线**。
