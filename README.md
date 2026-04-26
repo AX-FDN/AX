@@ -14,7 +14,6 @@
 AX 是一个面向 Coding AI 的源码协议项目，也是一个持续工程化的执行语言原型。
 它把源码形态、编译器诊断、修复反馈契约、benchmark 证据链放进同一条链路里，目标是让代码模型在真实任务上生成更稳定、理解更聚焦、修复更可比较。
 
-AX 当前最适合的场景，是小而确定的工具程序：CLI、构建辅助、文本处理、工作区扫描、发布脚本、项目自动化。
 仓库已经具备可运行的 `axc check / run / fmt / build`、结构化 `diagnostics`、`--json --ai` 输出、project-backed 多文件组织、第一阶段 `import/module` 模式、AX 侧共享 foundation，以及 repair benchmark 的导出、评分、对比、smoke 与 CI 资产。
 
 ## 一眼看懂 AX
