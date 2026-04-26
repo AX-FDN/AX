@@ -17,6 +17,62 @@ AX 是一个面向 Coding AI 的源码协议项目，也是一个持续工程化
 AX 当前最适合的场景，是小而确定的工具程序：CLI、构建辅助、文本处理、工作区扫描、发布脚本、项目自动化。
 仓库已经具备可运行的 `axc check / run / fmt / build`、结构化 `diagnostics`、`--json --ai` 输出、project-backed 多文件组织、第一阶段 `import/module` 模式、AX 侧共享 foundation，以及 repair benchmark 的导出、评分、对比、smoke 与 CI 资产。
 
+## 5 分钟上手
+
+### 第一步：直接跑起来
+
+```bash
+git clone https://github.com/AX-FDN/AX
+cd AX
+cargo run --quiet -- run examples/hello.ax
+```
+
+预期输出：
+
+```text
+3
+```
+
+这一步的目标很简单：先确认你本地能直接运行 AX 示例，而不是先埋进设计文档。
+
+### 第二步：改一行代码试试
+
+打开 [`examples/hello.ax`](./examples/hello.ax)，把这行：
+
+```ax
+value = value + 2;
+```
+
+改成：
+
+```ax
+value = value + 5;
+```
+
+然后重新运行：
+
+```bash
+cargo run --quiet -- run examples/hello.ax
+```
+
+新的预期输出：
+
+```text
+6
+```
+
+### 第三步：记住最常用的 3 个命令
+
+```bash
+cargo run --quiet -- check examples/hello.ax
+cargo run --quiet -- run examples/hello.ax
+cargo run --quiet -- fmt examples/hello.ax
+```
+
+- `check`：只看编译期反馈
+- `run`：执行 AX 程序
+- `fmt`：把源码整理成 AX 的规范格式
+
 ## 一眼看懂 AX
 
 | 项目维度 | AX 当前提供什么 |
@@ -353,6 +409,60 @@ AX 的 AI 增强反馈不是样例驱动，而是规则驱动：只要新输入�
 - 首批运行时 / 宿主边界错误：整数溢出、除零、数组索引越界、`argv_get` 负索引 / 越界、环境变量缺失、不可读文件 / 目录、`process_run` 启动失败、`process_capture` 非零退出
 
 这也意味着：AX 现在的 AI 反馈已经能对“随手新写的一段错误代码”生效，但还不是“所有可能错误都已覆盖”；当前策略是先把高频、高价值、可回归的错误家族做硬，再持续扩覆盖面。
+
+## 30 秒看懂 AX 错误反馈
+
+下面这些命令故意运行坏例子，所以返回非 0 退出码是正常现象。
+
+### 1. 人类可读的编译期错误
+
+```bash
+cargo run --quiet -- check examples/non_bool_condition.ax
+```
+
+输出示例：
+
+```text
+S0022: `if` condition must be `bool`, found `i32`
+ --> examples/non_bool_condition.ax:2:9
+  |
+ 2 |     if (1) {
+  |         ^
+  = note: AX does not implicitly convert `i32` to `bool`
+  = help: make the expression produce `bool`; AX does not coerce `i32` into a condition
+```
+
+### 2. 结构化 JSON + AI 增强反馈
+
+```bash
+cargo run --quiet -- check examples/non_bool_condition.ax --json --ai
+```
+
+这会输出稳定 JSON，里面会包含：
+
+- `code`
+- `message`
+- `span`
+- `suggestion`
+- `ai.rule_id`
+- `ai.repair_goal`
+- `ai.fixits`
+
+这就是 AX 给 agent 用的修复协议入口。
+
+### 3. 运行期错误也走同一套协议
+
+```bash
+cargo run --quiet -- run examples/division_by_zero.ax --json --ai
+```
+
+这会返回运行期结构化诊断，例如：
+
+- `code: R0021`
+- `message: division by zero`
+- `ai.rule_id: division_by_zero_must_be_avoided`
+
+也就是说，AX 不只是在“编译时报错”，而是在把编译期与运行期反馈一起结构化。
 
 ## AX 的 benchmark 证据链
 
