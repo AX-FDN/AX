@@ -86,6 +86,8 @@ pub struct StructLiteralField {
 #[derive(Debug, Clone, Serialize)]
 pub struct EnumVariant {
     pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub payload: Option<TypeRef>,
     pub span: Span,
 }
 
@@ -179,12 +181,23 @@ pub struct ForInBinding {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
+pub enum EnumVariantPayloadPattern {
+    Wildcard,
+    Binding { name: String },
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
 pub enum MatchPatternKind {
     Wildcard,
     Binding { name: String },
     Bool { value: bool },
     Int { value: i64 },
-    EnumVariant { path: String },
+    EnumVariant {
+        path: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        payload: Option<EnumVariantPayloadPattern>,
+    },
     Error,
 }
 

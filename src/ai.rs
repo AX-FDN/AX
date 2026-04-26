@@ -257,6 +257,9 @@ fn match_rule_by_kind(kind: DiagnosticKind) -> Option<RuleTemplate> {
         DiagnosticKind::MatchExpressionArmTypeMismatch => {
             Some(RULE_MATCH_EXPRESSION_ARMS_MUST_SHARE_TYPE)
         }
+        DiagnosticKind::MatchEnumVariantPayloadShapeMismatch => {
+            Some(RULE_MATCH_ENUM_VARIANT_PAYLOAD_MUST_MATCH_DECLARATION)
+        }
         DiagnosticKind::FunctionArgumentTypeMismatch => {
             Some(RULE_FUNCTION_ARGUMENT_TYPE_MUST_MATCH)
         }
@@ -267,6 +270,12 @@ fn match_rule_by_kind(kind: DiagnosticKind) -> Option<RuleTemplate> {
         DiagnosticKind::ForInIterableTypeMismatch => Some(RULE_FOR_IN_REQUIRES_SEQUENCE_VALUE),
         DiagnosticKind::ForInBindingTypeMismatch => {
             Some(RULE_FOR_IN_BINDING_MUST_MATCH_ELEMENT_TYPE)
+        }
+        DiagnosticKind::EnumVariantPayloadShapeMismatch => {
+            Some(RULE_ENUM_VARIANT_PAYLOAD_MUST_MATCH_DECLARATION)
+        }
+        DiagnosticKind::EnumVariantPayloadTypeMismatch => {
+            Some(RULE_ENUM_VARIANT_PAYLOAD_TYPE_MUST_MATCH_DECLARATION)
         }
         DiagnosticKind::ArgvIndexNegative => Some(RULE_ARGV_INDEX_NON_NEGATIVE),
         DiagnosticKind::ArgvIndexOutOfBounds => Some(RULE_ARGV_INDEX_IN_BOUNDS),
@@ -757,6 +766,39 @@ const RULE_MATCH_EXPRESSION_ARMS_MUST_SHARE_TYPE: RuleTemplate = RuleTemplate {
     minimal_example: "let code: i32 = match (ready) { true => 1, false => 0 };",
     anti_pattern: Some("let value: i32 = match (flag) { true => 1, false => \"off\" };"),
     default_fixit: "change the mismatching arm so it returns the same type as the other match-expression arms",
+};
+
+const RULE_MATCH_ENUM_VARIANT_PAYLOAD_MUST_MATCH_DECLARATION: RuleTemplate = RuleTemplate {
+    rule_id: "match_enum_variant_payload_must_match_declaration",
+    normalized_pattern: "match_enum_variant_payload_must_match_declaration",
+    repair_goal: "Match payload enum variants using the payload shape declared on the enum variant.",
+    summary: "Payload enum variants must be matched as `EnumName.Variant(name)` or `EnumName.Variant(_)`, while unit variants stay as bare `EnumName.Variant`.",
+    pattern: "match (result) { Result.Ok(value) => value, Result.Err(_) => 0 }",
+    minimal_example: "enum Result { Ok(i32), Err(string) }",
+    anti_pattern: Some("match (result) { Result.Ok => 1, Result.Err(message) => 0 }"),
+    default_fixit: "rewrite the match arm so its payload binding or `_` exactly matches the enum variant declaration",
+};
+
+const RULE_ENUM_VARIANT_PAYLOAD_MUST_MATCH_DECLARATION: RuleTemplate = RuleTemplate {
+    rule_id: "enum_variant_payload_must_match_declaration",
+    normalized_pattern: "enum_variant_payload_must_match_declaration",
+    repair_goal: "Construct the enum variant using the payload shape declared on that variant.",
+    summary: "Unit enum variants are bare values like `Flag.On`, while payload enum variants are constructed as `EnumName.Variant(value)`.",
+    pattern: "let result: Result = Result.Ok(7);",
+    minimal_example: "enum Result { Ok(i32), Err(string) }",
+    anti_pattern: Some("let result: Result = Result.Ok;"),
+    default_fixit: "either add the required payload argument or remove `(...)` when the variant is unit-like",
+};
+
+const RULE_ENUM_VARIANT_PAYLOAD_TYPE_MUST_MATCH_DECLARATION: RuleTemplate = RuleTemplate {
+    rule_id: "enum_variant_payload_type_must_match_declaration",
+    normalized_pattern: "enum_variant_payload_type_must_match_declaration",
+    repair_goal: "Pass a payload value whose type matches the enum variant declaration.",
+    summary: "The payload argument for `EnumName.Variant(value)` must use the type declared on that enum variant.",
+    pattern: "enum Result { Ok(i32) } fn main() -> i32 { let result: Result = Result.Ok(7); return 0; }",
+    minimal_example: "let result: Result = Result.Ok(1);",
+    anti_pattern: Some("let result: Result = Result.Ok(true);"),
+    default_fixit: "rewrite the payload expression so it produces the variant's declared payload type",
 };
 
 const RULE_NON_EMPTY_ARRAY_LITERAL_REQUIRED: RuleTemplate = RuleTemplate {
@@ -1345,7 +1387,10 @@ fn item_descriptor(item: &Item) -> AiFocusItem {
                 "enum {name} {{ {} }}",
                 variants
                     .iter()
-                    .map(|variant| variant.name.clone())
+                    .map(|variant| match &variant.payload {
+                        Some(payload) => format!("{}({})", variant.name, payload.describe()),
+                        None => variant.name.clone(),
+                    })
                     .collect::<Vec<_>>()
                     .join(", ")
             )),
@@ -1486,7 +1531,7 @@ fn collect_statement_names(statement: &Stmt, names: &mut BTreeSet<String>) {
 }
 
 fn collect_match_pattern_names(pattern: &MatchPattern, names: &mut BTreeSet<String>) {
-    if let MatchPatternKind::EnumVariant { path } = &pattern.kind
+    if let MatchPatternKind::EnumVariant { path, .. } = &pattern.kind
         && let Some((enum_path, _)) = path.rsplit_once('.')
     {
         names.insert(enum_path.to_string());

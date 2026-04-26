@@ -1,7 +1,8 @@
 use crate::ast::{
-    BinaryOp, Block, EnumVariant, Expr, ExprKind, ForInBinding, ImportDecl, Item, ItemKind,
-    MatchArm, MatchExprArm, MatchPattern, MatchPatternKind, ModuleDecl, Param, Program,
-    SourceUnit, Stmt, StmtKind, StructField, StructLiteralField, TypeRef, UnaryOp,
+    BinaryOp, Block, EnumVariant, EnumVariantPayloadPattern, Expr, ExprKind, ForInBinding,
+    ImportDecl, Item, ItemKind, MatchArm, MatchExprArm, MatchPattern, MatchPatternKind,
+    ModuleDecl, Param, Program, SourceUnit, Stmt, StmtKind, StructField, StructLiteralField,
+    TypeRef, UnaryOp,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticKind};
 use crate::source::{SourceFile, Span};
@@ -209,8 +210,20 @@ impl<'a> Parser<'a> {
         let mut variants = Vec::new();
         while !self.check(TokenKind::RBrace) && !self.is_at_end() {
             let variant = self.expect_identifier("expected an enum variant");
+            let payload = if self.matches(&[TokenKind::LParen]) {
+                let payload = self.parse_type();
+                self.expect(
+                    TokenKind::RParen,
+                    "expected `)` after enum variant payload type",
+                    &["`)`"],
+                );
+                Some(payload)
+            } else {
+                None
+            };
             variants.push(EnumVariant {
                 name: variant.lexeme,
+                payload,
                 span: variant.span,
             });
             if !self.matches(&[TokenKind::Comma]) {
@@ -621,9 +634,14 @@ impl<'a> Parser<'a> {
                     token,
                     "expected an identifier after `.` in match pattern",
                 );
+                let payload = if self.matches(&[TokenKind::LParen]) {
+                    Some(self.parse_enum_variant_pattern_payload())
+                } else {
+                    None
+                };
                 MatchPattern {
                     span,
-                    kind: MatchPatternKind::EnumVariant { path },
+                    kind: MatchPatternKind::EnumVariant { path, payload },
                 }
             }
             _ => {
@@ -640,6 +658,21 @@ impl<'a> Parser<'a> {
                 }
             }
         }
+    }
+
+    fn parse_enum_variant_pattern_payload(&mut self) -> EnumVariantPayloadPattern {
+        let token = self.expect_identifier("expected `_` or a binding name in enum payload pattern");
+        let payload = if token.lexeme == "_" {
+            EnumVariantPayloadPattern::Wildcard
+        } else {
+            EnumVariantPayloadPattern::Binding { name: token.lexeme }
+        };
+        self.expect(
+            TokenKind::RParen,
+            "expected `)` after enum payload pattern",
+            &["`)`"],
+        );
+        payload
     }
 
     fn parse_if_statement(&mut self, start: usize) -> Stmt {
@@ -1765,11 +1798,11 @@ fn main() -> i32 {
         assert_eq!(arms.len(), 2);
         assert!(matches!(
             arms[0].pattern.kind,
-            MatchPatternKind::EnumVariant { ref path } if path == "Flag.On"
+            MatchPatternKind::EnumVariant { ref path, .. } if path == "Flag.On"
         ));
         assert!(matches!(
             arms[1].pattern.kind,
-            MatchPatternKind::EnumVariant { ref path } if path == "Flag.Off"
+            MatchPatternKind::EnumVariant { ref path, .. } if path == "Flag.Off"
         ));
     }
 

@@ -1,8 +1,8 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::ast::{
-    Block, Expr, ForInBinding, MatchArm, MatchExprArm, MatchPattern, MatchPatternKind, Stmt,
-    StmtKind,
+    Block, EnumVariantPayloadPattern, Expr, ForInBinding, MatchArm, MatchExprArm, MatchPattern,
+    MatchPatternKind, Stmt, StmtKind,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticKind};
 use crate::source::Span;
@@ -480,7 +480,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 };
                 let missing = enum_info
                     .variants
-                    .iter()
+                    .keys()
                     .filter(|variant| !coverage.seen_variants.contains(*variant))
                     .cloned()
                     .collect::<Vec<_>>();
@@ -539,7 +539,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 }
                 Some(ResolvedMatchPattern::Int(value))
             }
-            MatchPatternKind::EnumVariant { path } => {
+            MatchPatternKind::EnumVariant { path, payload } => {
                 let Some((enum_path, variant)) = path.rsplit_once('.') else {
                     self.diagnostics.push(
                         Diagnostic::new(
@@ -585,7 +585,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 let Some(enum_info) = self.info.enums.get(&enum_name) else {
                     return None;
                 };
-                if !enum_info.variants.contains(variant) {
+                let Some(variant_info) = enum_info.variants.get(variant) else {
                     self.diagnostics.push(
                         Diagnostic::new(
                             "S0029",
@@ -596,13 +596,55 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                         .with_suggestion("use one of the declared enum variants"),
                     );
                     return None;
-                }
+                };
 
                 if !matches!(scrutinee_type, Type::Enum(name) if name == &enum_name)
                     && !matches!(scrutinee_type, Type::Error)
                 {
                     self.report_match_pattern_type_mismatch(pattern, scrutinee_type);
                     return None;
+                }
+
+                match (&variant_info.payload, payload) {
+                    (Some(_), None) => {
+                        self.diagnostics.push(
+                            Diagnostic::new(
+                                "S0055",
+                                format!(
+                                    "match pattern `{path}` must bind or ignore the payload for enum variant `{enum_name}.{variant}`"
+                                ),
+                                self.info.source,
+                                pattern.span,
+                            )
+                            .with_kind(DiagnosticKind::MatchEnumVariantPayloadShapeMismatch)
+                            .with_note(
+                                "payload enum variants must appear in patterns as `EnumName.Variant(name)` or `EnumName.Variant(_)` in the current AX slice",
+                            )
+                            .with_suggestion(format!(
+                                "rewrite this arm as `{path}(value) => ...` or `{path}(_) => ...`",
+                            )),
+                        );
+                        return None;
+                    }
+                    (None, Some(_)) => {
+                        self.diagnostics.push(
+                            Diagnostic::new(
+                                "S0055",
+                                format!(
+                                    "match pattern `{}` cannot bind a payload because enum variant `{enum_name}.{variant}` has no payload",
+                                    pattern_label(pattern)
+                                ),
+                                self.info.source,
+                                pattern.span,
+                            )
+                            .with_kind(DiagnosticKind::MatchEnumVariantPayloadShapeMismatch)
+                            .with_suggestion(format!(
+                                "rewrite this arm as `{path} => ...` without payload binding",
+                            )),
+                        );
+                        return None;
+                    }
+                    _ => {}
                 }
 
                 Some(ResolvedMatchPattern::EnumVariant {
@@ -674,9 +716,37 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
     }
 
     fn declare_match_binding(&mut self, scrutinee_type: &Type, pattern: &MatchPattern) {
-        if let MatchPatternKind::Binding { name } = &pattern.kind {
-            self.declare(name, scrutinee_type.clone(), false, pattern.span.start);
+        match &pattern.kind {
+            MatchPatternKind::Binding { name } => {
+                self.declare(name, scrutinee_type.clone(), false, pattern.span.start);
+            }
+            MatchPatternKind::EnumVariant {
+                path,
+                payload: Some(EnumVariantPayloadPattern::Binding { name }),
+            } => {
+                if let Some(payload_type) = self.resolve_enum_pattern_payload_type(path, pattern.span)
+                {
+                    self.declare(name, payload_type, false, pattern.span.start);
+                }
+            }
+            _ => {}
         }
+    }
+
+    fn resolve_enum_pattern_payload_type(&mut self, path: &str, span: Span) -> Option<Type> {
+        let (enum_path, variant) = path.rsplit_once('.')?;
+        let current_unit_path = self.current_unit_path().to_string();
+        let resolved_key = self.info.resolve_named_type_key(
+            enum_path,
+            &current_unit_path,
+            span,
+            self.diagnostics,
+        )?;
+        let Type::Enum(enum_name) = self.info.named_types.get(&resolved_key).cloned()? else {
+            return None;
+        };
+        let enum_info = self.info.enums.get(&enum_name)?;
+        enum_info.variants.get(variant)?.payload.clone()
     }
 }
 
@@ -686,7 +756,11 @@ fn pattern_label(pattern: &MatchPattern) -> String {
         MatchPatternKind::Binding { name } => name.clone(),
         MatchPatternKind::Bool { value } => value.to_string(),
         MatchPatternKind::Int { value } => value.to_string(),
-        MatchPatternKind::EnumVariant { path } => path.clone(),
+        MatchPatternKind::EnumVariant { path, payload } => match payload {
+            Some(EnumVariantPayloadPattern::Wildcard) => format!("{path}(_)"),
+            Some(EnumVariantPayloadPattern::Binding { name }) => format!("{path}({name})"),
+            None => path.clone(),
+        },
         MatchPatternKind::Error => "<invalid-pattern>".to_string(),
     }
 }

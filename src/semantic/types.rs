@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) enum Type {
@@ -54,18 +54,6 @@ impl Type {
             )
     }
 
-    fn is_comparable_primitive(&self) -> bool {
-        matches!(self, Self::Bool | Self::I32 | Self::F32 | Self::String)
-    }
-
-    pub(super) fn is_equality_comparable(&self) -> bool {
-        self.is_comparable_primitive()
-            || matches!(self, Self::Enum(_))
-            || matches!(
-                self,
-                Self::Array { element, .. } if element.is_equality_comparable()
-            )
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -87,7 +75,12 @@ pub(super) struct StructInfo {
 
 #[derive(Debug, Clone)]
 pub(super) struct EnumInfo {
-    pub(super) variants: HashSet<String>,
+    pub(super) variants: HashMap<String, EnumVariantInfo>,
+}
+
+#[derive(Debug, Clone)]
+pub(super) struct EnumVariantInfo {
+    pub(super) payload: Option<Type>,
 }
 
 #[derive(Debug, Clone)]

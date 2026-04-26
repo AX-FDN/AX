@@ -172,8 +172,31 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 self.diagnostics,
             ) && let Some(enum_info) = self.info.enums.get(&resolved_enum_name)
             {
-                if enum_info.variants.contains(field) {
-                    return Type::Enum(resolved_enum_name);
+                if let Some(variant_info) = enum_info.variants.get(field) {
+                    if variant_info.payload.is_none() {
+                        return Type::Enum(resolved_enum_name);
+                    }
+
+                    self.diagnostics.push(
+                        Diagnostic::new(
+                            "S0053",
+                            format!(
+                                "enum variant `{}.{field}` requires a payload value",
+                                resolved_enum_name
+                            ),
+                            self.info.source,
+                            expr.span,
+                        )
+                        .with_kind(DiagnosticKind::EnumVariantPayloadShapeMismatch)
+                        .with_note(
+                            "payload enum variants must be constructed with `EnumName.Variant(value)` in the current AX slice",
+                        )
+                        .with_suggestion(format!(
+                            "call this variant like `{}.{field}(...)` with a value of the declared payload type",
+                            resolved_enum_name
+                        )),
+                    );
+                    return Type::Error;
                 }
 
                 self.diagnostics.push(

@@ -3,7 +3,9 @@ use std::collections::HashMap;
 use serde::Serialize;
 
 use crate::hir::{self};
-pub use crate::hir::{BinaryOp, EnumVariant, StructField, Type, UnaryOp};
+pub use crate::hir::{
+    BinaryOp, EnumVariant, EnumVariantPayloadPattern, StructField, Type, UnaryOp,
+};
 use crate::source::Span;
 
 #[derive(Debug, Clone, Serialize)]
@@ -165,7 +167,14 @@ pub enum MatchPatternKind {
     Binding { name: String },
     Bool { value: bool },
     Int { value: i32 },
-    EnumVariant { enum_name: String, variant: String },
+    EnumVariant {
+        enum_name: String,
+        variant: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        payload: Option<EnumVariantPayloadPattern>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        payload_type: Option<Type>,
+    },
     Error,
 }
 
@@ -215,6 +224,15 @@ pub enum ExprKind {
     EnumVariant {
         enum_name: String,
         variant: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        payload: Option<Box<Expr>>,
+    },
+    MatchTest {
+        scrutinee: Box<Expr>,
+        pattern: MatchPattern,
+    },
+    EnumPayload {
+        value: Box<Expr>,
     },
     Field {
         base: Box<Expr>,
@@ -592,15 +610,17 @@ impl FunctionLowerer {
                         .map(|arm| {
                             let pattern = self.lower_match_pattern(&arm.pattern);
                             self.push_scope();
-                            if let hir::MatchPatternKind::Binding { name } = &arm.pattern.kind {
+                            if let Some((binding_name, binding_ty)) =
+                                Self::match_pattern_binding(&arm.pattern.kind, &scrutinee_ty)
+                            {
                                 let local = self.allocate_local(
-                                    name,
-                                    &scrutinee_ty,
+                                    binding_name,
+                                    &binding_ty,
                                     false,
                                     LocalKind::Local,
                                     arm.pattern.span,
                                 );
-                                self.declare(name, local);
+                                self.declare(binding_name, local);
                             }
                             let value = self.lower_expr(&arm.value);
                             self.pop_scope();
@@ -614,9 +634,25 @@ impl FunctionLowerer {
                         .collect::<Result<Vec<_>, String>>()?,
                 }
             }
-            hir::ExprKind::EnumVariant { enum_name, variant } => ExprKind::EnumVariant {
+            hir::ExprKind::EnumVariant {
+                enum_name,
+                variant,
+                payload,
+            } => ExprKind::EnumVariant {
                 enum_name: enum_name.clone(),
                 variant: variant.clone(),
+                payload: payload
+                    .as_ref()
+                    .map(|payload| self.lower_expr(payload))
+                    .transpose()?
+                    .map(Box::new),
+            },
+            hir::ExprKind::MatchTest { scrutinee, pattern } => ExprKind::MatchTest {
+                scrutinee: Box::new(self.lower_expr(scrutinee)?),
+                pattern: self.lower_match_pattern(pattern),
+            },
+            hir::ExprKind::EnumPayload { value } => ExprKind::EnumPayload {
+                value: Box::new(self.lower_expr(value)?),
             },
             hir::ExprKind::Field { base, field } => ExprKind::Field {
                 base: Box::new(self.lower_expr(base)?),
@@ -647,10 +683,17 @@ impl FunctionLowerer {
             },
             hir::MatchPatternKind::Bool { value } => MatchPatternKind::Bool { value: *value },
             hir::MatchPatternKind::Int { value } => MatchPatternKind::Int { value: *value },
-            hir::MatchPatternKind::EnumVariant { enum_name, variant } => {
+            hir::MatchPatternKind::EnumVariant {
+                enum_name,
+                variant,
+                payload,
+                payload_type,
+            } => {
                 MatchPatternKind::EnumVariant {
                     enum_name: enum_name.clone(),
                     variant: variant.clone(),
+                    payload: payload.clone(),
+                    payload_type: payload_type.clone(),
                 }
             }
             hir::MatchPatternKind::Error => MatchPatternKind::Error,
@@ -686,6 +729,21 @@ impl FunctionLowerer {
             "internal MIR lowering error: cannot infer match input type at {}..{} without a concrete pattern",
             span.start, span.end
         ))
+    }
+
+    fn match_pattern_binding<'a>(
+        pattern: &'a hir::MatchPatternKind,
+        scrutinee_ty: &'a Type,
+    ) -> Option<(&'a str, Type)> {
+        match pattern {
+            hir::MatchPatternKind::Binding { name } => Some((name.as_str(), scrutinee_ty.clone())),
+            hir::MatchPatternKind::EnumVariant {
+                payload: Some(EnumVariantPayloadPattern::Binding { name }),
+                payload_type: Some(payload_type),
+                ..
+            } => Some((name.as_str(), payload_type.clone())),
+            _ => None,
+        }
     }
 
     fn allocate_local(

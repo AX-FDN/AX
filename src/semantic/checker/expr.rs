@@ -227,7 +227,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                         }
                     }
                     BinaryOp::Equal | BinaryOp::NotEqual => {
-                        if left_type == right_type && left_type.is_equality_comparable() {
+                        if left_type == right_type && self.type_is_equality_comparable(&left_type) {
                             Type::Bool
                         } else {
                             self.diagnostics.push(
@@ -281,6 +281,28 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             ExprKind::Index { base, index } => self.check_index_expr(expr, base, index),
             ExprKind::Slice { base, start, end } => self.check_slice_expr(expr, base, start, end),
             ExprKind::Error => Type::Error,
+        }
+    }
+
+    fn type_is_equality_comparable(&self, ty: &Type) -> bool {
+        match ty {
+            Type::Bool | Type::I32 | Type::F32 | Type::String => true,
+            Type::Array { element, .. } => self.type_is_equality_comparable(element),
+            Type::Enum(enum_name) => self
+                .info
+                .enums
+                .get(enum_name)
+                .map(|enum_info| {
+                    enum_info
+                        .variants
+                        .values()
+                        .all(|variant| match &variant.payload {
+                            Some(payload) => self.type_is_equality_comparable(payload),
+                            None => true,
+                        })
+                })
+                .unwrap_or(false),
+            _ => false,
         }
     }
 }

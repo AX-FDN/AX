@@ -107,7 +107,7 @@ fn match_is_exhaustive(arms: &[MatchArm], info: &ProgramInfo<'_>, current_unit_p
                 bools.insert(*value);
                 only_enums = false;
             }
-            MatchPatternKind::EnumVariant { path } => {
+            MatchPatternKind::EnumVariant { path, .. } => {
                 only_bools = false;
                 let Some((enum_path, variant)) = path.rsplit_once('.') else {
                     return false;
@@ -154,7 +154,7 @@ fn match_is_exhaustive(arms: &[MatchArm], info: &ProgramInfo<'_>, current_unit_p
         };
         return enum_info
             .variants
-            .iter()
+            .keys()
             .all(|variant| enum_variants.contains(variant));
     }
 

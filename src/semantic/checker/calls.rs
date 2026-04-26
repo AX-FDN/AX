@@ -33,6 +33,11 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             return result;
         }
 
+        if let Some(result) = self.check_enum_variant_constructor_call(expr, &callee_name, arguments)
+        {
+            return result;
+        }
+
         let current_unit_path = self.current_unit_path().to_string();
         let resolved_name = self.info.resolve_function_key(
             &callee_name,
@@ -104,6 +109,99 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     .with_suggestion(format!("declare `{callee_name}` or fix the call target")),
                 );
                 Type::Error
+            }
+        }
+    }
+
+    fn check_enum_variant_constructor_call(
+        &mut self,
+        expr: &Expr,
+        callee_name: &str,
+        arguments: &[Expr],
+    ) -> Option<Type> {
+        let (enum_path, variant) = callee_name.rsplit_once('.')?;
+        let current_unit_path = self.current_unit_path().to_string();
+        let local_enum_candidate = self
+            .info
+            .unit_context(&current_unit_path)
+            .and_then(|unit| unit.module_path.as_ref())
+            .map(|module_path| format!("{module_path}.{enum_path}"));
+        let has_local_enum_candidate = local_enum_candidate
+            .as_ref()
+            .map(|candidate| self.info.named_types.contains_key(candidate))
+            .unwrap_or(false);
+        if !self.info.named_types.contains_key(enum_path) && !has_local_enum_candidate {
+            return None;
+        }
+        let resolved_enum_name = self.info.resolve_named_type_key(
+            enum_path,
+            &current_unit_path,
+            expr.span,
+            self.diagnostics,
+        )?;
+        let Some(enum_info) = self.info.enums.get(&resolved_enum_name).cloned() else {
+            return None;
+        };
+        let Some(variant_info) = enum_info.variants.get(variant).cloned() else {
+            return None;
+        };
+
+        let argument_types = arguments
+            .iter()
+            .map(|argument| self.check_expr(argument))
+            .collect::<Vec<_>>();
+
+        match variant_info.payload {
+            Some(payload_type) => {
+                if argument_types.len() != 1 {
+                    self.diagnostics.push(
+                        Diagnostic::new(
+                            "S0053",
+                            format!(
+                                "enum variant `{callee_name}` expects exactly 1 payload argument, found {}",
+                                argument_types.len()
+                            ),
+                            self.info.source,
+                            expr.span,
+                        )
+                        .with_kind(DiagnosticKind::EnumVariantPayloadShapeMismatch)
+                        .with_note(
+                            "payload enum variants are constructed as `EnumName.Variant(value)` in the current AX slice",
+                        )
+                        .with_suggestion("pass exactly one payload value that matches the declared payload type"),
+                    );
+                    return Some(Type::Error);
+                }
+
+                self.expect_type_match_with_kind(
+                    &payload_type,
+                    &argument_types[0],
+                    arguments[0].span,
+                    format!(
+                        "enum variant `{callee_name}` expects payload type `{}`, found `{}`",
+                        payload_type.describe(),
+                        argument_types[0].describe()
+                    ),
+                    DiagnosticKind::EnumVariantPayloadTypeMismatch,
+                );
+
+                Some(Type::Enum(resolved_enum_name))
+            }
+            None => {
+                self.diagnostics.push(
+                    Diagnostic::new(
+                        "S0053",
+                        format!("enum variant `{callee_name}` does not accept payload arguments"),
+                        self.info.source,
+                        expr.span,
+                    )
+                    .with_kind(DiagnosticKind::EnumVariantPayloadShapeMismatch)
+                    .with_note(
+                        "unit enum variants are already complete values, so they are written without `(...)`",
+                    )
+                    .with_suggestion(format!("drop the call syntax and use `{callee_name}` directly")),
+                );
+                Some(Type::Error)
             }
         }
     }

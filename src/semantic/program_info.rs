@@ -7,7 +7,9 @@ use crate::project::Project;
 use crate::source::SourceFile;
 
 use super::helpers::{builtin_types, item_name};
-use super::types::{EnumInfo, FunctionSignature, ParamInfo, StructFieldInfo, StructInfo, Type};
+use super::types::{
+    EnumInfo, EnumVariantInfo, FunctionSignature, ParamInfo, StructFieldInfo, StructInfo, Type,
+};
 
 #[derive(Debug, Clone, Default)]
 pub(super) struct UnitContext {
@@ -267,9 +269,9 @@ impl<'a> ProgramInfo<'a> {
                         .insert(canonical_name, StructInfo { fields: field_map });
                 }
                 ItemKind::Enum { variants, .. } => {
-                    let mut variant_names = HashSet::new();
+                    let mut variant_names = HashMap::new();
                     for variant in variants {
-                        if !variant_names.insert(variant.name.clone()) {
+                        if variant_names.contains_key(&variant.name) {
                             diagnostics.push(
                                 Diagnostic::new(
                                     "S0001",
@@ -282,7 +284,13 @@ impl<'a> ProgramInfo<'a> {
                                 )
                                 .with_suggestion("remove or rename the duplicate variant"),
                             );
+                            continue;
                         }
+                        let payload = variant
+                            .payload
+                            .as_ref()
+                            .map(|payload| info.resolve_type_ref(payload, &unit_path, diagnostics));
+                        variant_names.insert(variant.name.clone(), EnumVariantInfo { payload });
                     }
                     info.enums.insert(
                         canonical_name,

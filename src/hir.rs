@@ -63,6 +63,8 @@ pub struct StructLiteralField {
 #[derive(Debug, Clone, Serialize)]
 pub struct EnumVariant {
     pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub payload: Option<Type>,
     pub span: Span,
 }
 
@@ -94,6 +96,13 @@ pub struct MatchExprArm {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum EnumVariantPayloadPattern {
+    Wildcard,
+    Binding { name: String },
+}
+
+#[derive(Debug, Clone, Serialize)]
 pub struct MatchPattern {
     #[serde(flatten)]
     pub kind: MatchPatternKind,
@@ -107,7 +116,14 @@ pub enum MatchPatternKind {
     Binding { name: String },
     Bool { value: bool },
     Int { value: i32 },
-    EnumVariant { enum_name: String, variant: String },
+    EnumVariant {
+        enum_name: String,
+        variant: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        payload: Option<EnumVariantPayloadPattern>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        payload_type: Option<Type>,
+    },
     Error,
 }
 
@@ -220,6 +236,15 @@ pub enum ExprKind {
     EnumVariant {
         enum_name: String,
         variant: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        payload: Option<Box<Expr>>,
+    },
+    MatchTest {
+        scrutinee: Box<Expr>,
+        pattern: MatchPattern,
+    },
+    EnumPayload {
+        value: Box<Expr>,
     },
     Field {
         base: Box<Expr>,
@@ -246,6 +271,7 @@ struct LoweringContext<'a> {
     function_names: HashSet<String>,
     struct_names: HashSet<String>,
     enum_names: HashSet<String>,
+    enum_variant_payloads: HashMap<String, HashMap<String, Type>>,
     next_match_temp: Cell<u32>,
     next_for_in_temp: Cell<u32>,
 }
@@ -280,15 +306,44 @@ impl<'a> LoweringContext<'a> {
             }
         }
 
-        Self {
+        let mut context = Self {
             source,
             unit_modules,
             function_names,
             struct_names,
             enum_names,
+            enum_variant_payloads: HashMap::new(),
             next_match_temp: Cell::new(0),
             next_for_in_temp: Cell::new(0),
+        };
+        context.enum_variant_payloads = context.collect_enum_variant_payloads(program);
+        context
+    }
+
+    fn collect_enum_variant_payloads(
+        &self,
+        program: &ast::Program,
+    ) -> HashMap<String, HashMap<String, Type>> {
+        let mut payloads = HashMap::new();
+
+        for item in &program.items {
+            let ast::ItemKind::Enum { variants, .. } = &item.kind else {
+                continue;
+            };
+
+            let enum_name = canonical_item_name(self.source, &self.unit_modules, item);
+            let mut variant_payloads = HashMap::new();
+            for variant in variants {
+                if let Some(payload) = &variant.payload
+                    && let Ok(payload_type) = self.lower_type_ref(payload)
+                {
+                    variant_payloads.insert(variant.name.clone(), payload_type);
+                }
+            }
+            payloads.insert(enum_name, variant_payloads);
         }
+
+        payloads
     }
 
     fn lower_program(&self, program: &ast::Program) -> Result<Program, Diagnostic> {
@@ -340,11 +395,18 @@ impl<'a> LoweringContext<'a> {
                 name: self.canonical_name(name, item.span),
                 variants: variants
                     .iter()
-                    .map(|variant| EnumVariant {
-                        name: variant.name.clone(),
-                        span: variant.span,
+                    .map(|variant| {
+                        Ok(EnumVariant {
+                            name: variant.name.clone(),
+                            payload: variant
+                                .payload
+                                .as_ref()
+                                .map(|payload| self.lower_type_ref(payload))
+                                .transpose()?,
+                            span: variant.span,
+                        })
                     })
-                    .collect(),
+                    .collect::<Result<Vec<_>, Diagnostic>>()?,
             },
         };
 
@@ -802,14 +864,20 @@ impl<'a> LoweringContext<'a> {
         ) {
             return Ok(Stmt {
                 kind: StmtKind::Block {
-                    block: self.lower_match_catchall_block(temp_name, temp_type, &first.pattern, &first.body)?,
+                    block: self.lower_match_arm_block(
+                        temp_name,
+                        temp_type,
+                        &first.pattern,
+                        &first.body,
+                    )?,
                 },
                 span: first.span,
             });
         }
 
         let condition = self.lower_match_pattern_condition(temp_name, &first.pattern)?;
-        let then_branch = self.lower_block(&first.body)?;
+        let then_branch =
+            self.lower_match_arm_block(temp_name, temp_type, &first.pattern, &first.body)?;
         let else_branch = if rest.is_empty() {
             Some(Block {
                 statements: Vec::new(),
@@ -838,76 +906,16 @@ impl<'a> LoweringContext<'a> {
         temp_name: &str,
         pattern: &ast::MatchPattern,
     ) -> Result<Expr, Diagnostic> {
-        let left = Expr {
-            kind: ExprKind::Name {
-                value: temp_name.to_string(),
-            },
-            span: pattern.span,
-        };
-        let right = self.lower_match_pattern_value(pattern)?;
         Ok(Expr {
-            kind: ExprKind::Binary {
-                op: BinaryOp::Equal,
-                left: Box::new(left),
-                right: Box::new(right.clone()),
+            kind: ExprKind::MatchTest {
+                scrutinee: Box::new(Expr {
+                    kind: ExprKind::Name {
+                        value: temp_name.to_string(),
+                    },
+                    span: pattern.span,
+                }),
+                pattern: self.lower_match_pattern(pattern)?,
             },
-            span: Span::new(pattern.span.start, right.span.end),
-        })
-    }
-
-    fn lower_match_pattern_value(&self, pattern: &ast::MatchPattern) -> Result<Expr, Diagnostic> {
-        let kind = match &pattern.kind {
-            ast::MatchPatternKind::Binding { .. } => {
-                return Err(self.lowering_error(
-                    "H0014",
-                    "binding match pattern cannot be lowered into an equality check",
-                    pattern.span,
-                ));
-            }
-            ast::MatchPatternKind::Bool { value } => ExprKind::Bool { value: *value },
-            ast::MatchPatternKind::Int { value } => {
-                let value = i32::try_from(*value).map_err(|_| {
-                    self.lowering_error(
-                        "H0008",
-                        "match integer pattern is out of HIR `i32` range",
-                        pattern.span,
-                    )
-                })?;
-                ExprKind::Int { value }
-            }
-            ast::MatchPatternKind::EnumVariant { path } => {
-                let Some((enum_path, variant)) = path.rsplit_once('.') else {
-                    return Err(self.lowering_error(
-                        "H0009",
-                        "match enum pattern must use `EnumName.Variant`",
-                        pattern.span,
-                    ));
-                };
-                let enum_name = self
-                    .resolve_canonical_name(enum_path, pattern.span, &self.enum_names)
-                    .unwrap_or_else(|| enum_path.to_string());
-                ExprKind::EnumVariant {
-                    enum_name,
-                    variant: variant.to_string(),
-                }
-            }
-            ast::MatchPatternKind::Wildcard => {
-                return Err(self.lowering_error(
-                    "H0010",
-                    "wildcard match patterns must be lowered as a final catch-all arm",
-                    pattern.span,
-                ));
-            }
-            ast::MatchPatternKind::Error => {
-                return Err(self.lowering_error(
-                    "H0011",
-                    "cannot lower invalid match pattern into HIR",
-                    pattern.span,
-                ));
-            }
-        };
-        Ok(Expr {
-            kind,
             span: pattern.span,
         })
     }
@@ -928,7 +936,7 @@ impl<'a> LoweringContext<'a> {
                     )
                 })?,
             },
-            ast::MatchPatternKind::EnumVariant { path } => {
+            ast::MatchPatternKind::EnumVariant { path, payload } => {
                 let Some((enum_path, variant)) = path.rsplit_once('.') else {
                     return Err(self.lowering_error(
                         "H0009",
@@ -942,6 +950,15 @@ impl<'a> LoweringContext<'a> {
                 MatchPatternKind::EnumVariant {
                     enum_name,
                     variant: variant.to_string(),
+                    payload: payload.as_ref().map(|payload| match payload {
+                        ast::EnumVariantPayloadPattern::Wildcard => {
+                            EnumVariantPayloadPattern::Wildcard
+                        }
+                        ast::EnumVariantPayloadPattern::Binding { name } => {
+                            EnumVariantPayloadPattern::Binding { name: name.clone() }
+                        }
+                    }),
+                    payload_type: self.resolve_enum_variant_payload_type(path, pattern.span)?,
                 }
             }
             ast::MatchPatternKind::Error => MatchPatternKind::Error,
@@ -962,7 +979,7 @@ impl<'a> LoweringContext<'a> {
             match &arm.pattern.kind {
                 ast::MatchPatternKind::Bool { .. } => return Ok(Type::Bool),
                 ast::MatchPatternKind::Int { .. } => return Ok(Type::I32),
-                ast::MatchPatternKind::EnumVariant { path } => {
+                ast::MatchPatternKind::EnumVariant { path, .. } => {
                     let Some((enum_path, _)) = path.rsplit_once('.') else {
                         return Err(self.lowering_error(
                             "H0012",
@@ -988,7 +1005,7 @@ impl<'a> LoweringContext<'a> {
         ))
     }
 
-    fn lower_match_catchall_block(
+    fn lower_match_arm_block(
         &self,
         temp_name: &str,
         temp_type: &Type,
@@ -996,33 +1013,100 @@ impl<'a> LoweringContext<'a> {
         body: &ast::Block,
     ) -> Result<Block, Diagnostic> {
         let body_block = self.lower_block(body)?;
-        let ast::MatchPatternKind::Binding { name } = &pattern.kind else {
-            return Ok(body_block);
-        };
-
-        Ok(Block {
-            statements: vec![
-                Stmt {
-                    kind: StmtKind::Let {
-                        mutable: false,
-                        name: name.clone(),
-                        ty: temp_type.clone(),
-                        initializer: Expr {
-                            kind: ExprKind::Name {
-                                value: temp_name.to_string(),
+        match &pattern.kind {
+            ast::MatchPatternKind::Binding { name } => Ok(Block {
+                statements: vec![
+                    Stmt {
+                        kind: StmtKind::Let {
+                            mutable: false,
+                            name: name.clone(),
+                            ty: temp_type.clone(),
+                            initializer: Expr {
+                                kind: ExprKind::Name {
+                                    value: temp_name.to_string(),
+                                },
+                                span: pattern.span,
+                            },
+                        },
+                        span: pattern.span,
+                    },
+                    Stmt {
+                        kind: StmtKind::Block { block: body_block },
+                        span: body.span,
+                    },
+                ],
+                span: body.span,
+            }),
+            ast::MatchPatternKind::EnumVariant {
+                path,
+                payload: Some(ast::EnumVariantPayloadPattern::Binding { name }),
+            } => {
+                let payload_type = match self.resolve_enum_variant_payload_type(path, pattern.span)? {
+                    Some(payload_type) => payload_type,
+                    None => {
+                        return Err(self.lowering_error(
+                            "H0016",
+                            format!("enum variant `{path}` does not carry a payload"),
+                            pattern.span,
+                        ));
+                    }
+                };
+                Ok(Block {
+                    statements: vec![
+                        Stmt {
+                            kind: StmtKind::Let {
+                                mutable: false,
+                                name: name.clone(),
+                                ty: payload_type,
+                                initializer: Expr {
+                                    kind: ExprKind::EnumPayload {
+                                        value: Box::new(Expr {
+                                            kind: ExprKind::Name {
+                                                value: temp_name.to_string(),
+                                            },
+                                            span: pattern.span,
+                                        }),
+                                    },
+                                    span: pattern.span,
+                                },
                             },
                             span: pattern.span,
                         },
-                    },
-                    span: pattern.span,
-                },
-                Stmt {
-                    kind: StmtKind::Block { block: body_block },
+                        Stmt {
+                            kind: StmtKind::Block { block: body_block },
+                            span: body.span,
+                        },
+                    ],
                     span: body.span,
-                },
-            ],
-            span: body.span,
-        })
+                })
+            }
+            _ => Ok(body_block),
+        }
+    }
+
+    fn resolve_enum_variant_payload_type(
+        &self,
+        path: &str,
+        span: Span,
+    ) -> Result<Option<Type>, Diagnostic> {
+        let Some((enum_path, variant)) = path.rsplit_once('.') else {
+            return Err(self.lowering_error(
+                "H0009",
+                "match enum pattern must use `EnumName.Variant`",
+                span,
+            ));
+        };
+        let enum_name = self
+            .resolve_canonical_name(enum_path, span, &self.enum_names)
+            .unwrap_or_else(|| enum_path.to_string());
+        let Some(variant_payloads) = self.enum_variant_payloads.get(&enum_name) else {
+            return Err(self.lowering_error(
+                "H0015",
+                format!("cannot find payload metadata for enum `{enum_name}`"),
+                span,
+            ));
+        };
+        Ok(variant_payloads.get(variant).cloned())
     }
 
     fn lower_place(&self, expr: &ast::Expr) -> Result<Place, Diagnostic> {
@@ -1093,19 +1177,25 @@ impl<'a> LoweringContext<'a> {
                 right: Box::new(self.lower_expr(right)?),
             },
             ast::ExprKind::Call { callee, arguments } => {
-                let Some(function) = callee.qualified_name() else {
-                    return Err(self.lowering_error(
-                        "H0006",
-                        "HIR calls require a direct function name",
-                        callee.span,
-                    ));
-                };
-                ExprKind::Call {
-                    function: self.resolve_function_name(&function, callee.span),
-                    arguments: arguments
-                        .iter()
-                        .map(|argument| self.lower_expr(argument))
-                        .collect::<Result<Vec<_>, _>>()?,
+                if let Some(enum_variant) =
+                    self.try_lower_enum_variant_constructor(callee, arguments)?
+                {
+                    enum_variant
+                } else {
+                    let Some(function) = callee.qualified_name() else {
+                        return Err(self.lowering_error(
+                            "H0006",
+                            "HIR calls require a direct function name",
+                            callee.span,
+                        ));
+                    };
+                    ExprKind::Call {
+                        function: self.resolve_function_name(&function, callee.span),
+                        arguments: arguments
+                            .iter()
+                            .map(|argument| self.lower_expr(argument))
+                            .collect::<Result<Vec<_>, _>>()?,
+                    }
                 }
             }
             ast::ExprKind::StructLiteral { name, fields } => ExprKind::StructLiteral {
@@ -1149,6 +1239,7 @@ impl<'a> LoweringContext<'a> {
                     ExprKind::EnumVariant {
                         enum_name,
                         variant: field.clone(),
+                        payload: None,
                     }
                 } else {
                     ExprKind::Field {
@@ -1179,6 +1270,32 @@ impl<'a> LoweringContext<'a> {
             kind,
             span: expr.span,
         })
+    }
+
+    fn try_lower_enum_variant_constructor(
+        &self,
+        callee: &ast::Expr,
+        arguments: &[ast::Expr],
+    ) -> Result<Option<ExprKind>, Diagnostic> {
+        let Some(path) = callee.qualified_name() else {
+            return Ok(None);
+        };
+        let Some((enum_path, variant)) = path.rsplit_once('.') else {
+            return Ok(None);
+        };
+        let Some(enum_name) = self.resolve_canonical_name(enum_path, callee.span, &self.enum_names)
+        else {
+            return Ok(None);
+        };
+
+        let Some(argument) = arguments.first() else {
+            return Ok(None);
+        };
+        Ok(Some(ExprKind::EnumVariant {
+            enum_name,
+            variant: variant.to_string(),
+            payload: Some(Box::new(self.lower_expr(argument)?)),
+        }))
     }
 
     fn lowering_error(&self, code: &str, message: impl Into<String>, span: Span) -> Diagnostic {
@@ -1251,7 +1368,7 @@ fn canonical_item_name(
 #[cfg(test)]
 mod tests {
     use super::{
-        BinaryOp, ExprKind, ItemKind, MatchPatternKind, PlaceKind, StmtKind, Type, lower_program,
+        ExprKind, ItemKind, MatchPatternKind, PlaceKind, StmtKind, Type, lower_program,
     };
     use crate::lexer::tokenize;
     use crate::parser::parse;
@@ -1388,7 +1505,11 @@ fn main() -> i32 {
         };
         assert!(matches!(
             initializer.kind,
-            ExprKind::EnumVariant { ref enum_name, ref variant }
+            ExprKind::EnumVariant {
+                ref enum_name,
+                ref variant,
+                payload: None
+            }
                 if enum_name == "lib.flag.Flag" && variant == "On"
         ));
     }
@@ -1754,10 +1875,7 @@ fn main() -> i32 {
 
         assert!(matches!(
             condition.kind,
-            ExprKind::Binary {
-                op: BinaryOp::Equal,
-                ..
-            }
+            ExprKind::MatchTest { .. }
         ));
         assert!(matches!(
             then_branch.statements[0].kind,

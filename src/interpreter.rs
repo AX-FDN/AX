@@ -5,8 +5,9 @@ use std::process::Command;
 
 use crate::diagnostics::{Diagnostic, DiagnosticKind};
 use crate::hir::{
-    BinaryOp, Block, Expr, ExprKind, ItemKind, MatchExprArm, MatchPattern, MatchPatternKind,
-    Param, Place, PlaceKind, Program, Stmt, StmtKind, UnaryOp,
+    BinaryOp, Block, EnumVariantPayloadPattern as MatchPatternPayload, Expr, ExprKind, ItemKind,
+    MatchExprArm, MatchPattern, MatchPatternKind, Param, Place, PlaceKind, Program, Stmt,
+    StmtKind, UnaryOp,
 };
 use crate::source::{SourceFile, Span};
 
@@ -115,6 +116,7 @@ enum Value {
     Enum {
         name: String,
         variant: String,
+        payload: Option<Box<Value>>,
     },
     Struct {
         name: String,
@@ -163,7 +165,14 @@ impl Value {
                     .join(", ");
                 format!("[{elements}]")
             }
-            Self::Enum { name, variant } => format!("{name}.{variant}"),
+            Self::Enum {
+                name,
+                variant,
+                payload,
+            } => match payload {
+                Some(payload) => format!("{name}.{variant}({})", payload.display()),
+                None => format!("{name}.{variant}"),
+            },
             Self::Struct { name, fields } => {
                 let fields = fields
                     .iter()
@@ -2345,10 +2354,38 @@ impl<'a> Interpreter<'a> {
                 let scrutinee_value = self.eval_expr(scrutinee, frame)?;
                 self.eval_match_expression(scrutinee_value, arms, expr.span, frame)
             }
-            ExprKind::EnumVariant { enum_name, variant } => Ok(Value::Enum {
+            ExprKind::EnumVariant {
+                enum_name,
+                variant,
+                payload,
+            } => Ok(Value::Enum {
                 name: enum_name.clone(),
                 variant: variant.clone(),
+                payload: match payload {
+                    Some(payload) => Some(Box::new(self.eval_expr(payload, frame)?)),
+                    None => None,
+                },
             }),
+            ExprKind::MatchTest { scrutinee, pattern } => {
+                let scrutinee_value = self.eval_expr(scrutinee, frame)?;
+                Ok(Value::Bool(
+                    self.match_pattern_matches_value(pattern, &scrutinee_value, expr.span)?,
+                ))
+            }
+            ExprKind::EnumPayload { value } => match self.eval_expr(value, frame)? {
+                Value::Enum {
+                    payload: Some(payload),
+                    ..
+                } => Ok(*payload),
+                other => Err(self.runtime_error(
+                    "R0042",
+                    format!(
+                        "payload extraction requires a payload enum value, got `{}`",
+                        other.display()
+                    ),
+                    expr.span,
+                )),
+            },
             ExprKind::Field { base, field } => match self.eval_expr(base, frame)? {
                 Value::Struct { fields, .. } => fields.get(field).cloned().ok_or_else(|| {
                     self.runtime_error(
@@ -2454,11 +2491,35 @@ impl<'a> Interpreter<'a> {
                     span,
                 )),
             },
-            MatchPatternKind::EnumVariant { enum_name, variant } => match scrutinee {
+            MatchPatternKind::EnumVariant {
+                enum_name,
+                variant,
+                payload,
+                ..
+            } => match scrutinee {
                 Value::Enum {
                     name,
                     variant: actual_variant,
-                } => Ok(name == enum_name && actual_variant == variant),
+                    payload: actual_payload,
+                } => {
+                    if name != enum_name || actual_variant != variant {
+                        return Ok(false);
+                    }
+
+                    match (payload, actual_payload.as_ref()) {
+                        (None, _) => Ok(true),
+                        (Some(MatchPatternPayload::Wildcard), Some(_)) => Ok(true),
+                        (Some(MatchPatternPayload::Binding { .. }), Some(_)) => Ok(true),
+                        (Some(_), None) => Err(self.runtime_error(
+                            "R0037",
+                            format!(
+                                "match enum pattern `{}` expects a payload value",
+                                Self::match_pattern_label(pattern)
+                            ),
+                            span,
+                        )),
+                    }
+                }
                 other => Err(self.runtime_error(
                     "R0037",
                     format!(
@@ -2484,18 +2545,85 @@ impl<'a> Interpreter<'a> {
         frame: &mut Frame,
     ) -> Result<Value, Diagnostic> {
         frame.scopes.push(HashMap::new());
-        if let MatchPatternKind::Binding { name } = &pattern.kind {
-            frame.scopes.last_mut().expect("scope should exist").insert(
-                name.clone(),
-                Slot {
-                    mutable: false,
-                    value: scrutinee.clone(),
-                },
-            );
+        if let Err(error) = self.bind_match_pattern_locals(pattern, scrutinee, frame) {
+            frame.scopes.pop();
+            return Err(error);
         }
         let result = self.eval_expr(value, frame);
         frame.scopes.pop();
         result
+    }
+
+    fn bind_match_pattern_locals(
+        &self,
+        pattern: &MatchPattern,
+        scrutinee: &Value,
+        frame: &mut Frame,
+    ) -> Result<(), Diagnostic> {
+        match &pattern.kind {
+            MatchPatternKind::Binding { name } => {
+                frame.scopes.last_mut().expect("scope should exist").insert(
+                    name.clone(),
+                    Slot {
+                        mutable: false,
+                        value: scrutinee.clone(),
+                    },
+                );
+            }
+            MatchPatternKind::EnumVariant {
+                payload: Some(MatchPatternPayload::Binding { name }),
+                ..
+            } => {
+                let Value::Enum {
+                    payload: Some(payload),
+                    ..
+                } = scrutinee
+                else {
+                    return Err(self.runtime_error(
+                        "R0042",
+                        format!(
+                            "payload binding `{}` requires a payload enum value",
+                            name
+                        ),
+                        pattern.span,
+                    ));
+                };
+                frame.scopes.last_mut().expect("scope should exist").insert(
+                    name.clone(),
+                    Slot {
+                        mutable: false,
+                        value: (**payload).clone(),
+                    },
+                );
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+
+    fn match_pattern_label(pattern: &MatchPattern) -> String {
+        match &pattern.kind {
+            MatchPatternKind::Wildcard => "_".to_string(),
+            MatchPatternKind::Binding { name } => name.clone(),
+            MatchPatternKind::Bool { value } => value.to_string(),
+            MatchPatternKind::Int { value } => value.to_string(),
+            MatchPatternKind::EnumVariant {
+                enum_name,
+                variant,
+                payload: Some(MatchPatternPayload::Wildcard),
+                ..
+            } => format!("{enum_name}.{variant}(_)"),
+            MatchPatternKind::EnumVariant {
+                enum_name,
+                variant,
+                payload: Some(MatchPatternPayload::Binding { name }),
+                ..
+            } => format!("{enum_name}.{variant}({name})"),
+            MatchPatternKind::EnumVariant {
+                enum_name, variant, ..
+            } => format!("{enum_name}.{variant}"),
+            MatchPatternKind::Error => "<invalid-pattern>".to_string(),
+        }
     }
 
     fn indexable_elements(&self, value: Value, span: Span) -> Result<Vec<Value>, Diagnostic> {

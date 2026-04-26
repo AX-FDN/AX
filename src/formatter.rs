@@ -134,7 +134,11 @@ impl Formatter {
         self.indent += 1;
         for variant in variants {
             self.write_indent();
-            let _ = writeln!(self.out, "{},", variant.name);
+            if let Some(payload) = &variant.payload {
+                let _ = writeln!(self.out, "{}({}),", variant.name, format_type_ref(payload));
+            } else {
+                let _ = writeln!(self.out, "{},", variant.name);
+            }
         }
         self.indent -= 1;
         self.write_indent();
@@ -345,7 +349,13 @@ fn format_match_pattern(pattern: &MatchPattern) -> String {
         MatchPatternKind::Binding { name } => name.clone(),
         MatchPatternKind::Bool { value } => value.to_string(),
         MatchPatternKind::Int { value } => value.to_string(),
-        MatchPatternKind::EnumVariant { path } => path.clone(),
+        MatchPatternKind::EnumVariant { path, payload } => match payload {
+            Some(crate::ast::EnumVariantPayloadPattern::Wildcard) => format!("{path}(_)"),
+            Some(crate::ast::EnumVariantPayloadPattern::Binding { name }) => {
+                format!("{path}({name})")
+            }
+            None => path.clone(),
+        },
         MatchPatternKind::Error => "<invalid-pattern>".to_string(),
     }
 }
