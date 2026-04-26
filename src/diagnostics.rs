@@ -30,6 +30,7 @@ pub enum DiagnosticKind {
     MatchWildcardMustBeLast,
     MatchNotExhaustive,
     MatchRequiresConcretePattern,
+    MatchExpressionArmTypeMismatch,
     FunctionArgumentTypeMismatch,
     ReturnTypeMismatch,
     ConditionTypeMismatch,

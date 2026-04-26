@@ -599,6 +599,68 @@ fn main() -> i32 {
     }
 
     #[test]
+    fn accepts_match_expressions() {
+        let codes = check(
+            "\
+fn main() -> i32 {
+    let flag: bool = true;
+    let value: i32 = match (flag) { true => 1, false => 0 };
+    return value;
+}
+",
+        );
+        assert!(codes.is_empty(), "unexpected diagnostics: {codes:?}");
+    }
+
+    #[test]
+    fn reports_match_expression_arm_type_mismatch() {
+        let codes = check(
+            "\
+fn main() -> i32 {
+    let flag: bool = true;
+    let value: i32 = match (flag) { true => 1, false => \"off\" };
+    return value;
+}
+",
+        );
+        assert!(codes.iter().any(|code| code == "S0022"));
+    }
+
+    #[test]
+    fn accepts_match_binding_patterns() {
+        let codes = check(
+            "\
+fn main() -> i32 {
+    let source: i32 = 4;
+    let value: i32 = match (source) { 0 => 1, other => other };
+    return value;
+}
+",
+        );
+        assert!(codes.is_empty(), "unexpected diagnostics: {codes:?}");
+    }
+
+    #[test]
+    fn reports_match_binding_before_final_arm() {
+        let codes = check(
+            "\
+fn main() -> i32 {
+    let flag: bool = true;
+    match (flag) {
+        current => {
+            return 1;
+        }
+        true => {
+            return 0;
+        }
+    }
+}
+",
+        );
+        assert!(codes.iter().any(|code| code == "S0048"));
+    }
+
+    #[test]
     fn accepts_for_in_over_arrays() {
         let codes = check(
             "\

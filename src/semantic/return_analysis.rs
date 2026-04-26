@@ -78,12 +78,19 @@ fn match_is_exhaustive(arms: &[MatchArm], info: &ProgramInfo<'_>, current_unit_p
 
     if arms
         .iter()
-        .any(|arm| matches!(arm.pattern.kind, MatchPatternKind::Wildcard))
+        .any(|arm| {
+            matches!(
+                arm.pattern.kind,
+                MatchPatternKind::Wildcard | MatchPatternKind::Binding { .. }
+            )
+        })
     {
         return arms.iter().any(|arm| {
             !matches!(
                 arm.pattern.kind,
-                MatchPatternKind::Wildcard | MatchPatternKind::Error
+                MatchPatternKind::Wildcard
+                    | MatchPatternKind::Binding { .. }
+                    | MatchPatternKind::Error
             )
         });
     }
@@ -127,9 +134,10 @@ fn match_is_exhaustive(arms: &[MatchArm], info: &ProgramInfo<'_>, current_unit_p
                 }
                 enum_variants.insert(variant.to_string());
             }
-            MatchPatternKind::Int { .. } | MatchPatternKind::Wildcard | MatchPatternKind::Error => {
-                return false;
-            }
+            MatchPatternKind::Int { .. }
+            | MatchPatternKind::Wildcard
+            | MatchPatternKind::Binding { .. }
+            | MatchPatternKind::Error => return false,
         }
     }
 

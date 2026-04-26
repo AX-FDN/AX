@@ -16,7 +16,7 @@
 - `if`、`while`、`for` 必须写成带括号的头部：`if (cond) { ... }`、`while (cond) { ... }`、`for (init; cond; step) { ... }`、`for (let value: T in values) { ... }`
 - `break;` 当前已支持，可用于提前退出最近一层 `while` 或 `for`
 - `continue;` 当前已支持，可用于跳过最近一层 `while` 或 `for` 的本次迭代并进入下一轮
-- `match (...) { ... }` 当前已支持最小语句形态：模式只支持 `true` / `false`、整数、枚举值与 `_`
+- `match (...) { ... }` 当前已支持最小语句形态、表达式前两刀，以及最终裸标识符绑定模式；模式当前支持 `true` / `false`、整数、枚举值、最终 `_` 与最终裸标识符（如 `other`）
 - 逻辑运算当前已支持 `&&` 与 `||`，并按短路语义执行
 - 余数运算 `%` 当前已支持，且当前只接受 `i32` 操作数
 - 枚举值必须写成 `EnumName.Variant`
@@ -213,6 +213,36 @@ match (value) {
 }
 ```
 
+```ax
+let code: i32 = match (flag) {
+    true => 1,
+    false => 0,
+};
+```
+
+```ax
+match (flag) {
+    true => {
+        println("true");
+    }
+    current => {
+        println(to_string(current));
+    }
+}
+```
+
+```ax
+let code: i32 = match (value) {
+    0 => 10,
+    other => other + 2,
+};
+```
+
+- 语句形态使用 `pattern => { ... }`
+- 表达式形态当前使用 `pattern => expr`
+- 裸标识符 pattern 是最终 catch-all，并在当前 arm 内引入一个不可变局部名
+- 表达式形态的所有 arm 必须返回同类型
+
 ## 5. 表达式
 
 字面量：
@@ -346,7 +376,8 @@ break_stmt        := "break" ";"
 continue_stmt     := "continue" ";"
 match_stmt        := "match" "(" expr ")" "{" match_arm+ "}"
 match_arm         := match_pattern "=>" block
-match_pattern     := "_" | "true" | "false" | INT | qualified_name
+match_pattern     := "_" | "true" | "false" | INT | qualified_name | binding_name
+binding_name      := IDENT  // bare identifier without `.`; catch-all and must be final
 if_stmt           := "if" "(" expr ")" block ("else" (block | if_stmt))?
 while_stmt        := "while" "(" expr ")" block
 for_stmt          := "for" "(" for_init? ";" expr? ";" for_step? ")" block
@@ -373,9 +404,13 @@ primary_expr      := INT
                   | BOOL
                   | STRING
                   | IDENT
+                  | match_expr
                   | struct_literal
                   | array_literal
                   | "(" expr ")"
+
+match_expr        := "match" "(" expr ")" "{" match_expr_arm ("," match_expr_arm)* ","? "}"
+match_expr_arm    := match_pattern "=>" expr
 
 struct_literal    := IDENT "{" struct_init_list? "}"
 struct_init_list  := struct_init ("," struct_init)* ","?
@@ -399,9 +434,11 @@ array_type        := "[" type_ref ";" INT "]"
 - 只读切片仍然不能写入，因此 `view[index] = expr;` 和 `view[index].field = expr;` 都会被拒绝
 - `break;` 只能出现在 `while` 或 `for` 的循环体内
 - `continue;` 只能出现在 `while` 或 `for` 的循环体内
-- `match` 当前只支持语句形态，不支持表达式形态
-- `match` 模式当前只支持 `bool`、`i32`、枚举值与 `_`
-- `match` 要求穷尽：`bool` 必须覆盖 `true/false`，枚举必须覆盖全部 variant，`i32` 当前必须以 `_` 兜底
+- `match` 当前支持语句形态、表达式前两刀与最终绑定 catch-all
+- `match` 模式当前只支持 `bool`、`i32`、枚举值、最终 `_` 与最终裸标识符绑定
+- `_` 与裸标识符绑定都属于 catch-all，必须出现在最后一个 arm
+- `match` 要求穷尽：`bool` 必须覆盖 `true/false` 或最终 catch-all，枚举必须覆盖全部 variant 或最终 catch-all，`i32` 当前必须以 `_` 或最终绑定兜底
+- 表达式 `match` 当前要求所有 arm 返回同类型，且 arm body 仍然必须是单个表达式
 - `&&` 与 `||` 当前要求两边都为 `bool`
 - `%` 当前要求两边都为 `i32`
 - `for` 当前支持的表头子句是：
@@ -457,7 +494,7 @@ array_type        := "[" type_ref ";" INT "]"
 - 空数组字面量 `[]` 不是“完全不支持”。
 - 当前只支持带显式零长度数组上下文的写法：`let values: [i32; 0] = [];`
 - 如果上下文不是零长度数组，例如 `let values: [i32; 1] = [];`，会报 `S0032`。
-- `match` 当前是最小第一版：不支持绑定模式、解构、guard、表达式返回值或多模式合并。
+- `match` 当前是 `v2` 的前两小步：已支持表达式形态与最终绑定模式，但仍不支持解构、guard、多模式合并，表达式形态也还不支持 block-valued arm。
 - `module / import` 当前是最小第一版：不支持 alias、wildcard import、`pub`、包管理与远程依赖。
 
 ## 9. 给 AI 的直接提示词
@@ -466,11 +503,13 @@ array_type        := "[" type_ref ";" INT "]"
 Generate code in the current AX prototype syntax only.
 Rules:
 - Use braces for all blocks.
-- Use only module, import, fn, struct, enum, let, let mut, return, if/else, while, for, and statement-form match.
+- Use only module, import, fn, struct, enum, let, let mut, return, if/else, while, for, and the current minimal match forms.
 - `break;` may be used to exit the nearest `while` or `for` loop early.
 - `continue;` may be used to skip to the next iteration of the nearest `while` or `for` loop.
-- `match` is statement-only and uses `match (value) { pattern => { ... } ... }`.
-- `match` patterns currently support only `true`, `false`, integer literals, enum variants, and final `_`.
+- `match` supports statement form `match (value) { pattern => { ... } ... }` and expression form `match (value) { pattern => expr, ... }`.
+- `match` patterns currently support `true`, `false`, integer literals, enum variants, final `_`, and final bare binding names like `other`.
+- A bare binding pattern is a final catch-all and introduces an immutable arm-local name.
+- Expression-form `match` arms must stay single expressions and all arms must produce the same type.
 - `&&` and `||` are supported and both sides must produce `bool`.
 - `%` is supported and currently requires `i32` operands.
 - Every function parameter, return type, and local variable must have an explicit type.
@@ -487,7 +526,7 @@ Rules:
 - Mutable write paths may target variables, nested struct fields, and fields selected from mutable array elements.
 - Slice values remain read-only, so assignments through values[start:end] are not allowed.
 - In project mode, support sources may declare `module ...;` and files may use explicit `import module.path;`.
-- Do not use exceptions, async, generics, binding-pattern match arms, or expression-form match.
+- Do not use exceptions, async, generics, destructuring match patterns, match guards, or multi-pattern match arms.
 - Use [] only when the target type is explicitly a zero-length array like [i32; 0].
 - Return 0 from main on success unless a different exit code is explicitly needed.
 ```

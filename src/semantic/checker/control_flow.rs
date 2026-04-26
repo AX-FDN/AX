@@ -1,7 +1,8 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use crate::ast::{
-    Block, Expr, ForInBinding, MatchArm, MatchPattern, MatchPatternKind, Stmt, StmtKind,
+    Block, Expr, ForInBinding, MatchArm, MatchExprArm, MatchPattern, MatchPatternKind, Stmt,
+    StmtKind,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticKind};
 use crate::source::Span;
@@ -12,6 +13,20 @@ enum ResolvedMatchPattern {
     Bool(bool),
     Int(i32),
     EnumVariant { variant: String },
+}
+
+struct MatchCase<'a> {
+    pattern: &'a MatchPattern,
+}
+
+struct MatchCoverage {
+    scrutinee_type: Type,
+    scrutinee_supported: bool,
+    wildcard_seen: bool,
+    concrete_pattern_seen: bool,
+    seen_bools: HashSet<bool>,
+    seen_ints: HashSet<i32>,
+    seen_variants: HashSet<String>,
 }
 
 impl<'a, 'b> TypeChecker<'a, 'b> {
@@ -61,201 +76,62 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
         scrutinee: &Expr,
         arms: &[MatchArm],
     ) {
-        let scrutinee_type = self.check_expr(scrutinee);
-
-        if arms.is_empty() {
-            self.diagnostics.push(
-                Diagnostic::new(
-                    "S0050",
-                    "`match` requires at least one arm",
-                    self.info.source,
-                    statement.span,
-                )
-                .with_kind(DiagnosticKind::MatchRequiresConcretePattern)
-                .with_suggestion("add at least one arm like `value => { ... }` inside the match"),
-            );
-            return;
+        let cases = arms
+            .iter()
+            .map(|arm| MatchCase {
+                pattern: &arm.pattern,
+            })
+            .collect::<Vec<_>>();
+        let coverage = self.analyze_match_cases(statement.span, scrutinee, &cases);
+        for arm in arms {
+            self.check_match_arm_block(&coverage.scrutinee_type, &arm.pattern, &arm.body);
         }
+        self.report_match_exhaustiveness(statement.span, &coverage);
+    }
 
-        let scrutinee_supported = match &scrutinee_type {
-            Type::Bool | Type::I32 | Type::Enum(_) => true,
-            Type::Error => false,
-            _ => {
-                self.diagnostics.push(
-                    Diagnostic::new(
-                        "S0045",
-                        format!(
-                            "`match` currently requires `bool`, `i32`, or enum input, found `{}`",
-                            scrutinee_type.describe()
-                        ),
-                        self.info.source,
-                        scrutinee.span,
-                    )
-                    .with_kind(DiagnosticKind::MatchScrutineeTypeUnsupported)
-                    .with_note(
-                        "the first AX `match` only covers boolean values, integer literals, and enum variants",
-                    )
-                    .with_suggestion(
-                        "rewrite this with `if / else`, or change the match input to `bool`, `i32`, or an enum value",
+    pub(super) fn check_match_expression(
+        &mut self,
+        expr: &Expr,
+        scrutinee: &Expr,
+        arms: &[MatchExprArm],
+    ) -> Type {
+        let cases = arms
+            .iter()
+            .map(|arm| MatchCase {
+                pattern: &arm.pattern,
+            })
+            .collect::<Vec<_>>();
+        let coverage = self.analyze_match_cases(expr.span, scrutinee, &cases);
+
+        let mut result_type = None::<Type>;
+        for arm in arms {
+            let arm_type =
+                self.check_match_expression_arm(&coverage.scrutinee_type, &arm.pattern, &arm.value);
+            if arm_type.is_error() {
+                continue;
+            }
+
+            if let Some(expected_type) = &result_type {
+                self.expect_type_match_with_kind(
+                    expected_type,
+                    &arm_type,
+                    arm.value.span,
+                    format!(
+                        "match expression arm `{}` must produce `{}`, found `{}`",
+                        pattern_label(&arm.pattern),
+                        expected_type.describe(),
+                        arm_type.describe()
                     ),
+                    DiagnosticKind::MatchExpressionArmTypeMismatch,
                 );
-                false
+            } else {
+                result_type = Some(arm_type);
             }
-        };
-
-        let mut wildcard_seen = false;
-        let mut concrete_pattern_seen = false;
-        let mut seen_bools = HashSet::new();
-        let mut seen_ints = HashSet::new();
-        let mut seen_variants = HashSet::new();
-
-        for (index, arm) in arms.iter().enumerate() {
-            match &arm.pattern.kind {
-                MatchPatternKind::Wildcard => {
-                    if wildcard_seen || index + 1 < arms.len() {
-                        self.diagnostics.push(
-                            Diagnostic::new(
-                                "S0048",
-                                "the catch-all `_` match arm must appear at most once and only as the final arm",
-                                self.info.source,
-                                arm.pattern.span,
-                            )
-                            .with_kind(DiagnosticKind::MatchWildcardMustBeLast)
-                            .with_suggestion(
-                                "keep a single `_ => { ... }` arm at the end of the match, or remove it",
-                            ),
-                        );
-                    }
-                    wildcard_seen = true;
-                }
-                MatchPatternKind::Error => {}
-                _ => {
-                    concrete_pattern_seen = true;
-                }
-            }
-
-            if scrutinee_supported {
-                if let Some(resolved) = self.resolve_match_pattern(&arm.pattern, &scrutinee_type) {
-                    match resolved {
-                        ResolvedMatchPattern::Bool(value) => {
-                            if !seen_bools.insert(value) {
-                                self.report_duplicate_match_pattern(
-                                    arm.pattern.span,
-                                    pattern_label(&arm.pattern),
-                                );
-                            }
-                        }
-                        ResolvedMatchPattern::Int(value) => {
-                            if !seen_ints.insert(value) {
-                                self.report_duplicate_match_pattern(
-                                    arm.pattern.span,
-                                    pattern_label(&arm.pattern),
-                                );
-                            }
-                        }
-                        ResolvedMatchPattern::EnumVariant { variant } => {
-                            if !seen_variants.insert(variant.clone()) {
-                                self.report_duplicate_match_pattern(
-                                    arm.pattern.span,
-                                    pattern_label(&arm.pattern),
-                                );
-                            }
-                        }
-                    }
-                }
-            }
-
-            self.check_block(&arm.body);
         }
 
-        if !concrete_pattern_seen {
-            self.diagnostics.push(
-                Diagnostic::new(
-                    "S0050",
-                    "`match` requires at least one concrete pattern before an optional `_` arm",
-                    self.info.source,
-                    statement.span,
-                )
-                .with_kind(DiagnosticKind::MatchRequiresConcretePattern)
-                .with_note("a wildcard-only match does not establish a stable, typed branch set")
-                .with_suggestion(
-                    "add at least one literal or enum-variant pattern, or replace the whole construct with a normal block",
-                ),
-            );
-        }
+        self.report_match_exhaustiveness(expr.span, &coverage);
 
-        if !scrutinee_supported || wildcard_seen || !concrete_pattern_seen {
-            return;
-        }
-
-        match &scrutinee_type {
-            Type::Bool => {
-                if seen_bools.len() != 2 {
-                    let missing = [true, false]
-                        .into_iter()
-                        .filter(|value| !seen_bools.contains(value))
-                        .map(|value| value.to_string())
-                        .collect::<Vec<_>>()
-                        .join(", ");
-                    self.diagnostics.push(
-                        Diagnostic::new(
-                            "S0049",
-                            format!("non-exhaustive `match`: missing arm(s) for `{missing}`"),
-                            self.info.source,
-                            statement.span,
-                        )
-                        .with_kind(DiagnosticKind::MatchNotExhaustive)
-                        .with_suggestion(
-                            "cover the remaining boolean case or add a final `_ => { ... }` arm",
-                        ),
-                    );
-                }
-            }
-            Type::I32 => {
-                self.diagnostics.push(
-                    Diagnostic::new(
-                        "S0049",
-                        "non-exhaustive `match`: `i32` matches require a final `_` arm",
-                        self.info.source,
-                        statement.span,
-                    )
-                    .with_kind(DiagnosticKind::MatchNotExhaustive)
-                    .with_note("AX does not allow integer matches to fall through silently")
-                    .with_suggestion(
-                        "add a final `_ => { ... }` arm to cover the remaining values",
-                    ),
-                );
-            }
-            Type::Enum(enum_name) => {
-                let Some(enum_info) = self.info.enums.get(enum_name) else {
-                    return;
-                };
-                let missing = enum_info
-                    .variants
-                    .iter()
-                    .filter(|variant| !seen_variants.contains(*variant))
-                    .cloned()
-                    .collect::<Vec<_>>();
-                if !missing.is_empty() {
-                    self.diagnostics.push(
-                        Diagnostic::new(
-                            "S0049",
-                            format!(
-                                "non-exhaustive `match`: missing enum arm(s) for {}",
-                                missing.join(", ")
-                            ),
-                            self.info.source,
-                            statement.span,
-                        )
-                        .with_kind(DiagnosticKind::MatchNotExhaustive)
-                        .with_suggestion(
-                            "cover the remaining enum variants or add a final `_ => { ... }` arm",
-                        ),
-                    );
-                }
-            }
-            _ => {}
-        }
+        result_type.unwrap_or(Type::Error)
     }
 
     pub(super) fn check_return_statement(&mut self, statement: &Stmt, value: Option<&Expr>) {
@@ -418,13 +294,225 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
         );
     }
 
+    fn analyze_match_cases(
+        &mut self,
+        match_span: Span,
+        scrutinee: &Expr,
+        cases: &[MatchCase<'_>],
+    ) -> MatchCoverage {
+        let scrutinee_type = self.check_expr(scrutinee);
+
+        if cases.is_empty() {
+            self.diagnostics.push(
+                Diagnostic::new(
+                    "S0050",
+                    "`match` requires at least one arm",
+                    self.info.source,
+                    match_span,
+                )
+                .with_kind(DiagnosticKind::MatchRequiresConcretePattern)
+                .with_suggestion("add at least one arm like `value => ...` inside the match"),
+            );
+        }
+
+        let scrutinee_supported = match &scrutinee_type {
+            Type::Bool | Type::I32 | Type::Enum(_) => true,
+            Type::Error => false,
+            _ => {
+                self.diagnostics.push(
+                    Diagnostic::new(
+                        "S0045",
+                        format!(
+                            "`match` currently requires `bool`, `i32`, or enum input, found `{}`",
+                            scrutinee_type.describe()
+                        ),
+                        self.info.source,
+                        scrutinee.span,
+                    )
+                    .with_kind(DiagnosticKind::MatchScrutineeTypeUnsupported)
+                    .with_note(
+                        "the current AX `match` only covers boolean values, integer literals, and enum variants",
+                    )
+                    .with_suggestion(
+                        "rewrite this with `if / else`, or change the match input to `bool`, `i32`, or an enum value",
+                    ),
+                );
+                false
+            }
+        };
+
+        let mut coverage = MatchCoverage {
+            scrutinee_type,
+            scrutinee_supported,
+            wildcard_seen: false,
+            concrete_pattern_seen: false,
+            seen_bools: HashSet::new(),
+            seen_ints: HashSet::new(),
+            seen_variants: HashSet::new(),
+        };
+
+        for (index, case) in cases.iter().enumerate() {
+            match &case.pattern.kind {
+                MatchPatternKind::Wildcard | MatchPatternKind::Binding { .. } => {
+                    if coverage.wildcard_seen || index + 1 < cases.len() {
+                        self.diagnostics.push(
+                            Diagnostic::new(
+                                "S0048",
+                                "the catch-all match arm must appear at most once and only as the final arm",
+                                self.info.source,
+                                case.pattern.span,
+                            )
+                            .with_kind(DiagnosticKind::MatchWildcardMustBeLast)
+                            .with_suggestion(
+                                "keep a single final catch-all arm like `_ => ...` or `value => ...`, or remove it",
+                            ),
+                        );
+                    }
+                    coverage.wildcard_seen = true;
+                }
+                MatchPatternKind::Error => {}
+                _ => {
+                    coverage.concrete_pattern_seen = true;
+                }
+            }
+
+            if coverage.scrutinee_supported
+                && let Some(resolved) =
+                    self.resolve_match_pattern(case.pattern, &coverage.scrutinee_type)
+            {
+                match resolved {
+                    ResolvedMatchPattern::Bool(value) => {
+                        if !coverage.seen_bools.insert(value) {
+                            self.report_duplicate_match_pattern(
+                                case.pattern.span,
+                                pattern_label(case.pattern),
+                            );
+                        }
+                    }
+                    ResolvedMatchPattern::Int(value) => {
+                        if !coverage.seen_ints.insert(value) {
+                            self.report_duplicate_match_pattern(
+                                case.pattern.span,
+                                pattern_label(case.pattern),
+                            );
+                        }
+                    }
+                    ResolvedMatchPattern::EnumVariant { variant } => {
+                        if !coverage.seen_variants.insert(variant.clone()) {
+                            self.report_duplicate_match_pattern(
+                                case.pattern.span,
+                                pattern_label(case.pattern),
+                            );
+                        }
+                    }
+                }
+            }
+        }
+
+        if !coverage.concrete_pattern_seen {
+            self.diagnostics.push(
+                Diagnostic::new(
+                    "S0050",
+                    "`match` requires at least one concrete pattern before an optional `_` arm",
+                    self.info.source,
+                    match_span,
+                )
+                .with_kind(DiagnosticKind::MatchRequiresConcretePattern)
+                .with_note(
+                    "a catch-all-only match does not establish a stable, typed branch set",
+                )
+                .with_suggestion(
+                    "add at least one literal or enum-variant pattern before the catch-all arm, or replace the whole construct with a normal block",
+                ),
+            );
+        }
+
+        coverage
+    }
+
+    fn report_match_exhaustiveness(&mut self, match_span: Span, coverage: &MatchCoverage) {
+        if !coverage.scrutinee_supported
+            || coverage.wildcard_seen
+            || !coverage.concrete_pattern_seen
+        {
+            return;
+        }
+
+        match &coverage.scrutinee_type {
+            Type::Bool => {
+                if coverage.seen_bools.len() != 2 {
+                    let missing = [true, false]
+                        .into_iter()
+                        .filter(|value| !coverage.seen_bools.contains(value))
+                        .map(|value| value.to_string())
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    self.diagnostics.push(
+                        Diagnostic::new(
+                            "S0049",
+                            format!("non-exhaustive `match`: missing arm(s) for `{missing}`"),
+                            self.info.source,
+                            match_span,
+                        )
+                        .with_kind(DiagnosticKind::MatchNotExhaustive)
+                        .with_suggestion(
+                            "cover the remaining boolean case or add a final `_ => ...` arm",
+                        ),
+                    );
+                }
+            }
+            Type::I32 => {
+                self.diagnostics.push(
+                    Diagnostic::new(
+                        "S0049",
+                        "non-exhaustive `match`: `i32` matches require a final `_` arm",
+                        self.info.source,
+                        match_span,
+                    )
+                    .with_kind(DiagnosticKind::MatchNotExhaustive)
+                    .with_note("AX does not allow integer matches to fall through silently")
+                    .with_suggestion("add a final `_ => ...` arm to cover the remaining values"),
+                );
+            }
+            Type::Enum(enum_name) => {
+                let Some(enum_info) = self.info.enums.get(enum_name) else {
+                    return;
+                };
+                let missing = enum_info
+                    .variants
+                    .iter()
+                    .filter(|variant| !coverage.seen_variants.contains(*variant))
+                    .cloned()
+                    .collect::<Vec<_>>();
+                if !missing.is_empty() {
+                    self.diagnostics.push(
+                        Diagnostic::new(
+                            "S0049",
+                            format!(
+                                "non-exhaustive `match`: missing enum arm(s) for {}",
+                                missing.join(", ")
+                            ),
+                            self.info.source,
+                            match_span,
+                        )
+                        .with_kind(DiagnosticKind::MatchNotExhaustive)
+                        .with_suggestion(
+                            "cover the remaining enum variants or add a final `_ => ...` arm",
+                        ),
+                    );
+                }
+            }
+            _ => {}
+        }
+    }
+
     fn resolve_match_pattern(
         &mut self,
         pattern: &MatchPattern,
         scrutinee_type: &Type,
     ) -> Option<ResolvedMatchPattern> {
         match &pattern.kind {
-            MatchPatternKind::Wildcard | MatchPatternKind::Error => None,
+            MatchPatternKind::Wildcard | MatchPatternKind::Binding { .. } | MatchPatternKind::Error => None,
             MatchPatternKind::Bool { value } => {
                 if !matches!(scrutinee_type, Type::Bool | Type::Error) {
                     self.report_match_pattern_type_mismatch(pattern, scrutinee_type);
@@ -559,11 +647,43 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             .with_suggestion("remove the duplicate arm or merge its logic into the earlier arm"),
         );
     }
+
+    fn check_match_arm_block(
+        &mut self,
+        scrutinee_type: &Type,
+        pattern: &MatchPattern,
+        body: &Block,
+    ) {
+        self.scopes.push(HashMap::new());
+        self.declare_match_binding(scrutinee_type, pattern);
+        self.check_block(body);
+        self.scopes.pop();
+    }
+
+    fn check_match_expression_arm(
+        &mut self,
+        scrutinee_type: &Type,
+        pattern: &MatchPattern,
+        value: &Expr,
+    ) -> Type {
+        self.scopes.push(HashMap::new());
+        self.declare_match_binding(scrutinee_type, pattern);
+        let ty = self.check_expr(value);
+        self.scopes.pop();
+        ty
+    }
+
+    fn declare_match_binding(&mut self, scrutinee_type: &Type, pattern: &MatchPattern) {
+        if let MatchPatternKind::Binding { name } = &pattern.kind {
+            self.declare(name, scrutinee_type.clone(), false, pattern.span.start);
+        }
+    }
 }
 
 fn pattern_label(pattern: &MatchPattern) -> String {
     match &pattern.kind {
         MatchPatternKind::Wildcard => "_".to_string(),
+        MatchPatternKind::Binding { name } => name.clone(),
         MatchPatternKind::Bool { value } => value.to_string(),
         MatchPatternKind::Int { value } => value.to_string(),
         MatchPatternKind::EnumVariant { path } => path.clone(),

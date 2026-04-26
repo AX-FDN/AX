@@ -276,6 +276,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 self.check_struct_literal_expr(expr, name, fields)
             }
             ExprKind::ArrayLiteral { elements } => self.check_array_literal_expr(expr, elements),
+            ExprKind::Match { scrutinee, arms } => self.check_match_expression(expr, scrutinee, arms),
             ExprKind::Field { base, field } => self.check_field_expr(expr, base, field),
             ExprKind::Index { base, index } => self.check_index_expr(expr, base, index),
             ExprKind::Slice { base, start, end } => self.check_slice_expr(expr, base, start, end),

@@ -156,6 +156,13 @@ pub struct MatchArm {
 }
 
 #[derive(Debug, Clone, Serialize)]
+pub struct MatchExprArm {
+    pub pattern: MatchPattern,
+    pub value: Expr,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Serialize)]
 pub struct MatchPattern {
     #[serde(flatten)]
     pub kind: MatchPatternKind,
@@ -174,6 +181,7 @@ pub struct ForInBinding {
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum MatchPatternKind {
     Wildcard,
+    Binding { name: String },
     Bool { value: bool },
     Int { value: i64 },
     EnumVariant { path: String },
@@ -296,6 +304,10 @@ pub enum ExprKind {
     },
     ArrayLiteral {
         elements: Vec<Expr>,
+    },
+    Match {
+        scrutinee: Box<Expr>,
+        arms: Vec<MatchExprArm>,
     },
     Field {
         base: Box<Expr>,

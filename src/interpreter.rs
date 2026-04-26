@@ -5,8 +5,8 @@ use std::process::Command;
 
 use crate::diagnostics::{Diagnostic, DiagnosticKind};
 use crate::hir::{
-    BinaryOp, Block, Expr, ExprKind, ItemKind, Param, Place, PlaceKind, Program, Stmt, StmtKind,
-    UnaryOp,
+    BinaryOp, Block, Expr, ExprKind, ItemKind, MatchExprArm, MatchPattern, MatchPatternKind,
+    Param, Place, PlaceKind, Program, Stmt, StmtKind, UnaryOp,
 };
 use crate::source::{SourceFile, Span};
 
@@ -2341,6 +2341,10 @@ impl<'a> Interpreter<'a> {
                     .map(|element| self.eval_expr(element, frame))
                     .collect::<Result<Vec<_>, _>>()?,
             )),
+            ExprKind::Match { scrutinee, arms } => {
+                let scrutinee_value = self.eval_expr(scrutinee, frame)?;
+                self.eval_match_expression(scrutinee_value, arms, expr.span, frame)
+            }
             ExprKind::EnumVariant { enum_name, variant } => Ok(Value::Enum {
                 name: enum_name.clone(),
                 variant: variant.clone(),
@@ -2397,6 +2401,101 @@ impl<'a> Interpreter<'a> {
                 Ok(Value::Slice(elements[start_index..end_index].to_vec()))
             }
         }
+    }
+
+    fn eval_match_expression(
+        &mut self,
+        scrutinee: Value,
+        arms: &[MatchExprArm],
+        span: Span,
+        frame: &mut Frame,
+    ) -> Result<Value, Diagnostic> {
+        for arm in arms {
+            if self.match_pattern_matches_value(&arm.pattern, &scrutinee, span)? {
+                return self.eval_match_expression_arm_value(&arm.pattern, &scrutinee, &arm.value, frame);
+            }
+        }
+
+        Err(self.runtime_error(
+            "R0036",
+            "non-exhaustive match expression reached runtime without a matching arm",
+            span,
+        ))
+    }
+
+    fn match_pattern_matches_value(
+        &self,
+        pattern: &MatchPattern,
+        scrutinee: &Value,
+        span: Span,
+    ) -> Result<bool, Diagnostic> {
+        match &pattern.kind {
+            MatchPatternKind::Wildcard => Ok(true),
+            MatchPatternKind::Binding { .. } => Ok(true),
+            MatchPatternKind::Bool { value } => match scrutinee {
+                Value::Bool(actual) => Ok(actual == value),
+                other => Err(self.runtime_error(
+                    "R0037",
+                    format!(
+                        "match pattern `bool` cannot be applied to runtime value `{}`",
+                        other.display()
+                    ),
+                    span,
+                )),
+            },
+            MatchPatternKind::Int { value } => match scrutinee {
+                Value::I32(actual) => Ok(actual == value),
+                other => Err(self.runtime_error(
+                    "R0037",
+                    format!(
+                        "match pattern `i32` cannot be applied to runtime value `{}`",
+                        other.display()
+                    ),
+                    span,
+                )),
+            },
+            MatchPatternKind::EnumVariant { enum_name, variant } => match scrutinee {
+                Value::Enum {
+                    name,
+                    variant: actual_variant,
+                } => Ok(name == enum_name && actual_variant == variant),
+                other => Err(self.runtime_error(
+                    "R0037",
+                    format!(
+                        "match enum pattern cannot be applied to runtime value `{}`",
+                        other.display()
+                    ),
+                    span,
+                )),
+            },
+            MatchPatternKind::Error => Err(self.runtime_error(
+                "R0038",
+                "invalid match pattern reached the runtime",
+                span,
+            )),
+        }
+    }
+
+    fn eval_match_expression_arm_value(
+        &mut self,
+        pattern: &MatchPattern,
+        scrutinee: &Value,
+        value: &Expr,
+        frame: &mut Frame,
+    ) -> Result<Value, Diagnostic> {
+        frame.scopes.push(HashMap::new());
+        if let MatchPatternKind::Binding { name } = &pattern.kind {
+            frame.scopes.last_mut().expect("scope should exist").insert(
+                name.clone(),
+                Slot {
+                    mutable: false,
+                    value: scrutinee.clone(),
+                },
+            );
+        }
+        let result = self.eval_expr(value, frame);
+        frame.scopes.pop();
+        result
     }
 
     fn indexable_elements(&self, value: Value, span: Span) -> Result<Vec<Value>, Diagnostic> {
@@ -2911,6 +3010,63 @@ fn main() -> i32 {
         let output = run_program(&source, &hir).expect("program should run");
         assert_eq!(output.exit_code, 25);
         assert_eq!(output.stdout, vec!["25"]);
+    }
+
+    #[test]
+    fn runs_match_expressions() {
+        let (source, hir) = analyzed_hir(
+            "\
+fn classify(flag: bool) -> i32 {
+    return match (flag) { true => 3, false => 1 };
+}
+
+fn main() -> i32 {
+    let left: i32 = match (false) { true => 8, false => 2 };
+    let right: i32 = classify(true);
+    println(left);
+    println(right);
+    return left + right;
+}
+",
+        );
+
+        let output = run_program(&source, &hir).expect("program should run");
+        assert_eq!(output.exit_code, 5);
+        assert_eq!(output.stdout, vec!["2", "3"]);
+    }
+
+    #[test]
+    fn runs_match_binding_patterns() {
+        let (source, hir) = analyzed_hir(
+            "\
+fn classify(value: i32) -> i32 {
+    return match (value) { 0 => 10, other => other + 2 };
+}
+
+fn main() -> i32 {
+    let flag: bool = false;
+    match (flag) {
+        true => {
+            println(\"true\");
+        }
+        current => {
+            if (current) {
+                println(\"unexpected\");
+            } else {
+                println(\"false\");
+            }
+        }
+    }
+    let code: i32 = classify(4);
+    println(code);
+    return code;
+}
+",
+        );
+
+        let output = run_program(&source, &hir).expect("program should run");
+        assert_eq!(output.exit_code, 6);
+        assert_eq!(output.stdout, vec!["false", "6"]);
     }
 
     #[test]

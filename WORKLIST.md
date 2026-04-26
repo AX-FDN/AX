@@ -354,6 +354,24 @@
   - 不做范围：本轮不顺手引入隐式类型推断式 `for in`、iterator trait、`for in` over `string_list` / map / set，也不补 destructuring pattern。
   - 完成于：2026-04-26
   - 备注：第一版刻意保持 AX 的显式类型风格，只支持 `for (let value: T in values)` 这一条轨道；lowering 走“slice temp + index while”以复用现有执行面，并显式保证 `continue;` 前仍会推进索引。
+- [x] `P1-22` `match v2` 第一刀：表达式形态全链路落地
+  - 目标：补一刀真正能被工具代码使用的表达式 `match`，让 AX 不必所有分支值选择都退回语句式 `match` 或 `if/else`。
+  - 输入：现有最小 `match` 语句、表达式 parser、control-flow 穷尽检查、HIR/MIR/解释器表达式链路、kind-based AI rule 映射。
+  - 输出：`match (value) { pattern => expr, ... }` 的 AST / parser / semantic / HIR / MIR / interpreter / formatter / AI 规则、示例、文档与接口回归。
+  - 通过条件：表达式 `match` 可稳定 `check / run / format`；当前 pattern 仍保持 `bool` / `i32` / enum / `_`；所有 arm 必须返回同类型；文档与提示词不再把表达式 `match` 记成未支持。
+  - 回归保障：`cargo test --lib match -j 1`、`cargo test --test interface_snapshots match_expr_example_runs -j 1`、`examples/match_expr.ax`。
+  - 不做范围：本轮不做 binding pattern、解构、guard、多模式合并、block-valued expression arm 或新的 pattern DSL。
+  - 完成于：2026-04-26
+  - 备注：这一刀刻意只补“值选择表达式”这条高价值轨道；语句 `match` 继续复用原有 lowering，表达式 `match` 则直接进入 HIR / MIR / interpreter，避免把 `match v2` 一口气做成大表面积特性。
+- [x] `P1-23` `match v2` 第二刀：简单绑定模式全链路落地
+  - 目标：补上最小但高价值的命名 catch-all，让 `match` 不只会兜底，还能在兜底分支里继续复用被匹配值。
+  - 输入：现有 `match` 语句/表达式、control-flow 穷尽检查、HIR/MIR/解释器 `match` 执行链、formatter、kind-based AI 规则与当前文档提示词。
+  - 输出：最终裸标识符绑定模式（如 `other => other + 2`、`current => { ... }`）的 AST / parser / semantic / HIR / MIR / interpreter / formatter / 示例 / 文档 / 接口回归。
+  - 通过条件：绑定模式可稳定 `check / run / format`；绑定只允许作为最终 catch-all；绑定名只在当前 arm 内可见；原有 `_` / 穷尽检查 / arm 同类型约束 / AI 规则不退化。
+  - 回归保障：`cargo test --lib match -j 1`、`cargo test --test interface_snapshots match_binding_example_runs -j 1`、`examples/match_binding.ax`。
+  - 不做范围：本轮不做 `mut` 绑定模式、解构、guard、多模式合并、payload enum 或 block-valued expression arm。
+  - 完成于：2026-04-26
+  - 备注：这一刀把 binding pattern 明确收敛成“有名字的 wildcard”，继续坚持 AX 的小步扩面原则：先把高频工具代码里真正有用的一条轨道打通，再决定是否继续向 destructuring / payload pattern 扩张。
 - 进展：2026-04-25 又把运行时高价值 host diagnostics 接进稳定 `DiagnosticKind`，当前覆盖 `argv_get` 负索引/越界、缺失环境变量、不可读文件/目录、`process` 启动失败与 `capture` 非零退出；`src/ai.rs` 对这批宿主误用现也优先按 kind 映射 `rule_id`，并已补上 env/argv runtime AI 回归测试与 diagnostics snapshot 复跑。
 
 ## P2

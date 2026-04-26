@@ -254,6 +254,9 @@ fn match_rule_by_kind(kind: DiagnosticKind) -> Option<RuleTemplate> {
         DiagnosticKind::MatchWildcardMustBeLast => Some(RULE_MATCH_WILDCARD_MUST_BE_LAST),
         DiagnosticKind::MatchNotExhaustive => Some(RULE_MATCH_MUST_BE_EXHAUSTIVE),
         DiagnosticKind::MatchRequiresConcretePattern => Some(RULE_MATCH_REQUIRES_CONCRETE_PATTERN),
+        DiagnosticKind::MatchExpressionArmTypeMismatch => {
+            Some(RULE_MATCH_EXPRESSION_ARMS_MUST_SHARE_TYPE)
+        }
         DiagnosticKind::FunctionArgumentTypeMismatch => {
             Some(RULE_FUNCTION_ARGUMENT_TYPE_MUST_MATCH)
         }
@@ -743,6 +746,17 @@ const RULE_MATCH_REQUIRES_CONCRETE_PATTERN: RuleTemplate = RuleTemplate {
     minimal_example: "match (flag) { true => { return 1; } false => { return 0; } }",
     anti_pattern: Some("match (value) { _ => { return 1; } }"),
     default_fixit: "add a concrete pattern before `_`, or replace the `match` with a normal block",
+};
+
+const RULE_MATCH_EXPRESSION_ARMS_MUST_SHARE_TYPE: RuleTemplate = RuleTemplate {
+    rule_id: "match_expression_arms_must_share_type",
+    normalized_pattern: "match_expression_arms_must_share_type",
+    repair_goal: "Rewrite every `match` expression arm so they all produce the same type.",
+    summary: "AX `match` expressions are typed expressions, so every arm must evaluate to one shared result type.",
+    pattern: "let label: string = match (flag) { true => \"on\", false => \"off\" };",
+    minimal_example: "let code: i32 = match (ready) { true => 1, false => 0 };",
+    anti_pattern: Some("let value: i32 = match (flag) { true => 1, false => \"off\" };"),
+    default_fixit: "change the mismatching arm so it returns the same type as the other match-expression arms",
 };
 
 const RULE_NON_EMPTY_ARRAY_LITERAL_REQUIRED: RuleTemplate = RuleTemplate {
@@ -1506,6 +1520,13 @@ fn collect_expr_names(expr: &Expr, names: &mut BTreeSet<String>) {
                 collect_expr_names(element, names);
             }
         }
+        ExprKind::Match { scrutinee, arms } => {
+            collect_expr_names(scrutinee, names);
+            for arm in arms {
+                collect_match_pattern_names(&arm.pattern, names);
+                collect_expr_names(&arm.value, names);
+            }
+        }
         ExprKind::Field { base, .. } => collect_expr_names(base, names),
         ExprKind::Index { base, index } => {
             collect_expr_names(base, names);
@@ -1775,6 +1796,12 @@ mod tests {
                 message: "match concrete placeholder",
                 kind: DiagnosticKind::MatchRequiresConcretePattern,
                 expected_rule_id: "match_requires_concrete_pattern",
+            },
+            KindCase {
+                code: "S0022",
+                message: "match expression arm type placeholder",
+                kind: DiagnosticKind::MatchExpressionArmTypeMismatch,
+                expected_rule_id: "match_expression_arms_must_share_type",
             },
             KindCase {
                 code: "S0022",

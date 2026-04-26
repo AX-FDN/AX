@@ -1,8 +1,9 @@
 use std::fmt::Write;
 
 use crate::ast::{
-    BinaryOp, Block, Expr, ExprKind, Item, ItemKind, MatchArm, MatchPattern, MatchPatternKind,
-    Param, Program, Stmt, StmtKind, StructField, StructLiteralField, TypeRef, UnaryOp,
+    BinaryOp, Block, Expr, ExprKind, Item, ItemKind, MatchArm, MatchExprArm, MatchPattern,
+    MatchPatternKind, Param, Program, Stmt, StmtKind, StructField, StructLiteralField, TypeRef,
+    UnaryOp,
 };
 use crate::diagnostics::Diagnostic;
 use crate::lexer::tokenize;
@@ -341,11 +342,19 @@ fn format_for_header_statement(statement: &Stmt) -> String {
 fn format_match_pattern(pattern: &MatchPattern) -> String {
     match &pattern.kind {
         MatchPatternKind::Wildcard => "_".to_string(),
+        MatchPatternKind::Binding { name } => name.clone(),
         MatchPatternKind::Bool { value } => value.to_string(),
         MatchPatternKind::Int { value } => value.to_string(),
         MatchPatternKind::EnumVariant { path } => path.clone(),
         MatchPatternKind::Error => "<invalid-pattern>".to_string(),
     }
+}
+
+fn format_match_expression_arms(arms: &[MatchExprArm]) -> String {
+    arms.iter()
+        .map(|arm| format!("{} => {}", format_match_pattern(&arm.pattern), format_expr(&arm.value)))
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 fn format_expr(expr: &Expr) -> String {
@@ -390,6 +399,11 @@ fn format_expr_with_min_precedence(expr: &Expr, min_precedence: u8) -> String {
                 .join(", ");
             format!("[{body}]")
         }
+        ExprKind::Match { scrutinee, arms } => format!(
+            "match ({}) {{ {} }}",
+            format_expr(scrutinee),
+            format_match_expression_arms(arms)
+        ),
         ExprKind::Field { base, field } => {
             let base_text = format_expr_with_min_precedence(base, PREC_POSTFIX);
             format!("{base_text}.{field}")
@@ -452,6 +466,7 @@ fn expr_precedence(expr: &Expr) -> u8 {
         | ExprKind::Bool { .. }
         | ExprKind::String { .. }
         | ExprKind::Name { .. }
+        | ExprKind::Match { .. }
         | ExprKind::StructLiteral { .. }
         | ExprKind::ArrayLiteral { .. }
         | ExprKind::Error => PREC_PRIMARY,
@@ -625,6 +640,43 @@ mod tests {
                 "            return 0;\n",
                 "        }\n",
                 "    }\n",
+                "}\n"
+            )
+        );
+    }
+
+    #[test]
+    fn formats_match_expressions() {
+        let source = SourceFile::anonymous(
+            "fn main()->i32{let flag:bool=true;let value:i32=match(flag){true=>1,false=>0};return value;}",
+        );
+
+        let formatted = format_source(&source).expect("source should format");
+        assert_eq!(
+            formatted,
+            concat!(
+                "fn main() -> i32 {\n",
+                "    let flag: bool = true;\n",
+                "    let value: i32 = match (flag) { true => 1, false => 0 };\n",
+                "    return value;\n",
+                "}\n"
+            )
+        );
+    }
+
+    #[test]
+    fn formats_match_binding_patterns() {
+        let source = SourceFile::anonymous(
+            "fn main()->i32{let value:i32=match(4){0=>1,other=>other};return value;}",
+        );
+
+        let formatted = format_source(&source).expect("source should format");
+        assert_eq!(
+            formatted,
+            concat!(
+                "fn main() -> i32 {\n",
+                "    let value: i32 = match (4) { 0 => 1, other => other };\n",
+                "    return value;\n",
                 "}\n"
             )
         );

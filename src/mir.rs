@@ -145,6 +145,31 @@ pub struct Expr {
 }
 
 #[derive(Debug, Clone, Serialize)]
+pub struct MatchExprArm {
+    pub pattern: MatchPattern,
+    pub value: Expr,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct MatchPattern {
+    #[serde(flatten)]
+    pub kind: MatchPatternKind,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum MatchPatternKind {
+    Wildcard,
+    Binding { name: String },
+    Bool { value: bool },
+    Int { value: i32 },
+    EnumVariant { enum_name: String, variant: String },
+    Error,
+}
+
+#[derive(Debug, Clone, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum ExprKind {
     Int {
@@ -182,6 +207,10 @@ pub enum ExprKind {
     },
     ArrayLiteral {
         elements: Vec<Expr>,
+    },
+    Match {
+        scrutinee: Box<Expr>,
+        arms: Vec<MatchExprArm>,
     },
     EnumVariant {
         enum_name: String,
@@ -357,13 +386,12 @@ impl FunctionLowerer {
                 Ok(current)
             }
             hir::StmtKind::Assign { target, value } => {
+                let target = self.lower_place(target)?;
+                let value = self.lower_expr(value)?;
                 self.push_statement(
                     current,
                     Statement {
-                        kind: StatementKind::Assign {
-                            target: self.lower_place(target)?,
-                            value: self.lower_expr(value)?,
-                        },
+                        kind: StatementKind::Assign { target, value },
                         span: statement.span,
                     },
                 );
@@ -384,24 +412,22 @@ impl FunctionLowerer {
                 Ok(self.new_block(statement.span))
             }
             hir::StmtKind::Expr { expr } => {
+                let expr = self.lower_expr(expr)?;
                 self.push_statement(
                     current,
                     Statement {
-                        kind: StatementKind::Eval {
-                            expr: self.lower_expr(expr)?,
-                        },
+                        kind: StatementKind::Eval { expr },
                         span: statement.span,
                     },
                 );
                 Ok(current)
             }
             hir::StmtKind::Return { value } => {
+                let value = self.lower_expr(value)?;
                 self.set_terminator(
                     current,
                     Terminator {
-                        kind: TerminatorKind::Return {
-                            value: self.lower_expr(value)?,
-                        },
+                        kind: TerminatorKind::Return { value },
                         span: statement.span,
                     },
                 );
@@ -419,12 +445,13 @@ impl FunctionLowerer {
                         .map_or(statement.span, |block| block.span),
                 );
                 let join_block = self.new_block(statement.span);
+                let condition = self.lower_expr(condition)?;
 
                 self.set_terminator(
                     current,
                     Terminator {
                         kind: TerminatorKind::Branch {
-                            condition: self.lower_expr(condition)?,
+                            condition,
                             then_block,
                             else_block,
                         },
@@ -449,20 +476,22 @@ impl FunctionLowerer {
                 Ok(join_block)
             }
             hir::StmtKind::While { condition, body } => {
-                let condition_block = self.new_block(condition.span);
+                let condition_span = condition.span;
+                let condition_block = self.new_block(condition_span);
                 let body_block = self.new_block(body.span);
                 let exit_block = self.new_block(statement.span);
+                let lowered_condition = self.lower_expr(condition)?;
 
                 self.set_terminator(current, goto(condition_block, statement.span));
                 self.set_terminator(
                     condition_block,
                     Terminator {
                         kind: TerminatorKind::Branch {
-                            condition: self.lower_expr(condition)?,
+                            condition: lowered_condition,
                             then_block: body_block,
                             else_block: exit_block,
                         },
-                        span: condition.span,
+                        span: condition_span,
                     },
                 );
 
@@ -482,7 +511,7 @@ impl FunctionLowerer {
         }
     }
 
-    fn lower_place(&self, place: &hir::Place) -> Result<Place, String> {
+    fn lower_place(&mut self, place: &hir::Place) -> Result<Place, String> {
         let kind = match &place.kind {
             hir::PlaceKind::Local { name } => PlaceKind::Local {
                 local: self.lookup(name)?,
@@ -504,7 +533,7 @@ impl FunctionLowerer {
         })
     }
 
-    fn lower_expr(&self, expr: &hir::Expr) -> Result<Expr, String> {
+    fn lower_expr(&mut self, expr: &hir::Expr) -> Result<Expr, String> {
         let kind = match &expr.kind {
             hir::ExprKind::Int { value } => ExprKind::Int { value: *value },
             hir::ExprKind::Float { value } => ExprKind::Float { value: *value },
@@ -554,6 +583,37 @@ impl FunctionLowerer {
                     .map(|element| self.lower_expr(element))
                     .collect::<Result<Vec<_>, _>>()?,
             },
+            hir::ExprKind::Match { scrutinee, arms } => {
+                let scrutinee_ty = self.infer_match_scrutinee_type(arms, expr.span)?;
+                ExprKind::Match {
+                    scrutinee: Box::new(self.lower_expr(scrutinee)?),
+                    arms: arms
+                        .iter()
+                        .map(|arm| {
+                            let pattern = self.lower_match_pattern(&arm.pattern);
+                            self.push_scope();
+                            if let hir::MatchPatternKind::Binding { name } = &arm.pattern.kind {
+                                let local = self.allocate_local(
+                                    name,
+                                    &scrutinee_ty,
+                                    false,
+                                    LocalKind::Local,
+                                    arm.pattern.span,
+                                );
+                                self.declare(name, local);
+                            }
+                            let value = self.lower_expr(&arm.value);
+                            self.pop_scope();
+
+                            Ok(MatchExprArm {
+                                pattern,
+                                value: value?,
+                                span: arm.span,
+                            })
+                        })
+                        .collect::<Result<Vec<_>, String>>()?,
+                }
+            }
             hir::ExprKind::EnumVariant { enum_name, variant } => ExprKind::EnumVariant {
                 enum_name: enum_name.clone(),
                 variant: variant.clone(),
@@ -577,6 +637,55 @@ impl FunctionLowerer {
             kind,
             span: expr.span,
         })
+    }
+
+    fn lower_match_pattern(&self, pattern: &hir::MatchPattern) -> MatchPattern {
+        let kind = match &pattern.kind {
+            hir::MatchPatternKind::Wildcard => MatchPatternKind::Wildcard,
+            hir::MatchPatternKind::Binding { name } => MatchPatternKind::Binding {
+                name: name.clone(),
+            },
+            hir::MatchPatternKind::Bool { value } => MatchPatternKind::Bool { value: *value },
+            hir::MatchPatternKind::Int { value } => MatchPatternKind::Int { value: *value },
+            hir::MatchPatternKind::EnumVariant { enum_name, variant } => {
+                MatchPatternKind::EnumVariant {
+                    enum_name: enum_name.clone(),
+                    variant: variant.clone(),
+                }
+            }
+            hir::MatchPatternKind::Error => MatchPatternKind::Error,
+        };
+
+        MatchPattern {
+            kind,
+            span: pattern.span,
+        }
+    }
+
+    fn infer_match_scrutinee_type(
+        &self,
+        arms: &[hir::MatchExprArm],
+        span: Span,
+    ) -> Result<Type, String> {
+        for arm in arms {
+            match &arm.pattern.kind {
+                hir::MatchPatternKind::Bool { .. } => return Ok(Type::Bool),
+                hir::MatchPatternKind::Int { .. } => return Ok(Type::I32),
+                hir::MatchPatternKind::EnumVariant { enum_name, .. } => {
+                    return Ok(Type::Enum {
+                        name: enum_name.clone(),
+                    });
+                }
+                hir::MatchPatternKind::Wildcard
+                | hir::MatchPatternKind::Binding { .. }
+                | hir::MatchPatternKind::Error => {}
+            }
+        }
+
+        Err(format!(
+            "internal MIR lowering error: cannot infer match input type at {}..{} without a concrete pattern",
+            span.start, span.end
+        ))
     }
 
     fn allocate_local(

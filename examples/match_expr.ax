@@ -1,0 +1,12 @@
+fn classify(flag: bool) -> i32 {
+    return match (flag) { true => 4, false => 1 };
+}
+
+fn main() -> i32 {
+    let ready: bool = false;
+    let code: i32 = match (ready) { true => 9, false => 2 };
+    let total: i32 = code + classify(true);
+    println(code);
+    println(total);
+    return total;
+}

@@ -87,6 +87,31 @@ pub struct Block {
 }
 
 #[derive(Debug, Clone, Serialize)]
+pub struct MatchExprArm {
+    pub pattern: MatchPattern,
+    pub value: Expr,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct MatchPattern {
+    #[serde(flatten)]
+    pub kind: MatchPatternKind,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum MatchPatternKind {
+    Wildcard,
+    Binding { name: String },
+    Bool { value: bool },
+    Int { value: i32 },
+    EnumVariant { enum_name: String, variant: String },
+    Error,
+}
+
+#[derive(Debug, Clone, Serialize)]
 pub struct Stmt {
     #[serde(flatten)]
     pub kind: StmtKind,
@@ -187,6 +212,10 @@ pub enum ExprKind {
     },
     ArrayLiteral {
         elements: Vec<Expr>,
+    },
+    Match {
+        scrutinee: Box<Expr>,
+        arms: Vec<MatchExprArm>,
     },
     EnumVariant {
         enum_name: String,
@@ -665,12 +694,12 @@ impl<'a> LoweringContext<'a> {
             kind: StmtKind::Let {
                 mutable: false,
                 name: temp_name.clone(),
-                ty: temp_type,
+                ty: temp_type.clone(),
                 initializer: self.lower_expr(scrutinee)?,
             },
             span: scrutinee.span,
         }];
-        statements.push(self.lower_match_arm_chain(&temp_name, arms, span)?);
+        statements.push(self.lower_match_arm_chain(&temp_name, &temp_type, arms, span)?);
         Ok(Stmt {
             kind: StmtKind::Block {
                 block: Block { statements, span },
@@ -751,6 +780,7 @@ impl<'a> LoweringContext<'a> {
     fn lower_match_arm_chain(
         &self,
         temp_name: &str,
+        temp_type: &Type,
         arms: &[ast::MatchArm],
         span: Span,
     ) -> Result<Stmt, Diagnostic> {
@@ -766,10 +796,13 @@ impl<'a> LoweringContext<'a> {
             });
         };
 
-        if matches!(first.pattern.kind, ast::MatchPatternKind::Wildcard) {
+        if matches!(
+            first.pattern.kind,
+            ast::MatchPatternKind::Wildcard | ast::MatchPatternKind::Binding { .. }
+        ) {
             return Ok(Stmt {
                 kind: StmtKind::Block {
-                    block: self.lower_block(&first.body)?,
+                    block: self.lower_match_catchall_block(temp_name, temp_type, &first.pattern, &first.body)?,
                 },
                 span: first.span,
             });
@@ -783,7 +816,7 @@ impl<'a> LoweringContext<'a> {
                 span: first.span,
             })
         } else {
-            let nested = self.lower_match_arm_chain(temp_name, rest, rest[0].span)?;
+            let nested = self.lower_match_arm_chain(temp_name, temp_type, rest, rest[0].span)?;
             Some(Block {
                 span: nested.span,
                 statements: vec![nested],
@@ -824,6 +857,13 @@ impl<'a> LoweringContext<'a> {
 
     fn lower_match_pattern_value(&self, pattern: &ast::MatchPattern) -> Result<Expr, Diagnostic> {
         let kind = match &pattern.kind {
+            ast::MatchPatternKind::Binding { .. } => {
+                return Err(self.lowering_error(
+                    "H0014",
+                    "binding match pattern cannot be lowered into an equality check",
+                    pattern.span,
+                ));
+            }
             ast::MatchPatternKind::Bool { value } => ExprKind::Bool { value: *value },
             ast::MatchPatternKind::Int { value } => {
                 let value = i32::try_from(*value).map_err(|_| {
@@ -872,6 +912,47 @@ impl<'a> LoweringContext<'a> {
         })
     }
 
+    fn lower_match_pattern(&self, pattern: &ast::MatchPattern) -> Result<MatchPattern, Diagnostic> {
+        let kind = match &pattern.kind {
+            ast::MatchPatternKind::Wildcard => MatchPatternKind::Wildcard,
+            ast::MatchPatternKind::Binding { name } => MatchPatternKind::Binding {
+                name: name.clone(),
+            },
+            ast::MatchPatternKind::Bool { value } => MatchPatternKind::Bool { value: *value },
+            ast::MatchPatternKind::Int { value } => MatchPatternKind::Int {
+                value: i32::try_from(*value).map_err(|_| {
+                    self.lowering_error(
+                        "H0008",
+                        "match integer pattern is out of HIR `i32` range",
+                        pattern.span,
+                    )
+                })?,
+            },
+            ast::MatchPatternKind::EnumVariant { path } => {
+                let Some((enum_path, variant)) = path.rsplit_once('.') else {
+                    return Err(self.lowering_error(
+                        "H0009",
+                        "match enum pattern must use `EnumName.Variant`",
+                        pattern.span,
+                    ));
+                };
+                let enum_name = self
+                    .resolve_canonical_name(enum_path, pattern.span, &self.enum_names)
+                    .unwrap_or_else(|| enum_path.to_string());
+                MatchPatternKind::EnumVariant {
+                    enum_name,
+                    variant: variant.to_string(),
+                }
+            }
+            ast::MatchPatternKind::Error => MatchPatternKind::Error,
+        };
+
+        Ok(MatchPattern {
+            kind,
+            span: pattern.span,
+        })
+    }
+
     fn infer_match_scrutinee_type(
         &self,
         arms: &[ast::MatchArm],
@@ -894,7 +975,9 @@ impl<'a> LoweringContext<'a> {
                         .unwrap_or_else(|| enum_path.to_string());
                     return Ok(Type::Enum { name: enum_name });
                 }
-                ast::MatchPatternKind::Wildcard | ast::MatchPatternKind::Error => {}
+                ast::MatchPatternKind::Wildcard
+                | ast::MatchPatternKind::Binding { .. }
+                | ast::MatchPatternKind::Error => {}
             }
         }
 
@@ -903,6 +986,43 @@ impl<'a> LoweringContext<'a> {
             "cannot infer the lowered match input type without a concrete match pattern",
             span,
         ))
+    }
+
+    fn lower_match_catchall_block(
+        &self,
+        temp_name: &str,
+        temp_type: &Type,
+        pattern: &ast::MatchPattern,
+        body: &ast::Block,
+    ) -> Result<Block, Diagnostic> {
+        let body_block = self.lower_block(body)?;
+        let ast::MatchPatternKind::Binding { name } = &pattern.kind else {
+            return Ok(body_block);
+        };
+
+        Ok(Block {
+            statements: vec![
+                Stmt {
+                    kind: StmtKind::Let {
+                        mutable: false,
+                        name: name.clone(),
+                        ty: temp_type.clone(),
+                        initializer: Expr {
+                            kind: ExprKind::Name {
+                                value: temp_name.to_string(),
+                            },
+                            span: pattern.span,
+                        },
+                    },
+                    span: pattern.span,
+                },
+                Stmt {
+                    kind: StmtKind::Block { block: body_block },
+                    span: body.span,
+                },
+            ],
+            span: body.span,
+        })
     }
 
     fn lower_place(&self, expr: &ast::Expr) -> Result<Place, Diagnostic> {
@@ -1008,6 +1128,19 @@ impl<'a> LoweringContext<'a> {
                     .iter()
                     .map(|element| self.lower_expr(element))
                     .collect::<Result<Vec<_>, _>>()?,
+            },
+            ast::ExprKind::Match { scrutinee, arms } => ExprKind::Match {
+                scrutinee: Box::new(self.lower_expr(scrutinee)?),
+                arms: arms
+                    .iter()
+                    .map(|arm| {
+                        Ok(MatchExprArm {
+                            pattern: self.lower_match_pattern(&arm.pattern)?,
+                            value: self.lower_expr(&arm.value)?,
+                            span: arm.span,
+                        })
+                    })
+                    .collect::<Result<Vec<_>, Diagnostic>>()?,
             },
             ast::ExprKind::Field { base, field } => {
                 if let Some(enum_name) = base.qualified_name().and_then(|name| {
@@ -1117,7 +1250,9 @@ fn canonical_item_name(
 
 #[cfg(test)]
 mod tests {
-    use super::{BinaryOp, ExprKind, ItemKind, PlaceKind, StmtKind, Type, lower_program};
+    use super::{
+        BinaryOp, ExprKind, ItemKind, MatchPatternKind, PlaceKind, StmtKind, Type, lower_program,
+    };
     use crate::lexer::tokenize;
     use crate::parser::parse;
     use crate::semantic::check_program;
@@ -1636,6 +1771,65 @@ fn main() -> i32 {
             else_branch.statements[0].kind,
             StmtKind::Block { .. }
         ));
+    }
+
+    #[test]
+    fn lowers_match_expressions() {
+        let program = lower(
+            "\
+fn main() -> i32 {
+    let flag: bool = true;
+    let value: i32 = match (flag) { true => 1, false => 0 };
+    return value;
+}
+",
+        );
+
+        let ItemKind::Function { body, .. } = &program.items[0].kind else {
+            panic!("expected function item");
+        };
+
+        let StmtKind::Let { initializer, .. } = &body.statements[1].kind else {
+            panic!("expected match-expression let");
+        };
+        let ExprKind::Match { scrutinee, arms } = &initializer.kind else {
+            panic!("expected lowered match expression");
+        };
+        assert!(matches!(scrutinee.kind, ExprKind::Name { ref value } if value == "flag"));
+        assert_eq!(arms.len(), 2);
+        assert!(matches!(
+            arms[0].pattern.kind,
+            MatchPatternKind::Bool { value: true }
+        ));
+        assert!(matches!(arms[0].value.kind, ExprKind::Int { value: 1 }));
+    }
+
+    #[test]
+    fn lowers_match_expression_binding_patterns() {
+        let program = lower(
+            "\
+fn main() -> i32 {
+    let value: i32 = match (4) { 0 => 1, other => other };
+    return value;
+}
+",
+        );
+
+        let ItemKind::Function { body, .. } = &program.items[0].kind else {
+            panic!("expected function item");
+        };
+
+        let StmtKind::Let { initializer, .. } = &body.statements[0].kind else {
+            panic!("expected match-expression let");
+        };
+        let ExprKind::Match { arms, .. } = &initializer.kind else {
+            panic!("expected lowered match expression");
+        };
+        assert!(matches!(
+            arms[1].pattern.kind,
+            MatchPatternKind::Binding { ref name } if name == "other"
+        ));
+        assert!(matches!(arms[1].value.kind, ExprKind::Name { ref value } if value == "other"));
     }
 
     #[test]

@@ -204,7 +204,7 @@ AX 当前靠代表性样例证明自己。
 | `for (init; cond; step)` | 已支持 | 当前主循环表头形态 |
 | `break;` | 已支持 | 只能出现在 `while` / `for` 中 |
 | `continue;` | 已支持 | 已打通 `for -> while` lowering 下的 step 语义 |
-| `match (...) { ... }` | 已支持第一版 | 已进入 parser / semantic / interpreter / AI feedback 主链 |
+| `match (...) { ... }` | 已支持第一版 + `match v2` 前两刀 | 语句形态、表达式形态与简单绑定 catch-all 都已进入 parser / semantic / interpreter / AI feedback 主链 |
 
 ### 表达式与类型能力
 
@@ -216,6 +216,7 @@ AX 当前靠代表性样例证明自己。
 | 固定长度数组 | 已支持 | `[Type; N]`、数组字面量、索引读取 |
 | 只读 slice | 已支持 | `[Type]`、`values[start:end]` |
 | `for in` 遍历 | 已支持 | 第一版只支持 `for (let value: T in values) { ... }`，目标为数组 / slice |
+| 表达式 `match` | 已支持前两刀 | 当前支持 `match (flag) { true => 1, other => 0 }` 这类单表达式 arm，所有 arm 必须返回同类型 |
 | 嵌套可写路径 | 已支持 | `outer.inner.value = ...`、`items[index].field = ...` |
 | 逻辑运算 | 已支持 | `&&`、`||`，并按短路语义执行 |
 | 余数运算 | 已支持 | `%`，当前按 `i32` 运算处理 |
@@ -231,12 +232,14 @@ AX 当前靠代表性样例证明自己。
   - 已支持在 `while` / `for` 中使用
   - `for` 场景下会先执行 step，再进入下一轮
 - 最小 `match`
-  - 当前是语句形态，不是表达式形态
-  - pattern 目前支持 `true` / `false`、整数、枚举值与最终 `_`
+  - 当前同时支持语句形态、表达式形态与最终裸标识符绑定模式
+  - pattern 目前支持 `true` / `false`、整数、枚举值、最终 `_` 与最终裸标识符（如 `other`）
+  - 裸标识符 pattern 是 catch-all 绑定，只在当前 arm 内引入一个不可变局部名
   - 会做穷尽检查：
-    - `bool` 要覆盖 `true / false`
-    - enum 要覆盖全部 variant
-    - `i32` 当前需要最终 `_`
+    - `bool` 要覆盖 `true / false` 或最终 catch-all
+    - enum 要覆盖全部 variant 或最终 catch-all
+    - `i32` 当前需要最终 `_` 或最终绑定
+  - 表达式形态当前收敛为 `match (value) { pattern => expr, ... }`，所有 arm 必须返回同类型
 - 第一阶段 `module / import`
   - support source 使用 `module ...;`
   - entry 与 support source 都可写显式 `import ...;`
@@ -280,14 +283,12 @@ fn classify(flag: Flag, values: [i32]) -> Summary {
         total = total + values[i];
     }
 
-    match (flag) {
-        Flag.On => {
-            return Summary { count: total };
-        }
-        Flag.Off => {
-            return Summary { count: 0 };
-        }
-    }
+    let count: i32 = match (flag) {
+        Flag.On => total,
+        Flag.Off => 0,
+    };
+
+    return Summary { count: count };
 }
 ```
 
@@ -299,7 +300,7 @@ fn classify(flag: Flag, values: [i32]) -> Summary {
 - slice 参数
 - `for`
 - `continue`
-- 最小 `match`
+- 最小 `match` + 表达式 `match` + 简单绑定 pattern
 - 结构体字面量返回
 
 ## 多文件项目与第一阶段模块模式

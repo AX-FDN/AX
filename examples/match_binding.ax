@@ -1,0 +1,23 @@
+fn classify(value: i32) -> i32 {
+    return match (value) { 0 => 10, other => other + 2 };
+}
+
+fn main() -> i32 {
+    let flag: bool = false;
+    match (flag) {
+        true => {
+            println("true");
+        }
+        current => {
+            if (current) {
+                println("unexpected");
+            } else {
+                println("false");
+            }
+        }
+    }
+
+    let code: i32 = classify(4);
+    println(code);
+    return code;
+}

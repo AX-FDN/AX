@@ -3963,6 +3963,22 @@ fn match_example_runs() {
 }
 
 #[test]
+fn match_expr_example_runs() {
+    let output = run_axc([OsStr::new("run"), OsStr::new("examples/match_expr.ax")]);
+    assert_eq!(output.status.code(), Some(6));
+    assert_clean_stderr(&output);
+    assert_eq!(normalize_text(&string_output(&output.stdout)), "2\n6\n");
+}
+
+#[test]
+fn match_binding_example_runs() {
+    let output = run_axc([OsStr::new("run"), OsStr::new("examples/match_binding.ax")]);
+    assert_eq!(output.status.code(), Some(6));
+    assert_clean_stderr(&output);
+    assert_eq!(normalize_text(&string_output(&output.stdout)), "false\n6\n");
+}
+
+#[test]
 fn logical_ops_example_runs() {
     let output = run_axc([OsStr::new("run"), OsStr::new("examples/logical_ops.ax")]);
     assert_eq!(output.status.code(), Some(7));
