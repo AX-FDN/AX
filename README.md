@@ -11,8 +11,14 @@
 
 </div>
 
-AX 是一个面向 Coding AI 的源码协议项目，也是一个持续工程化的执行语言原型。
-它把源码形态、编译器诊断、修复反馈契约、benchmark 证据链放进同一条链路里，目标是让代码模型在真实任务上生成更稳定、理解更聚焦、修复更可比较。
+AX 是一个面向 Coding AI 的 AI-native 源码协议与执行语言项目，也是一个持续工程化的执行语言原型。
+它不是在既有语言外面再包一层 prompt 约定，而是直接从源码形态、编译器诊断、修复反馈契约、架构上下文协议与 benchmark 证据链五个层面同时为自回归模型设计，目标是成为对自回归模型最友好的语言之一。
+
+AX 关注的不只是“模型能不能写出代码”，更关注三件更硬的事：
+
+- 能不能提高首轮生成的一次通过率
+- 能不能在出错后提高结构化修复成功率
+- 能不能让 agent 在多文件项目里更快理解架构、边界和修改落点
 
 仓库已经具备可运行的 `axc check / run / fmt / build`、结构化 `diagnostics`、`--json --ai` 输出、project-backed 多文件组织、第一阶段 `import/module` 模式、AX 侧共享 foundation，以及 repair benchmark 的导出、评分、对比、smoke 与 CI 资产。
 
@@ -20,22 +26,76 @@ AX 是一个面向 Coding AI 的源码协议项目，也是一个持续工程化
 
 | 项目维度 | AX 当前提供什么 |
 | --- | --- |
-| 项目定位 | `AI-first Source Protocol + Execution Language Prototype` |
-| 核心问题 | 什么样的源码形式、诊断结构和修复上下文，更适合 Coding AI 稳定生成与修复代码 |
-| 主要场景 | 小型确定性工具程序、自动化脚本、文本处理、工作区扫描、构建辅助 |
+| 项目定位 | `AI-native Language + Source Protocol + Execution Language Prototype` |
+| 核心问题 | 什么样的源码形式、诊断结构、上下文协议和修复反馈，最适合自回归模型稳定生成、稳定修复和稳定理解项目 |
+| 关键收益 | 提高一次通过率、提高修复成功率、提高多文件项目中的架构理解效率 |
+| 主要场景 | AI 代码生成、agent 修复闭环、项目结构理解、工作区自动化、构建辅助、文本与目录处理 |
 | 当前形态 | 编译器前端 + 解释执行 + structured diagnostics + repair contract + benchmark evidence |
-| 核心价值 | 把 canonical syntax、diagnostics、repair contract、benchmark 四件事放进同一个可运行仓库 |
+| 核心价值 | 把 canonical syntax、diagnostics、context protocol、repair contract、benchmark 五件事放进同一个可运行仓库 |
 
 ## AX 的核心优势
 
 | 优势 | 具体体现 | 对真实使用的意义 |
 | --- | --- | --- |
 | 同时拥有源码、诊断、修复、benchmark | AX 同时定义语法、结构化诊断、AI 反馈字段、repair case 和 compare 链路 | 设计价值可以直接通过工程链路验证 |
-| 约束明确、表面形式稳定 | 显式类型、较少隐式规则、`fmt` 驱动的规范化输出 | 更容易让模型稳定生成，也更容易让人审阅 |
+| 对自回归模型原生友好 | 显式类型、较少等价写法、较少隐式规则、`fmt` 驱动的规范化输出 | 更容易提高首轮生成的一次通过率 |
 | 编译器反馈可直接给 Agent 消费 | `rule_id`、`repair_goal`、`fixits`、`context_snippets` 等字段已经进入输出层 | 错误反馈可直接进入自动化修复链 |
+| 架构上下文可直接给 Agent 消费 | `overview / topology / boundaries / flow / symbol / impact / evidence` 六层协议上下文进入同一条工程主线 | 多文件项目里的结构理解、边界识别和修改落点判断更稳定 |
+| 修复链不是口头承诺，而是协议闭环 | diagnostics、上下文协议、repair contract、benchmark 共用同一条输入输出链 | 修复成功率、回归率和上下文价值都可以被实际测量 |
 | 真工具样例已经进入仓库主线 | 仓库里已经有 workspace audit、release snapshot、search report、directory index 等样例 | 可以直接观察 AX 在真实工具型任务上的表达能力 |
 | 多文件工程组织开始成型 | `AX.toml + sources` 已经稳定，第一阶段 `import/module` 已接入主线 | foundation 代码与项目私有逻辑开始拥有清晰边界 |
 | benchmark 证据链是一等公民 | repair cases、adapter spec、export、score、compare、smoke、CI 都在仓库里 | 项目价值可以靠数据、回放和对比来建立 |
+
+## AX 的真实优势与应用场景
+
+AX 的优势不在于“又多一门语言”，而在于它把 AI 真正在意的三件事做成了语言和工具链的一部分。
+
+### 1. 更高的一次通过率
+
+AX 追求的是让模型在第一轮就更接近可通过代码，而不是先生成一坨“看起来像对的代码”再慢慢试错。
+
+这来自几件事同时成立：
+
+- 源码表面形式更稳定
+- 等价写法更少
+- 隐式规则更少
+- 类型和结构边界更显式
+- `fmt` 让输出更容易收敛到统一形态
+
+### 2. 更高的修复成功率
+
+AX 不把报错只当成“给人看的提示”，而是直接把 diagnostics 设计成可被 agent 消费的修复协议入口。
+
+编译器反馈里已经把下面这些信息纳入主链：
+
+- `code`
+- `rule_id`
+- `repair_goal`
+- `fixits`
+- `context_snippets`
+
+这意味着模型不是只看到一句“哪里错了”，而是能直接拿到结构化修复目标。
+
+### 3. 更强的项目架构理解
+
+多文件项目里，模型常见问题不是“完全读不懂代码”，而是：
+
+- 不知道入口在哪
+- 不知道该改哪层
+- 不知道哪些文件触碰宿主边界
+- 不知道改一个 symbol 会不会把别的地方带崩
+
+AX 把这些问题收进六层协议上下文里，让项目结构、主流程、宿主边界、局部修改切片和验证证据都能变成稳定输出。
+
+### 4. 更适合 agent 闭环工作的真实场景
+
+AX 的应用场景，不只是“写脚本”，而是所有需要让 agent 更稳定生成、修复、理解结构和验证改动的场景，尤其包括：
+
+- AI 原生代码生成与自动补全
+- 自动化修复与 repair benchmark 对比
+- 多文件项目中的结构理解与局部修改
+- CLI、构建辅助、工作区扫描、文本处理、发布与整理工具
+- 需要把“生成 -> 检查 -> 修复 -> 验证”做成闭环的 agent 工作流
 
 ## AX 的工作原理
 
@@ -719,9 +779,9 @@ AX 当前靠代表性样例证明自己。
 | --- | --- | --- |
 | `fn` | 已支持 | 显式参数类型、显式返回类型 |
 | `struct` | 已支持 | 结构体声明、字面量、字段访问 |
-| `enum` | 已支持第一版 payload enum | 枚举声明、unit variant 与单 payload variant |
-| `module ...;` | 已支持第一版 | support source 显式声明模块路径 |
-| `import ...;` | 已支持第一版 | entry / support source 显式导入模块 |
+| `enum` | 已支持 payload enum | 枚举声明、unit variant 与单 payload variant |
+| `module ...;` | 已支持 | support source 显式声明模块路径 |
+| `import ...;` | 已支持 | entry / support source 显式导入模块 |
 | `AX.toml + sources` | 已支持 | project-backed 多文件组织主路径 |
 
 ### 语句能力
@@ -736,7 +796,7 @@ AX 当前靠代表性样例证明自己。
 | `for (init; cond; step)` | 已支持 | 当前主循环表头形态 |
 | `break;` | 已支持 | 只能出现在 `while` / `for` 中 |
 | `continue;` | 已支持 | 已打通 `for -> while` lowering 下的 step 语义 |
-| `match (...) { ... }` | 已支持第一版 + `match v2` 前三刀 | 语句形态、表达式形态、简单绑定 catch-all 与第一版 payload enum pattern 都已进入 parser / semantic / interpreter / AI feedback 主链 |
+| `match (...) { ... }` | 已支持 | 语句形态、表达式形态、简单绑定 catch-all 与 payload enum pattern 都已进入 parser / semantic / interpreter / AI feedback 主链 |
 
 ### 表达式与类型能力
 
@@ -744,11 +804,11 @@ AX 当前靠代表性样例证明自己。
 | --- | --- | --- |
 | 基础类型 | 已支持 | `bool` `i32` `f32` `string` `string_list` |
 | 结构体值 | 已支持 | `Point { x: 1, y: 2 }`、`point.x` |
-| 枚举值 | 已支持第一版 payload enum | `Flag.On`、`Result.Ok(7)`、枚举值比较 |
+| 枚举值 | 已支持 payload enum | `Flag.On`、`Result.Ok(7)`、枚举值比较 |
 | 固定长度数组 | 已支持 | `[Type; N]`、数组字面量、索引读取 |
 | 只读 slice | 已支持 | `[Type]`、`values[start:end]` |
-| `for in` 遍历 | 已支持 | 第一版只支持 `for (let value: T in values) { ... }`，目标为数组 / slice |
-| 表达式 `match` | 已支持前三刀 | 当前支持单表达式 arm、最终绑定 catch-all，以及 `Result.Ok(value)` / `Result.Err(_)` 这类第一版 payload enum pattern；所有 arm 仍必须返回同类型 |
+| `for in` 遍历 | 已支持 | 当前支持 `for (let value: T in values) { ... }`，目标为数组 / slice |
+| 表达式 `match` | 已支持 | 当前支持单表达式 arm、最终绑定 catch-all，以及 `Result.Ok(value)` / `Result.Err(_)` 这类 payload enum pattern；所有 arm 仍必须返回同类型 |
 | 嵌套可写路径 | 已支持 | `outer.inner.value = ...`、`items[index].field = ...` |
 | 逻辑运算 | 已支持 | `&&`、`||`，并按短路语义执行 |
 | 余数运算 | 已支持 | `%`，当前按 `i32` 运算处理 |
@@ -764,7 +824,7 @@ AX 当前靠代表性样例证明自己。
   - 已支持在 `while` / `for` 中使用
   - `for` 场景下会先执行 step，再进入下一轮
 - 最小 `match`
-  - 当前同时支持语句形态、表达式形态、最终裸标识符绑定模式，以及第一版 payload enum pattern
+- 当前同时支持语句形态、表达式形态、最终裸标识符绑定模式，以及 payload enum pattern
   - pattern 目前支持 `true` / `false`、整数、枚举值、最终 `_`、最终裸标识符（如 `other`），以及 `Enum.Variant(name)` / `Enum.Variant(_)`
   - 裸标识符 pattern 是 catch-all 绑定，只在当前 arm 内引入一个不可变局部名
   - 会做穷尽检查：
@@ -772,8 +832,8 @@ AX 当前靠代表性样例证明自己。
      - enum 要覆盖全部 variant 或最终 catch-all
      - `i32` 当前需要最终 `_` 或最终绑定
   - 表达式形态当前收敛为 `match (value) { pattern => expr, ... }`，所有 arm 必须返回同类型
-- 第一版 payload enum
-  - 当前支持 unit variant 与单 payload variant：`Flag.On`、`Result.Ok(7)`、`Result.Err("bad")`
+- payload enum
+- 当前支持 unit variant 与单 payload variant：`Flag.On`、`Result.Ok(7)`、`Result.Err("bad")`
   - 当前 match pattern 支持 `Result.Ok(value)`、`Result.Err(_)` 与 unit variant `Flag.On`
   - 当前仍不支持命名 payload 字段、多 payload tuple variant、payload 解构链或 guard
 - 第一阶段 `module / import`
@@ -788,7 +848,7 @@ AX 当前靠代表性样例证明自己。
   - 已支持
   - 当前只接受 `i32` 操作数
   - 运行时会检查 `% 0`
-- 第一版 `for in`
+- `for in`
   - 已支持 `for (let value: T in values) { ... }`
   - 当前只覆盖数组 / slice
   - loop variable 仍保持 AX 的显式类型风格，不走隐式推断
