@@ -17,62 +17,6 @@ AX 是一个面向 Coding AI 的源码协议项目，也是一个持续工程化
 AX 当前最适合的场景，是小而确定的工具程序：CLI、构建辅助、文本处理、工作区扫描、发布脚本、项目自动化。
 仓库已经具备可运行的 `axc check / run / fmt / build`、结构化 `diagnostics`、`--json --ai` 输出、project-backed 多文件组织、第一阶段 `import/module` 模式、AX 侧共享 foundation，以及 repair benchmark 的导出、评分、对比、smoke 与 CI 资产。
 
-## 5 分钟上手
-
-### 第一步：直接跑起来
-
-```bash
-git clone https://github.com/AX-FDN/AX
-cd AX
-cargo run --quiet -- run examples/hello.ax
-```
-
-预期输出：
-
-```text
-3
-```
-
-这一步的目标很简单：先确认你本地能直接运行 AX 示例，而不是先埋进设计文档。
-
-### 第二步：改一行代码试试
-
-打开 [`examples/hello.ax`](./examples/hello.ax)，把这行：
-
-```ax
-value = value + 2;
-```
-
-改成：
-
-```ax
-value = value + 5;
-```
-
-然后重新运行：
-
-```bash
-cargo run --quiet -- run examples/hello.ax
-```
-
-新的预期输出：
-
-```text
-6
-```
-
-### 第三步：记住最常用的 3 个命令
-
-```bash
-cargo run --quiet -- check examples/hello.ax
-cargo run --quiet -- run examples/hello.ax
-cargo run --quiet -- fmt examples/hello.ax
-```
-
-- `check`：只看编译期反馈
-- `run`：执行 AX 程序
-- `fmt`：把源码整理成 AX 的规范格式
-
 ## 一眼看懂 AX
 
 | 项目维度 | AX 当前提供什么 |
