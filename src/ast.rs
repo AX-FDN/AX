@@ -190,9 +190,15 @@ pub enum EnumVariantPayloadPattern {
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum MatchPatternKind {
     Wildcard,
-    Binding { name: String },
-    Bool { value: bool },
-    Int { value: i64 },
+    Binding {
+        name: String,
+    },
+    Bool {
+        value: bool,
+    },
+    Int {
+        value: i64,
+    },
     EnumVariant {
         path: String,
         #[serde(skip_serializing_if = "Option::is_none")]

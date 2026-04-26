@@ -164,9 +164,15 @@ pub struct MatchPattern {
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum MatchPatternKind {
     Wildcard,
-    Binding { name: String },
-    Bool { value: bool },
-    Int { value: i32 },
+    Binding {
+        name: String,
+    },
+    Bool {
+        value: bool,
+    },
+    Int {
+        value: i32,
+    },
     EnumVariant {
         enum_name: String,
         variant: String,
@@ -678,9 +684,9 @@ impl FunctionLowerer {
     fn lower_match_pattern(&self, pattern: &hir::MatchPattern) -> MatchPattern {
         let kind = match &pattern.kind {
             hir::MatchPatternKind::Wildcard => MatchPatternKind::Wildcard,
-            hir::MatchPatternKind::Binding { name } => MatchPatternKind::Binding {
-                name: name.clone(),
-            },
+            hir::MatchPatternKind::Binding { name } => {
+                MatchPatternKind::Binding { name: name.clone() }
+            }
             hir::MatchPatternKind::Bool { value } => MatchPatternKind::Bool { value: *value },
             hir::MatchPatternKind::Int { value } => MatchPatternKind::Int { value: *value },
             hir::MatchPatternKind::EnumVariant {
@@ -688,14 +694,12 @@ impl FunctionLowerer {
                 variant,
                 payload,
                 payload_type,
-            } => {
-                MatchPatternKind::EnumVariant {
-                    enum_name: enum_name.clone(),
-                    variant: variant.clone(),
-                    payload: payload.clone(),
-                    payload_type: payload_type.clone(),
-                }
-            }
+            } => MatchPatternKind::EnumVariant {
+                enum_name: enum_name.clone(),
+                variant: variant.clone(),
+                payload: payload.clone(),
+                payload_type: payload_type.clone(),
+            },
             hir::MatchPatternKind::Error => MatchPatternKind::Error,
         };
 

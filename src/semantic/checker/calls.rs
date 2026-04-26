@@ -33,7 +33,8 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             return result;
         }
 
-        if let Some(result) = self.check_enum_variant_constructor_call(expr, &callee_name, arguments)
+        if let Some(result) =
+            self.check_enum_variant_constructor_call(expr, &callee_name, arguments)
         {
             return result;
         }

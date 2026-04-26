@@ -512,7 +512,9 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
         scrutinee_type: &Type,
     ) -> Option<ResolvedMatchPattern> {
         match &pattern.kind {
-            MatchPatternKind::Wildcard | MatchPatternKind::Binding { .. } | MatchPatternKind::Error => None,
+            MatchPatternKind::Wildcard
+            | MatchPatternKind::Binding { .. }
+            | MatchPatternKind::Error => None,
             MatchPatternKind::Bool { value } => {
                 if !matches!(scrutinee_type, Type::Bool | Type::Error) {
                     self.report_match_pattern_type_mismatch(pattern, scrutinee_type);
@@ -724,7 +726,8 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 path,
                 payload: Some(EnumVariantPayloadPattern::Binding { name }),
             } => {
-                if let Some(payload_type) = self.resolve_enum_pattern_payload_type(path, pattern.span)
+                if let Some(payload_type) =
+                    self.resolve_enum_pattern_payload_type(path, pattern.span)
                 {
                     self.declare(name, payload_type, false, pattern.span.start);
                 }

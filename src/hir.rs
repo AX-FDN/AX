@@ -113,9 +113,15 @@ pub struct MatchPattern {
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum MatchPatternKind {
     Wildcard,
-    Binding { name: String },
-    Bool { value: bool },
-    Int { value: i32 },
+    Binding {
+        name: String,
+    },
+    Bool {
+        value: bool,
+    },
+    Int {
+        value: i32,
+    },
     EnumVariant {
         enum_name: String,
         variant: String,
@@ -726,7 +732,9 @@ impl<'a> LoweringContext<'a> {
                                 body: Block {
                                     statements: vec![
                                         Stmt {
-                                            kind: StmtKind::Block { block: lowered_body },
+                                            kind: StmtKind::Block {
+                                                block: lowered_body,
+                                            },
                                             span: body.span,
                                         },
                                         step,
@@ -923,9 +931,9 @@ impl<'a> LoweringContext<'a> {
     fn lower_match_pattern(&self, pattern: &ast::MatchPattern) -> Result<MatchPattern, Diagnostic> {
         let kind = match &pattern.kind {
             ast::MatchPatternKind::Wildcard => MatchPatternKind::Wildcard,
-            ast::MatchPatternKind::Binding { name } => MatchPatternKind::Binding {
-                name: name.clone(),
-            },
+            ast::MatchPatternKind::Binding { name } => {
+                MatchPatternKind::Binding { name: name.clone() }
+            }
             ast::MatchPatternKind::Bool { value } => MatchPatternKind::Bool { value: *value },
             ast::MatchPatternKind::Int { value } => MatchPatternKind::Int {
                 value: i32::try_from(*value).map_err(|_| {
@@ -1041,16 +1049,17 @@ impl<'a> LoweringContext<'a> {
                 path,
                 payload: Some(ast::EnumVariantPayloadPattern::Binding { name }),
             } => {
-                let payload_type = match self.resolve_enum_variant_payload_type(path, pattern.span)? {
-                    Some(payload_type) => payload_type,
-                    None => {
-                        return Err(self.lowering_error(
-                            "H0016",
-                            format!("enum variant `{path}` does not carry a payload"),
-                            pattern.span,
-                        ));
-                    }
-                };
+                let payload_type =
+                    match self.resolve_enum_variant_payload_type(path, pattern.span)? {
+                        Some(payload_type) => payload_type,
+                        None => {
+                            return Err(self.lowering_error(
+                                "H0016",
+                                format!("enum variant `{path}` does not carry a payload"),
+                                pattern.span,
+                            ));
+                        }
+                    };
                 Ok(Block {
                     statements: vec![
                         Stmt {
@@ -1368,8 +1377,8 @@ fn canonical_item_name(
 #[cfg(test)]
 mod tests {
     use super::{
-        EnumVariantPayloadPattern, ExprKind, ItemKind, MatchPatternKind, PlaceKind, StmtKind,
-        Type, lower_program,
+        EnumVariantPayloadPattern, ExprKind, ItemKind, MatchPatternKind, PlaceKind, StmtKind, Type,
+        lower_program,
     };
     use crate::lexer::tokenize;
     use crate::parser::parse;
@@ -1585,7 +1594,10 @@ fn main() -> i32 {
         assert!(matches!(block.statements[0].kind, StmtKind::Let { .. }));
         assert!(matches!(block.statements[1].kind, StmtKind::Let { .. }));
 
-        let StmtKind::While { body: while_body, .. } = &block.statements[2].kind else {
+        let StmtKind::While {
+            body: while_body, ..
+        } = &block.statements[2].kind
+        else {
             panic!("expected lowered while statement");
         };
         assert_eq!(while_body.statements.len(), 2);
@@ -1593,12 +1605,18 @@ fn main() -> i32 {
         let StmtKind::Block { block: loop_block } = &while_body.statements[0].kind else {
             panic!("expected lowered loop body block");
         };
-        let StmtKind::Let { name, initializer, .. } = &loop_block.statements[0].kind else {
+        let StmtKind::Let {
+            name, initializer, ..
+        } = &loop_block.statements[0].kind
+        else {
             panic!("expected synthesized element binding");
         };
         assert_eq!(name, "value");
         assert!(matches!(initializer.kind, ExprKind::Index { .. }));
-        assert!(matches!(while_body.statements[1].kind, StmtKind::Assign { .. }));
+        assert!(matches!(
+            while_body.statements[1].kind,
+            StmtKind::Assign { .. }
+        ));
     }
 
     #[test]
@@ -1874,10 +1892,7 @@ fn main() -> i32 {
             panic!("expected lowered match if chain");
         };
 
-        assert!(matches!(
-            condition.kind,
-            ExprKind::MatchTest { .. }
-        ));
+        assert!(matches!(condition.kind, ExprKind::MatchTest { .. }));
         assert!(matches!(
             then_branch.statements[0].kind,
             StmtKind::Expr { .. }

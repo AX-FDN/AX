@@ -53,7 +53,6 @@ impl Type {
                     if expected_element.as_ref() == actual_element.as_ref()
             )
     }
-
 }
 
 #[derive(Debug, Clone)]

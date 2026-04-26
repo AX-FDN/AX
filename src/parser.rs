@@ -1,8 +1,7 @@
 use crate::ast::{
     BinaryOp, Block, EnumVariant, EnumVariantPayloadPattern, Expr, ExprKind, ForInBinding,
-    ImportDecl, Item, ItemKind, MatchArm, MatchExprArm, MatchPattern, MatchPatternKind,
-    ModuleDecl, Param, Program, SourceUnit, Stmt, StmtKind, StructField, StructLiteralField,
-    TypeRef, UnaryOp,
+    ImportDecl, Item, ItemKind, MatchArm, MatchExprArm, MatchPattern, MatchPatternKind, ModuleDecl,
+    Param, Program, SourceUnit, Stmt, StmtKind, StructField, StructLiteralField, TypeRef, UnaryOp,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticKind};
 use crate::source::{SourceFile, Span};
@@ -661,7 +660,8 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_enum_variant_pattern_payload(&mut self) -> EnumVariantPayloadPattern {
-        let token = self.expect_identifier("expected `_` or a binding name in enum payload pattern");
+        let token =
+            self.expect_identifier("expected `_` or a binding name in enum payload pattern");
         let payload = if token.lexeme == "_" {
             EnumVariantPayloadPattern::Wildcard
         } else {
@@ -1695,7 +1695,9 @@ fn main() -> i32 {
                 } => {
                     assert_eq!(binding.name, "value");
                     assert_eq!(binding.ty.describe(), "i32");
-                    assert!(matches!(iterable.kind, ExprKind::Name { ref value } if value == "values"));
+                    assert!(
+                        matches!(iterable.kind, ExprKind::Name { ref value } if value == "values")
+                    );
                 }
                 _ => panic!("expected for-in statement"),
             },

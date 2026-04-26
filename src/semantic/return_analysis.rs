@@ -76,15 +76,12 @@ fn match_is_exhaustive(arms: &[MatchArm], info: &ProgramInfo<'_>, current_unit_p
         return false;
     }
 
-    if arms
-        .iter()
-        .any(|arm| {
-            matches!(
-                arm.pattern.kind,
-                MatchPatternKind::Wildcard | MatchPatternKind::Binding { .. }
-            )
-        })
-    {
+    if arms.iter().any(|arm| {
+        matches!(
+            arm.pattern.kind,
+            MatchPatternKind::Wildcard | MatchPatternKind::Binding { .. }
+        )
+    }) {
         return arms.iter().any(|arm| {
             !matches!(
                 arm.pattern.kind,

@@ -6,8 +6,8 @@ use std::process::Command;
 use crate::diagnostics::{Diagnostic, DiagnosticKind};
 use crate::hir::{
     BinaryOp, Block, EnumVariantPayloadPattern as MatchPatternPayload, Expr, ExprKind, ItemKind,
-    MatchExprArm, MatchPattern, MatchPatternKind, Param, Place, PlaceKind, Program, Stmt,
-    StmtKind, UnaryOp,
+    MatchExprArm, MatchPattern, MatchPatternKind, Param, Place, PlaceKind, Program, Stmt, StmtKind,
+    UnaryOp,
 };
 use crate::source::{SourceFile, Span};
 
@@ -2368,9 +2368,11 @@ impl<'a> Interpreter<'a> {
             }),
             ExprKind::MatchTest { scrutinee, pattern } => {
                 let scrutinee_value = self.eval_expr(scrutinee, frame)?;
-                Ok(Value::Bool(
-                    self.match_pattern_matches_value(pattern, &scrutinee_value, expr.span)?,
-                ))
+                Ok(Value::Bool(self.match_pattern_matches_value(
+                    pattern,
+                    &scrutinee_value,
+                    expr.span,
+                )?))
             }
             ExprKind::EnumPayload { value } => match self.eval_expr(value, frame)? {
                 Value::Enum {
@@ -2449,7 +2451,12 @@ impl<'a> Interpreter<'a> {
     ) -> Result<Value, Diagnostic> {
         for arm in arms {
             if self.match_pattern_matches_value(&arm.pattern, &scrutinee, span)? {
-                return self.eval_match_expression_arm_value(&arm.pattern, &scrutinee, &arm.value, frame);
+                return self.eval_match_expression_arm_value(
+                    &arm.pattern,
+                    &scrutinee,
+                    &arm.value,
+                    frame,
+                );
             }
         }
 
@@ -2529,11 +2536,9 @@ impl<'a> Interpreter<'a> {
                     span,
                 )),
             },
-            MatchPatternKind::Error => Err(self.runtime_error(
-                "R0038",
-                "invalid match pattern reached the runtime",
-                span,
-            )),
+            MatchPatternKind::Error => {
+                Err(self.runtime_error("R0038", "invalid match pattern reached the runtime", span))
+            }
         }
     }
 
@@ -2581,10 +2586,7 @@ impl<'a> Interpreter<'a> {
                 else {
                     return Err(self.runtime_error(
                         "R0042",
-                        format!(
-                            "payload binding `{}` requires a payload enum value",
-                            name
-                        ),
+                        format!("payload binding `{}` requires a payload enum value", name),
                         pattern.span,
                     ));
                 };

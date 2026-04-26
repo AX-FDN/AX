@@ -362,7 +362,13 @@ fn format_match_pattern(pattern: &MatchPattern) -> String {
 
 fn format_match_expression_arms(arms: &[MatchExprArm]) -> String {
     arms.iter()
-        .map(|arm| format!("{} => {}", format_match_pattern(&arm.pattern), format_expr(&arm.value)))
+        .map(|arm| {
+            format!(
+                "{} => {}",
+                format_match_pattern(&arm.pattern),
+                format_expr(&arm.value)
+            )
+        })
         .collect::<Vec<_>>()
         .join(", ")
 }
@@ -743,11 +749,7 @@ mod tests {
         let formatted = format_source(&source).expect("source should format");
         assert_eq!(
             formatted,
-            concat!(
-                "fn main() -> i32 {\n",
-                "    return 8 % 3 * 2 + 1;\n",
-                "}\n"
-            )
+            concat!("fn main() -> i32 {\n", "    return 8 % 3 * 2 + 1;\n", "}\n")
         );
     }
 
