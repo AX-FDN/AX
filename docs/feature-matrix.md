@@ -16,7 +16,7 @@
 | `P0` 环境与契约修复 | `[~]` 文档治理与契约治理已基本收口，Windows GNU 本地验证路径已固定，剩余工作在验证矩阵与快照契约 |
 | `P1` 编译器护城河 | `[x]` repair/context/benchmark 已进入主线，context-enabled export、benchmark showcase 与公开口径边界已成立 |
 | `P2` 语言内核 / 最小可写工具 | `[~]` 已接近成型，也是当前语言主增长线，但 `foundation/` 仍是孵化层 |
-| `P3` 官方最小标准库 | `[~]` 已启动第一组 `std.*` AX 源码模块，并已完成 `project_text_normalize / project_directory_index / project_release_promote / project_command_capture` 四组迁移试点，尚未全仓冻结 |
+| `P3` 官方最小标准库 | `[~]` 已启动第一组 `std.*` AX 源码模块，并已完成 `project_text_normalize / project_directory_index / project_release_promote / project_command_capture / project_command_batch` 五组迁移试点，尚未全仓冻结 |
 | `P4+` AOT / 包接口 / 自举 / 生态 | `[ ]` 已在 `PLAN.md` 定义，但不属于当前已完成能力 |
 
 ## 总览
@@ -87,7 +87,7 @@
 ### 3. `std/` 已经开始试点，但还不是完整标准库
 
 - 当前 `foundation/` 仍是 Std-0 孵化层。
-- 当前 `std/` 已经有第一批 AX 源码模块，并由 `project_text_normalize`、`project_directory_index`、`project_release_promote` 与 `project_command_capture` 消费。
+- 当前 `std/` 已经有第一批 AX 源码模块，并由 `project_text_normalize`、`project_directory_index`、`project_release_promote`、`project_command_capture` 与 `project_command_batch` 消费。
 - 这不等于完整标准库已经冻结；P3 仍需要更多样例迁移、文档、diagnostics 和回归来确认接口。
 
 ### 4. Linux core support 不等于三平台同级成熟

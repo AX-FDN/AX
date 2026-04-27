@@ -711,7 +711,7 @@ AX 的六层协议上下文，不只是让模型“更快读懂项目”，更�
 | --- | --- | --- |
 | 推进语言内核与最小可写工具能力 | 继续补最值钱的表达能力、宿主能力和 project-backed 工程组织 | `foundation/`、`examples/project_*`、`SYNTAX.md` |
 | 推进显式、确定的模块组织 | 让 shared foundation 和 project-private logic 有清晰边界 | `AX.toml + sources`、`module`、`import`、全限定名 |
-| 为第一版最小标准库做冻结试点 | 用 `project_text_normalize`、`project_directory_index`、`project_release_promote`、`project_command_capture` 验证 `std.*` 命名空间、全限定调用、递归工具逻辑、发布型文件操作、命令捕获、环境变量检查和项目私有 `lib.*` 的组合成本 | `std/`、`examples/project_text_normalize/`、`examples/project_directory_index/`、`examples/project_release_promote/`、`examples/project_command_capture/`、`PLAN.md`、`WORKLIST.md` |
+| 为第一版最小标准库做冻结试点 | 用 `project_text_normalize`、`project_directory_index`、`project_release_promote`、`project_command_capture`、`project_command_batch` 验证 `std.*` 命名空间、全限定调用、递归工具逻辑、发布型文件操作、命令捕获、命令执行、环境变量检查和项目私有 `lib.*` 的组合成本 | `std/`、`examples/project_text_normalize/`、`examples/project_directory_index/`、`examples/project_release_promote/`、`examples/project_command_capture/`、`examples/project_command_batch/`、`PLAN.md`、`WORKLIST.md` |
 | 做硬 diagnostics / context / repair / benchmark | 让语言主线自带可消费的编译器反馈和可回放证据链 | `src/ai.rs`、`benchmarks/`、`scripts/`、`docs/benchmark-showcase.md` |
 | 用代表性样例反向驱动语言设计 | 每补一项能力，都要求它能支撑一个更真实的工具样例 | `examples/`、`tests/interface_snapshots.rs` |
 
@@ -806,6 +806,7 @@ P2 阶段固定样例集合与回归职责见 [`docs/representative-samples.md`]
 | [`examples/project_directory_index/`](./examples/project_directory_index/) | project-backed 目录索引工具 | 第二批 `std.workspace / std.path / std.report / std.fs` 试点样例 |
 | [`examples/project_release_promote/`](./examples/project_release_promote/) | 构建产物整理与提升 | 第三批 `std.fs / std.path / std.report / std.cli` 试点样例 |
 | [`examples/project_command_capture/`](./examples/project_command_capture/) | 在指定工作目录执行命令并捕获输出报告 | 第四批 `std.process / std.env / std.report / std.text` 宿主边界试点样例 |
+| [`examples/project_command_batch/`](./examples/project_command_batch/) | 批量执行命令、写入标记文件并生成报告 | 第五批 `std.process / std.env / std.fs / std.path` 宿主边界试点样例 |
 | [`examples/project_text_normalize/`](./examples/project_text_normalize/) | 文本读取、重写、输出报告 | 第一批 `std.cli / std.fs / std.path / std.report / std.text` 试点样例 |
 | [`examples/project_module_smoke/`](./examples/project_module_smoke/) | 第一阶段模块模式 smoke 工程 | `import/module` 已经进入主线验证链 |
 

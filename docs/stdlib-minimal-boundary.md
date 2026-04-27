@@ -46,13 +46,13 @@ P3 的目标不是一次性做完整标准库，而是先把第一版官方标�
 
 | 文件 | 模块 | 当前职责 | 迁移状态 |
 | --- | --- | --- | --- |
-| [`../std/cli.ax`](../std/cli.ax) | `std.cli` | CLI 参数校验、usage、错误退出消息、输入文本校验 | 第一试点已用 |
-| [`../std/env.ax`](../std/env.ax) | `std.env` | 环境变量存在性判断与读取 | 第四试点已用 |
-| [`../std/fs.ax`](../std/fs.ax) | `std.fs` | 文件读取、文件写入、目录创建、目录枚举、文件大小、文件/目录存在性判断、删除文件、重命名 | 第一、第二、第三试点已用 |
-| [`../std/path.ax`](../std/path.ax) | `std.path` | `join / parent / file_name / stem / extension / resolve / classify_file_kind / is_text_file` | 第一、第二、第三试点已用 |
-| [`../std/process.ax`](../std/process.ax) | `std.process` | 命令执行、工作目录内执行与输出捕获 | 第四试点已用 |
-| [`../std/report.ax`](../std/report.ax) | `std.report` | key/value 报告、路径报告、section 片段 | 第一、第二、第三试点已用 |
-| [`../std/text.ax`](../std/text.ax) | `std.text` | 文本统计、基础 normalize | 第一试点已用 |
+| [`../std/cli.ax`](../std/cli.ax) | `std.cli` | CLI 参数校验、usage、错误退出消息、输入文本校验 | 第一、第三、第四、第五试点已用 |
+| [`../std/env.ax`](../std/env.ax) | `std.env` | 环境变量存在性判断与读取 | 第四、第五试点已用 |
+| [`../std/fs.ax`](../std/fs.ax) | `std.fs` | 文件读取、文件写入、目录创建、目录枚举、文件大小、文件/目录存在性判断、删除文件、重命名 | 第一、第二、第三、第四、第五试点已用 |
+| [`../std/path.ax`](../std/path.ax) | `std.path` | `join / parent / file_name / stem / extension / resolve / classify_file_kind / is_text_file` | 第一、第二、第三、第五试点已用 |
+| [`../std/process.ax`](../std/process.ax) | `std.process` | 命令执行、工作目录内执行与输出捕获 | 第四、第五试点已用 |
+| [`../std/report.ax`](../std/report.ax) | `std.report` | key/value 报告、路径报告、section 片段 | 第一、第二、第三、第四、第五试点已用 |
+| [`../std/text.ax`](../std/text.ax) | `std.text` | trim、文本统计、基础 normalize | 第一、第四、第五试点已用 |
 | [`../std/workspace.ax`](../std/workspace.ax) | `std.workspace` | workspace 条目行、深度前缀、展示 label | 第二试点已用 |
 
 ## 标准库接口四件套
@@ -130,6 +130,23 @@ P3 的目标不是一次性做完整标准库，而是先把第一版官方标�
 - 第一版 `std.process` 只暴露 `run / run_in / capture_in`，不引入结构化 stdout/stderr/exit-code 结果体。
 - 第一版 `std.env` 只暴露 `has / get`，不提前设计默认值或错误传播语法。
 - interface snapshots 已覆盖该项目的 build source tree，命令捕获路径继续作为宿主边界回归样例。
+
+第五迁移试点：[`../examples/project_command_batch/`](../examples/project_command_batch/)
+
+理由：
+
+- 能验证 `std.process.run / std.process.run_in` 是否足够承载 batch 类工具。
+- 能验证 `std.env.get` 是否可以在有 `std.env.has` 护栏时安全进入真实样例。
+- 能验证 `std.* + lib.*` 组合在宿主边界更重的项目里仍然保持清晰分层。
+
+当前迁移结果：
+
+- `AX.toml` 使用 `sources = ["../../std", "lib"]`。
+- `src/main.ax` 通过 `std.cli / std.fs / std.path / std.process / std.env` 完成入口校验、输出目录创建、命令执行和环境变量读取。
+- `lib.report` 通过 `std.report / std.fs / std.text / std.workspace` 构造 batch 报告。
+- `std.text` 新增 `trim` 薄包装，用来替代样例层直接调用 `string_trim`。
+- 本轮没有引入结构化 process result、跨平台 shell contract、async/streaming process 或 Linux benchmark/orchestration 承诺。
+- interface snapshots 已覆盖该项目的运行夹具和 build source tree。
 
 ## Rust 宿主边界
 

@@ -41,7 +41,7 @@
 - `P0` 是地基修复层，当前只剩入口口径收口
 - `P1` 是编译器护城河同步硬化层，当前这一轮 context / benchmark / public claims 已完成
 - `P2` 是语言内核主施工层，当前代表样例、宿主边界和语法优先级已完成冻结
-- `P3` 是第一版标准库冻结试点层，当前已完成 `project_text_normalize`、`project_directory_index`、`project_release_promote`、`project_command_capture` 四组 `std.*` 迁移试点
+- `P3` 是第一版标准库冻结试点层，当前已完成 `project_text_normalize`、`project_directory_index`、`project_release_promote`、`project_command_capture`、`project_command_batch` 五组 `std.*` 迁移试点
 
 ## 状态说明
 
@@ -59,7 +59,7 @@
 - `P1` 的 context-enabled repair export、benchmark 展示页和公开口径边界已经成立
 - `P2` 当前出口已经完成，语言内核主代表样例、宿主边界样例和第一项 `match` 语法线已经进入回归
 - `P3` 前置边界已经完成，`project_text_normalize` 已作为第一组 `foundation -> std.*` 迁移试点完成第一轮闭环
-- 当前 `P0 / P1 / P2` 本轮出口均已完成，`P3` 已完成四组样例迁移试点，`std.process / std.env` 已完成第一刀，下一步评估 `project_command_batch`
+- 当前 `P0 / P1 / P2` 本轮出口均已完成，`P3` 已完成五组样例迁移试点，`std.process / std.env` 已通过两组宿主边界样例验证，下一步收口第一版 `std.*` 冻结候选清单
 
 当前优先级顺序固定为：
 
@@ -68,12 +68,13 @@
    - `project_directory_index` 已验证 `std.workspace / std.path / std.report / std.fs`
    - `project_release_promote` 已验证 `std.fs` 的 exists/remove/rename 与 `std.path.extension`
    - `project_command_capture` 已验证 `std.process.capture_in` 与 `std.env.has`
-   - 下一步只在 `project_command_batch` 暴露明确缺口时再扩 `std.process / std.env`
+   - `project_command_batch` 已验证 `std.process.run / std.process.run_in / std.env.get`
+   - 下一步不继续默认迁移样例，先收口 `std.*` 第一版接口冻结候选和仍需孵化的 `foundation/*`
    - 继续保持 `foundation/` 作为未迁移样例的 Std-0 孵化层
 2. 暂不启动 P4 AOT、P5 包接口、JIT、自举或三方库桥接
 3. 任何下一轮实现都必须继续回写 examples、diagnostics、context、repair/benchmark 或 interface snapshots
 
-当前判断：P1 这一轮已经完成，不再和新增语言能力抢资源。当前主线已经选定为 `P3 std.*`，但不继续全仓改名；下一步应先评估 `project_command_batch` 是否真的需要继续扩 `std.process / std.env`。
+当前判断：P1 这一轮已经完成，不再和新增语言能力抢资源。当前主线已经选定为 `P3 std.*`，但不继续全仓改名；五组迁移试点已经足够暴露第一版工具标准库边界，下一步应收口接口冻结候选，而不是继续迁移所有样例。
 
 ## 阶段承接图
 
@@ -123,6 +124,7 @@
 - [x] `project_directory_index` 已消费 `std.workspace / std.path / std.report / std.fs` 并通过回归
 - [x] `project_release_promote` 已消费 `std.fs / std.path / std.report / std.cli` 并通过回归
 - [x] `project_command_capture` 已消费 `std.process / std.env` 并通过回归
+- [x] `project_command_batch` 已消费 `std.process / std.env` 并通过回归
 
 ## 近期已解除阻塞
 
@@ -574,15 +576,32 @@
   - 完成标准：
     - `project_command_capture` 的 `check / run / build` 和对应 interface snapshots 通过
 
-- [ ] `W-P3-13` 评估第五迁移试点 `project_command_batch`
+- [x] `W-P3-13` 评估并完成第五迁移试点 `project_command_batch`
   - 目标：验证 `std.process.run / std.process.run_in / std.env.get` 是否足够承载 batch 类工具。
   - 依赖：`W-P3-12`
-  - 当前不做：
+  - 当前结果：
+    - `project_command_batch` 已从 `../../foundation + lib` 迁移到 `../../std + lib`
+    - `src/main.ax` 已通过 `std.cli / std.fs / std.path / std.process / std.env` 承载入口校验、输出目录创建、命令执行和环境变量读取
+    - `lib.report` 已显式声明 `module lib.report`，并通过 `std.report / std.fs / std.text / std.workspace` 构造 batch 报告
+    - 新增 `std.text.trim`，补齐文档已声明但 AX 源码模块尚未暴露的薄包装
+  - 本轮仍不做：
     - 不改 process 返回类型
     - 不把命令执行抽象成跨平台 shell contract
     - 不承诺 Linux benchmark/orchestration 脚本支持
   - 完成标准：
-    - 判断 `project_command_batch` 是否可以直接迁移，还是需要先写 Windows-only host boundary 说明
+    - `project_command_batch` 的 `check / run / build` 和对应 interface snapshots 通过
+
+- [ ] `W-P3-14` 收口第一版 `std.*` 冻结候选清单
+  - 目标：五组迁移试点完成后，判断哪些接口可以进入 Std-1 冻结候选，哪些仍留在 `foundation/` 继续孵化。
+  - 依赖：`W-P3-07` 到 `W-P3-13`
+  - 当前不做：
+    - 不继续默认迁移 `project_workspace_search_report`
+    - 不启动 `std.search`
+    - 不提前做 package/visibility/registry
+  - 完成标准：
+    - 写清 `std.cli / std.env / std.fs / std.path / std.process / std.report / std.text / std.workspace` 的冻结候选接口
+    - 写清 `foundation/search.ax` 与未迁移 helper 继续孵化的理由
+    - 写清下一轮若要补标准库，必须由哪个真实 workload 或 repair case 触发
 
 ## 当前明确不插队的方向
 

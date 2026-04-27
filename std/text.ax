@@ -11,6 +11,10 @@ fn zero_text_stats() -> TextStats {
     return TextStats { lines: 0, nonempty: 0, headings: 0, action_items: 0 };
 }
 
+fn trim(text: string) -> string {
+    return string_trim(text);
+}
+
 fn analyze(text: string) -> TextStats {
     let lines: [string] = string_split_lines(text);
     let mut stats: TextStats = zero_text_stats();

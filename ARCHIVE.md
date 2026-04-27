@@ -25,6 +25,15 @@
 
 ### 2026-04-27
 
+- `A-2026-04-27-20` `[P3]` 第五组 `std.*` 迁移试点 command batch 落地
+  - 结果：
+    - `examples/project_command_batch/` 已从 `../../foundation + lib` 迁移到 `../../std + lib`
+    - `src/main.ax` 已通过 `std.cli / std.fs / std.path / std.process / std.env` 承载入口校验、输出目录创建、命令执行和环境变量读取
+    - `lib.report` 已显式声明 `module lib.report`，并通过 `std.report / std.fs / std.text / std.workspace` 构造 batch 报告
+    - `std.text` 新增 `trim` 薄包装，补齐文档已声明的文本接口
+    - `tests/interface_snapshots.rs` 已更新 command batch 的 build source 回归
+    - `WORKLIST.md` 已把下一步推进到第一版 `std.*` 冻结候选清单收口，而不是继续默认迁移全仓样例
+
 - `A-2026-04-27-19` `[P3]` `std.process / std.env` 第一刀与 command capture 试点落地
   - 结果：
     - 新增 `std/process.ax`，第一版只暴露 `run / run_in / capture_in`

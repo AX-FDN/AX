@@ -1,3 +1,10 @@
+module lib.report;
+
+import std.fs;
+import std.report;
+import std.text;
+import std.workspace;
+
 fn build_report(
     working_dir: string,
     output_dir: string,
@@ -9,24 +16,24 @@ fn build_report(
     path_length: i32
 ) -> string {
     let mut report: string = "";
-    report = append_path_stat(report, "working_dir", working_dir);
-    report = append_path_stat(report, "output_dir", output_dir);
-    report = append_path_stat(report, "global_marker", global_marker_path);
-    report = append_path_stat(report, "local_marker", local_marker_path);
-    report = append_int_stat(report, "global_exit", global_exit);
-    report = append_int_stat(report, "local_exit", local_exit);
-    report = append_bool_stat(report, "path_env_present", path_env_present);
-    report = append_int_stat(report, "path_length", path_length);
-    report = append_bool_stat(report, "global_marker_exists", fs_is_file(global_marker_path));
-    report = append_bool_stat(report, "local_marker_exists", fs_is_file(local_marker_path));
+    report = std.report.append_path_stat(report, "working_dir", working_dir);
+    report = std.report.append_path_stat(report, "output_dir", output_dir);
+    report = std.report.append_path_stat(report, "global_marker", global_marker_path);
+    report = std.report.append_path_stat(report, "local_marker", local_marker_path);
+    report = std.report.append_int_stat(report, "global_exit", global_exit);
+    report = std.report.append_int_stat(report, "local_exit", local_exit);
+    report = std.report.append_bool_stat(report, "path_env_present", path_env_present);
+    report = std.report.append_int_stat(report, "path_length", path_length);
+    report = std.report.append_bool_stat(report, "global_marker_exists", std.fs.is_file(global_marker_path));
+    report = std.report.append_bool_stat(report, "local_marker_exists", std.fs.is_file(local_marker_path));
 
     let mut details: string = "";
-    if (fs_is_file(global_marker_path)) {
-        details = append_named_line(details, global_marker_path, string_trim(fs_read_to_string(global_marker_path)));
+    if (std.fs.is_file(global_marker_path)) {
+        details = std.workspace.append_workspace_line(details, global_marker_path, 0, std.text.trim(std.fs.read_to_string(global_marker_path)));
     }
-    if (fs_is_file(local_marker_path)) {
-        details = append_named_line(details, local_marker_path, string_trim(fs_read_to_string(local_marker_path)));
+    if (std.fs.is_file(local_marker_path)) {
+        details = std.workspace.append_workspace_line(details, local_marker_path, 0, std.text.trim(std.fs.read_to_string(local_marker_path)));
     }
 
-    return append_section_details_or_none(report, "markers", details, "(none)");
+    return std.report.append_section_details_or_none(report, "markers", details, "(none)");
 }

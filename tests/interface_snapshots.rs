@@ -5237,7 +5237,7 @@ fn project_command_batch_build_copies_real_example_source_tree() {
     assert_project_example_build_sources(
         "project-command-batch-build",
         "examples/project_command_batch",
-        &project_sources_with_shared_foundation(&["lib/report.ax", "src/main.ax"]),
+        &project_sources_with_shared_std(&["lib/report.ax", "src/main.ax"]),
     );
 }
 
