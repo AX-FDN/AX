@@ -91,8 +91,28 @@ Project-backed cases add these optional fields:
 - `project_target_relative_path`
 - `project_source_relative_paths`
 
+Context-enabled exports add this optional field:
+
+- `context_bundle`
+
 `diagnostic_command` tells the adapter whether the exported failure came from `axc check --json` or `axc run --json`. Adapters do not need to execute that command themselves, but they may use it to tailor prompts or repair strategy.
 When the optional project fields are present, `source_file` still points to the broken target source copy, while `project_root` points at the exported read-only project snapshot and the relative-path fields describe paths inside that snapshot.
+When `context_bundle` is present, it gives the adapter compiler-produced project/source context that is safe to consume as read-only repair planning input. The first supported bundle shape is:
+
+```json
+{
+  "schema_version": 1,
+  "target": "examples/project_name",
+  "symbol": "main",
+  "views": {
+    "overview": { "schema_version": 1, "view": "overview" },
+    "boundaries": { "schema_version": 1, "view": "boundaries" },
+    "evidence": { "schema_version": 1, "view": "evidence" }
+  }
+}
+```
+
+The current export script only supports the minimal repair context shell `overview + boundaries + evidence`. `evidence` is symbol-scoped, so the export uses `cases[].context_symbol` when present and falls back to `main`.
 
 Adapters should treat the prompt and bundle as read-only inputs.
 

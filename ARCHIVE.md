@@ -25,6 +25,14 @@
 
 ### 2026-04-27
 
+- `A-2026-04-27-10` `[P1]` context 进入 repair benchmark 导出链
+  - 结果：
+    - `scripts/export-repair-benchmark.ps1` 新增可选 `-IncludeContext` 路径，默认导出契约保持不变
+    - context-enabled bundle 新增 `context_bundle`，首批固定消费 `overview / boundaries / evidence`
+    - `cases[].context_symbol` 可指定 evidence 视图符号，缺省回退到 `main`
+    - prompt 新增 `AX context bundle` 段落，让 adapter 能同时消费源码、diagnostics、项目快照和架构上下文
+    - `tests/interface_snapshots.rs` 已覆盖 context-enabled export 回归
+
 - `A-2026-04-27-09` `[Docs]` 对外定位口径收回到 AI-first 语言主线
   - 结果：
     - `docs/why-not-language-subsets.md` 不再把 AX 表述成 source-protocol experiment，而是表述为拥有 source protocol、diagnostics contract、repair contract 与 benchmark loop 的 AI-first tool language

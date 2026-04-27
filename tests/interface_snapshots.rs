@@ -302,6 +302,35 @@ fn export_repair_benchmark(temp: &TempDir, manifest_path: &Path) -> PathBuf {
     output_dir
 }
 
+fn export_repair_benchmark_with_context(temp: &TempDir, manifest_path: &Path) -> PathBuf {
+    let output_dir = temp.join("benchmark-with-context");
+    let script_path = repo_root()
+        .join("scripts")
+        .join("export-repair-benchmark.ps1");
+
+    let output = run_powershell_script(
+        &script_path,
+        [
+            OsStr::new("-ManifestPath"),
+            manifest_path.as_os_str(),
+            OsStr::new("-OutputDir"),
+            output_dir.as_os_str(),
+            OsStr::new("-IncludeContext"),
+            OsStr::new("-SkipBuild"),
+        ],
+    );
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "context repair benchmark export should succeed\nstdout:\n{}\nstderr:\n{}",
+        string_output(&output.stdout),
+        string_output(&output.stderr)
+    );
+    assert_clean_stderr(&output);
+
+    output_dir
+}
+
 fn export_smoke_repair_benchmark(temp: &TempDir) -> PathBuf {
     export_repair_benchmark(
         temp,
@@ -498,7 +527,8 @@ fn write_single_project_case_manifest(
                 "expected_codes": ["P0001"],
                 "expected_ai_rule_ids": ["statement_terminator_required"],
                 "repair_goal": "Insert the missing semicolon in the project helper file.",
-                "notes": "Project-context contract-only benchmark case."
+                "notes": "Project-context contract-only benchmark case.",
+                "context_symbol": "helper"
             }
         ]
     });
@@ -1526,6 +1556,127 @@ fn main() -> i32 {
     assert!(
         prompt.contains("Read-only project file: src/main.ax"),
         "project prompt should include supporting project source context"
+    );
+}
+
+#[test]
+#[cfg_attr(
+    not(windows),
+    ignore = "Windows-only PowerShell benchmark orchestration"
+)]
+fn repair_benchmark_export_can_include_context_bundle() {
+    let temp = TempDir::new("repair-benchmark-context-export");
+    let project_dir = temp.join("project");
+    fs::create_dir_all(project_dir.join("lib")).expect("project lib directory should exist");
+    fs::create_dir_all(project_dir.join("src")).expect("project src directory should exist");
+
+    fs::write(
+        project_dir.join("AX.toml"),
+        "\
+manifest_version = 1
+
+[package]
+name = \"repair_project_case\"
+entry = \"src/main.ax\"
+sources = [\"lib\"]
+",
+    )
+    .expect("project manifest should exist");
+    fs::write(
+        project_dir.join("lib").join("helper.ax"),
+        "\
+fn helper() -> i32 {
+    let value: i32 = 1
+    return value;
+}
+",
+    )
+    .expect("broken helper should exist");
+    fs::write(
+        project_dir.join("src").join("main.ax"),
+        "\
+fn main() -> i32 {
+    return helper();
+}
+",
+    )
+    .expect("entry source should exist");
+
+    let manifest_path = write_single_project_case_manifest(
+        &temp,
+        "single-project-context-case-manifest.json",
+        &project_dir,
+        &project_dir.join("lib").join("helper.ax"),
+    );
+    let output_dir = export_repair_benchmark_with_context(&temp, &manifest_path);
+
+    let bundle = read_json_file(
+        &output_dir
+            .join("project_missing_semicolon")
+            .join("bundle.ai.json"),
+        "context-enabled ai bundle",
+    );
+    assert_eq!(
+        bundle["context_bundle"]["schema_version"],
+        Value::from(1),
+        "context bundle should keep its own schema version"
+    );
+    assert_eq!(
+        bundle["context_bundle"]["symbol"],
+        Value::from("helper"),
+        "context bundle should use the manifest-provided context symbol"
+    );
+    assert_eq!(
+        bundle["context_bundle"]["views"]["overview"]["view"],
+        Value::from("overview"),
+        "context bundle should include the overview view"
+    );
+    assert_eq!(
+        bundle["context_bundle"]["views"]["boundaries"]["view"],
+        Value::from("boundaries"),
+        "context bundle should include the boundaries view"
+    );
+    assert_eq!(
+        bundle["context_bundle"]["views"]["evidence"]["view"],
+        Value::from("evidence"),
+        "context bundle should include the evidence view"
+    );
+
+    let index = read_json_file(
+        &output_dir.join("index.json"),
+        "context-enabled repair benchmark index",
+    );
+    let case_summary = &index["cases"][0];
+    assert_eq!(
+        case_summary["context_symbol"],
+        Value::from("helper"),
+        "index should expose the context symbol used for export"
+    );
+    assert_eq!(
+        json_string_array(&case_summary["context_views"], "context views"),
+        vec![
+            "overview".to_string(),
+            "boundaries".to_string(),
+            "evidence".to_string()
+        ],
+        "index should expose the context views included in the bundle"
+    );
+
+    let prompt = normalize_text(
+        &fs::read_to_string(
+            output_dir
+                .join("project_missing_semicolon")
+                .join("prompt.ai.md"),
+        )
+        .expect("context prompt should be readable"),
+    );
+    assert!(
+        prompt.contains("AX context bundle:"),
+        "context-enabled prompt should include a dedicated context section"
+    );
+    assert!(
+        prompt.contains("\"evidence\""),
+        "context-enabled prompt should include evidence JSON"
     );
 }
 

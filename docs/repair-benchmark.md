@@ -77,6 +77,8 @@ Field meanings:
   Human-facing repair target used in exported prompts and reports.
 - `cases[].notes`
   Extra case-specific context for prompts and readers.
+- `cases[].context_symbol`
+  Optional symbol used when exporting context-enabled repair bundles. If omitted, context export falls back to `main`.
 
 As of 2026-04-24, the committed manifests also include a repository-backed project-context case:
 [`project_helper_missing_semicolon`](../benchmarks/repair-projects/helper_missing_semicolon).
@@ -88,6 +90,12 @@ Use [`../scripts/export-repair-benchmark.ps1`](../scripts/export-repair-benchmar
 
 ```powershell
 .\scripts\export-repair-benchmark.ps1
+```
+
+To include compiler context in the exported repair bundles and prompts:
+
+```powershell
+.\scripts\export-repair-benchmark.ps1 -IncludeContext
 ```
 
 By default it writes to:
@@ -132,6 +140,17 @@ The export script validates the benchmark as it exports it:
 - `diagnostic_command` must be `check` or `run`
 - `expected_codes` must match observed compiler output exactly
 - `expected_ai_rule_ids` must match observed AI-enhanced output exactly
+
+When `-IncludeContext` is enabled, each `bundle.*.json` also includes a `context_bundle` object. The first supported context shell is deliberately narrow:
+
+- `overview`
+  Describes the project/source shape and top-level inventory.
+- `boundaries`
+  Describes host-boundary usage so adapters can avoid broad rewrites around process, environment, path, or file-system calls.
+- `evidence`
+  Points at likely validation commands and related artifacts for the selected symbol.
+
+The export script uses `cases[].context_symbol` as the symbol for `evidence` when present and otherwise falls back to `main`. This keeps context optional and stable: exports without `-IncludeContext` preserve the previous artifact contract exactly, while context-enabled exports create a richer repair input for adapters that can consume structured compiler context.
 
 If any case drifts, export fails immediately.
 

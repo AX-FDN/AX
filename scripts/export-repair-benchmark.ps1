@@ -1,6 +1,8 @@
 param(
     [string] $ManifestPath = "benchmarks\\repair-cases.json",
     [string] $OutputDir = "",
+    [switch] $IncludeContext,
+    [string[]] $ContextViews = @("overview", "boundaries", "evidence"),
     [switch] $SkipBuild
 )
 
@@ -192,6 +194,17 @@ function Format-JsonText {
     return (($Value | ConvertTo-Json -Depth 100).TrimEnd() + "`n")
 }
 
+function Assert-ContextViewsSupported {
+    param([string[]] $Views)
+
+    $allowedViews = @("overview", "boundaries", "evidence")
+    foreach ($view in @($Views)) {
+        if ($allowedViews -notcontains $view) {
+            Write-Error "Unsupported repair context view '$view'. Current repair export supports: $($allowedViews -join ', ')."
+        }
+    }
+}
+
 function New-RepairPrompt {
     param(
         [string] $CaseId,
@@ -203,7 +216,8 @@ function New-RepairPrompt {
         [string] $DiagnosticsJson,
         [string] $TargetFile = "",
         [string] $ProjectManifestText = "",
-        [object[]] $ProjectContextFiles = @()
+        [object[]] $ProjectContextFiles = @(),
+        [string] $ContextBundleJson = ""
     )
 
     $notesBlock = ""
@@ -266,6 +280,19 @@ $contextText
         }
     }
 
+    $contextBundleBlock = ""
+    if (-not [string]::IsNullOrWhiteSpace($ContextBundleJson)) {
+        $contextBundleBlock = @"
+
+AX context bundle:
+- Use this as structured compiler context for repair planning.
+- Prefer the target file and repair goal over broad rewrites.
+~~~json
+$ContextBundleJson
+~~~
+"@
+    }
+
     @"
 You are repairing a broken AX program.
 
@@ -294,6 +321,7 @@ $sourceHeader
 $SourceText
 ~~~
 $projectContextBlock
+$contextBundleBlock
 $diagnosticsBlock
 "@
 }
@@ -405,6 +433,61 @@ function Read-DiagnosticsJson {
     }
 }
 
+function Invoke-ContextView {
+    param(
+        [string] $BinaryPath,
+        [string] $View,
+        [string] $Target,
+        [string] $Symbol,
+        [string] $CaseId
+    )
+
+    $arguments = @("context", $View, $Target)
+    if ($View -eq "evidence") {
+        $arguments += $Symbol
+    }
+    $arguments += "--json"
+
+    $result = Invoke-Axc -BinaryPath $BinaryPath -Arguments $arguments
+    if ($result.ExitCode -ne 0) {
+        $details = if ($result.StdErr) { "`nstderr:`n$($result.StdErr)" } else { "" }
+        Write-Error "Context view '$View' failed for case '$CaseId' with exit code $($result.ExitCode).$details"
+    }
+
+    if ([string]::IsNullOrWhiteSpace($result.StdOut)) {
+        Write-Error "Context view '$View' produced no JSON for case '$CaseId'."
+    }
+
+    try {
+        return $result.StdOut | ConvertFrom-Json
+    } catch {
+        $details = if ($result.StdErr) { "`nstderr:`n$($result.StdErr)" } else { "" }
+        Write-Error "Failed to parse context view '$View' JSON for case '$CaseId': $($_.Exception.Message)$details"
+    }
+}
+
+function New-ContextBundle {
+    param(
+        [string] $BinaryPath,
+        [string] $CaseId,
+        [string] $Target,
+        [string] $Symbol,
+        [string[]] $Views
+    )
+
+    $viewObjects = [ordered]@{}
+    foreach ($view in @($Views)) {
+        $viewObjects[$view] = Invoke-ContextView -BinaryPath $BinaryPath -View $view -Target $Target -Symbol $Symbol -CaseId $CaseId
+    }
+
+    return [ordered]@{
+        schema_version = 1
+        target         = $Target
+        symbol         = $Symbol
+        views          = $viewObjects
+    }
+}
+
 function Assert-ExactSequence {
     param(
         [string] $CaseId,
@@ -428,6 +511,9 @@ function Assert-ExactSequence {
 }
 
 $manifest = Read-Manifest -Path $ManifestPath
+if ($IncludeContext) {
+    Assert-ContextViewsSupported -Views $ContextViews
+}
 
 if (-not $SkipBuild) {
     & $cargoScript build | Out-Null
@@ -452,6 +538,8 @@ foreach ($case in @($manifest.cases)) {
     $projectSnapshot = $null
     $projectTargetRelativePath = ""
     $diagnosticTarget = $relativeFile
+    $contextBundle = $null
+    $contextBundleText = ""
 
     if ([string]::IsNullOrWhiteSpace($caseId)) {
         Write-Error "Encountered repair benchmark case with empty id."
@@ -485,6 +573,15 @@ foreach ($case in @($manifest.cases)) {
 
     $baseDiagnostics = Read-DiagnosticsJson -CaseId $caseId -Mode "base" -JsonText $baseResult.StdOut -StdErr $baseResult.StdErr
     $aiDiagnostics = Read-DiagnosticsJson -CaseId $caseId -Mode "ai" -JsonText $aiResult.StdOut -StdErr $aiResult.StdErr
+
+    if ($IncludeContext) {
+        $contextSymbol = [string] $case.context_symbol
+        if ([string]::IsNullOrWhiteSpace($contextSymbol)) {
+            $contextSymbol = "main"
+        }
+        $contextBundle = New-ContextBundle -BinaryPath $binary -CaseId $caseId -Target $diagnosticTarget -Symbol $contextSymbol -Views $ContextViews
+        $contextBundleText = (Format-JsonText -Value $contextBundle).TrimEnd()
+    }
 
     $expectedCodes = @($case.expected_codes | ForEach-Object { [string] $_ })
     $observedBaseCodes = @($baseDiagnostics | ForEach-Object { [string] $_.code })
@@ -565,6 +662,12 @@ foreach ($case in @($manifest.cases)) {
         diagnostics          = @($aiDiagnostics)
     }
 
+    if ($IncludeContext) {
+        foreach ($bundle in @($coldBundle, $baseBundle, $aiBundle)) {
+            $bundle.context_bundle = $contextBundle
+        }
+    }
+
     if ($projectInput) {
         $projectRootArtifactPath = "$caseId/project"
         $projectContextFiles = @($projectSnapshot.context_files)
@@ -588,9 +691,9 @@ foreach ($case in @($manifest.cases)) {
     Write-Utf8File -Path $coldBundleArtifact -Text (Format-JsonText -Value $coldBundle)
     Write-Utf8File -Path $baseBundleArtifact -Text (Format-JsonText -Value $baseBundle)
     Write-Utf8File -Path $aiBundleArtifact -Text (Format-JsonText -Value $aiBundle)
-    Write-Utf8File -Path $coldPromptArtifact -Text (New-RepairPrompt -CaseId $caseId -FeedbackMode "cold_prompt" -DiagnosticCommand $diagnosticCommand -RepairGoal ([string] $case.repair_goal) -Notes ([string] $case.notes) -SourceText $sourceText -DiagnosticsJson "" -TargetFile $projectTargetRelativePath -ProjectManifestText ([string] $projectSnapshot.manifest_text) -ProjectContextFiles $contextFilesWithoutTarget)
-    Write-Utf8File -Path $basePromptArtifact -Text (New-RepairPrompt -CaseId $caseId -FeedbackMode "base_json" -DiagnosticCommand $diagnosticCommand -RepairGoal ([string] $case.repair_goal) -Notes ([string] $case.notes) -SourceText $sourceText -DiagnosticsJson $baseDiagnosticsText -TargetFile $projectTargetRelativePath -ProjectManifestText ([string] $projectSnapshot.manifest_text) -ProjectContextFiles $contextFilesWithoutTarget)
-    Write-Utf8File -Path $aiPromptArtifact -Text (New-RepairPrompt -CaseId $caseId -FeedbackMode "ai_json" -DiagnosticCommand $diagnosticCommand -RepairGoal ([string] $case.repair_goal) -Notes ([string] $case.notes) -SourceText $sourceText -DiagnosticsJson $aiDiagnosticsText -TargetFile $projectTargetRelativePath -ProjectManifestText ([string] $projectSnapshot.manifest_text) -ProjectContextFiles $contextFilesWithoutTarget)
+    Write-Utf8File -Path $coldPromptArtifact -Text (New-RepairPrompt -CaseId $caseId -FeedbackMode "cold_prompt" -DiagnosticCommand $diagnosticCommand -RepairGoal ([string] $case.repair_goal) -Notes ([string] $case.notes) -SourceText $sourceText -DiagnosticsJson "" -TargetFile $projectTargetRelativePath -ProjectManifestText ([string] $projectSnapshot.manifest_text) -ProjectContextFiles $contextFilesWithoutTarget -ContextBundleJson $contextBundleText)
+    Write-Utf8File -Path $basePromptArtifact -Text (New-RepairPrompt -CaseId $caseId -FeedbackMode "base_json" -DiagnosticCommand $diagnosticCommand -RepairGoal ([string] $case.repair_goal) -Notes ([string] $case.notes) -SourceText $sourceText -DiagnosticsJson $baseDiagnosticsText -TargetFile $projectTargetRelativePath -ProjectManifestText ([string] $projectSnapshot.manifest_text) -ProjectContextFiles $contextFilesWithoutTarget -ContextBundleJson $contextBundleText)
+    Write-Utf8File -Path $aiPromptArtifact -Text (New-RepairPrompt -CaseId $caseId -FeedbackMode "ai_json" -DiagnosticCommand $diagnosticCommand -RepairGoal ([string] $case.repair_goal) -Notes ([string] $case.notes) -SourceText $sourceText -DiagnosticsJson $aiDiagnosticsText -TargetFile $projectTargetRelativePath -ProjectManifestText ([string] $projectSnapshot.manifest_text) -ProjectContextFiles $contextFilesWithoutTarget -ContextBundleJson $contextBundleText)
 
     $caseSummary = [ordered]@{
         id                   = $caseId
@@ -627,6 +730,11 @@ foreach ($case in @($manifest.cases)) {
         $caseSummary.project_target_relative_path = $projectTargetRelativePath
         $caseSummary.project_source_relative_paths = @($projectSnapshot.source_relative_paths)
         $caseSummary.artifacts.project_root = "$caseId/project"
+    }
+
+    if ($IncludeContext) {
+        $caseSummary.context_symbol = [string] $contextBundle.symbol
+        $caseSummary.context_views = @($ContextViews)
     }
 
     Write-Utf8File -Path $caseArtifact -Text (($caseSummary | ConvertTo-Json -Depth 100) + "`n")

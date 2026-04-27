@@ -162,7 +162,7 @@
 
 ## P1 施工项：编译器护城河硬化
 
-- [~] `W-P1-01` 把 context 协议接进 repair / benchmark 输入通道
+- [x] `W-P1-01` 把 context 协议接进 repair / benchmark 输入通道
   - 目标：让 `overview / boundaries / topology / flow / symbol / impact / evidence` 不只可读，还能被后续修复链消费。
   - 依赖：`P0` 契约字段不能继续漂移。
   - 产物：
@@ -171,7 +171,7 @@
     - 不开启 context 时维持当前行为
     - 开启后进入 smoke 或回归
 
-- [ ] `W-P1-02` 定义 context 输入最小壳层
+- [x] `W-P1-02` 定义 context 输入最小壳层
   - 目标：明确 repair/export 链路到底吃哪些 context 视图，不搞“把所有视图全塞进去”的粗暴方案。
   - 依赖：`W-P1-01`
   - 产物：
@@ -180,7 +180,7 @@
   - 完成标准：
     - 能清楚回答“修复链最先消费哪几层 context”
 
-- [ ] `W-P1-03` 给 context-enabled 路径补 smoke 或回归
+- [x] `W-P1-03` 给 context-enabled 路径补 smoke 或回归
   - 目标：防止 context 接入后只存在于一次性实验中。
   - 依赖：`W-P1-01`、`W-P1-02`
   - 产物：
