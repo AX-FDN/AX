@@ -589,6 +589,7 @@ const SHARED_STD_PROJECT_SOURCES: &[&str] = &[
     "external/std/path.ax",
     "external/std/report.ax",
     "external/std/text.ax",
+    "external/std/workspace.ax",
 ];
 
 fn project_sources_with_shared_foundation(extra: &[&str]) -> Vec<String> {
@@ -5220,7 +5221,7 @@ fn project_directory_index_build_copies_real_example_source_tree() {
     assert_project_example_build_sources(
         "project-directory-index-build",
         "examples/project_directory_index",
-        &project_sources_with_shared_foundation(&[
+        &project_sources_with_shared_std(&[
             "lib/index_totals.ax",
             "lib/report.ax",
             "lib/scan.ax",

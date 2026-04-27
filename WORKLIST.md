@@ -41,7 +41,7 @@
 - `P0` 是地基修复层，当前只剩入口口径收口
 - `P1` 是编译器护城河同步硬化层，当前这一轮 context / benchmark / public claims 已完成
 - `P2` 是语言内核主施工层，当前代表样例、宿主边界和语法优先级已完成冻结
-- `P3` 是第一版标准库冻结试点层，当前已完成 `project_text_normalize` 第一轮 `std.*` 迁移，下一步评估第二迁移试点
+- `P3` 是第一版标准库冻结试点层，当前已完成 `project_text_normalize` 与 `project_directory_index` 两组 `std.*` 迁移试点
 
 ## 状态说明
 
@@ -59,18 +59,19 @@
 - `P1` 的 context-enabled repair export、benchmark 展示页和公开口径边界已经成立
 - `P2` 当前出口已经完成，语言内核主代表样例、宿主边界样例和第一项 `match` 语法线已经进入回归
 - `P3` 前置边界已经完成，`project_text_normalize` 已作为第一组 `foundation -> std.*` 迁移试点完成第一轮闭环
-- 当前 `P0 / P1 / P2` 本轮出口均已完成，下一轮主攻固定为 `P3 std.*` 试点验证与第二样例迁移准备
+- 当前 `P0 / P1 / P2` 本轮出口均已完成，`P3` 已完成两组样例迁移试点，下一步进入第三试点评估或标准库接口收紧
 
 当前优先级顺序固定为：
 
-1. 先评估第二个 `P3` 标准库迁移试点：
-   - 优先看 `project_directory_index`
-   - 只补它真实需要的 `std.workspace / std.path / std.report` 接口
+1. 先收紧当前 `P3` 标准库试点结果：
+   - `project_text_normalize` 已验证 `std.cli / std.fs / std.path / std.report / std.text`
+   - `project_directory_index` 已验证 `std.workspace / std.path / std.report / std.fs`
+   - 下一步只在第三个真实样例暴露明确缺口时再扩 `std.*`
    - 继续保持 `foundation/` 作为未迁移样例的 Std-0 孵化层
 2. 暂不启动 P4 AOT、P5 包接口、JIT、自举或三方库桥接
 3. 任何下一轮实现都必须继续回写 examples、diagnostics、context、repair/benchmark 或 interface snapshots
 
-当前判断：P1 这一轮已经完成，不再和新增语言能力抢资源。当前主线已经选定为 `P3 std.*`，下一步只评估并准备第二迁移试点，不全仓改名。
+当前判断：P1 这一轮已经完成，不再和新增语言能力抢资源。当前主线已经选定为 `P3 std.*`，但不继续全仓改名；下一步应先评估第三样例是否真的需要新接口。
 
 ## 阶段承接图
 
@@ -117,6 +118,7 @@
 - [x] `foundation/* -> std.*` 的映射先列清单
 - [x] 至少有一组样例能作为标准库迁移试点
 - [x] `project_text_normalize` 已消费第一批 `std.*` AX 源码模块并通过回归
+- [x] `project_directory_index` 已消费 `std.workspace / std.path / std.report / std.fs` 并通过回归
 
 ## 近期已解除阻塞
 
@@ -470,6 +472,7 @@
     - `std/path.ax`
     - `std/report.ax`
     - `std/text.ax`
+    - `std/workspace.ax`
   - 依赖：`W-P3-01` 到 `W-P3-05`
   - 完成标准：
     - `project_text_normalize` 可以只通过 `../../std` 与项目私有 `lib` 完成 `check / run / build`
@@ -489,15 +492,31 @@
     - `axc build examples/project_text_normalize` 成功
     - `tests/interface_snapshots.rs` 的 text normalize 运行与 build source 回归通过
 
-- [ ] `W-P3-08` 评估第二迁移试点 `project_directory_index`
+- [x] `W-P3-08` 完成第二迁移试点 `project_directory_index`
   - 目标：不要马上全仓迁移；先确认 `std.workspace / std.path / std.report` 是否已经足够承载目录索引工具。
   - 依赖：`W-P3-07` 完成并通过回归
-  - 当前不做：
+  - 当前结果：
+    - `std.workspace` 已提供稳定 workspace 行输出
+    - `std.path` 已承载 file name、parent、文件类型分类与 text-file 判断
+    - `std.fs` 已承载 `read_dir / file_size`
+    - `project_directory_index` 已从 `../../foundation` 迁移到 `../../std + lib`
+    - 迁移过程中发现解释器递归用户函数栈帧过重，并已通过轻量 declared-function 调用路径修复
+  - 本轮仍不做：
     - 不迁移 `std.process / std.env`
     - 不改包系统
     - 不把 `foundation/` 删除
   - 完成标准：
-    - 写清第二迁移试点需要补哪些 `std.*` 接口，再决定是否实施
+    - `project_directory_index` 的 `check / run / build` 和对应 interface snapshots 通过
+
+- [ ] `W-P3-09` 评估第三迁移试点
+  - 目标：在继续扩标准库前，先判断第三个样例到底暴露的是 `std.process/env` 缺口，还是现有 `std.*` 接口收紧问题。
+  - 候选：
+    - `project_release_promote`
+    - `project_command_capture`
+    - `project_command_batch`
+  - 依赖：`W-P3-08`
+  - 完成标准：
+    - 写清第三试点选择理由、需要补的 `std.*` 接口，以及不做哪些全仓迁移
 
 ## 当前明确不插队的方向
 

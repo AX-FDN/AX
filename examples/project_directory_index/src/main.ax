@@ -1,5 +1,11 @@
+import lib.index_totals;
+import lib.report;
+import lib.scan;
+import std.cli;
+import std.fs;
+
 fn main() -> i32 {
-    let args_status: i32 = require_min_args(argv_len(), 2, "examples/project_directory_index", "<root_dir> <output>");
+    let args_status: i32 = std.cli.require_min_args(argv_len(), 2, "examples/project_directory_index", "<root_dir> <output>");
     if (args_status != 0) {
         return args_status;
     }
@@ -7,25 +13,25 @@ fn main() -> i32 {
     let root_dir: string = argv_get(0);
     let output_path: string = argv_get(1);
 
-    let root_status: i32 = require_directory(root_dir, "root dir", 2);
+    let root_status: i32 = std.cli.require_directory(root_dir, "root dir", 2);
     if (root_status != 0) {
         return root_status;
     }
 
-    ensure_output_parent(output_path);
+    std.cli.ensure_output_parent(output_path);
 
-    let entries: [string] = fs_read_dir(root_dir);
-    let mut totals: IndexTotals = zero_index_totals();
+    let entries: [string] = std.fs.read_dir(root_dir);
+    let mut totals: lib.index_totals.IndexTotals = lib.index_totals.zero_index_totals();
     let mut details: string = "";
 
     for (let mut i: i32 = 0; i < len(entries); i = i + 1) {
-        let indexed: IndexedEntry = index_entry(details, totals, entries[i], 0);
+        let indexed: lib.scan.IndexedEntry = lib.scan.index_entry(details, totals, entries[i], 0);
         details = indexed.report;
         totals = indexed.totals;
     }
 
-    let summary: string = build_summary(root_dir, totals, details);
-    fs_write_string(output_path, summary);
+    let summary: string = lib.report.build_summary(root_dir, totals, details);
+    std.fs.write_string(output_path, summary);
     println("indexed=" + output_path);
     return 0;
 }

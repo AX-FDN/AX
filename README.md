@@ -698,7 +698,7 @@ AX 的六层协议上下文，不只是让模型“更快读懂项目”，更�
 | AI 修复反馈 | 已沉淀 `rule_id / repair_goal / fixits / context_snippets` | [`src/ai.rs`](./src/ai.rs) |
 | 项目组织 | 已支持 `AX.toml + sources` 的 project-backed 多文件项目 | [`src/project.rs`](./src/project.rs) |
 | 模块模式 | 第一阶段 `import/module` 已接入 parser、project、semantic check，并有 smoke 项目验证 | [`examples/project_module_smoke/`](./examples/project_module_smoke/) |
-| AX 侧共享库 | 已沉淀 `foundation/cli / report / text / search / file_kind / workspace`，并启动 `std.cli / std.fs / std.path / std.report / std.text` 试点 | [`foundation/`](./foundation/) [`std/`](./std/) |
+| AX 侧共享库 | 已沉淀 `foundation/cli / report / text / search / file_kind / workspace`，并启动 `std.cli / std.fs / std.path / std.report / std.text / std.workspace` 试点 | [`foundation/`](./foundation/) [`std/`](./std/) |
 | 构建产物 | `build` 已稳定导出 `source.ax`、HIR、MIR、manifest、project-sources 快照 | [`src/build.rs`](./src/build.rs) |
 | benchmark 证据链 | repair cases、adapter、export、score、compare、smoke、CI 均已进入仓库主线 | [`docs/repair-benchmark.md`](./docs/repair-benchmark.md) |
 | 平台支持 | Windows 工作流最完整；Linux 已打通核心 compiler/runtime 命令 | [`docs/platform-support.md`](./docs/platform-support.md) |
@@ -711,7 +711,7 @@ AX 的六层协议上下文，不只是让模型“更快读懂项目”，更�
 | --- | --- | --- |
 | 推进语言内核与最小可写工具能力 | 继续补最值钱的表达能力、宿主能力和 project-backed 工程组织 | `foundation/`、`examples/project_*`、`SYNTAX.md` |
 | 推进显式、确定的模块组织 | 让 shared foundation 和 project-private logic 有清晰边界 | `AX.toml + sources`、`module`、`import`、全限定名 |
-| 为第一版最小标准库做冻结试点 | 用 `project_text_normalize` 验证 `std.*` 命名空间、全限定调用和项目私有 `lib.*` 的组合成本 | `std/`、`examples/project_text_normalize/`、`PLAN.md`、`WORKLIST.md` |
+| 为第一版最小标准库做冻结试点 | 用 `project_text_normalize` 与 `project_directory_index` 验证 `std.*` 命名空间、全限定调用、递归工具逻辑和项目私有 `lib.*` 的组合成本 | `std/`、`examples/project_text_normalize/`、`examples/project_directory_index/`、`PLAN.md`、`WORKLIST.md` |
 | 做硬 diagnostics / context / repair / benchmark | 让语言主线自带可消费的编译器反馈和可回放证据链 | `src/ai.rs`、`benchmarks/`、`scripts/`、`docs/benchmark-showcase.md` |
 | 用代表性样例反向驱动语言设计 | 每补一项能力，都要求它能支撑一个更真实的工具样例 | `examples/`、`tests/interface_snapshots.rs` |
 
@@ -803,7 +803,7 @@ P2 阶段固定样例集合与回归职责见 [`docs/representative-samples.md`]
 | [`examples/workspace_audit.ax`](./examples/workspace_audit.ax) | 工作区扫描与摘要报告 | AX 能写真实文本/目录审计工具 |
 | [`examples/docs_release_snapshot.ax`](./examples/docs_release_snapshot.ax) | 文档快照、复制、收据与汇总 | AX 能写发布辅助与文件处理逻辑 |
 | [`examples/workspace_search_report.ax`](./examples/workspace_search_report.ax) | 关键字搜索与匹配报告 | AX 能承载递归扫描和报告生成 |
-| [`examples/project_directory_index/`](./examples/project_directory_index/) | project-backed 目录索引工具 | foundation 与项目私有逻辑已经能协同 |
+| [`examples/project_directory_index/`](./examples/project_directory_index/) | project-backed 目录索引工具 | 第二批 `std.workspace / std.path / std.report / std.fs` 试点样例 |
 | [`examples/project_release_promote/`](./examples/project_release_promote/) | 构建产物整理与提升 | path/fs 边界已经可用于真实自动化流程 |
 | [`examples/project_text_normalize/`](./examples/project_text_normalize/) | 文本读取、重写、输出报告 | 第一批 `std.cli / std.fs / std.path / std.report / std.text` 试点样例 |
 | [`examples/project_module_smoke/`](./examples/project_module_smoke/) | 第一阶段模块模式 smoke 工程 | `import/module` 已经进入主线验证链 |

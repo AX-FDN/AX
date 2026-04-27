@@ -25,6 +25,16 @@
 
 ### 2026-04-27
 
+- `A-2026-04-27-17` `[P3]` 第二组 `std.*` 迁移试点落地并修复递归调用栈问题
+  - 结果：
+    - 新增 `std/workspace.ax`
+    - 扩展 `std/fs.ax` 的 `read_dir / file_size`
+    - 扩展 `std/path.ax` 的 `parent / file_name / classify_file_kind / is_text_file`
+    - `examples/project_directory_index/` 已从 `../../foundation` 迁移到 `../../std + lib`
+    - 目录索引样例继续保留项目私有 `lib.index_totals / lib.report / lib.scan`，通用 workspace/path/fs/report 能力下沉到 `std.*`
+    - `src/interpreter.rs` 新增轻量 declared-function 调用路径，避免递归用户函数每层都经过完整 builtin dispatch 栈帧
+    - `tests/interface_snapshots.rs` 已更新 directory index 的运行和 build source 回归
+
 - `A-2026-04-27-16` `[P3]` 第一组 `std.*` 源码模块与 text normalize 迁移试点落地
   - 结果：
     - 新增 `std/cli.ax`、`std/fs.ax`、`std/path.ax`、`std/report.ax`、`std/text.ax` 五个 AX 源码模块

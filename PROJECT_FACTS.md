@@ -76,7 +76,7 @@ AX 是一门面向自回归 Coding AI 的 AI-first 工具语言，目前处在�
 - host runtime boundary：已开始收紧，但仍是当前最重要的持续硬化方向之一
 - `src/ai.rs` 的规则触发：正在从文案匹配继续迁移到更稳定的内部语义标签
 - `build`：当前仍是 backend 前的构建骨架，不应被表述成成熟 native compiler
-- `std/`：当前已启动第一批标准库试点模块，但还不是全仓冻结后的完整官方标准库
+- `std/`：当前已启动第一批标准库试点模块，并已由 `project_text_normalize` 与 `project_directory_index` 两组真实样例消费；但还不是全仓冻结后的完整官方标准库
 - `foundation/`：当前仍是 Std-0 孵化层，负责承载尚未迁移的样例和 helper
 
 ## 当前明确后置、不是主线的方向

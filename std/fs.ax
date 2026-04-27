@@ -14,6 +14,14 @@ fn create_dir_all(path: string) -> i32 {
     return 0;
 }
 
+fn read_dir(path: string) -> [string] {
+    return fs_read_dir(path);
+}
+
+fn file_size(path: string) -> i32 {
+    return fs_file_size(path);
+}
+
 fn is_file(path: string) -> bool {
     return fs_is_file(path);
 }

@@ -1,16 +1,23 @@
+module lib.scan;
+
+import lib.index_totals;
+import std.fs;
+import std.path;
+import std.workspace;
+
 struct IndexedEntry {
     report: string,
-    totals: IndexTotals,
+    totals: lib.index_totals.IndexTotals,
 }
 
-fn index_entry(report: string, totals: IndexTotals, path: string, depth: i32) -> IndexedEntry {
-    if (fs_is_dir(path)) {
-        let children: [string] = fs_read_dir(path);
-        let mut next_report: string = append_directory_entry(report, path, depth, len(children));
-        let mut next_totals: IndexTotals = add_directory(totals);
+fn index_entry(report: string, totals: lib.index_totals.IndexTotals, path: string, depth: i32) -> IndexedEntry {
+    if (std.fs.is_dir(path)) {
+        let children: [string] = std.fs.read_dir(path);
+        let mut next_report: string = std.workspace.append_workspace_line(report, path, depth, "dir | children=" + to_string(len(children)));
+        let mut next_totals: lib.index_totals.IndexTotals = lib.index_totals.add_directory(totals);
 
         for (let mut i: i32 = 0; i < len(children); i = i + 1) {
-            let indexed: IndexedEntry = index_entry(next_report, next_totals, children[i], depth + 1);
+            let indexed: IndexedEntry = lib.scan.index_entry(next_report, next_totals, children[i], depth + 1);
             next_report = indexed.report;
             next_totals = indexed.totals;
         }
@@ -18,10 +25,10 @@ fn index_entry(report: string, totals: IndexTotals, path: string, depth: i32) ->
         return IndexedEntry { report: next_report, totals: next_totals };
     }
 
-    if (fs_is_file(path)) {
-        let kind: string = classify_file_kind(path);
-        let counted_as_text: bool = is_text_file(path);
-        let size: i32 = fs_file_size(path);
+    if (std.fs.is_file(path)) {
+        let kind: string = std.path.classify_file_kind(path);
+        let counted_as_text: bool = std.path.is_text_file(path);
+        let size: i32 = std.fs.file_size(path);
         let mut details: string = "file | kind=";
         details = details + kind;
         details = details + " | text=";
@@ -29,13 +36,13 @@ fn index_entry(report: string, totals: IndexTotals, path: string, depth: i32) ->
         details = details + " | bytes=";
         details = details + to_string(size);
         return IndexedEntry {
-            report: append_workspace_line(report, path, depth, details),
-            totals: add_file(totals, size, counted_as_text),
+            report: std.workspace.append_workspace_line(report, path, depth, details),
+            totals: lib.index_totals.add_file(totals, size, counted_as_text),
         };
     }
 
     return IndexedEntry {
-        report: append_other_entry(report, path, depth, classify_file_kind(path)),
-        totals: add_other(totals),
+        report: std.workspace.append_workspace_line(report, path, depth, "other | kind=" + std.path.classify_file_kind(path)),
+        totals: lib.index_totals.add_other(totals),
     };
 }

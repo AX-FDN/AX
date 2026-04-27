@@ -231,7 +231,7 @@ impl<'a> Interpreter<'a> {
     }
 
     fn run_main(mut self) -> Result<RunOutput, Diagnostic> {
-        let result = self.call_function("main", Vec::new(), Span::new(0, 0))?;
+        let result = self.call_declared_function("main", Vec::new(), Span::new(0, 0))?;
         match result {
             Value::I32(exit_code) => Ok(RunOutput {
                 exit_code,
@@ -1964,6 +1964,15 @@ impl<'a> Interpreter<'a> {
             };
         }
 
+        self.call_declared_function(name, arguments, span)
+    }
+
+    fn call_declared_function(
+        &mut self,
+        name: &str,
+        arguments: Vec<Value>,
+        span: Span,
+    ) -> Result<Value, Diagnostic> {
         let function = self.functions.get(name).copied().ok_or_else(|| {
             self.runtime_error("R0003", format!("call to unknown function `{name}`"), span)
         })?;
@@ -2332,7 +2341,11 @@ impl<'a> Interpreter<'a> {
                     .iter()
                     .map(|argument| self.eval_expr(argument, frame))
                     .collect::<Result<Vec<_>, _>>()?;
-                self.call_function(function, argument_values, expr.span)
+                if self.functions.contains_key(function) {
+                    self.call_declared_function(function, argument_values, expr.span)
+                } else {
+                    self.call_function(function, argument_values, expr.span)
+                }
             }
             ExprKind::StructLiteral { name, fields } => {
                 let mut values = BTreeMap::new();

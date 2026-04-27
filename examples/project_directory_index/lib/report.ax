@@ -1,18 +1,15 @@
-fn append_directory_entry(report: string, path: string, depth: i32, child_count: i32) -> string {
-    return append_workspace_line(report, path, depth, "dir | children=" + to_string(child_count));
-}
+module lib.report;
 
-fn append_other_entry(report: string, path: string, depth: i32, kind: string) -> string {
-    return append_workspace_line(report, path, depth, "other | kind=" + kind);
-}
+import lib.index_totals;
+import std.report;
 
-fn build_summary(root_dir: string, totals: IndexTotals, details: string) -> string {
+fn build_summary(root_dir: string, totals: lib.index_totals.IndexTotals, details: string) -> string {
     let mut report: string = "";
-    report = append_path_stat(report, "root", root_dir);
-    report = append_int_stat(report, "entries", totals.entries);
-    report = append_int_stat(report, "directories", totals.directories);
-    report = append_int_stat(report, "files", totals.files);
-    report = append_int_stat(report, "text_files", totals.text_files);
-    report = append_int_stat(report, "bytes", totals.bytes);
-    return append_section_details_or_none(report, "entries", details, "(none)");
+    report = std.report.append_path_stat(report, "root", root_dir);
+    report = std.report.append_int_stat(report, "entries", totals.entries);
+    report = std.report.append_int_stat(report, "directories", totals.directories);
+    report = std.report.append_int_stat(report, "files", totals.files);
+    report = std.report.append_int_stat(report, "text_files", totals.text_files);
+    report = std.report.append_int_stat(report, "bytes", totals.bytes);
+    return std.report.append_section_details_or_none(report, "entries", details, "(none)");
 }

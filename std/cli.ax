@@ -24,9 +24,24 @@ fn require_file(path: string, label: string, code: i32) -> i32 {
     return 0;
 }
 
+fn require_directory(path: string, label: string, code: i32) -> i32 {
+    if (!fs_is_dir(path)) {
+        return exit_with_message(label + " is not a directory: " + path, code);
+    }
+    return 0;
+}
+
 fn require_non_empty_text(text: string, label: string, code: i32) -> i32 {
     if (string_len(text) == 0) {
         return exit_with_message(label + " must not be empty", code);
+    }
+    return 0;
+}
+
+fn ensure_output_parent(path: string) -> i32 {
+    let output_dir: string = path_parent(path);
+    if (string_len(output_dir) != 0) {
+        fs_create_dir_all(output_dir);
     }
     return 0;
 }

@@ -23,12 +23,12 @@ P3 的目标不是一次性做完整标准库，而是先把第一版官方标�
 | --- | --- | --- | --- |
 | `std.text` | 字符串统计、trim、split、contains、starts/ends with、简单 normalize | `std/text.ax`、`foundation/text.ax` 与宿主 string builtin | 只放纯文本处理，不放文件读取 |
 | `std.cli` | 参数数量校验、usage、退出消息、输入路径校验 | `std/cli.ax` 与 `foundation/cli.ax` | 只放 CLI 程序入口常用约束，不放业务流程 |
-| `std.fs` | 文件/目录存在性、读写、复制、移动、删除、目录创建 | `std/fs.ax` 与宿主 `fs_*` builtin | AX 接口稳定，宿主实现细节隐藏 |
+| `std.fs` | 文件/目录存在性、读写、复制、移动、删除、目录创建、目录枚举、文件大小 | `std/fs.ax` 与宿主 `fs_*` builtin | AX 接口稳定，宿主实现细节隐藏 |
 | `std.path` | join、parent、file name、stem、extension、resolve、文件类型辅助 | `std/path.ax`、宿主 `path_*` builtin 与 `foundation/file_kind.ax` | 路径操作和轻量分类放这里，工作区递归逻辑不放这里 |
 | `std.env` | 环境变量存在性与读取 | 宿主 `env_*` builtin | 只暴露 AX 函数，不暴露宿主环境实现 |
 | `std.process` | 命令执行、工作目录内执行、输出捕获 | 宿主 `process_*` builtin | 保持小而明确，不引入 async 或流式进程 API |
 | `std.report` | key/value 行、section、path stat、bool/int/string stat | `std/report.ax` 与 `foundation/report.ax` | 只放确定性文本报告构造，不放展示主题系统 |
-| `std.workspace` | 工作区条目显示、深度前缀、递归扫描辅助 | `foundation/workspace.ax` 与部分样例私有逻辑 | 只承接小型工具常用 workspace 输出，不做完整项目索引器 |
+| `std.workspace` | 工作区条目显示、深度前缀、递归扫描辅助 | `std/workspace.ax`、`foundation/workspace.ax` 与部分样例私有逻辑 | 只承接小型工具常用 workspace 输出，不做完整项目索引器 |
 | `std.collections` | `string_list` 和后续最小集合 helper | 宿主 `string_list_*` builtin | 第一版只承认已有最小集合，不提前上泛型 collections |
 
 ## Foundation 映射表
@@ -47,10 +47,11 @@ P3 的目标不是一次性做完整标准库，而是先把第一版官方标�
 | 文件 | 模块 | 当前职责 | 迁移状态 |
 | --- | --- | --- | --- |
 | [`../std/cli.ax`](../std/cli.ax) | `std.cli` | CLI 参数校验、usage、错误退出消息、输入文本校验 | 第一试点已用 |
-| [`../std/fs.ax`](../std/fs.ax) | `std.fs` | 文件读取、文件写入、目录创建、文件/目录存在性判断 | 第一试点已用 |
-| [`../std/path.ax`](../std/path.ax) | `std.path` | `join / stem / resolve` | 第一试点已用 |
+| [`../std/fs.ax`](../std/fs.ax) | `std.fs` | 文件读取、文件写入、目录创建、目录枚举、文件大小、文件/目录存在性判断 | 第一、第二试点已用 |
+| [`../std/path.ax`](../std/path.ax) | `std.path` | `join / parent / file_name / stem / resolve / classify_file_kind / is_text_file` | 第一、第二试点已用 |
 | [`../std/report.ax`](../std/report.ax) | `std.report` | key/value 报告、路径报告、section 片段 | 第一试点已用 |
 | [`../std/text.ax`](../std/text.ax) | `std.text` | 文本统计、基础 normalize | 第一试点已用 |
+| [`../std/workspace.ax`](../std/workspace.ax) | `std.workspace` | workspace 条目行、深度前缀、展示 label | 第二试点已用 |
 
 ## 标准库接口四件套
 
@@ -86,6 +87,14 @@ P3 的目标不是一次性做完整标准库，而是先把第一版官方标�
 
 - 能验证 `std.workspace`、`std.path`、`std.report` 的组合边界。
 - 更接近真实工作区扫描工具，适合在第一试点稳定后推进。
+
+当前迁移结果：
+
+- `AX.toml` 使用 `sources = ["../../std", "lib"]`。
+- `src/main.ax` 通过 `import std.cli / std.fs` 调用入口约束、目录读取和输出写入。
+- `lib.scan` 通过 `std.fs / std.path / std.workspace` 承载递归扫描、文件分类和 workspace 行输出。
+- `lib.report` 通过 `std.report` 构造 summary。
+- interface snapshots 已覆盖该项目的运行夹具和 build source tree。
 
 暂不选 [`../examples/project_command_batch/`](../examples/project_command_batch/) 作为第一试点，因为它触碰 `std.process / std.env`，宿主边界更多，适合在文本与报告接口先稳定后再迁。
 

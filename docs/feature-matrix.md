@@ -55,7 +55,7 @@
 | 语言表面 | `[~]` | 基础函数、显式类型、数组、slice、struct、enum、for、match 第一刀、module/import 第一刀 | 不含复杂泛型、trait、async、异常、宏 | `SYNTAX.md` |
 | 项目组织 | `[x]` | `AX.toml + sources`、project-backed 样例、共享 `foundation/` 与第一批 `std/` 试点 | 当前是最小工程模型，不是成熟包系统 | `examples/project_*/` |
 | 模块系统 | `[~]` | support source 模块路径、重复模块 / import、缺 import 等诊断已存在 | 当前是 minimal module mode，不是完整 package/visibility 系统 | `docs/import-module-minimal-design.md` |
-| 共享基础层 | `[~]` | `foundation/cli.ax`、`report.ax`、`search.ax`、`workspace.ax` 等，以及第一批 `std/cli.ax`、`fs.ax`、`path.ax`、`report.ax`、`text.ax` | `std/` 仍是试点，不是全仓冻结后的完整标准库 | `foundation/` `std/` |
+| 共享基础层 | `[~]` | `foundation/cli.ax`、`report.ax`、`search.ax`、`workspace.ax` 等，以及第一批 `std/cli.ax`、`fs.ax`、`path.ax`、`report.ax`、`text.ax`、`workspace.ax` | `std/` 仍是试点，不是全仓冻结后的完整标准库 | `foundation/` `std/` |
 | benchmark 方法 | `[x]` | repair case、导出、评分、对比、smoke、CI、公开展示页 | 这不是“以后再补”的附件，而是语言主线的验证层；跨语言/live-model 对照仍是后续工作 | `docs/benchmark-showcase.md` `docs/repair-benchmark.md` |
 | 对外平台支持 | `[~]` | Windows 路径已较完整，Linux 有 quickstart 与核心链路说明 | 仍应按文档与 CI 事实表述，不宜夸成“全平台成熟” | `docs/platform-support.md` |
 | `build` | `[~]` | 可导出构建骨架产物 | 当前不是成熟 native compiler，更不是已完成后端 | `src/build.rs` |
@@ -87,7 +87,7 @@
 ### 3. `std/` 已经开始试点，但还不是完整标准库
 
 - 当前 `foundation/` 仍是 Std-0 孵化层。
-- 当前 `std/` 已经有第一批 AX 源码模块，并由 `project_text_normalize` 消费。
+- 当前 `std/` 已经有第一批 AX 源码模块，并由 `project_text_normalize` 与 `project_directory_index` 消费。
 - 这不等于完整标准库已经冻结；P3 仍需要更多样例迁移、文档、diagnostics 和回归来确认接口。
 
 ### 4. Linux core support 不等于三平台同级成熟

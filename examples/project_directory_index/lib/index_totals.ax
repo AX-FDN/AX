@@ -1,3 +1,5 @@
+module lib.index_totals;
+
 struct IndexTotals {
     entries: i32,
     directories: i32,
