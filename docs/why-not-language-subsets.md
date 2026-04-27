@@ -26,7 +26,7 @@ AX is not claiming:
 
 AX is claiming something narrower and harder:
 
-> a source protocol built end-to-end around coding-agent generation and repair can be made more stable than treating a general-purpose language as an accidental prompt format
+> an AI-first tool language can make source form, diagnostics, repair feedback, and benchmark evidence work together more stably than treating a general-purpose language as an accidental prompt format
 
 That claim only makes sense when all four layers move together.
 
@@ -119,7 +119,7 @@ You can.
 In fact, that is exactly the right baseline to compare against.
 
 But once you do it seriously, you are no longer only choosing a familiar syntax.
-You are defining and maintaining a source protocol:
+You are defining and maintaining the AI-facing surface of a language:
 
 - what source surface is canonical
 - what diagnostics contract is stable
@@ -149,7 +149,7 @@ The future benchmark has to test exactly that:
 
 Until then, the right framing is:
 
-- AX is a source-protocol experiment
-- AX is not yet a universally proven replacement for existing language subsets
+- AX is an AI-first tool language with an owned source protocol, diagnostics contract, repair contract, and benchmark loop
+- AX is not yet a universally proven replacement for constrained existing-language subsets
 
 That framing is sharper and more credible than calling it a language revolution too early.

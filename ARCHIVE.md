@@ -25,6 +25,13 @@
 
 ### 2026-04-27
 
+- `A-2026-04-27-09` `[Docs]` 对外定位口径收回到 AI-first 语言主线
+  - 结果：
+    - `docs/why-not-language-subsets.md` 不再把 AX 表述成 source-protocol experiment，而是表述为拥有 source protocol、diagnostics contract、repair contract 与 benchmark loop 的 AI-first tool language
+    - `docs/killer-demo.md` 和 `docs/quickstart-linux.md` 的话术已改成语言优先
+    - `架构上下文文档.md` 已更新为当前事实：七个 context 视图已经存在，下一步是进入 repair / benchmark 消费链
+    - `WORKLIST.md` 当前优先级已切换到 `P1 context -> repair/benchmark` 主攻
+
 - `A-2026-04-27-08` `[P3]` 最小标准库边界前置完成
   - 结果：
     - `docs/stdlib-minimal-boundary.md` 已定义 `std.text / std.cli / std.fs / std.path / std.env / std.process / std.report / std.workspace / std.collections` 的第一版边界

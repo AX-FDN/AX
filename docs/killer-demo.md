@@ -188,7 +188,8 @@ Do not say:
 
 Do say:
 
-- AX is building a constrained source protocol for coding agents
+- AX is an AI-first tool language designed for coding-agent generation, repair, and project understanding
+- AX owns its source form, structured diagnostics, context protocol, and repair feedback as one compiler surface
 - AX already has a structured repair contract
 - AX already has a reproducible internal benchmark loop
 - AX can already express small tool-style workloads

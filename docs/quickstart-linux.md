@@ -64,4 +64,4 @@ Those remain Windows-only for now.
 - [`platform-support.md`](./platform-support.md)
   Current platform support tiers and boundaries.
 - [`why-not-language-subsets.md`](./why-not-language-subsets.md)
-  Positioning for the AX source protocol direction.
+  Positioning for AX as an AI-first tool language with an owned source form, diagnostics contract, and repair loop.
