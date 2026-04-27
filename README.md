@@ -698,7 +698,7 @@ AX 的六层协议上下文，不只是让模型“更快读懂项目”，更�
 | AI 修复反馈 | 已沉淀 `rule_id / repair_goal / fixits / context_snippets` | [`src/ai.rs`](./src/ai.rs) |
 | 项目组织 | 已支持 `AX.toml + sources` 的 project-backed 多文件项目 | [`src/project.rs`](./src/project.rs) |
 | 模块模式 | 第一阶段 `import/module` 已接入 parser、project、semantic check，并有 smoke 项目验证 | [`examples/project_module_smoke/`](./examples/project_module_smoke/) |
-| AX 侧共享库 | 已沉淀 `foundation/cli / report / text / search / file_kind / workspace`，并启动 `std.cli / std.env / std.fs / std.path / std.process / std.report / std.text / std.workspace` 试点 | [`foundation/`](./foundation/) [`std/`](./std/) |
+| AX 侧共享库 | 已沉淀 `foundation/cli / report / text / search / file_kind / workspace`，并启动 `std.cli / std.env / std.fs / std.path / std.process / std.report / std.text / std.workspace` 试点；Std-1 冻结候选已收口 | [`foundation/`](./foundation/) [`std/`](./std/) [`docs/stdlib-minimal-boundary.md`](./docs/stdlib-minimal-boundary.md) |
 | 构建产物 | `build` 已稳定导出 `source.ax`、HIR、MIR、manifest、project-sources 快照 | [`src/build.rs`](./src/build.rs) |
 | benchmark 证据链 | repair cases、adapter、export、score、compare、smoke、CI 均已进入仓库主线 | [`docs/repair-benchmark.md`](./docs/repair-benchmark.md) |
 | 平台支持 | Windows 工作流最完整；Linux 已打通核心 compiler/runtime 命令 | [`docs/platform-support.md`](./docs/platform-support.md) |
@@ -1094,6 +1094,8 @@ AX 希望最终回答的是：
   外部 repair adapter 的输入输出契约
 - [`docs/host-runtime-boundary.md`](./docs/host-runtime-boundary.md)
   AX 接口层、Rust 宿主实现层、未来包系统边界
+- [`docs/stdlib-minimal-boundary.md`](./docs/stdlib-minimal-boundary.md)
+  P3 最小标准库边界、Std-1 冻结候选和继续孵化清单
 - [`架构上下文文档.md`](./架构上下文文档.md)
   六层协议上下文、视图设计与执行顺序
 - [`docs/import-module-minimal-design.md`](./docs/import-module-minimal-design.md)

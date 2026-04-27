@@ -55,6 +55,44 @@ P3 的目标不是一次性做完整标准库，而是先把第一版官方标�
 | [`../std/text.ax`](../std/text.ax) | `std.text` | trim、文本统计、基础 normalize | 第一、第四、第五试点已用 |
 | [`../std/workspace.ax`](../std/workspace.ax) | `std.workspace` | workspace 条目行、深度前缀、展示 label | 第二试点已用 |
 
+## Std-1 冻结候选清单
+
+五组迁移试点完成后，第一版 Std-1 不再继续按“看到 helper 就迁移”的方式扩张。
+当前冻结候选只包括已经被 project-backed workload 消费、并进入 `check / run / build` 或 interface snapshots 回归的接口。
+
+| 模块 | 冻结候选接口 | 已验证 workload | 冻结口径 |
+| --- | --- | --- | --- |
+| `std.cli` | `usage_error / require_min_args / exit_with_message / require_file / require_directory / require_non_empty_text / ensure_output_parent` | text normalize、directory index、release promote、command capture、command batch | 只冻结入口校验与输出父目录准备，不冻结目录重建策略 |
+| `std.env` | `has / get` | command capture、command batch | `get` 必须优先配合 `has` 使用；本轮不设计默认值、optional 或错误传播语法 |
+| `std.fs` | `read_to_string / write_string / create_dir_all / exists / remove_file / rename / read_dir / file_size / is_file / is_dir` | 五组迁移试点 | 只冻结同步文件系统薄接口，不引入权限模型、流式 IO、watcher 或平台细节 |
+| `std.path` | `join / parent / file_name / stem / extension / resolve / classify_file_kind / is_text_file` | text normalize、directory index、release promote、command batch | 路径拼接与轻量分类可冻结；分类规则是工具语言默认策略，不等于完整 MIME / 文件类型系统 |
+| `std.process` | `run / run_in / capture_in` | command capture、command batch | 只冻结同步命令执行与输出捕获；不冻结 stdout/stderr/exit-code 结构体、shell contract、async 或 streaming |
+| `std.report` | `append_line / append_string_stat / append_int_stat / append_bool_stat / append_path_stat / begin_section / append_section_details_or_none` | 五组迁移试点 | 只冻结确定性 key/value 与 section 文本报告，不做表格、主题、颜色或富文本 |
+| `std.text` | `TextStats / zero_text_stats / trim / analyze / normalize_content` | text normalize、command capture、command batch | 只冻结纯字符串处理与基础统计，不放搜索语义或文件读取 |
+| `std.workspace` | `display_label / depth_prefix / append_workspace_line` | directory index、command batch | 只冻结 workspace 展示辅助，不冻结递归扫描、索引策略或搜索策略 |
+
+当前 `std.collections` 只作为命名空间方向保留，不进入 Std-1 冻结候选。
+原因是仓库目前依赖的是宿主 `string_list_*` builtin，而不是 `std/collections.ax` 源码模块；它需要等更多集合 workload 或泛型路线明确后再启动。
+
+## 继续孵化清单
+
+下面这些接口或 helper 仍然保留在 `foundation/` 或样例私有 `lib/`，不进入 Std-1：
+
+| 位置 | 当前职责 | 不冻结原因 | 重新评估触发条件 |
+| --- | --- | --- | --- |
+| [`../foundation/search.ax`](../foundation/search.ax) | `SearchStats / search_text` | 搜索语义还没有跨多个 `std.*` 迁移试点验证；直接建 `std.search` 会扩大命名空间 | `project_workspace_search_report` 或新的 repair case 明确需要可复用搜索接口 |
+| [`../foundation/file_kind.ax`](../foundation/file_kind.ax) | markdown/text/searchable 文件分类 | `std.path` 已吸收轻量分类，但 markdown/searchable 策略仍偏 workload 经验 | 至少两个 project-backed 样例共同需要 markdown/searchable 分类 |
+| [`../foundation/workspace.ax`](../foundation/workspace.ax) 的 `append_named_line` | 简单文件名详情行 | 当前只有旧 foundation 样例和迁移过渡需要，`std.workspace.append_workspace_line` 已覆盖更稳定形态 | 新 workload 证明 named-line 比 workspace-line 更适合作为通用接口 |
+| [`../foundation/cli.ax`](../foundation/cli.ax) 的 `ensure_directory / recreate_directory` | 输出目录确保与重建 | `std.fs.create_dir_all / remove_file / rename` 已覆盖基础操作；目录重建策略更危险，应留给项目私有逻辑 | 发布/构建类样例反复需要同一套安全重建策略，并补齐诊断边界 |
+| 样例私有 `lib.*` | 业务报告、扫描、发布收据、搜索汇总 | 这些是 workload 逻辑，不是标准库逻辑 | 两个以上代表样例复制同一业务逻辑，且接口能保持低熵 |
+
+下一轮如果要继续扩标准库，必须由下面至少一个来源触发：
+
+- 固定代表样例被当前 `std.*` 明确卡住。
+- 宿主边界样例暴露出无法用现有 `std.process / std.env / std.fs / std.path` 表达的重复模式。
+- repair case 或 context evidence 指向同一类高频误用，并需要标准接口承接。
+- 两个以上 project-backed 样例重复实现同一段通用逻辑。
+
 ## 标准库接口四件套
 
 任何 `std.*` 接口冻结前，必须同时具备四件套：

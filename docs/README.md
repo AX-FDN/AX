@@ -43,9 +43,9 @@
 - [`host-runtime-boundary.md`](./host-runtime-boundary.md)
   解释 Rust 宿主原语、AX 接口层、project-private 库和未来包系统之间的边界。
 - [`foundation-inventory.md`](./foundation-inventory.md)
-  记录 P2 阶段 `foundation/` helper 的分类与 P3 标准库迁移前置判断。
+  记录 `foundation/` helper 的分类、已下沉接口和继续孵化理由。
 - [`stdlib-minimal-boundary.md`](./stdlib-minimal-boundary.md)
-  定义 P3 前置阶段第一版 `std.*` 命名空间、迁移映射和宿主边界。
+  定义 P3 第一版 `std.*` 命名空间、Std-1 冻结候选、继续孵化清单和宿主边界。
 - [`import-module-minimal-design.md`](./import-module-minimal-design.md)
   固定第一阶段 `import / module` 设计。
 - [`repair-benchmark.md`](./repair-benchmark.md)

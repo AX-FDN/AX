@@ -25,6 +25,15 @@
 
 ### 2026-04-27
 
+- `A-2026-04-27-21` `[P3]` Std-1 冻结候选清单收口
+  - 结果：
+    - `docs/stdlib-minimal-boundary.md` 已新增 Std-1 冻结候选清单
+    - 冻结候选覆盖 `std.cli / std.env / std.fs / std.path / std.process / std.report / std.text / std.workspace`
+    - `std.collections` 明确暂不进入冻结候选，因为当前还没有 `std/collections.ax` 源码模块
+    - `foundation/search.ax`、`foundation/file_kind.ax` 的 searchable/markdown 分类、`foundation/workspace.ax` 的 `append_named_line` 和目录重建策略继续孵化
+    - `docs/foundation-inventory.md` 已更新为 P3 迁移后的事实：部分 helper 已下沉到 `std.*`，未验证充分的接口继续留在 Std-0
+    - `WORKLIST.md` 已把下一步推进到 Std-1 候选验证入口，而不是继续默认迁移更多样例
+
 - `A-2026-04-27-20` `[P3]` 第五组 `std.*` 迁移试点 command batch 落地
   - 结果：
     - `examples/project_command_batch/` 已从 `../../foundation + lib` 迁移到 `../../std + lib`

@@ -59,7 +59,7 @@
 - `P1` 的 context-enabled repair export、benchmark 展示页和公开口径边界已经成立
 - `P2` 当前出口已经完成，语言内核主代表样例、宿主边界样例和第一项 `match` 语法线已经进入回归
 - `P3` 前置边界已经完成，`project_text_normalize` 已作为第一组 `foundation -> std.*` 迁移试点完成第一轮闭环
-- 当前 `P0 / P1 / P2` 本轮出口均已完成，`P3` 已完成五组样例迁移试点，`std.process / std.env` 已通过两组宿主边界样例验证，下一步收口第一版 `std.*` 冻结候选清单
+- 当前 `P0 / P1 / P2` 本轮出口均已完成，`P3` 已完成五组样例迁移试点，`std.process / std.env` 已通过两组宿主边界样例验证，第一版 `std.*` 冻结候选清单已收口
 
 当前优先级顺序固定为：
 
@@ -69,12 +69,12 @@
    - `project_release_promote` 已验证 `std.fs` 的 exists/remove/rename 与 `std.path.extension`
    - `project_command_capture` 已验证 `std.process.capture_in` 与 `std.env.has`
    - `project_command_batch` 已验证 `std.process.run / std.process.run_in / std.env.get`
-   - 下一步不继续默认迁移样例，先收口 `std.*` 第一版接口冻结候选和仍需孵化的 `foundation/*`
+   - `std.*` 第一版接口冻结候选已收口，下一步只做冻结候选的验证入口与文档入口补强
    - 继续保持 `foundation/` 作为未迁移样例的 Std-0 孵化层
 2. 暂不启动 P4 AOT、P5 包接口、JIT、自举或三方库桥接
 3. 任何下一轮实现都必须继续回写 examples、diagnostics、context、repair/benchmark 或 interface snapshots
 
-当前判断：P1 这一轮已经完成，不再和新增语言能力抢资源。当前主线已经选定为 `P3 std.*`，但不继续全仓改名；五组迁移试点已经足够暴露第一版工具标准库边界，下一步应收口接口冻结候选，而不是继续迁移所有样例。
+当前判断：P1 这一轮已经完成，不再和新增语言能力抢资源。当前主线已经选定为 `P3 std.*`，但不继续全仓改名；五组迁移试点已经足够暴露第一版工具标准库边界，冻结候选已经收口，下一步应把这些候选接进更明确的验证入口和对外文档入口。
 
 ## 阶段承接图
 
@@ -591,10 +591,15 @@
   - 完成标准：
     - `project_command_batch` 的 `check / run / build` 和对应 interface snapshots 通过
 
-- [ ] `W-P3-14` 收口第一版 `std.*` 冻结候选清单
+- [x] `W-P3-14` 收口第一版 `std.*` 冻结候选清单
   - 目标：五组迁移试点完成后，判断哪些接口可以进入 Std-1 冻结候选，哪些仍留在 `foundation/` 继续孵化。
   - 依赖：`W-P3-07` 到 `W-P3-13`
-  - 当前不做：
+  - 当前结果：
+    - `docs/stdlib-minimal-boundary.md` 已写清 `std.cli / std.env / std.fs / std.path / std.process / std.report / std.text / std.workspace` 的 Std-1 冻结候选接口
+    - `docs/stdlib-minimal-boundary.md` 已写清 `std.collections` 不进入当前冻结候选，因为还没有 `std/collections.ax` 源码模块
+    - `docs/foundation-inventory.md` 已更新为 P3 迁移后的孵化层事实
+    - `foundation/search.ax`、`foundation/file_kind.ax` 的 searchable/markdown 分类、`foundation/workspace.ax` 的 `append_named_line` 和目录重建策略继续孵化
+  - 本轮仍不做：
     - 不继续默认迁移 `project_workspace_search_report`
     - 不启动 `std.search`
     - 不提前做 package/visibility/registry
@@ -602,6 +607,17 @@
     - 写清 `std.cli / std.env / std.fs / std.path / std.process / std.report / std.text / std.workspace` 的冻结候选接口
     - 写清 `foundation/search.ax` 与未迁移 helper 继续孵化的理由
     - 写清下一轮若要补标准库，必须由哪个真实 workload 或 repair case 触发
+
+- [ ] `W-P3-15` 给 Std-1 冻结候选补验证入口
+  - 目标：把“Std-1 候选接口必须继续保持可检查、可运行、可构建”的验证入口写成稳定命令，而不是只靠五组样例自然覆盖。
+  - 依赖：`W-P3-14`
+  - 当前不做：
+    - 不新增标准库 API
+    - 不迁移更多样例
+    - 不引入 package/visibility 语法
+  - 完成标准：
+    - 文档写清 Std-1 候选接口当前由哪几组 interface snapshots 覆盖
+    - 如有必要，补一个最小 std smoke 入口，但不扩大语言面
 
 ## 当前明确不插队的方向
 
