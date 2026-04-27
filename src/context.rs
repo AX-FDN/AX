@@ -15,7 +15,9 @@ pub enum ContextView {
     Overview,
     Boundaries,
     Topology,
+    Flow,
     Symbol,
+    Impact,
 }
 
 impl ContextView {
@@ -24,7 +26,9 @@ impl ContextView {
             Self::Overview => "overview",
             Self::Boundaries => "boundaries",
             Self::Topology => "topology",
+            Self::Flow => "flow",
             Self::Symbol => "symbol",
+            Self::Impact => "impact",
         }
     }
 }
@@ -94,6 +98,22 @@ pub fn render_context_json(
                 ],
             ),
         }),
+        ContextView::Flow => serde_json::to_string_pretty(&ContextDocument {
+            schema_version: CONTEXT_SCHEMA_VERSION,
+            view: view.as_str(),
+            subject: build_subject(request_path, input, None),
+            facts: build_flow_facts(&symbol_catalog),
+            hints: build_flow_hints(&symbol_catalog),
+            validation: build_validation(
+                diagnostics,
+                &command_target,
+                ContextView::Flow,
+                vec![
+                    "P2 flow tracks entry reachability, direct call order, branch points, and recursion"
+                        .to_string(),
+                ],
+            ),
+        }),
         ContextView::Symbol => {
             let requested_symbol = requested_symbol
                 .ok_or_else(|| "symbol view requires a symbol query".to_string())?;
@@ -114,6 +134,31 @@ pub fn render_context_json(
                     ContextView::Symbol,
                     vec![
                         "P1 symbol view resolves one top-level symbol plus direct call neighbors"
+                            .to_string(),
+                    ],
+                ),
+            })
+        }
+        ContextView::Impact => {
+            let requested_symbol = requested_symbol
+                .ok_or_else(|| "impact view requires a symbol query".to_string())?;
+            let impact_facts = build_impact_facts(requested_symbol, &symbol_catalog)?;
+            serde_json::to_string_pretty(&ContextDocument {
+                schema_version: CONTEXT_SCHEMA_VERSION,
+                view: view.as_str(),
+                subject: build_subject(
+                    request_path,
+                    input,
+                    Some(impact_facts.resolved_symbol.clone()),
+                ),
+                hints: build_impact_hints(&impact_facts),
+                facts: impact_facts,
+                validation: build_validation(
+                    diagnostics,
+                    &command_target,
+                    ContextView::Impact,
+                    vec![
+                        "P2 impact maps upstream callers, downstream callees, affected units, and change risk"
                             .to_string(),
                     ],
                 ),
@@ -283,6 +328,95 @@ struct TopologyHints {
 }
 
 #[derive(Serialize)]
+struct FlowFacts {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    entry_symbol: Option<String>,
+    summary: FlowSummary,
+    top_level_calls: Vec<String>,
+    reachable_symbols: Vec<FlowReachableSymbol>,
+    flow_edges: Vec<FlowEdge>,
+    branch_points: Vec<FlowBranchPoint>,
+    recursive_symbols: Vec<String>,
+}
+
+#[derive(Serialize)]
+struct FlowSummary {
+    reachable_symbol_count: usize,
+    flow_edge_count: usize,
+    branch_point_count: usize,
+    recursive_symbol_count: usize,
+    max_depth: usize,
+}
+
+#[derive(Serialize)]
+struct FlowReachableSymbol {
+    symbol: String,
+    depth: usize,
+    source_path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    module_path: Option<String>,
+    host_boundary_classes: Vec<String>,
+    branch_count: usize,
+}
+
+#[derive(Serialize)]
+struct FlowEdge {
+    from: String,
+    to: String,
+    target_depth: usize,
+    cross_unit: bool,
+}
+
+#[derive(Serialize)]
+struct FlowBranchPoint {
+    symbol: String,
+    branch_kinds: Vec<String>,
+    branch_count: usize,
+    note: String,
+}
+
+#[derive(Serialize)]
+struct FlowHints {
+    orchestration_chain: Vec<String>,
+    host_boundary_symbols: Vec<String>,
+    leaf_symbols: Vec<String>,
+}
+
+#[derive(Serialize)]
+struct ImpactFacts {
+    requested_symbol: String,
+    resolved_symbol: String,
+    direct_callers: Vec<String>,
+    direct_callees: Vec<String>,
+    upstream_callers: Vec<String>,
+    downstream_callees: Vec<String>,
+    affected_units: Vec<ImpactUnit>,
+    recursive: bool,
+    change_risk: ImpactRisk,
+}
+
+#[derive(Serialize)]
+struct ImpactUnit {
+    path: String,
+    symbol_count: usize,
+    includes_target: bool,
+    host_boundary_classes: Vec<String>,
+}
+
+#[derive(Serialize)]
+struct ImpactRisk {
+    level: &'static str,
+    reasons: Vec<String>,
+}
+
+#[derive(Serialize)]
+struct ImpactHints {
+    smallest_safe_edit_scope: Vec<String>,
+    likely_breakages: Vec<String>,
+    regression_targets: Vec<String>,
+}
+
+#[derive(Serialize)]
 struct SymbolFacts {
     requested_symbol: String,
     resolved_symbol: String,
@@ -396,9 +530,12 @@ struct DefinedSymbol {
     params: Vec<SymbolParamData>,
     return_type: Option<String>,
     related_types: BTreeSet<String>,
-    raw_calls: BTreeSet<String>,
+    raw_call_order: Vec<String>,
     resolved_callees: BTreeSet<String>,
+    resolved_callee_order: Vec<String>,
     host_classes: BTreeSet<String>,
+    branch_kinds: BTreeSet<String>,
+    branch_count: usize,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -427,7 +564,10 @@ struct SymbolParamData {
 #[derive(Debug, Clone, Default)]
 struct SymbolWalk {
     raw_calls: BTreeSet<String>,
+    raw_call_order: Vec<String>,
     related_types: BTreeSet<String>,
+    branch_kinds: BTreeSet<String>,
+    branch_count: usize,
 }
 
 fn build_subject(
@@ -775,6 +915,155 @@ fn build_topology_hints(
     }
 }
 
+fn build_flow_facts(symbol_catalog: &SymbolCatalog) -> FlowFacts {
+    let Some(entry_symbol) = select_entry_symbol(symbol_catalog) else {
+        return FlowFacts {
+            entry_symbol: None,
+            summary: FlowSummary {
+                reachable_symbol_count: 0,
+                flow_edge_count: 0,
+                branch_point_count: 0,
+                recursive_symbol_count: 0,
+                max_depth: 0,
+            },
+            top_level_calls: Vec::new(),
+            reachable_symbols: Vec::new(),
+            flow_edges: Vec::new(),
+            branch_points: Vec::new(),
+            recursive_symbols: Vec::new(),
+        };
+    };
+
+    let (reachable_order, depth_by_symbol) =
+        collect_reachable_flow_symbols(symbol_catalog, &entry_symbol);
+    let recursive_symbols = collect_recursive_symbols(symbol_catalog, &reachable_order);
+
+    let top_level_calls = symbol_catalog
+        .definitions
+        .get(&entry_symbol)
+        .map(|symbol| filter_reachable_callee_order(symbol, &depth_by_symbol))
+        .unwrap_or_default();
+
+    let reachable_symbols = reachable_order
+        .iter()
+        .filter_map(|symbol_name| {
+            let symbol = symbol_catalog.definitions.get(symbol_name)?;
+            Some(FlowReachableSymbol {
+                symbol: symbol_name.clone(),
+                depth: *depth_by_symbol.get(symbol_name).unwrap_or(&0),
+                source_path: symbol.source_path.clone(),
+                module_path: symbol.module_path.clone(),
+                host_boundary_classes: symbol.host_classes.iter().cloned().collect(),
+                branch_count: symbol.branch_count,
+            })
+        })
+        .collect::<Vec<_>>();
+
+    let flow_edges = reachable_order
+        .iter()
+        .flat_map(|symbol_name| {
+            let Some(symbol) = symbol_catalog.definitions.get(symbol_name) else {
+                return Vec::new();
+            };
+            filter_reachable_callee_order(symbol, &depth_by_symbol)
+                .into_iter()
+                .filter_map(|callee| {
+                    let target = symbol_catalog.definitions.get(&callee)?;
+                    Some(FlowEdge {
+                        from: symbol_name.clone(),
+                        to: callee.clone(),
+                        target_depth: *depth_by_symbol.get(&callee).unwrap_or(&0),
+                        cross_unit: symbol.source_path != target.source_path,
+                    })
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
+
+    let branch_points = reachable_order
+        .iter()
+        .filter_map(|symbol_name| {
+            let symbol = symbol_catalog.definitions.get(symbol_name)?;
+            if symbol.branch_count == 0 {
+                return None;
+            }
+            let branch_kinds = symbol.branch_kinds.iter().cloned().collect::<Vec<_>>();
+            Some(FlowBranchPoint {
+                symbol: symbol_name.clone(),
+                branch_kinds: branch_kinds.clone(),
+                branch_count: symbol.branch_count,
+                note: format!(
+                    "contains {} control-flow branch site(s): {}",
+                    symbol.branch_count,
+                    branch_kinds.join(", ")
+                ),
+            })
+        })
+        .collect::<Vec<_>>();
+
+    let max_depth = depth_by_symbol.values().copied().max().unwrap_or(0);
+
+    FlowFacts {
+        entry_symbol: Some(entry_symbol),
+        summary: FlowSummary {
+            reachable_symbol_count: reachable_order.len(),
+            flow_edge_count: flow_edges.len(),
+            branch_point_count: branch_points.len(),
+            recursive_symbol_count: recursive_symbols.len(),
+            max_depth,
+        },
+        top_level_calls,
+        reachable_symbols,
+        flow_edges,
+        branch_points,
+        recursive_symbols,
+    }
+}
+
+fn build_flow_hints(symbol_catalog: &SymbolCatalog) -> FlowHints {
+    let Some(entry_symbol) = select_entry_symbol(symbol_catalog) else {
+        return FlowHints {
+            orchestration_chain: Vec::new(),
+            host_boundary_symbols: Vec::new(),
+            leaf_symbols: Vec::new(),
+        };
+    };
+
+    let (reachable_order, depth_by_symbol) =
+        collect_reachable_flow_symbols(symbol_catalog, &entry_symbol);
+    let reachable_set = reachable_order.iter().cloned().collect::<BTreeSet<_>>();
+
+    let orchestration_chain =
+        build_longest_flow_chain(symbol_catalog, &entry_symbol, &reachable_set);
+    let host_boundary_symbols = reachable_order
+        .iter()
+        .filter_map(|symbol_name| {
+            let symbol = symbol_catalog.definitions.get(symbol_name)?;
+            if symbol.host_classes.is_empty() {
+                return None;
+            }
+            Some(symbol_name.clone())
+        })
+        .collect::<Vec<_>>();
+    let leaf_symbols = reachable_order
+        .iter()
+        .filter_map(|symbol_name| {
+            let symbol = symbol_catalog.definitions.get(symbol_name)?;
+            let reachable_callees = filter_reachable_callee_order(symbol, &depth_by_symbol);
+            if reachable_callees.is_empty() {
+                return Some(symbol_name.clone());
+            }
+            None
+        })
+        .collect::<Vec<_>>();
+
+    FlowHints {
+        orchestration_chain,
+        host_boundary_symbols,
+        leaf_symbols,
+    }
+}
+
 fn build_symbol_facts(
     requested_symbol: &str,
     symbol_catalog: &SymbolCatalog,
@@ -792,7 +1081,7 @@ fn build_symbol_facts(
         .get(&symbol.qualified_name)
         .map(|callers| callers.iter().cloned().collect())
         .unwrap_or_default();
-    let callees = symbol.resolved_callees.iter().cloned().collect::<Vec<_>>();
+    let callees = symbol.resolved_callee_order.clone();
     let related_types = symbol.related_types.iter().cloned().collect::<Vec<_>>();
     let host_boundary_classes = symbol.host_classes.iter().cloned().collect::<Vec<_>>();
 
@@ -880,6 +1169,447 @@ fn build_symbol_hints(symbol_facts: &SymbolFacts, symbol_catalog: &SymbolCatalog
         role_evidence,
         adjacent_symbols,
     }
+}
+
+fn build_impact_facts(
+    requested_symbol: &str,
+    symbol_catalog: &SymbolCatalog,
+) -> Result<ImpactFacts, String> {
+    let resolved_symbol = resolve_symbol_query(symbol_catalog, requested_symbol)?;
+    let symbol = symbol_catalog
+        .definitions
+        .get(&resolved_symbol)
+        .ok_or_else(|| format!("symbol `{resolved_symbol}` disappeared during impact rendering"))?;
+
+    let direct_callers = symbol_catalog
+        .callers_by_symbol
+        .get(&resolved_symbol)
+        .map(|callers| callers.iter().cloned().collect::<Vec<_>>())
+        .unwrap_or_default();
+    let direct_callees = symbol.resolved_callee_order.clone();
+    let upstream_callers =
+        collect_upstream_symbols(symbol_catalog, &resolved_symbol, &direct_callers);
+    let downstream_callees =
+        collect_downstream_symbols(symbol_catalog, &resolved_symbol, &direct_callees);
+    let recursive = symbol_reaches_target(
+        symbol_catalog,
+        &resolved_symbol,
+        &resolved_symbol,
+        &symbol_catalog
+            .definitions
+            .keys()
+            .cloned()
+            .collect::<BTreeSet<_>>(),
+        &mut BTreeSet::new(),
+    );
+    let affected_units = build_affected_units(
+        symbol_catalog,
+        &resolved_symbol,
+        &upstream_callers,
+        &downstream_callees,
+    );
+    let change_risk = build_impact_risk(
+        symbol,
+        &direct_callers,
+        &direct_callees,
+        &upstream_callers,
+        &downstream_callees,
+        &affected_units,
+        recursive,
+    );
+
+    Ok(ImpactFacts {
+        requested_symbol: requested_symbol.to_string(),
+        resolved_symbol,
+        direct_callers,
+        direct_callees,
+        upstream_callers,
+        downstream_callees,
+        affected_units,
+        recursive,
+        change_risk,
+    })
+}
+
+fn build_impact_hints(impact_facts: &ImpactFacts) -> ImpactHints {
+    let mut smallest_safe_edit_scope = impact_facts
+        .affected_units
+        .iter()
+        .filter(|unit| unit.includes_target)
+        .map(|unit| unit.path.clone())
+        .collect::<Vec<_>>();
+
+    if smallest_safe_edit_scope.is_empty() {
+        smallest_safe_edit_scope = impact_facts
+            .affected_units
+            .iter()
+            .take(1)
+            .map(|unit| unit.path.clone())
+            .collect();
+    }
+
+    let mut likely_breakages = Vec::new();
+    if !impact_facts.direct_callers.is_empty() {
+        likely_breakages.push(format!(
+            "call-site expectations may shift across {} direct caller(s)",
+            impact_facts.direct_callers.len()
+        ));
+    }
+    if !impact_facts.direct_callees.is_empty() {
+        likely_breakages.push(format!(
+            "downstream behavior may drift across {} direct callee(s)",
+            impact_facts.direct_callees.len()
+        ));
+    }
+    if impact_facts.recursive {
+        likely_breakages.push(
+            "recursive behavior may affect traversal completeness or termination".to_string(),
+        );
+    }
+    if impact_facts
+        .affected_units
+        .iter()
+        .any(|unit| !unit.host_boundary_classes.is_empty())
+    {
+        likely_breakages.push("host-boundary behavior may change across touched units".to_string());
+    }
+
+    let mut regression_targets = vec![
+        "axc check <path>".to_string(),
+        "axc context flow <path> --json".to_string(),
+        format!(
+            "axc context symbol <path> {} --json",
+            impact_facts.resolved_symbol
+        ),
+    ];
+    if !impact_facts.direct_callers.is_empty() || !impact_facts.direct_callees.is_empty() {
+        regression_targets.push(format!(
+            "axc context impact <path> {} --json",
+            impact_facts.resolved_symbol
+        ));
+    }
+
+    ImpactHints {
+        smallest_safe_edit_scope,
+        likely_breakages,
+        regression_targets,
+    }
+}
+
+fn collect_upstream_symbols(
+    symbol_catalog: &SymbolCatalog,
+    resolved_symbol: &str,
+    direct_callers: &[String],
+) -> Vec<String> {
+    let mut upstream = Vec::new();
+    let mut seen = direct_callers.iter().cloned().collect::<BTreeSet<_>>();
+    let mut queue = std::collections::VecDeque::from(direct_callers.to_vec());
+
+    while let Some(current) = queue.pop_front() {
+        upstream.push(current.clone());
+        let callers = symbol_catalog
+            .callers_by_symbol
+            .get(&current)
+            .cloned()
+            .unwrap_or_default();
+        for caller in callers {
+            if caller != resolved_symbol && seen.insert(caller.clone()) {
+                queue.push_back(caller);
+            }
+        }
+    }
+
+    upstream
+}
+
+fn collect_downstream_symbols(
+    symbol_catalog: &SymbolCatalog,
+    resolved_symbol: &str,
+    direct_callees: &[String],
+) -> Vec<String> {
+    let mut downstream = Vec::new();
+    let mut seen = direct_callees.iter().cloned().collect::<BTreeSet<_>>();
+    let mut queue = std::collections::VecDeque::from(direct_callees.to_vec());
+
+    while let Some(current) = queue.pop_front() {
+        downstream.push(current.clone());
+        let Some(symbol) = symbol_catalog.definitions.get(&current) else {
+            continue;
+        };
+        for callee in &symbol.resolved_callee_order {
+            if callee != resolved_symbol && seen.insert(callee.clone()) {
+                queue.push_back(callee.clone());
+            }
+        }
+    }
+
+    downstream
+}
+
+fn build_affected_units(
+    symbol_catalog: &SymbolCatalog,
+    resolved_symbol: &str,
+    upstream_callers: &[String],
+    downstream_callees: &[String],
+) -> Vec<ImpactUnit> {
+    let mut affected_symbols = BTreeSet::new();
+    affected_symbols.insert(resolved_symbol.to_string());
+    affected_symbols.extend(upstream_callers.iter().cloned());
+    affected_symbols.extend(downstream_callees.iter().cloned());
+
+    let mut by_path = BTreeMap::<String, ImpactUnit>::new();
+    for symbol_name in affected_symbols {
+        let Some(symbol) = symbol_catalog.definitions.get(&symbol_name) else {
+            continue;
+        };
+        let entry = by_path
+            .entry(symbol.source_path.clone())
+            .or_insert_with(|| ImpactUnit {
+                path: symbol.source_path.clone(),
+                symbol_count: 0,
+                includes_target: false,
+                host_boundary_classes: Vec::new(),
+            });
+        entry.symbol_count += 1;
+        entry.includes_target |= symbol_name == resolved_symbol;
+        let mut host_classes = entry
+            .host_boundary_classes
+            .iter()
+            .cloned()
+            .collect::<BTreeSet<_>>();
+        host_classes.extend(symbol.host_classes.iter().cloned());
+        entry.host_boundary_classes = host_classes.into_iter().collect();
+    }
+
+    by_path.into_values().collect()
+}
+
+fn build_impact_risk(
+    symbol: &DefinedSymbol,
+    direct_callers: &[String],
+    direct_callees: &[String],
+    upstream_callers: &[String],
+    downstream_callees: &[String],
+    affected_units: &[ImpactUnit],
+    recursive: bool,
+) -> ImpactRisk {
+    let mut reasons = Vec::new();
+
+    if symbol.is_entry {
+        reasons.push("entry symbol changes can shift the whole project command path".to_string());
+    }
+    if !symbol.host_classes.is_empty() {
+        reasons.push(format!(
+            "touches host boundary classes: {}",
+            symbol
+                .host_classes
+                .iter()
+                .cloned()
+                .collect::<Vec<_>>()
+                .join(", ")
+        ));
+    }
+    if recursive {
+        reasons.push("participates in a recursive call cycle".to_string());
+    }
+    if direct_callers.len() >= 2 || upstream_callers.len() >= 3 {
+        reasons.push("has multiple upstream dependents".to_string());
+    }
+    if direct_callees.len() >= 3 || downstream_callees.len() >= 5 {
+        reasons.push("fans out into a wide downstream call surface".to_string());
+    }
+    if symbol.branch_count >= 4 {
+        reasons.push(format!(
+            "contains dense control flow with {} branch site(s)",
+            symbol.branch_count
+        ));
+    }
+    if affected_units.len() >= 4 {
+        reasons.push(format!(
+            "spans {} affected source units",
+            affected_units.len()
+        ));
+    }
+
+    let level = if symbol.is_entry
+        || recursive
+        || (!symbol.host_classes.is_empty()
+            && (direct_callers.len() >= 2 || affected_units.len() >= 3))
+        || affected_units.len() >= 6
+    {
+        "high"
+    } else if !symbol.host_classes.is_empty()
+        || !direct_callers.is_empty()
+        || !direct_callees.is_empty()
+        || symbol.branch_count >= 2
+        || affected_units.len() >= 2
+    {
+        "medium"
+    } else {
+        "low"
+    };
+
+    ImpactRisk { level, reasons }
+}
+
+fn select_entry_symbol(symbol_catalog: &SymbolCatalog) -> Option<String> {
+    let mut candidates = symbol_catalog
+        .definitions
+        .values()
+        .filter(|symbol| symbol.kind == DefinedSymbolKind::Function && symbol.is_entry)
+        .map(|symbol| symbol.qualified_name.clone())
+        .collect::<Vec<_>>();
+    candidates.sort();
+
+    candidates
+        .iter()
+        .find(|symbol| symbol.as_str() == "main" || symbol.ends_with(".main"))
+        .cloned()
+        .or_else(|| candidates.into_iter().next())
+}
+
+fn collect_reachable_flow_symbols(
+    symbol_catalog: &SymbolCatalog,
+    entry_symbol: &str,
+) -> (Vec<String>, BTreeMap<String, usize>) {
+    let mut reachable_order = Vec::new();
+    let mut depth_by_symbol = BTreeMap::<String, usize>::new();
+    let mut queue = std::collections::VecDeque::<String>::new();
+
+    depth_by_symbol.insert(entry_symbol.to_string(), 0);
+    queue.push_back(entry_symbol.to_string());
+
+    while let Some(symbol_name) = queue.pop_front() {
+        let Some(depth) = depth_by_symbol.get(&symbol_name).copied() else {
+            continue;
+        };
+        reachable_order.push(symbol_name.clone());
+
+        let Some(symbol) = symbol_catalog.definitions.get(&symbol_name) else {
+            continue;
+        };
+        for callee in &symbol.resolved_callee_order {
+            if !symbol_catalog.definitions.contains_key(callee)
+                || depth_by_symbol.contains_key(callee)
+            {
+                continue;
+            }
+            depth_by_symbol.insert(callee.clone(), depth + 1);
+            queue.push_back(callee.clone());
+        }
+    }
+
+    (reachable_order, depth_by_symbol)
+}
+
+fn collect_recursive_symbols(
+    symbol_catalog: &SymbolCatalog,
+    reachable_order: &[String],
+) -> Vec<String> {
+    let reachable_set = reachable_order.iter().cloned().collect::<BTreeSet<_>>();
+    let mut recursive_symbols = Vec::new();
+
+    for symbol_name in reachable_order {
+        let mut visited = BTreeSet::new();
+        if symbol_reaches_target(
+            symbol_catalog,
+            symbol_name,
+            symbol_name,
+            &reachable_set,
+            &mut visited,
+        ) {
+            recursive_symbols.push(symbol_name.clone());
+        }
+    }
+
+    recursive_symbols
+}
+
+fn symbol_reaches_target(
+    symbol_catalog: &SymbolCatalog,
+    current: &str,
+    target: &str,
+    reachable_set: &BTreeSet<String>,
+    visited: &mut BTreeSet<String>,
+) -> bool {
+    let Some(symbol) = symbol_catalog.definitions.get(current) else {
+        return false;
+    };
+
+    for callee in &symbol.resolved_callee_order {
+        if !reachable_set.contains(callee) {
+            continue;
+        }
+        if callee == target {
+            return true;
+        }
+        if visited.insert(callee.clone())
+            && symbol_reaches_target(symbol_catalog, callee, target, reachable_set, visited)
+        {
+            return true;
+        }
+    }
+
+    false
+}
+
+fn filter_reachable_callee_order(
+    symbol: &DefinedSymbol,
+    depth_by_symbol: &BTreeMap<String, usize>,
+) -> Vec<String> {
+    symbol
+        .resolved_callee_order
+        .iter()
+        .filter(|callee| depth_by_symbol.contains_key(*callee))
+        .cloned()
+        .collect()
+}
+
+fn build_longest_flow_chain(
+    symbol_catalog: &SymbolCatalog,
+    entry_symbol: &str,
+    reachable_set: &BTreeSet<String>,
+) -> Vec<String> {
+    longest_flow_chain_from(
+        symbol_catalog,
+        entry_symbol,
+        reachable_set,
+        &mut BTreeSet::new(),
+    )
+}
+
+fn longest_flow_chain_from(
+    symbol_catalog: &SymbolCatalog,
+    current: &str,
+    reachable_set: &BTreeSet<String>,
+    visiting: &mut BTreeSet<String>,
+) -> Vec<String> {
+    if !visiting.insert(current.to_string()) {
+        return vec![current.to_string()];
+    }
+
+    let mut best_suffix = Vec::new();
+    if let Some(symbol) = symbol_catalog.definitions.get(current) {
+        for callee in &symbol.resolved_callee_order {
+            if !reachable_set.contains(callee) {
+                continue;
+            }
+            let candidate =
+                longest_flow_chain_from(symbol_catalog, callee, reachable_set, visiting);
+            if candidate.len() > best_suffix.len()
+                || (candidate.len() == best_suffix.len() && candidate < best_suffix)
+            {
+                best_suffix = candidate;
+            }
+        }
+    }
+
+    visiting.remove(current);
+    let mut chain = vec![current.to_string()];
+    if !best_suffix.is_empty() {
+        chain.extend(best_suffix);
+    }
+    chain
 }
 
 fn build_constraint_candidates(
@@ -1060,9 +1790,12 @@ fn build_symbol_catalog(
                         .collect(),
                     return_type: Some(return_type.describe()),
                     related_types: walk.related_types,
-                    raw_calls: walk.raw_calls,
+                    raw_call_order: walk.raw_call_order,
                     resolved_callees: BTreeSet::new(),
+                    resolved_callee_order: Vec::new(),
                     host_classes,
+                    branch_kinds: walk.branch_kinds,
+                    branch_count: walk.branch_count,
                 };
                 definitions.insert(qualified_name.clone(), definition);
                 simple_names
@@ -1088,9 +1821,12 @@ fn build_symbol_catalog(
                         params: Vec::new(),
                         return_type: None,
                         related_types,
-                        raw_calls: BTreeSet::new(),
+                        raw_call_order: Vec::new(),
                         resolved_callees: BTreeSet::new(),
+                        resolved_callee_order: Vec::new(),
                         host_classes: BTreeSet::new(),
+                        branch_kinds: BTreeSet::new(),
+                        branch_count: 0,
                     },
                 );
                 simple_names
@@ -1118,9 +1854,12 @@ fn build_symbol_catalog(
                         params: Vec::new(),
                         return_type: None,
                         related_types,
-                        raw_calls: BTreeSet::new(),
+                        raw_call_order: Vec::new(),
                         resolved_callees: BTreeSet::new(),
+                        resolved_callee_order: Vec::new(),
                         host_classes: BTreeSet::new(),
+                        branch_kinds: BTreeSet::new(),
+                        branch_count: 0,
                     },
                 );
                 simple_names
@@ -1141,16 +1880,22 @@ fn build_symbol_catalog(
             continue;
         }
 
-        let resolved_callees = definition
-            .raw_calls
-            .iter()
-            .filter_map(|call| {
+        let mut resolved_callees = BTreeSet::new();
+        let mut resolved_callee_order = Vec::new();
+        for call in &definition.raw_call_order {
+            let Some(resolved) =
                 resolve_symbol_reference(&definition, call, &definitions, &simple_names)
-            })
-            .collect::<BTreeSet<_>>();
+            else {
+                continue;
+            };
+            if resolved_callees.insert(resolved.clone()) {
+                resolved_callee_order.push(resolved);
+            }
+        }
 
         if let Some(symbol) = definitions.get_mut(&symbol_name) {
             symbol.resolved_callees = resolved_callees.clone();
+            symbol.resolved_callee_order = resolved_callee_order.clone();
         }
         for callee in resolved_callees {
             callers_by_symbol
@@ -1200,6 +1945,7 @@ fn collect_symbol_walk_for_stmt(statement: &Stmt, walk: &mut SymbolWalk) {
         }
         StmtKind::Break | StmtKind::Continue => {}
         StmtKind::Match { scrutinee, arms } => {
+            record_branch_kind(walk, "match");
             collect_symbol_walk_for_expr(scrutinee, walk);
             for arm in arms {
                 collect_symbol_walk_for_block(&arm.body, walk);
@@ -1210,6 +1956,7 @@ fn collect_symbol_walk_for_stmt(statement: &Stmt, walk: &mut SymbolWalk) {
             then_branch,
             else_branch,
         } => {
+            record_branch_kind(walk, "if");
             collect_symbol_walk_for_expr(condition, walk);
             collect_symbol_walk_for_block(then_branch, walk);
             if let Some(else_branch) = else_branch.as_ref() {
@@ -1217,6 +1964,7 @@ fn collect_symbol_walk_for_stmt(statement: &Stmt, walk: &mut SymbolWalk) {
             }
         }
         StmtKind::While { condition, body } => {
+            record_branch_kind(walk, "while");
             collect_symbol_walk_for_expr(condition, walk);
             collect_symbol_walk_for_block(body, walk);
         }
@@ -1226,6 +1974,7 @@ fn collect_symbol_walk_for_stmt(statement: &Stmt, walk: &mut SymbolWalk) {
             step,
             body,
         } => {
+            record_branch_kind(walk, "for");
             if let Some(initializer) = initializer.as_ref() {
                 collect_symbol_walk_for_stmt(initializer, walk);
             }
@@ -1242,6 +1991,7 @@ fn collect_symbol_walk_for_stmt(statement: &Stmt, walk: &mut SymbolWalk) {
             iterable,
             body,
         } => {
+            record_branch_kind(walk, "for_in");
             collect_type_ref_names(&binding.ty, &mut walk.related_types);
             collect_symbol_walk_for_expr(iterable, walk);
             collect_symbol_walk_for_block(body, walk);
@@ -1259,7 +2009,9 @@ fn collect_symbol_walk_for_expr(expression: &Expr, walk: &mut SymbolWalk) {
         }
         ExprKind::Call { callee, arguments } => {
             if let Some(name) = callee.qualified_name() {
-                walk.raw_calls.insert(name);
+                if walk.raw_calls.insert(name.clone()) {
+                    walk.raw_call_order.push(name);
+                }
             }
             collect_symbol_walk_for_expr(callee, walk);
             for argument in arguments {
@@ -1278,6 +2030,7 @@ fn collect_symbol_walk_for_expr(expression: &Expr, walk: &mut SymbolWalk) {
             }
         }
         ExprKind::Match { scrutinee, arms } => {
+            record_branch_kind(walk, "match");
             collect_symbol_walk_for_expr(scrutinee, walk);
             for arm in arms {
                 collect_symbol_walk_for_expr(&arm.value, walk);
@@ -1300,6 +2053,11 @@ fn collect_symbol_walk_for_expr(expression: &Expr, walk: &mut SymbolWalk) {
         | ExprKind::Name { .. }
         | ExprKind::Error => {}
     }
+}
+
+fn record_branch_kind(walk: &mut SymbolWalk, kind: &str) {
+    walk.branch_kinds.insert(kind.to_string());
+    walk.branch_count += 1;
 }
 
 fn collect_type_ref_names(ty: &crate::ast::TypeRef, related_types: &mut BTreeSet<String>) {
@@ -1393,10 +2151,20 @@ fn build_validation(
             format!("axc context topology {command_target} --json"),
             format!("axc context symbol {command_target} <symbol> --json"),
         ],
+        ContextView::Flow => vec![
+            format!("axc check {command_target}"),
+            format!("axc context flow {command_target} --json"),
+            format!("axc context symbol {command_target} <symbol> --json"),
+        ],
         ContextView::Symbol => vec![
             format!("axc check {command_target}"),
             format!("axc context topology {command_target} --json"),
             format!("axc context symbol {command_target} <symbol> --json"),
+        ],
+        ContextView::Impact => vec![
+            format!("axc check {command_target}"),
+            format!("axc context flow {command_target} --json"),
+            format!("axc context impact {command_target} <symbol> --json"),
         ],
     };
 

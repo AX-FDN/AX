@@ -1,0 +1,613 @@
+{
+  "schema_version": 1,
+  "view": "flow",
+  "subject": {
+    "kind": "project",
+    "path": "examples/project_workspace_search_report",
+    "entry": "examples/project_workspace_search_report/src/main.ax",
+    "project_name": "project_workspace_search_report"
+  },
+  "facts": {
+    "entry_symbol": "main",
+    "summary": {
+      "reachable_symbol_count": 26,
+      "flow_edge_count": 29,
+      "branch_point_count": 16,
+      "recursive_symbol_count": 1,
+      "max_depth": 4
+    },
+    "top_level_calls": [
+      "foundation.cli.require_min_args",
+      "foundation.cli.require_directory",
+      "foundation.cli.require_non_empty_text",
+      "foundation.cli.ensure_output_parent",
+      "lib.search_totals.zero_search_totals",
+      "lib.file_search.search_path",
+      "foundation.report.append_section_details_or_none",
+      "lib.report.build_summary",
+      "lib.report.render_match_lines"
+    ],
+    "reachable_symbols": [
+      {
+        "symbol": "main",
+        "depth": 0,
+        "source_path": "examples/project_workspace_search_report/src/main.ax",
+        "host_boundary_classes": [
+          "argv",
+          "filesystem",
+          "stdout"
+        ],
+        "branch_count": 4
+      },
+      {
+        "symbol": "foundation.cli.require_min_args",
+        "depth": 1,
+        "source_path": "foundation/cli.ax",
+        "module_path": "foundation.cli",
+        "host_boundary_classes": [],
+        "branch_count": 1
+      },
+      {
+        "symbol": "foundation.cli.require_directory",
+        "depth": 1,
+        "source_path": "foundation/cli.ax",
+        "module_path": "foundation.cli",
+        "host_boundary_classes": [
+          "filesystem"
+        ],
+        "branch_count": 1
+      },
+      {
+        "symbol": "foundation.cli.require_non_empty_text",
+        "depth": 1,
+        "source_path": "foundation/cli.ax",
+        "module_path": "foundation.cli",
+        "host_boundary_classes": [],
+        "branch_count": 1
+      },
+      {
+        "symbol": "foundation.cli.ensure_output_parent",
+        "depth": 1,
+        "source_path": "foundation/cli.ax",
+        "module_path": "foundation.cli",
+        "host_boundary_classes": [
+          "filesystem"
+        ],
+        "branch_count": 1
+      },
+      {
+        "symbol": "lib.search_totals.zero_search_totals",
+        "depth": 1,
+        "source_path": "examples/project_workspace_search_report/lib/search_totals.ax",
+        "module_path": "lib.search_totals",
+        "host_boundary_classes": [],
+        "branch_count": 0
+      },
+      {
+        "symbol": "lib.file_search.search_path",
+        "depth": 1,
+        "source_path": "examples/project_workspace_search_report/lib/file_search.ax",
+        "module_path": "lib.file_search",
+        "host_boundary_classes": [
+          "filesystem"
+        ],
+        "branch_count": 4
+      },
+      {
+        "symbol": "foundation.report.append_section_details_or_none",
+        "depth": 1,
+        "source_path": "foundation/report.ax",
+        "module_path": "foundation.report",
+        "host_boundary_classes": [],
+        "branch_count": 1
+      },
+      {
+        "symbol": "lib.report.build_summary",
+        "depth": 1,
+        "source_path": "examples/project_workspace_search_report/lib/report.ax",
+        "module_path": "lib.report",
+        "host_boundary_classes": [],
+        "branch_count": 0
+      },
+      {
+        "symbol": "lib.report.render_match_lines",
+        "depth": 1,
+        "source_path": "examples/project_workspace_search_report/lib/report.ax",
+        "module_path": "lib.report",
+        "host_boundary_classes": [],
+        "branch_count": 1
+      },
+      {
+        "symbol": "foundation.cli.usage_error",
+        "depth": 2,
+        "source_path": "foundation/cli.ax",
+        "module_path": "foundation.cli",
+        "host_boundary_classes": [
+          "stdout"
+        ],
+        "branch_count": 0
+      },
+      {
+        "symbol": "foundation.cli.exit_with_message",
+        "depth": 2,
+        "source_path": "foundation/cli.ax",
+        "module_path": "foundation.cli",
+        "host_boundary_classes": [
+          "stdout"
+        ],
+        "branch_count": 0
+      },
+      {
+        "symbol": "foundation.file_kind.is_searchable_file",
+        "depth": 2,
+        "source_path": "foundation/file_kind.ax",
+        "module_path": "foundation.file_kind",
+        "host_boundary_classes": [],
+        "branch_count": 0
+      },
+      {
+        "symbol": "lib.file_search.search_file",
+        "depth": 2,
+        "source_path": "examples/project_workspace_search_report/lib/file_search.ax",
+        "module_path": "lib.file_search",
+        "host_boundary_classes": [
+          "filesystem"
+        ],
+        "branch_count": 1
+      },
+      {
+        "symbol": "foundation.report.begin_section",
+        "depth": 2,
+        "source_path": "foundation/report.ax",
+        "module_path": "foundation.report",
+        "host_boundary_classes": [],
+        "branch_count": 0
+      },
+      {
+        "symbol": "foundation.report.append_path_stat",
+        "depth": 2,
+        "source_path": "foundation/report.ax",
+        "module_path": "foundation.report",
+        "host_boundary_classes": [],
+        "branch_count": 0
+      },
+      {
+        "symbol": "foundation.report.append_string_stat",
+        "depth": 2,
+        "source_path": "foundation/report.ax",
+        "module_path": "foundation.report",
+        "host_boundary_classes": [],
+        "branch_count": 0
+      },
+      {
+        "symbol": "foundation.report.append_int_stat",
+        "depth": 2,
+        "source_path": "foundation/report.ax",
+        "module_path": "foundation.report",
+        "host_boundary_classes": [],
+        "branch_count": 0
+      },
+      {
+        "symbol": "foundation.file_kind.is_text_file",
+        "depth": 3,
+        "source_path": "foundation/file_kind.ax",
+        "module_path": "foundation.file_kind",
+        "host_boundary_classes": [],
+        "branch_count": 7
+      },
+      {
+        "symbol": "foundation.search.search_text",
+        "depth": 3,
+        "source_path": "foundation/search.ax",
+        "module_path": "foundation.search",
+        "host_boundary_classes": [],
+        "branch_count": 2
+      },
+      {
+        "symbol": "foundation.workspace.depth_prefix",
+        "depth": 3,
+        "source_path": "foundation/workspace.ax",
+        "module_path": "foundation.workspace",
+        "host_boundary_classes": [],
+        "branch_count": 1
+      },
+      {
+        "symbol": "foundation.workspace.display_label",
+        "depth": 3,
+        "source_path": "foundation/workspace.ax",
+        "module_path": "foundation.workspace",
+        "host_boundary_classes": [],
+        "branch_count": 2
+      },
+      {
+        "symbol": "lib.search_totals.add_search_result",
+        "depth": 3,
+        "source_path": "examples/project_workspace_search_report/lib/search_totals.ax",
+        "module_path": "lib.search_totals",
+        "host_boundary_classes": [],
+        "branch_count": 1
+      },
+      {
+        "symbol": "foundation.report.append_line",
+        "depth": 3,
+        "source_path": "foundation/report.ax",
+        "module_path": "foundation.report",
+        "host_boundary_classes": [],
+        "branch_count": 1
+      },
+      {
+        "symbol": "foundation.file_kind.classify_file_kind",
+        "depth": 4,
+        "source_path": "foundation/file_kind.ax",
+        "module_path": "foundation.file_kind",
+        "host_boundary_classes": [],
+        "branch_count": 8
+      },
+      {
+        "symbol": "foundation.search.zero_search_stats",
+        "depth": 4,
+        "source_path": "foundation/search.ax",
+        "module_path": "foundation.search",
+        "host_boundary_classes": [],
+        "branch_count": 0
+      }
+    ],
+    "flow_edges": [
+      {
+        "from": "main",
+        "to": "foundation.cli.require_min_args",
+        "target_depth": 1,
+        "cross_unit": true
+      },
+      {
+        "from": "main",
+        "to": "foundation.cli.require_directory",
+        "target_depth": 1,
+        "cross_unit": true
+      },
+      {
+        "from": "main",
+        "to": "foundation.cli.require_non_empty_text",
+        "target_depth": 1,
+        "cross_unit": true
+      },
+      {
+        "from": "main",
+        "to": "foundation.cli.ensure_output_parent",
+        "target_depth": 1,
+        "cross_unit": true
+      },
+      {
+        "from": "main",
+        "to": "lib.search_totals.zero_search_totals",
+        "target_depth": 1,
+        "cross_unit": true
+      },
+      {
+        "from": "main",
+        "to": "lib.file_search.search_path",
+        "target_depth": 1,
+        "cross_unit": true
+      },
+      {
+        "from": "main",
+        "to": "foundation.report.append_section_details_or_none",
+        "target_depth": 1,
+        "cross_unit": true
+      },
+      {
+        "from": "main",
+        "to": "lib.report.build_summary",
+        "target_depth": 1,
+        "cross_unit": true
+      },
+      {
+        "from": "main",
+        "to": "lib.report.render_match_lines",
+        "target_depth": 1,
+        "cross_unit": true
+      },
+      {
+        "from": "foundation.cli.require_min_args",
+        "to": "foundation.cli.usage_error",
+        "target_depth": 2,
+        "cross_unit": false
+      },
+      {
+        "from": "foundation.cli.require_directory",
+        "to": "foundation.cli.exit_with_message",
+        "target_depth": 2,
+        "cross_unit": false
+      },
+      {
+        "from": "foundation.cli.require_non_empty_text",
+        "to": "foundation.cli.exit_with_message",
+        "target_depth": 2,
+        "cross_unit": false
+      },
+      {
+        "from": "lib.file_search.search_path",
+        "to": "foundation.file_kind.is_searchable_file",
+        "target_depth": 2,
+        "cross_unit": true
+      },
+      {
+        "from": "lib.file_search.search_path",
+        "to": "lib.file_search.search_file",
+        "target_depth": 2,
+        "cross_unit": false
+      },
+      {
+        "from": "lib.file_search.search_path",
+        "to": "lib.file_search.search_path",
+        "target_depth": 1,
+        "cross_unit": false
+      },
+      {
+        "from": "foundation.report.append_section_details_or_none",
+        "to": "foundation.report.begin_section",
+        "target_depth": 2,
+        "cross_unit": false
+      },
+      {
+        "from": "lib.report.build_summary",
+        "to": "foundation.report.append_path_stat",
+        "target_depth": 2,
+        "cross_unit": true
+      },
+      {
+        "from": "lib.report.build_summary",
+        "to": "foundation.report.append_string_stat",
+        "target_depth": 2,
+        "cross_unit": true
+      },
+      {
+        "from": "lib.report.build_summary",
+        "to": "foundation.report.append_int_stat",
+        "target_depth": 2,
+        "cross_unit": true
+      },
+      {
+        "from": "foundation.file_kind.is_searchable_file",
+        "to": "foundation.file_kind.is_text_file",
+        "target_depth": 3,
+        "cross_unit": false
+      },
+      {
+        "from": "lib.file_search.search_file",
+        "to": "foundation.search.search_text",
+        "target_depth": 3,
+        "cross_unit": true
+      },
+      {
+        "from": "lib.file_search.search_file",
+        "to": "foundation.workspace.depth_prefix",
+        "target_depth": 3,
+        "cross_unit": true
+      },
+      {
+        "from": "lib.file_search.search_file",
+        "to": "foundation.workspace.display_label",
+        "target_depth": 3,
+        "cross_unit": true
+      },
+      {
+        "from": "lib.file_search.search_file",
+        "to": "lib.search_totals.add_search_result",
+        "target_depth": 3,
+        "cross_unit": true
+      },
+      {
+        "from": "foundation.report.append_path_stat",
+        "to": "foundation.report.append_string_stat",
+        "target_depth": 2,
+        "cross_unit": false
+      },
+      {
+        "from": "foundation.report.append_string_stat",
+        "to": "foundation.report.append_line",
+        "target_depth": 3,
+        "cross_unit": false
+      },
+      {
+        "from": "foundation.report.append_int_stat",
+        "to": "foundation.report.append_string_stat",
+        "target_depth": 2,
+        "cross_unit": false
+      },
+      {
+        "from": "foundation.file_kind.is_text_file",
+        "to": "foundation.file_kind.classify_file_kind",
+        "target_depth": 4,
+        "cross_unit": false
+      },
+      {
+        "from": "foundation.search.search_text",
+        "to": "foundation.search.zero_search_stats",
+        "target_depth": 4,
+        "cross_unit": false
+      }
+    ],
+    "branch_points": [
+      {
+        "symbol": "main",
+        "branch_kinds": [
+          "for",
+          "if"
+        ],
+        "branch_count": 4,
+        "note": "contains 4 control-flow branch site(s): for, if"
+      },
+      {
+        "symbol": "foundation.cli.require_min_args",
+        "branch_kinds": [
+          "if"
+        ],
+        "branch_count": 1,
+        "note": "contains 1 control-flow branch site(s): if"
+      },
+      {
+        "symbol": "foundation.cli.require_directory",
+        "branch_kinds": [
+          "if"
+        ],
+        "branch_count": 1,
+        "note": "contains 1 control-flow branch site(s): if"
+      },
+      {
+        "symbol": "foundation.cli.require_non_empty_text",
+        "branch_kinds": [
+          "if"
+        ],
+        "branch_count": 1,
+        "note": "contains 1 control-flow branch site(s): if"
+      },
+      {
+        "symbol": "foundation.cli.ensure_output_parent",
+        "branch_kinds": [
+          "if"
+        ],
+        "branch_count": 1,
+        "note": "contains 1 control-flow branch site(s): if"
+      },
+      {
+        "symbol": "lib.file_search.search_path",
+        "branch_kinds": [
+          "for",
+          "if"
+        ],
+        "branch_count": 4,
+        "note": "contains 4 control-flow branch site(s): for, if"
+      },
+      {
+        "symbol": "foundation.report.append_section_details_or_none",
+        "branch_kinds": [
+          "if"
+        ],
+        "branch_count": 1,
+        "note": "contains 1 control-flow branch site(s): if"
+      },
+      {
+        "symbol": "lib.report.render_match_lines",
+        "branch_kinds": [
+          "if"
+        ],
+        "branch_count": 1,
+        "note": "contains 1 control-flow branch site(s): if"
+      },
+      {
+        "symbol": "lib.file_search.search_file",
+        "branch_kinds": [
+          "if"
+        ],
+        "branch_count": 1,
+        "note": "contains 1 control-flow branch site(s): if"
+      },
+      {
+        "symbol": "foundation.file_kind.is_text_file",
+        "branch_kinds": [
+          "if"
+        ],
+        "branch_count": 7,
+        "note": "contains 7 control-flow branch site(s): if"
+      },
+      {
+        "symbol": "foundation.search.search_text",
+        "branch_kinds": [
+          "for",
+          "if"
+        ],
+        "branch_count": 2,
+        "note": "contains 2 control-flow branch site(s): for, if"
+      },
+      {
+        "symbol": "foundation.workspace.depth_prefix",
+        "branch_kinds": [
+          "for"
+        ],
+        "branch_count": 1,
+        "note": "contains 1 control-flow branch site(s): for"
+      },
+      {
+        "symbol": "foundation.workspace.display_label",
+        "branch_kinds": [
+          "if"
+        ],
+        "branch_count": 2,
+        "note": "contains 2 control-flow branch site(s): if"
+      },
+      {
+        "symbol": "lib.search_totals.add_search_result",
+        "branch_kinds": [
+          "if"
+        ],
+        "branch_count": 1,
+        "note": "contains 1 control-flow branch site(s): if"
+      },
+      {
+        "symbol": "foundation.report.append_line",
+        "branch_kinds": [
+          "if"
+        ],
+        "branch_count": 1,
+        "note": "contains 1 control-flow branch site(s): if"
+      },
+      {
+        "symbol": "foundation.file_kind.classify_file_kind",
+        "branch_kinds": [
+          "if"
+        ],
+        "branch_count": 8,
+        "note": "contains 8 control-flow branch site(s): if"
+      }
+    ],
+    "recursive_symbols": [
+      "lib.file_search.search_path"
+    ]
+  },
+  "hints": {
+    "orchestration_chain": [
+      "main",
+      "lib.file_search.search_path",
+      "foundation.file_kind.is_searchable_file",
+      "foundation.file_kind.is_text_file",
+      "foundation.file_kind.classify_file_kind"
+    ],
+    "host_boundary_symbols": [
+      "main",
+      "foundation.cli.require_directory",
+      "foundation.cli.ensure_output_parent",
+      "lib.file_search.search_path",
+      "foundation.cli.usage_error",
+      "foundation.cli.exit_with_message",
+      "lib.file_search.search_file"
+    ],
+    "leaf_symbols": [
+      "foundation.cli.ensure_output_parent",
+      "lib.search_totals.zero_search_totals",
+      "lib.report.render_match_lines",
+      "foundation.cli.usage_error",
+      "foundation.cli.exit_with_message",
+      "foundation.report.begin_section",
+      "foundation.workspace.depth_prefix",
+      "foundation.workspace.display_label",
+      "lib.search_totals.add_search_result",
+      "foundation.report.append_line",
+      "foundation.file_kind.classify_file_kind",
+      "foundation.search.zero_search_stats"
+    ]
+  },
+  "validation": {
+    "diagnostic_count": 0,
+    "partial": false,
+    "recommended_commands": [
+      "axc check examples/project_workspace_search_report",
+      "axc context flow examples/project_workspace_search_report --json",
+      "axc context symbol examples/project_workspace_search_report <symbol> --json"
+    ],
+    "notes": [
+      "P2 flow tracks entry reachability, direct call order, branch points, and recursion",
+      "context built from a clean diagnostic pass"
+    ]
+  }
+}

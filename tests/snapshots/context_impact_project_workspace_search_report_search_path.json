@@ -1,0 +1,126 @@
+{
+  "schema_version": 1,
+  "view": "impact",
+  "subject": {
+    "kind": "project",
+    "path": "examples/project_workspace_search_report",
+    "entry": "examples/project_workspace_search_report/src/main.ax",
+    "project_name": "project_workspace_search_report",
+    "symbol": "lib.file_search.search_path"
+  },
+  "facts": {
+    "requested_symbol": "lib.file_search.search_path",
+    "resolved_symbol": "lib.file_search.search_path",
+    "direct_callers": [
+      "lib.file_search.search_path",
+      "main"
+    ],
+    "direct_callees": [
+      "foundation.file_kind.is_searchable_file",
+      "lib.file_search.search_file",
+      "lib.file_search.search_path"
+    ],
+    "upstream_callers": [
+      "lib.file_search.search_path",
+      "main"
+    ],
+    "downstream_callees": [
+      "foundation.file_kind.is_searchable_file",
+      "lib.file_search.search_file",
+      "lib.file_search.search_path",
+      "foundation.file_kind.is_text_file",
+      "foundation.search.search_text",
+      "foundation.workspace.depth_prefix",
+      "foundation.workspace.display_label",
+      "lib.search_totals.add_search_result",
+      "foundation.file_kind.classify_file_kind",
+      "foundation.search.zero_search_stats"
+    ],
+    "affected_units": [
+      {
+        "path": "examples/project_workspace_search_report/lib/file_search.ax",
+        "symbol_count": 2,
+        "includes_target": true,
+        "host_boundary_classes": [
+          "filesystem"
+        ]
+      },
+      {
+        "path": "examples/project_workspace_search_report/lib/search_totals.ax",
+        "symbol_count": 1,
+        "includes_target": false,
+        "host_boundary_classes": []
+      },
+      {
+        "path": "examples/project_workspace_search_report/src/main.ax",
+        "symbol_count": 1,
+        "includes_target": false,
+        "host_boundary_classes": [
+          "argv",
+          "filesystem",
+          "stdout"
+        ]
+      },
+      {
+        "path": "foundation/file_kind.ax",
+        "symbol_count": 3,
+        "includes_target": false,
+        "host_boundary_classes": []
+      },
+      {
+        "path": "foundation/search.ax",
+        "symbol_count": 2,
+        "includes_target": false,
+        "host_boundary_classes": []
+      },
+      {
+        "path": "foundation/workspace.ax",
+        "symbol_count": 2,
+        "includes_target": false,
+        "host_boundary_classes": []
+      }
+    ],
+    "recursive": true,
+    "change_risk": {
+      "level": "high",
+      "reasons": [
+        "touches host boundary classes: filesystem",
+        "participates in a recursive call cycle",
+        "has multiple upstream dependents",
+        "fans out into a wide downstream call surface",
+        "contains dense control flow with 4 branch site(s)",
+        "spans 6 affected source units"
+      ]
+    }
+  },
+  "hints": {
+    "smallest_safe_edit_scope": [
+      "examples/project_workspace_search_report/lib/file_search.ax"
+    ],
+    "likely_breakages": [
+      "call-site expectations may shift across 2 direct caller(s)",
+      "downstream behavior may drift across 3 direct callee(s)",
+      "recursive behavior may affect traversal completeness or termination",
+      "host-boundary behavior may change across touched units"
+    ],
+    "regression_targets": [
+      "axc check <path>",
+      "axc context flow <path> --json",
+      "axc context symbol <path> lib.file_search.search_path --json",
+      "axc context impact <path> lib.file_search.search_path --json"
+    ]
+  },
+  "validation": {
+    "diagnostic_count": 0,
+    "partial": false,
+    "recommended_commands": [
+      "axc check examples/project_workspace_search_report",
+      "axc context flow examples/project_workspace_search_report --json",
+      "axc context impact examples/project_workspace_search_report <symbol> --json"
+    ],
+    "notes": [
+      "P2 impact maps upstream callers, downstream callees, affected units, and change risk",
+      "context built from a clean diagnostic pass"
+    ]
+  }
+}
