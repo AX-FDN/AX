@@ -12,6 +12,8 @@ AX currently uses platform tiers instead of claiming full workflow parity everyw
   Linux core compiler/runtime path for `axc build / check / run / fmt`.
 - [`platform-support.md`](./platform-support.md)
   Current platform support tiers, boundaries, and what remains Windows-only.
+- [`validation-matrix.md`](./validation-matrix.md)
+  Current local/CI validation matrix for Windows local, Windows CI, and Ubuntu CI.
 
 ## Current Boundary
 

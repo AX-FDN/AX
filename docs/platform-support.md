@@ -2,6 +2,8 @@
 
 AX currently uses platform tiers instead of pretending every workflow is equally supported everywhere.
 
+For the exact local/CI command matrix, see [`validation-matrix.md`](./validation-matrix.md).
+
 ## Current Status
 
 | Platform | Status | Scope |

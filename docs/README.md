@@ -36,6 +36,8 @@
   Linux 核心 compiler/runtime 入口。
 - [`platform-support.md`](./platform-support.md)
   定义 Windows / Linux / macOS 当前支持层级与边界。
+- [`validation-matrix.md`](./validation-matrix.md)
+  定义 Windows 本机、Windows CI、Ubuntu CI 分别应该跑什么，以及哪些链路仍是 Windows-only。
 - [`host-runtime-boundary.md`](./host-runtime-boundary.md)
   解释 Rust 宿主原语、AX 接口层、project-private 库和未来包系统之间的边界。
 - [`foundation-inventory.md`](./foundation-inventory.md)

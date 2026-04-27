@@ -25,6 +25,13 @@
 
 ### 2026-04-27
 
+- `A-2026-04-27-13` `[P0]` 本机与 CI 验证矩阵写清
+  - 结果：
+    - 新增 `docs/validation-matrix.md`
+    - 写清 Windows local、Windows CI、Ubuntu CI 分别跑哪些命令
+    - 明确 PowerShell benchmark/orchestration 仍是 Windows-only，Ubuntu 只承诺 core compiler/runtime
+    - quickstart、platform support、docs 入口已指向验证矩阵
+
 - `A-2026-04-27-12` `[P1]` 公开口径边界收紧
   - 结果：
     - 新增 `docs/public-claims.md`，把“可直接说的仓库内事实”和“只能作为后续验证目标的外部结论”分开
