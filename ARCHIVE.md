@@ -25,6 +25,13 @@
 
 ### 2026-04-27
 
+- `A-2026-04-27-14` `[P0]` 外部接口契约与快照覆盖写清
+  - 结果：
+    - 新增 `docs/interface-contracts.md`
+    - 把 diagnostics、AI diagnostics、runtime diagnostics、context、build manifest、repair export 的契约和对应 regression 写清
+    - `docs/feature-matrix.md` 已更新为当前事实：context 已进入 repair export 输入链，P1 展示层已成立
+    - `W-P0-03` 已完成
+
 - `A-2026-04-27-13` `[P0]` 本机与 CI 验证矩阵写清
   - 结果：
     - 新增 `docs/validation-matrix.md`
