@@ -25,6 +25,13 @@
 
 ### 2026-04-27
 
+- `A-2026-04-27-15` `[P0]` 根目录与 docs 入口口径收口
+  - 结果：
+    - `WORKLIST.md` 顶部当前主线已从旧的 P1 主攻口径改为 P0 收尾完成后的下一轮选择口径
+    - `P0` 与 `P1` 出口清单已按当前事实标记完成
+    - README 导航新增 validation matrix 与 interface contracts 入口
+    - `W-P0-04` 已完成
+
 - `A-2026-04-27-14` `[P0]` 外部接口契约与快照覆盖写清
   - 结果：
     - 新增 `docs/interface-contracts.md`

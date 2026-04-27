@@ -30,6 +30,8 @@ AX 关注的不只是“模型能不能写出代码”，更关注三件更硬�
 | 当前已经做到哪了 | [`PROJECT_FACTS.md`](./PROJECT_FACTS.md) |
 | 当前 benchmark 证据链 | [`docs/benchmark-showcase.md`](./docs/benchmark-showcase.md) |
 | 对外怎么准确介绍 | [`docs/public-claims.md`](./docs/public-claims.md) |
+| 本机和 CI 应该跑什么 | [`docs/validation-matrix.md`](./docs/validation-matrix.md) |
+| 外部 JSON / artifact 契约 | [`docs/interface-contracts.md`](./docs/interface-contracts.md) |
 | 全项目按什么阶段推进 | [`PLAN.md`](./PLAN.md) |
 | 现在具体在做什么 | [`WORKLIST.md`](./WORKLIST.md) |
 | 哪些事情已经做完 | [`ARCHIVE.md`](./ARCHIVE.md) |

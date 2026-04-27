@@ -38,10 +38,10 @@
 
 当前激活主线判断固定为：
 
-- `P0` 是地基修复层
-- `P2` 是语言内核主施工层
-- `P1` 是编译器护城河同步硬化层
-- `P3` 是第一版标准库冻结准备层
+- `P0` 是地基修复层，当前只剩入口口径收口
+- `P1` 是编译器护城河同步硬化层，当前这一轮 context / benchmark / public claims 已完成
+- `P2` 是语言内核主施工层，当前代表样例、宿主边界和语法优先级已完成冻结
+- `P3` 是第一版标准库冻结准备层，当前边界已完成，下一步可启动小范围迁移试点
 
 ## 状态说明
 
@@ -55,21 +55,21 @@
 
 也就是说：
 
-- `P0` 仍然需要收口验证矩阵与外部契约，但本机 GNU 路径已经稳定
+- `P0` 的验证矩阵与外部契约已经写清，当前只剩根目录与 docs 入口口径收尾
+- `P1` 的 context-enabled repair export、benchmark 展示页和公开口径边界已经成立
 - `P2` 当前出口已经完成，语言内核主代表样例、宿主边界样例和第一项 `match` 语法线已经进入回归
 - `P3` 前置边界已经完成，`foundation -> std.*` 的真正迁移暂不启动
-- 当前主攻点回到 `P1`：把 `context` 从独立可读接口接进 repair / benchmark 消费链
+- 当前 `P0 / P1 / P2` 本轮出口均已完成，下一轮主攻应在 `P2` 语言实现和 `P3` 标准库迁移试点之间选择
 
 当前优先级顺序固定为：
 
-1. 先把 `P1` 的 context -> repair/benchmark 输入位接起来
-2. 再定义 context 输入最小壳层：优先 `overview + boundaries + evidence`
-3. 再给 context-enabled 路径补 smoke 或接口回归
-4. 再把 benchmark 展示页做成公开可引用资产
-5. 并行补 `P0` 的本机/CI 路径矩阵与外部契约说明
-6. 暂不启动 `foundation -> std.*` 代码迁移，除非 P3 迁移试点明确开始
+1. 先确认下一轮主施工线：
+   - 如果要继续语言能力，回到 `P2` 的 `match` 第二刀实现
+   - 如果要推进标准库，启动 `P3` 的 `foundation -> std.*` 小范围迁移试点
+2. 暂不启动 P4 AOT、P5 包接口、JIT、自举或三方库桥接
+3. 任何下一轮实现都必须继续回写 examples、diagnostics、context、repair/benchmark 或 interface snapshots
 
-如果 `P1` 和新增语言能力临时抢资源，默认先保证当前护城河闭环：context 能被 repair/benchmark 消费。
+当前判断：P1 这一轮已经完成，不再和新增语言能力抢资源。下一步应在 `P2 match 第二刀实现` 与 `P3 std.* 迁移试点` 之间选一条作为主线。
 
 ## 阶段承接图
 
@@ -93,13 +93,13 @@
 
 - [x] 至少一条正式支持的 Windows 本地构建/测试路径写清楚
 - [x] README / quickstart / scripts 对本机验证路径的说法一致
-- [ ] interface snapshots、context、build skeleton 的外部契约口径稳定
+- [x] interface snapshots、context、build skeleton 的外部契约口径稳定
 
 ### `P1` 出口还差什么
 
-- [ ] context 已进入至少一条 repair 或 benchmark 输入链
-- [ ] benchmark 展示页已经区分“仓库内已复现结果”和“外部尚未完成对照”
-- [ ] `base -> ai` 或 `cold -> base -> ai` 的差异能稳定复跑
+- [x] context 已进入至少一条 repair 或 benchmark 输入链
+- [x] benchmark 展示页已经区分“仓库内已复现结果”和“外部尚未完成对照”
+- [x] `base -> ai` 或 `cold -> base -> ai` 的差异能稳定复跑
 
 ### `P2` 出口还差什么
 
@@ -155,7 +155,7 @@
     - 新增或保留字段都能解释“为什么必须存在”
     - 文档与 snapshots 的说法一致
 
-- [ ] `W-P0-04` 收口根目录与 docs 入口口径
+- [x] `W-P0-04` 收口根目录与 docs 入口口径
   - 目标：避免 `README / PROJECT_FACTS / PLAN / WORKLIST / docs` 再各讲一套。
   - 依赖：`W-P0-02` 到 `W-P0-03` 至少基本稳定
   - 产物：
