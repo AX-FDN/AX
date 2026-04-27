@@ -3,16 +3,16 @@
 
 # AX
 
-### 面向 Coding AI 的源码协议与执行语言原型
+### 面向自回归 Coding AI 的 AI-first 工具语言与编译器原型
 
 [![License](https://img.shields.io/github/license/AX-FDN/AX)](./LICENSE)
-[![Prototype](https://img.shields.io/badge/status-prototype-0ea5e9)](./规划.md)
+[![Prototype](https://img.shields.io/badge/status-prototype-0ea5e9)](./PLAN.md)
 [![Benchmark](https://img.shields.io/badge/repair%20benchmark-included-2563eb)](./docs/repair-benchmark.md)
 
 </div>
 
-AX 是一个面向 Coding AI 的 AI-native 源码协议与执行语言项目，也是一个持续工程化的执行语言原型。
-它不是在既有语言外面再包一层 prompt 约定，而是直接从源码形态、编译器诊断、修复反馈契约、架构上下文协议与 benchmark 证据链五个层面同时为自回归模型设计，目标是成为对自回归模型最友好的语言之一。
+AX 是一门面向自回归 Coding AI 的 AI-first 工具语言，也是一套围绕这门语言持续工程化的编译器与执行工具链。
+它把显式语法、规范化源码形态、结构化诊断、修复反馈契约、架构上下文协议与 benchmark 证据链并入同一套语言系统，目标是成为对 agent 生成、修复和理解项目都更稳定的语言之一。
 
 AX 关注的不只是“模型能不能写出代码”，更关注三件更硬的事：
 
@@ -22,16 +22,35 @@ AX 关注的不只是“模型能不能写出代码”，更关注三件更硬�
 
 仓库已经具备可运行的 `axc check / run / fmt / build`、结构化 `diagnostics`、`--json --ai` 输出、project-backed 多文件组织、第一阶段 `import/module` 模式、AX 侧共享 foundation，以及 repair benchmark 的导出、评分、对比、smoke 与 CI 资产。
 
+## 项目导航
+
+| 你想知道什么 | 该看哪里 |
+| --- | --- |
+| 项目是什么、为什么值得关注 | [`README.md`](./README.md) |
+| 当前已经做到哪了 | [`PROJECT_FACTS.md`](./PROJECT_FACTS.md) |
+| 全项目按什么阶段推进 | [`PLAN.md`](./PLAN.md) |
+| 现在具体在做什么 | [`WORKLIST.md`](./WORKLIST.md) |
+| 哪些事情已经做完 | [`ARCHIVE.md`](./ARCHIVE.md) |
+
+当前仓库的主推进区间仍然是 `P0-P3`，其中 `P2` 是语言内核主增长线，`P1` 是编译器护城河硬化线：
+
+- `P0` 继续收紧环境与外部契约
+- `P1` 继续做硬 repair/context/benchmark 证据链
+- `P2` 继续收紧最小可写工具内核与代表样例
+- `P3` 还处于“为官方最小标准库冻结做准备”的阶段
+
+完整的阶段门槛和前置条件看 [`PLAN.md`](./PLAN.md)。
+
 ## 一眼看懂 AX
 
 | 项目维度 | AX 当前提供什么 |
 | --- | --- |
-| 项目定位 | `AI-native Language + Source Protocol + Execution Language Prototype` |
-| 核心问题 | 什么样的源码形式、诊断结构、上下文协议和修复反馈，最适合自回归模型稳定生成、稳定修复和稳定理解项目 |
+| 项目定位 | `AI-first Tool Language + Compiler/Runtime Prototype` |
+| 核心问题 | 什么样的语言表面、诊断结构、上下文协议和修复反馈，最适合自回归模型稳定生成、稳定修复和稳定理解项目 |
 | 关键收益 | 提高一次通过率、提高修复成功率、提高多文件项目中的架构理解效率 |
 | 主要场景 | AI 代码生成、agent 修复闭环、项目结构理解、工作区自动化、构建辅助、文本与目录处理 |
-| 当前形态 | 编译器前端 + 解释执行 + structured diagnostics + repair contract + benchmark evidence |
-| 核心价值 | 把 canonical syntax、diagnostics、context protocol、repair contract、benchmark 五件事放进同一个可运行仓库 |
+| 当前形态 | 语言前端 + 解释执行 + project mode + structured diagnostics + context + repair benchmark |
+| 核心价值 | 把语言本体、编译器反馈和 AI 消费链路放进同一个可运行仓库 |
 
 ## AX 的核心优势
 
@@ -40,7 +59,7 @@ AX 关注的不只是“模型能不能写出代码”，更关注三件更硬�
 | 同时拥有源码、诊断、修复、benchmark | AX 同时定义语法、结构化诊断、AI 反馈字段、repair case 和 compare 链路 | 设计价值可以直接通过工程链路验证 |
 | 对自回归模型原生友好 | 显式类型、较少等价写法、较少隐式规则、`fmt` 驱动的规范化输出 | 更容易提高首轮生成的一次通过率 |
 | 编译器反馈可直接给 Agent 消费 | `rule_id`、`repair_goal`、`fixits`、`context_snippets` 等字段已经进入输出层 | 错误反馈可直接进入自动化修复链 |
-| 架构上下文可直接给 Agent 消费 | `overview / topology / boundaries / flow / symbol / impact / evidence` 六层协议上下文进入同一条工程主线 | 多文件项目里的结构理解、边界识别和修改落点判断更稳定 |
+| 架构上下文可直接给 Agent 消费 | `overview / topology / boundaries / flow / symbol / impact / evidence` 七个稳定视图承载同一套六层语义协议 | 多文件项目里的结构理解、边界识别和修改落点判断更稳定 |
 | 修复链不是口头承诺，而是协议闭环 | diagnostics、上下文协议、repair contract、benchmark 共用同一条输入输出链 | 修复成功率、回归率和上下文价值都可以被实际测量 |
 | 真工具样例已经进入仓库主线 | 仓库里已经有 workspace audit、release snapshot、search report、directory index 等样例 | 可以直接观察 AX 在真实工具型任务上的表达能力 |
 | 多文件工程组织开始成型 | `AX.toml + sources` 已经稳定，第一阶段 `import/module` 已接入主线 | foundation 代码与项目私有逻辑开始拥有清晰边界 |
@@ -48,7 +67,7 @@ AX 关注的不只是“模型能不能写出代码”，更关注三件更硬�
 
 ## AX 的真实优势与应用场景
 
-AX 的优势不在于“又多一门语言”，而在于它把 AI 真正在意的三件事做成了语言和工具链的一部分。
+AX 的价值首先在于它作为语言本体和工具链，能否更稳地承载 AI 写工具；同时它又把 diagnostics、context、repair 和 benchmark 做成了编译器的一部分。
 
 ### 1. 更高的一次通过率
 
@@ -682,14 +701,22 @@ AX 的六层协议上下文，不只是让模型“更快读懂项目”，更�
 
 | 当前主线 | 目的 | 结果会体现在哪里 |
 | --- | --- | --- |
-| 稳定 repair contract 与 benchmark evidence | 让每次变更都能进入可回放、可对比、可评分的证据链 | `benchmarks/`、`scripts/`、`docs/benchmark-showcase.md` |
-| 做硬 host runtime boundary | 让 AX 真正能承载工具程序 | `process / env / path / fs / string` 内建能力与 project 样例 |
-| 推进最小可写工具内核 | 继续补最值钱的表达能力和 AX 侧 foundation | `foundation/`、`examples/project_*` |
+| 推进语言内核与最小可写工具能力 | 继续补最值钱的表达能力、宿主能力和 project-backed 工程组织 | `foundation/`、`examples/project_*`、`SYNTAX.md` |
 | 推进显式、确定的模块组织 | 让 shared foundation 和 project-private logic 有清晰边界 | `AX.toml + sources`、`module`、`import`、全限定名 |
+| 为第一版最小标准库做冻结准备 | 把当前 `foundation/*` 收口成后续 `std.*` 的接口映射 | `foundation/`、`PLAN.md`、`WORKLIST.md` |
+| 做硬 diagnostics / context / repair / benchmark | 让语言主线自带可消费的编译器反馈和可回放证据链 | `src/ai.rs`、`benchmarks/`、`scripts/`、`docs/benchmark-showcase.md` |
 | 用代表性样例反向驱动语言设计 | 每补一项能力，都要求它能支撑一个更真实的工具样例 | `examples/`、`tests/interface_snapshots.rs` |
 
 这条主线的判断标准很直接：
-新能力需要同时提升可写性、可测性、可修复性，才能进入更高优先级。
+新能力需要同时提升可写性、可测性、可修复性，才能进入更高优先级；其中可写性和工程组织能力优先决定语言主线是否继续前进。
+
+把这几条线压成项目阶段语言，就是：
+
+- 先做硬 `P0` 的契约地基
+- 再以 `P2` 继续推进语言内核与最小可写工具能力
+- 同步推进 `P1` 的编译器护城河闭环
+- 再进入 `P3` 的官方最小标准库冻结
+- AOT、包接口、自举和生态扩张统一后置到 [`PLAN.md`](./PLAN.md) 的后续阶段
 
 ## 快速理解 AX 现在能做什么
 
@@ -1063,27 +1090,28 @@ AX 希望最终回答的是：
   适合对外展示的短 demo 脚本
 - [`docs/benchmark-showcase.md`](./docs/benchmark-showcase.md)
   当前 benchmark 展示页
+- [`PLAN.md`](./PLAN.md)
+  唯一方向基线，定义 `P0-P7` 闭环阶段、前置条件与退出条件
 - [`WORKLIST.md`](./WORKLIST.md)
-  当前施工项、优先级与完成记录
-- [`规划.md`](./规划.md)
-  项目阶段与推进顺序
+  当前待做细节与执行顺序
+- [`ARCHIVE.md`](./ARCHIVE.md)
+  已完成事项归档
 
 ## 当前阶段的对外理解
 
-AX 现在已经是一个可以检查、运行、格式化、组织项目、输出结构化诊断、跑 benchmark 的原型仓库。
-它正在把“给 Coding AI 用的源码协议与修复协议”这件事，从概念推进成可运行、可验证、可对比的工程系统。
+AX 现在已经是一门可以检查、运行、格式化、组织项目、输出结构化诊断并进入修复 benchmark 的 AI-first 工具语言原型。
+它正在从“能跑的语言原型”继续收口到“能稳定写工具、能稳定组织项目、能稳定给 agent 反馈”的成熟语言方向。
 
 对 AX 更准确的理解是：
 
-- 一套面向 Coding AI 的源码约束
+- 一门面向 Coding AI 的 AI-first 工具语言
 - 一条可消费的编译器反馈链
-- 一套可回放的修复 benchmark 方法
-- 一个持续向真实工具工作负载推进的执行语言原型
+- 一条把修复、上下文和验证接回语言主线的工程闭环
 
 如果这条路线继续成立，AX 的价值会同时落在三个层面：
 
-- 语言本体
-- 编译器诊断与修复协议
+- 语言本体与工程组织能力
+- 编译器诊断、上下文与修复护城河
 - benchmark 与证据方法学
 
 这也是 AX 值得持续关注的原因。

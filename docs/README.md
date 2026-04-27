@@ -1,61 +1,77 @@
 # AX Docs
 
-This directory holds the stable external documentation for the current AX prototype.
+本目录放 AX 当前稳定、对外可引用的专题文档，服务于 AX 作为一门 AI-first 工具语言的对外说明、编译器护城河文档化和使用入口整理。
+它不承担路线职责；路线只看 [`../PLAN.md`](../PLAN.md)。
+
+## 先看哪几份
+
+- [`../README.md`](../README.md)
+  对外介绍、项目价值、入口命令和代表样例。
+- [`../PROJECT_FACTS.md`](../PROJECT_FACTS.md)
+  当前事实层：AX 已做到哪、哪些还没做到。
+- [`../PLAN.md`](../PLAN.md)
+  唯一方向基线，定义 `P0-P7` 闭环路线。
+- [`../WORKLIST.md`](../WORKLIST.md)
+  当前施工项。
+- [`../ARCHIVE.md`](../ARCHIVE.md)
+  已完成事项归档。
+
+## 当前专题文档
 
 - [`why-not-language-subsets.md`](./why-not-language-subsets.md)
-  Explains why AX only makes sense if canonical syntax, structured diagnostics, repair contract, and benchmark evidence all land together.
+  说明为什么 AX 的价值必须由 canonical syntax、structured diagnostics、repair contract 和 benchmark evidence 一起成立。
 - [`benchmark-showcase.md`](./benchmark-showcase.md)
-  Summarizes the current verified AX benchmark evidence and separates reproduced internal results from next public comparison targets.
+  汇总当前已经验证过的 benchmark 结果，并区分“仓库内可复现事实”和“尚未完成的外部对照”。
 - [`killer-demo.md`](./killer-demo.md)
-  Gives a short external-facing demo sequence for showing AX's repair contract and tool-script direction.
+  给对外演示用的短 demo 脚本。
 - [`quickstart.md`](./quickstart.md)
-  Quickstart index for the current Windows and Linux entry paths.
+  Windows / Linux 快速开始总入口。
 - [`quickstart-windows.md`](./quickstart-windows.md)
-  Full Windows source-install path, including the current PowerShell benchmark/orchestration workflow.
+  Windows 完整工作流入口。
 - [`quickstart-linux.md`](./quickstart-linux.md)
-  Linux core compiler/runtime install path for `axc build / check / run / fmt`.
+  Linux 核心 compiler/runtime 入口。
 - [`platform-support.md`](./platform-support.md)
-  Defines the current Windows/Linux/macOS support tiers and boundaries.
+  定义 Windows / Linux / macOS 当前支持层级与边界。
 - [`host-runtime-boundary.md`](./host-runtime-boundary.md)
-  Explains the current boundary between Rust host primitives, AX-facing library interfaces, project libraries, and future package-system expectations.
+  解释 Rust 宿主原语、AX 接口层、project-private 库和未来包系统之间的边界。
 - [`import-module-minimal-design.md`](./import-module-minimal-design.md)
-  Freezes the first minimal `import / module` design: file-to-module mapping, explicit imports, fully qualified cross-module names, and the migration boundary from today's `AX.toml` `sources = [...]` mode.
+  固定第一阶段 `import / module` 设计。
 - [`repair-benchmark.md`](./repair-benchmark.md)
-  Explains the benchmark manifests, export pipeline, runner flow, scoring, and comparison workflow.
+  说明 benchmark manifest、导出链、运行链、评分和 compare 工作流。
 - [`repair-adapter-spec.md`](./repair-adapter-spec.md)
-  Defines the runner script contract used by `run-repair-benchmark.ps1`, `compare-repair-feedback.ps1`, and `compare-repair-modes.ps1`.
+  定义外部 repair adapter 的输入输出契约。
 - [`diagnostics-schema.md`](./diagnostics-schema.md)
-  Documents the stable JSON shape of `axc check --json`, `axc run --json`, and the optional AI extension used by `--json --ai`.
+  说明 `axc check --json`、`axc run --json` 与 `--json --ai` 的稳定结构。
 - [`diagnostics-benchmark-schema.md`](./diagnostics-benchmark-schema.md)
-  Documents the stable `summary.json` shape emitted by `benchmark-diagnostics.ps1`.
+  说明 `benchmark-diagnostics.ps1` 输出 `summary.json` 的稳定结构。
 
-Real workload examples currently live in [`../examples/`](../examples/):
+## 真实 workload 入口
+
+当前更像真实工具的样例主要在 [`../examples/`](../examples/)：
 
 - [`../examples/workspace_audit.ax`](../examples/workspace_audit.ax)
-  Workspace audit report with directory, text, and action-item counts.
+  工作区审计与摘要报告。
 - [`../examples/docs_release_snapshot.ax`](../examples/docs_release_snapshot.ax)
-  Docs snapshot and receipt generation workflow.
+  文档快照、复制、收据与汇总。
 - [`../examples/workspace_search_report.ax`](../examples/workspace_search_report.ax)
-  Keyword search report over a workspace slice.
-- [`../examples/project_split/`](../examples/project_split/)
-  Minimal multi-file AX project using `AX.toml` `sources = [...]` support.
-- [`../examples/project_foundation_report/`](../examples/project_foundation_report/)
-  Minimal project showing how shared AX foundation helpers can power a reusable reporting entrypoint.
-- [`../examples/project_docs_release/`](../examples/project_docs_release/)
-  Multi-file AX project for docs snapshot and receipt generation, combining shared foundation helpers with project-local workflow code.
-- [`../examples/project_workspace_audit/`](../examples/project_workspace_audit/)
-  Multi-file AX project for workspace auditing, combining shared foundation helpers with project-local auditing logic.
-- [`../examples/project_workspace_search_report/`](../examples/project_workspace_search_report/)
-  Multi-file AX project for recursive workspace search reporting, combining shared foundation helpers with project-local search logic.
+  关键字搜索与匹配报告。
 - [`../examples/project_command_capture/`](../examples/project_command_capture/)
-  Project-backed command capture tool showing how AX can wrap `process / env / path / fs` through the shared foundation layer.
+  命令执行与输出捕获。
 - [`../examples/project_release_promote/`](../examples/project_release_promote/)
-  Project-backed release promote tool showing how AX can wrap overwrite-safe file promotion and receipt generation through the shared foundation layer.
+  发布产物提升与收据输出。
 - [`../examples/project_directory_index/`](../examples/project_directory_index/)
-  Project-backed recursive directory inventory tool showing how AX can wrap `fs_read_dir` plus shared file-kind/report helpers into a stable manifest-style workflow.
+  递归目录索引。
 - [`../examples/project_command_batch/`](../examples/project_command_batch/)
-  Project-backed batch runner showing how AX can orchestrate shell commands and environment reads while still producing stable report artifacts.
+  批量命令编排与环境变量读取。
 - [`../examples/project_text_normalize/`](../examples/project_text_normalize/)
-  Project-backed text rewrite tool showing how AX can normalize source text and emit a stable summary report without leaving project mode.
+  文本读取、改写与报告输出。
+- [`../examples/project_workspace_search_report/`](../examples/project_workspace_search_report/)
+  多文件工作区搜索与报告。
 
-Read [`../README.md`](../README.md) for the AX design statement and project entry, [`../详细介绍.md`](../详细介绍.md) for practical commands and benchmark workflow, [`../PLAN.md`](../PLAN.md) for roadmap and project policy, and [`../SYNTAX.md`](../SYNTAX.md) for the current prototype grammar.
+## 文档边界
+
+- 想知道 AX 是什么，看 [`../README.md`](../README.md)
+- 想知道 AX 当前做到哪，看 [`../PROJECT_FACTS.md`](../PROJECT_FACTS.md)
+- 想知道 AX 接下来按什么阶段推进，看 [`../PLAN.md`](../PLAN.md)
+- 想知道现在具体在干什么，看 [`../WORKLIST.md`](../WORKLIST.md)
+- 想知道哪些事已经做完，看 [`../ARCHIVE.md`](../ARCHIVE.md)

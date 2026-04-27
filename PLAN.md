@@ -1,565 +1,691 @@
-# AX 项目总计划
+# AX 唯一路线基线（闭环计划书 v3）
 
-> 阅读提示：本文件是 AX 的长期设计基线与主计划，不是“当前已实现能力总览”。  
-> 如果你想先快速判断 AX 今天到底做到哪了，请先看 [`PROJECT_FACTS.md`](./PROJECT_FACTS.md) 和 [`docs/feature-matrix.md`](./docs/feature-matrix.md)；如果你想看当前施工项，再看 [`WORKLIST.md`](./WORKLIST.md)。
+> 本文件是 AX 项目的唯一方向依赖路径。
+> 任何涉及路线、阶段、优先级、边界、是否继续推进某条主线的修改，都必须先更新本文件，再改代码、测试或其他文档。
 
-## 文档定位
+最后更新：2026-04-27
 
-- 本文件是 AX 项目的**唯一主计划、唯一设计基线、唯一路线基线**。
-- 除代码、测试、benchmark 资产外，不再维护并行的路线文档、规范文档、路线图文档。
-- 未来如果要调整路线，必须先更新本文件，再改代码或测试。
-- 本文件中的结论分为四类：
-  - **已锁定**：当前必须按此执行，除非显式修改本文件。
-  - **当前默认**：暂按此推进，但允许在对应关卡前被证据推翻。
-  - **开放问题**：必须在对应阶段解决，未解决前不得假装已定。
-  - **超出 v1**：当前阶段明确不做。
+## 文档职责
 
-## 一句话定义
+AX 根目录里和“项目推进”相关的文档，只保留三层：
 
-AX 是一门面向 AI 生成与修复优化的高性能静态语言；v1 先服务 `CLI / 编译器 / 构建工具 / 自动化工具 / 批处理工具`，并以“AX 在 AI 生成正确率、可修复性、可预测性上稳定优于现有语言子集”为唯一成败标准。
+- [`PLAN.md`](./PLAN.md)
+  唯一方向文件。只回答“为什么做、先做什么、后做什么、什么时候切阶段”。
+- [`WORKLIST.md`](./WORKLIST.md)
+  当前待做细节清单。只回答“这几天具体在做什么”，并且每一项都必须挂靠到本文件的阶段编号。
+- [`ARCHIVE.md`](./ARCHIVE.md)
+  已完成事项归档。只记录已经完成的事项、产物和日期，不再承载未来规划。
 
-## 核心原则
+除这三份外，其他根目录文档都不再定义路线：
 
-- **语言优先，不做框架优先**：AX 首先是语言本体，不是 agent 平台、工作流 DSL、提示词语言或生态包装。
-- **AI 生成优先，人类审阅可读**：AX 主要给模型生成，但人类必须能审阅、理解、修复。
-- **强约束小表面**：只有少量核心能力，少语法糖，少例外，少等价写法。
-- **结构化诊断是语言体验的一部分**：错误信息既要给人看，也要给 AI/IDE 消费。
-- **诊断与教学分层**：编译器必须输出确定性的基础诊断；更详细的 AI 教学层作为可选增强层提供，不能破坏基础结果的稳定性。
-- **性能可预测优先于语法炫技**：不以“新奇语法”作为卖点。
-- **先解释后编译**：先验证前端、语义、诊断和 AI 生成质量，再做原生后端。
-- **阶段验证与关卡淘汰**：任何阶段失败，都允许缩小目标或停止，而不是惯性扩张。
+- [`README.md`](./README.md) 负责对外介绍和入口
+- [`PROJECT_FACTS.md`](./PROJECT_FACTS.md) 负责当前事实层
+- [`SYNTAX.md`](./SYNTAX.md) 负责当前原型语法
+- [`详细介绍.md`](./详细介绍.md) 负责实操命令与使用路径
+- [`架构上下文文档.md`](./架构上下文文档.md) 负责上下文协议专题设计
 
-## 1. 项目边界
+一句话：
 
-### 已锁定
+- `PLAN.md` 管方向
+- `WORKLIST.md` 管待做
+- `ARCHIVE.md` 管已做
 
-- AX 是一门为自回归代码生成优化的高性能编程语言。
-- AX 的第一目标是提高 AI 写代码的**首次成功率、单轮修复率、结构稳定性、性能可预测性**。
-- AX v1 首先服务：
-  - 命令行工具
-  - 编译器与代码生成器
-  - 构建工具
-  - 文件处理工具
-  - 批量数据处理工具
-- AX 的种子实现语言是 `Rust`。
-- AX 的编译器主命令是 `axc`。
-- AX 的源文件后缀是 `.ax`。
+## 1. 项目终局与当前基线
 
-### 超出 v1
+### 终局定义
 
-- agent runtime
-- tool / workflow 原语
-- Web 框架
-- GUI 框架
-- 移动端
-- 分布式 runtime
-- GC
-- async / await
-- exceptions
-- 宏与元编程
-- class / inheritance
-- 复杂泛型系统
-- 共享可变并发
-- 反射
-- 大规模生态与包注册表
+AX 的终局是一门成熟的、面向自回归模型的 AI-first 工具语言。
 
-## 2. 决策清单
+它最终要同时成立四层能力：
 
-### 已锁定
+- 语言本体：显式、低歧义、可规范化、能稳定承载真实工具程序
+- 编译器与工具链：`check / run / fmt / build / context` 全部稳定，且长期可演进
+- 标准库与生态：最小标准库、包接口、第三方扩展路径和跨平台支持完整成立
+- AI 编译器护城河：结构化 diagnostics、repair contract、架构上下文协议和 benchmark 证据链成为主产品能力
 
-- 实现路线：`Rust 种子编译器 -> AX 自举编译器`
-- 执行策略：`先解释后编译`
-- 类型系统：`静态强类型`
-- 运行时方向：`无 GC`
-- 错误模型：`显式 Result 风格，不做异常系统`
-- 编译器必须同时输出：
-  - 人类可读诊断
-  - 结构化 JSON 诊断
-- 编译器的 AI 接口必须采用两层结构：
-  - 基础诊断层：稳定、可比较、可回归测试
-  - AI 增强层：结构化修复上下文、规则卡片、分级教学信息
-- v1 必须提供：
-  - `axc check`
-  - `axc run`
-  - `axc ast`
-  - `axc fmt`
-  - 稳定 AST/HIR dump
-  - 唯一官方 formatter
-  - 版本化语法规范
-- 项目继续条件必须建立在 benchmark 证据上，而不是口头判断。
-- 编译器核心不直接输出面向特定模型厂商的长篇 prompt；prompt 拼装属于外层工具职责。
-- AI 教学层的第一版记忆范围锁定为会话级，只允许升级解释深度，不允许改变基础错误码、通过/失败结果或错误顺序。
+AX 的路线不是“先做协议，再决定要不要做语言”，而是：
 
-### 当前默认
+- 先把语言内核做成能稳定写工具的成熟方向
+- 再把标准库、后端、包接口和生态逐层补齐
+- 同时把 diagnostics / context / repair / benchmark 做成语言主线的编译器护城河
 
-- 首发平台：`Windows x86_64` 先跑通，`Linux x86_64` 为第二目标平台。
-- 首个原生后端：`Cranelift`。
-- 内存模型：`值语义优先 + 所有权受控 + 明确 move/copy 规则 + 简单局部借用 + 无生命周期标注暴露`。
-- 标准库最小范围：
-  - `io`
-  - `fs`
-  - `path`
-  - `env`
-  - `process`
-  - `string`
-  - `collections`（仅最必要部分）
-- 标准库与系统能力的用户消费模型默认是：
-  - 用户消费 `AX` 接口与后续 `AX` 包
-  - 不直接把 `Rust crate` 当作 `AX` 标准库依赖面
-  - `Rust` 在当前阶段首先是宿主实现语言，而不是用户可见的包接口层
-- 标准库分层默认是：
-  - `Rust`：宿主原语与操作系统桥接
-  - `AX`：官方标准接口、共享基础库与工具层 helper
-  - 项目仓库：项目私有 AX 库与业务逻辑
-- 默认工程形态：单项目、单包、单可执行入口优先，不优先做复杂包管理。
-- v1 项目 manifest 采用最小本地 `AX.toml`，只支持单包、单入口 `src/main.ax` 风格工程。
-- `network / concurrency` 这类更重的能力在当前阶段不作为 v1 官方标准库承诺；若要探索，先走实验目录或实验仓库，而不是直接并入主标准库面。
-- AI 冷启动资产：在语法冻结后提供一页式 AX 代码生成提示词、规范化示例集、稳定诊断 schema、AI 修复协议 schema。
+项目完成态定义为 `R3 Ecosystem Stable`：
 
-### 开放问题
+- `axc check / run / fmt / build / context` 全部稳定
+- AOT 是默认可发布路径
+- 最小标准库、包接口、第三方库接口成立
+- Linux 与 macOS 达到同一层级的 core support
+- 部分自举成立，AX 不只写样例，也开始承载自己的工具与外围基础设施
+- AX 对固定 cross-language 任务集有公开 benchmark 结果，而不是只做仓库内自证
 
-- 最终块语法：显式终止符风格 vs 大括号风格。
-- 变量可变性的确切写法。
-- 数值类型表面的最小可信集合。
-- 局部类型推导允许到什么程度。
-- 错误传播是否允许一个最小糖衣语法。
-- `match` 在 v1 的具体能力边界。
+### 当前源码基线
 
-### 禁止提前拍板的事项
+| 维度 | 当前状态 | 源码依据 |
+| --- | --- | --- |
+| 编译链 | 已打通 `Lexer -> Parser -> AST -> HIR -> MIR -> Semantic` | `src/frontend.rs` |
+| 执行链 | 解释执行已是稳定主路径 | `src/interpreter.rs` |
+| 外部接口 | `check / ast / hir / mir / build / run / fmt / context` 已成 CLI | `src/cli.rs` |
+| 诊断协议 | 文本、`--json`、`--json --ai` 已成立 | `src/diagnostics.rs` `src/ai.rs` |
+| 修复协议 | `rule_id / repair_goal / fixits / context_snippets` 已进入输出 | `src/ai.rs` |
+| 上下文协议 | 七个对外视图 `overview / boundaries / topology / flow / symbol / impact / evidence` 已全部有命令和 JSON，对应六层语义协议 | `src/context.rs` |
+| 项目模式 | `AX.toml + sources`、最小 `module/import` 已进入主线 | `src/project.rs` `src/parser.rs` `src/semantic.rs` |
+| 代表样例 | 已有多组 project-backed 工具样例 | `examples/project_*` |
+| benchmark | export / run / score / compare / smoke / CI 已落地 | `scripts/` `benchmarks/` |
+| build 后端 | 仍是骨架，只导出 `source/HIR/MIR/manifest`，`backend.status = pending` | `src/build.rs` |
+| 平台 | Windows 全量、Linux 核心、macOS 未启动 | `.github/workflows/ci.yml` `docs/platform-support.md` |
+| 本机环境 | 当前本机默认 `cargo test` 仍会被 `link.exe` 缺失卡住，GNU 路径是明确前置项 | 当前本地验证结果 |
 
-- 不允许在语法冻结前，把某一种表面语法写成“正式版”。
-- 不允许在 benchmark 完成前，宣布 AX 在 AI 首次成功率上已经胜出。
-- 不允许在 native backend 开始前，把 LLVM、WASM、GUI、嵌入式当作近期主线。
-- 不允许把 `Option`、复杂泛型、宏、包系统等未冻结设计写进“官方示例”。
+### 当前语法完成度判断
 
-## 2.1 当前原型实现语法（与仓库实现同步）
+| 层级 | 完成度 | 说明 |
+| --- | --- | --- |
+| 最小可写工具内核 | `75%~80%` | 已有显式类型、数组/切片、`for/for in`、`break/continue`、最小 `match`、payload enum、模块第一刀、宿主 builtin |
+| 通用语言表面 | `35%~40%` | 缺泛型、方法/impl、trait/interface、包系统、可见性、闭包、async、错误传播语法等 |
+| 生态支撑语法 | `20%~30%` | 项目可组织，但还不能支撑完整标准库与第三方包生态 |
 
-以下条目描述的是**当前仓库已经实现并建议实践的 AX 原型语法**，用于约束 `axc check / ast / run` 的行为；它不是最终正式语法承诺，但在下一次显式修改前，应视为当前实现基线。
+### 当前阶段判断
 
-### 已实现并可实践
+AX 当前不是“语法刚起步”的玩具仓库，但也还不是“已经完成发布级收口”的成熟语言产品。
 
-- 块语法使用大括号：`{ ... }`
-- 注释只支持 `//` 单行注释
-- 顶层声明支持：
-  - `fn`
-  - `struct`
-  - `enum`
-- 函数签名固定为：`fn name(arg: Type, ...) -> ReturnType { ... }`
-- 入口函数固定为：`fn main() -> i32 { ... }`
-- 变量声明固定为：
-  - `let x: i32 = 1;`
-  - `let mut x: i32 = 1;`
-- 需要分号的语句：
-  - `let`
-  - 赋值
-  - 表达式语句
-  - `return`
-- 控制流语句：
-  - `if (cond) { ... } else { ... }`
-  - `while (cond) { ... }`
-  - `for (init; cond; step) { ... }`
-- 当前基础类型：
-  - `bool`
-  - `i32`
-  - `f32`
-  - `string`
-  - 固定长度数组：`[Type; N]`
-  - 只读切片：`[Type]`
-  - 用户声明的 `struct` / `enum`
-- 当前表达式：
-  - 整数字面量、浮点字面量、布尔字面量、字符串字面量
-  - 标识符引用
-  - 括号表达式
-  - 一元运算：`-`、`!`
-  - 二元运算：`+ - * / == != < <= > >=`
-  - 函数调用：`name(arg1, arg2)`
-  - 数组字面量：`[1, 2, 3]`
-  - 切片表达式：`values[start:end]`
-  - 字段访问：`point.x`
-  - 索引读取：`values[1]`
-  - 结构体字面量：`Point { x: 1, y: 2 }`
-  - 枚举值引用：`Flag.On`
-- 当前解释器可执行子集：
-  - `main`
-  - 局部变量与赋值
-  - 数组元素赋值：`values[index] = expr;`
-  - 结构体字段赋值：`point.x = expr;`
-  - 嵌套可写路径：`outer.inner.value = expr;`、`values[index].field = expr;`
-  - 数值与布尔运算
-  - `if / else`
-  - `while`
-  - `for`
-  - `break`
-  - 用户函数调用
-  - 内置 `println`
-  - 内置 `string_len`、`len`、`to_string`
-  - 字符串拼接：`string + string`
-  - 固定长度数组字面量与索引读取
-  - 只读切片取值与数组传 slice 形参
-  - 结构体字面量与字段读取
-  - 枚举值构造与相等比较
+当前最准确的判断是：
 
-### 当前未进入原型执行面
+- `P0` 的环境与契约修复仍未完全收口，本机可复跑路径还是明确阻塞项
+- `P1` 的 diagnostics / context / repair / benchmark 护城河已经有骨架，但还缺更公开、更可复现的消费层和展示层
+- `P2` 的最小可写工具内核已经接近成型，但仍在依赖 `foundation/` 这一层孵化 helper，语言内核还没完全收口
+- `P3+` 之后的标准库、AOT、包接口、自举和生态都还不该提前宣传成“已经在做的主线”
 
-- `match`
-- import / module
-- 原生后端
-- 更完整的工具宿主能力：`io / fs / path / env / process`
-- `continue` 与更高层遍历语法
-- `enum` 的模式匹配执行
+一句话：
 
-## 3. `axc` 的工程定义
+> AX 现在处在“继续补语言内核、同步做硬编译器护城河、并为第一版标准库冻结准备接口”的阶段。
 
-`axc` 不是单一“编译器功能”，而是 AX 语言的统一工具入口。解释器是 `axc` 的一部分，原生编译器也是 `axc` 的一部分。
+## 2. 闭环的定义与执行模型
 
-### 阶段 1 必须可用的命令
+### 语言优先与护城河关系
 
-- `axc check`：完成词法、语法、名称解析、类型检查与诊断输出。
-- `axc run`：在前端通过后，调用解释器执行程序。
-- `axc ast`：输出稳定 AST/HIR，供调试、AI、IDE 和 benchmark 使用。
-- `axc fmt`：输出唯一官方风格；必须幂等。
+本计划的第一原则固定为：
 
-### 后续阶段加入的命令
+- AX 的主产品始终是语言，不是 benchmark 项目，也不是单独的协议研究仓库
+- `P2 / P3 / P4 / P5` 负责把语言内核、标准库、后端和生态路径推进到成熟语言方向
+- `P1` 负责把 diagnostics / context / repair / benchmark 做成编译器护城河，用来放大语言主线的真实价值
+- 如果 `P1` 和 `P2` 抢资源，默认优先回答“这件事是否直接提升语言可写性、标准库收口或工程组织能力”
 
-- `axc build`：在原生后端阶段加入，生成原生可执行文件。
+一句话：
 
-### 种子编译器管线
+> AX 是语言优先，编译器护城河并进；不是拿证据链替代语言本体。
 
-```text
-Lexer -> Parser -> AST -> HIR -> Name Resolution -> Type Checker -> Interpreter
+### 不是“一次性收官闭环”
+
+本计划里的“闭环”，不是指现在就把整个项目一次性收死。
+如果那样理解，后面每新增一项语法、标准库接口、包机制或后端能力，都等于整仓重做一遍闭环，代价会非常高。
+
+AX 当前采用的是三层闭环：
+
+- `阶段闭环`
+  先让 `P0`、`P1`、`P2`、`P3` 这些阶段各自站稳，再往后推进
+- `能力切片闭环`
+  每新增一项语法、builtin、context 能力、标准库接口或 package 机制，只补这一条能力自身需要的闭环
+- `总项目闭环`
+  只有到 `P7` 收口阶段，才谈完整生态意义上的全项目闭环
+
+一句话：
+
+> 当前做的不是“全项目终局闭环”，而是“按阶段、按能力切片建立可复跑、可验证、可扩展的增量闭环”。
+
+### 增量闭环的工作方式
+
+后续任何新增能力，都按下面顺序推进：
+
+1. 先判断它属于哪个阶段
+2. 再判断它服务哪个真实缺口：代表样例、repair case、benchmark、标准库或包接口
+3. 再只为这项能力补它自己的 parser / semantic / diagnostics / runtime / docs / snapshots / examples / benchmark
+4. 最后把它接回已有主线，而不是重做整个项目
+
+例如后续补 `match` 第二刀：
+
+- 不需要把整个项目重新闭环一遍
+- 只需要补 `match` 这条能力自己的语法闭环
+- 然后回写到代表样例、AI diagnostics、修复链和回归链
+
+### PLAN 和 WORKLIST 的分工关系
+
+从现在开始，两份文档按下面方式严格对齐：
+
+- [`PLAN.md`](./PLAN.md)
+  定义：
+  - 每个阶段为什么存在
+  - 每个阶段的入口、出口和禁止事项
+  - 每条语法线、标准库线、包接口线、后端线、自举线什么时候才允许启动
+- [`WORKLIST.md`](./WORKLIST.md)
+  负责：
+  - 把当前激活阶段拆成可执行任务
+  - 把 `PLAN` 里已经存在但阶段未到的队列登记为“已登记未激活”
+  - 显式写清依赖、阻塞、当前顺序和完成标准
+
+因此要求固定为：
+
+- `PLAN` 里有而 `WORKLIST` 完全没有登记的主线，不允许长期存在
+- `WORKLIST` 里正在做的事，必须能回挂到 `PLAN` 的阶段目标和出口条件
+- `WORKLIST` 只激活当前阶段，但必须登记后续已确认主线，避免两份文档脱节
+
+## 3. 总路线：从现在到项目收口的七阶段闭环
+
+### 阶段连接方式
+
+`P0 -> P7` 不是一条单线流水账。
+更准确的连接方式是：
+
+- `门槛阶段`
+  负责给后续阶段提供稳定地基
+- `能力阶段`
+  负责把某一条主能力线做硬
+- `并行阶段`
+  在同一门槛之上展开两条不同方向的中线
+- `汇合阶段`
+  把前面的不同主线重新汇合成最终收口
+
+AX 当前按下面这张图理解最准确：
+
+```mermaid
+flowchart TD
+    P0["P0 契约地基"] --> P1["P1 编译器护城河"]
+    P0 --> P2["P2 语言内核 / 最小可写工具"]
+    P1 --> P3["P3 第一版标准库冻结"]
+    P2 --> P3
+    P3 --> P4["P4 交付路径 / AOT"]
+    P3 --> P5["P5 复用路径 / 包接口"]
+    P4 --> P6["P6 内部采用 / 部分自举"]
+    P5 --> P6
+    P4 --> P7["P7 生态收口"]
+    P5 --> P7
+    P6 --> P7
 ```
 
-### 原生后端扩展管线
+一句话：
 
-```text
-HIR -> MIR(or lower IR) -> Backend -> Native Binary
-```
-
-### 诊断契约
-
-JSON 诊断至少包含：
-
-- 错误码
-- 文件路径
-- 起止 span
-- 主消息
-- 附加说明
-- 期望 token 或期望结构
-- 可选修复建议
+- `P0` 是地基
+- `P1` 和 `P2` 是两条早期主线
+- `P3` 是它们的第一次汇合
+- `P4` 和 `P5` 是中期两条并行主线
+- `P6` 是内部采用线
+- `P7` 才是最终汇合收口
 
-AI 增强诊断在基础 JSON 之上可选附加：
+### 阶段承接矩阵
 
-- `rule_id`
-- `teaching_level`
-- `repeat_count`
-- `repair_goal`
-- `focus_item`
-- `relevant_spans`
-- `related_symbols`
-- `rule_card`
-- `fixits`
+为了确保这些阶段不是硬串，而是真有依赖关系，下面这张表固定每一阶段“交付什么、服务谁”：
 
-编译器必须优先追求：
+| 当前阶段 | 阶段类型 | 当前阶段必须交付什么 | 直接服务谁 |
+| --- | --- | --- | --- |
+| `P0` | 门槛阶段 | 本机可复跑路径、稳定 CLI 契约、稳定 diagnostics/context/build schema、统一文档口径 | 同时服务 `P1` 和 `P2` |
+| `P1` | 能力阶段 | 可复跑 repair/benchmark 链、公开展示页、失败样例、context 输入位 | 给 `P2/P3` 提供“语言接口冻结后如何验证其价值”的证据与护城河输入 |
+| `P2` | 能力阶段 | 固定代表样例、固定宿主边界样例、收紧后的 `foundation/`、真实能力缺口排序 | 给 `P3` 提供“语言内核和最小标准库到底该冻结哪些接口”的真实工作负载 |
+| `P3` | 汇合门槛 | 第一版官方 `std.*` 接口、代表样例迁移结果、宿主边界与标准接口分离 | 同时服务 `P4` 和 `P5` |
+| `P4` | 并行阶段 | 真实可执行 AOT 路径、build 产物契约、interpreter/AOT 对照回归 | 给 `P6` 和 `P7` 提供真实交付路径 |
+| `P5` | 并行阶段 | path package、lockfile、registry contract、package diagnostics、AX package 边界 | 给 `P6` 和 `P7` 提供真实复用与生态路径 |
+| `P6` | 汇合阶段 | AX 自写工具、AX 自写高层标准库逻辑、部分自举验证结果 | 给 `P7` 提供“AX 已能承载自己”的内部采用证据 |
+| `P7` | 终局阶段 | 稳定生态、公共 benchmark、同级平台支持、长期治理模式 | 项目进入长期维护与生态治理 |
 
-- 错误定位局部化
-- 错误恢复后继续产出后续结构
-- 稳定错误码
-- 可回放、可比较、可供 AI 学习的诊断输出
-- 默认快路径不做额外 AI 上下文拼装；AI 增强层仅在显式请求时启用，避免基础速度出现明显下降
+### 阶段切换的硬规则
 
-## 4. AI 冷启动、修复协议与提示词资产
+从 `P0` 到 `P7` 一律遵守下面四条：
 
-AX 初期没有现成语料库，因此 AI 可用性不能依赖“模型自己会”。这部分必须被当成正式交付物，而不是临时技巧。
+1. `P0` 完成前，不允许把 `P1` 或 `P2` 当成稳定主线对外表述。
+2. `P1` 和 `P2` 可以并行推进，但都必须在 `P3` 前汇合，不能各自长成两套接口世界。
+3. `P4` 和 `P5` 是并行阶段，不要求严格串行；它们共同依赖 `P3`，并共同服务 `P6/P7`。
+4. `P6` 不是独立宇宙，它必须同时吃到 `P4` 的交付路径和 `P5` 的复用路径。
+5. 如果某个新能力横跨两个阶段，先按更早阶段的要求闭环，再继续往后接。
+6. `WORKLIST.md` 必须同时体现：
+   - 当前激活阶段在做什么
+   - 这些任务准备把什么交给下一阶段
+   - 后续阶段哪些主线已经登记但未激活
 
-### 已锁定
+### P0. 环境与契约修复阶段
 
-- AX 需要一份**一页式代码生成提示词**，专门服务没有 AX 训练数据的模型。
-- AX 需要一套**规范化示例程序**，作为 AI 与人类的共同参考。
-- AX 需要稳定的 formatter、AST/HIR dump、JSON diagnostics，作为 AI 修复闭环基础。
-- AX 的主修复机制应优先依赖**结构化反馈协议**，而不是依赖超长自然语言 prompt。
-- AI 反馈协议第一版直接扩展 `axc check --json`，不单独引入新的主命令。
-- AI 教学层采用**规则卡 + 修复上下文切片 + 会话级分级反馈**的组合，而不是在编译器核心里塞长篇自由文本 `ai_context`。
+**目标**：先修“我们自己是否能稳定验证自己”的问题。
+**前置条件**：无。
+**必须完成**：
 
-### 约束
+- 固定 Windows 本地可复跑路径，至少有一条明确可用的 `cargo test` / `cargo build` 路线
+- 明确本机和 CI 的差异，不允许“CI 绿、本地不可复跑”长期存在
+- 继续冻结 CLI、diagnostics、context、build manifest 的外部契约
 
-- 提示词文档不是源事实来源；源事实来源仍然只有本文件。
-- 提示词与示例只能在语法冻结后生成。
-- 提示词不得提前引入未冻结语法。
-- 所有 AI 示例都必须能通过 formatter 规范化为唯一风格。
-- AI 增强层必须保持结构化、可测试、可回归；模型厂商定制 prompt 由外层工具负责。
-- “精炼 AST”在第一版按修复上下文视图实现，只输出报错相关的顶层项、相关 span、相关符号与最小必要源码片段。
+**退出条件**：
 
-## 5. Benchmark 计划与继续条件
+- 本地至少有一条正式支持的 Windows 构建/测试路径
+- interface snapshots 与文档口径稳定
+- `PLAN / WORKLIST / ARCHIVE / README / docs` 不再漂移
 
-AX 的核心主张不是“语法新”，而是“AI 更容易生成正确程序”。因此 benchmark 不是附属品，而是项目指南针。
+**禁止事项**：
 
-### 任务族
+- 不新增新命令面
+- 不启动后端
+- 不开启生态叙事
 
-- 命令行参数解析
-- 文件变换
-- 目录遍历
-- 文本处理
-- 结构化日志摘要
-- 代码生成工具
-- 简单编译器 pass
-- 小型构建辅助工具
+### P1. 编译器护城河与证据链阶段
 
-### 基线语言
+**目标**：把 diagnostics / context / repair / benchmark 做成语言主线的编译器护城河，而不是只停留在独立协议层。
+**前置条件**：P0 至少稳定到外部契约不再频繁漂移。
+**必须完成**：
 
-- Python（带类型标注约束子集）
-- Go
-- Rust（受限子集）
+- repair benchmark 的 manifest、导出、运行、评分、对比、smoke 继续硬化
+- 公开 benchmark 展示页、失败样例、方法说明
+- 明确内部可复现结果与外部尚未证实结论的边界
+- 让 `context` 开始进入 repair / benchmark 输入链，而不是只做独立视图
 
-### 模型矩阵
+**退出条件**：
 
-- 至少一个前沿闭源模型
-- 至少一个开源代码模型
-- 至少一个中小体量模型
+- 同一输入可重复得出同结构报告
+- `base -> ai` 或 `cold -> base -> ai` 的仓库内差异可稳定复现
+- context 已进入至少一条 repair/benchmark 消费链
 
-### 固定协议
+**禁止事项**：
 
-- 同一任务说明
-- 同一输出约束
-- 同一 retry 预算
-- 同一工具访问假设
-- 修复实验只允许**一轮**反馈
-- 每个 `任务-语言-模型` 组合至少进行 `10` 次独立采样
-- 修复实验至少比较两种反馈：
-  - 基础 JSON diagnostics
-  - AI 增强 JSON diagnostics
+- 不夸大“已胜过 Rust/Go/Python 子集”
+- 不为了宣传跳过失败样例
 
-### 核心指标
+### P2. 语言内核与最小可写工具阶段
 
-- 首次语法合法率
-- 首次类型检查通过率
-- 首次编译/执行通过率
-- 单轮修复成功率
-- token 到可工作程序的效率
-- 诊断杠杆率（diagnostic leverage）
-- AI 增强反馈相对基础诊断的修复提升（repair lift）
+**目标**：把 AX 做成真的能稳定写工具的语言内核，而不是“看起来像会写工具”的原型表面。
+**前置条件**：P0 已提供稳定契约；P1 至少已有足够可用的 diagnostics / repair / benchmark 基线来暴露真实缺口。
+**必须完成**：
 
-### 成功定义
+- 固化代表样例集：主代表样例 `3` 个，宿主边界样例 `2` 个
+- 当前 `foundation` helper 收口，去掉临时性、一次性 helper
+- 继续补最值钱的小缺口，但只能从代表样例与 repair case 暴露出来
+- 建立“新增能力必须立即回写样例和回归链”的纪律
 
-- **首次编译/执行通过**：通过 parser、type checker，并通过该任务测试。
-- **单轮修复成功**：第一次失败后，仅给一轮编译器或测试反馈，第二次即通过。
+**退出条件**：
 
-### G0 继续门槛
+- 主代表样例均可稳定 `check / run / build`
+- 宿主边界样例已明确承担 `process / env / path / fs` 验证职责
+- 新能力不再靠临时 helper 托底
 
-满足以下任一条件才进入 AX Core 0.1 冻结阶段：
+**禁止事项**：
 
-- AX 候选语法在**首次编译/执行通过率**上，比最佳基线高出至少 `20 个百分点`
-- 或 AX 候选语法在**单轮修复成功率**上，比最佳基线高出至少 `30 个百分点`
+- 不冲大语法面
+- 不先做完整标准库
+- 不做第三方包接口
 
-若达不到：
+### P3. 第一版官方最小标准库阶段
 
-- 缩小语言目标
-- 或停止“完整新语言”路线，改做更小范围的语言核心或工具化成果
+**目标**：把当前 `foundation` 从“项目内孵化层”升级成“官方最小工具标准库”，让语言主线第一次形成稳定接口面。
+**前置条件**：P1 和 P2 都已达到第一轮稳定里程碑；也就是既知道“什么最值钱”，也知道“哪些接口真的被真实 workload 反复消费”。
+**必须完成**：
 
-## 6. 阶段路线
+- 冻结第一套官方命名空间，不再继续只用松散 `foundation/*`
+- 把当前稳定 helper 归档为官方最小标准库接口
+- 让代表样例迁移到统一的官方接口层
+- 所有标准库接口都要对应 diagnostics、文档、示例和回归
 
-### 阶段 0：主文档收敛与 benchmark 协议冻结（1-2 周）
+**第一阶段正式标准库范围固定为**：
 
-**目标**
+- `std.text`
+- `std.cli`
+- `std.fs`
+- `std.path`
+- `std.env`
+- `std.process`
+- `std.report`
+- `std.workspace`
+- `std.collections`，先只含 `string_list` 与后续最小 collections
 
-- 让 `PLAN.md` 成为唯一事实来源
-- 冻结 benchmark 协议
-- 冻结语法候选实验方法
+**退出条件**：
 
-**产出**
+- 至少 `5` 个 project-backed 样例使用同一套官方接口
+- 标准库 API 在两个连续里程碑内无破坏性漂移
+- 宿主 Rust builtin 与 AX 标准接口边界清晰
 
-- 本计划文档
-- benchmark 协议草案
-- 两套最小语法候选样例
-- 任务集与基线语言子集定义
+**禁止事项**：
 
-**退出条件**
+- 不把 Rust crate 直接暴露成 AX 标准库
+- 不把 `network / concurrency` 提前塞进官方标准库
 
-- 不再存在并行路线文档
-- benchmark 协议不再使用模糊表述
-- 语法候选比较方法可直接执行
+### P4. AOT 后端阶段
 
-### 阶段 1：AX Core 0.1 语言核心冻结（2-4 周）
+**目标**：让 `build` 从骨架变成真实可执行产物路径。
+**前置条件**：P3 完成，P1/P2 的证据链和代表样例稳定。
+**执行顺序固定为**：
 
-**目标**
+1. 冻结 HIR -> MIR 作为后端输入契约
+2. 单文件 hello world AOT 打通
+3. 至少 `3` 个代表项目样例 AOT 打通
+4. build manifest 从 `planned_executable` 升级为真实 `executable`
+5. 构建错误、回归链、平台产物契约定型
 
-冻结一个足以实现种子编译器的核心子集，而不是“看起来很完整”的语言。
+**退出条件**：
 
-**产出**
+- AOT 可作为公开 v1 的正式发布路径
+- 解释器仍保留为参考执行路径和语义对照路径
+- build 不再被表述成 skeleton
 
-- 词法规则
-- 核心语法 EBNF
-- AST/HIR 分层
-- 名称解析与作用域规则
-- 类型系统最小集
-- 控制流语义
-- 模块组织默认规则
-- formatter 规则
-- 诊断 schema
+**JIT 启动门槛**：
 
-**退出条件**
+- 不早于 P4 完成
+- 必须先证明 compile-latency 是真实瓶颈
+- 必须已有 interpreter / AOT 语义一致性回归
+- JIT 永远不先于 AOT 成为主发布路径
 
-- 至少 `25` 个黄金样例被冻结
-- 语法、类型、格式化行为可被测试固定
-- 开放问题减少到不会阻塞实现的程度
+### P5. 包接口与第三方库阶段
 
-### 阶段 2：Rust 种子编译器与解释器（4-6 周）
+**目标**：建立 AX 包接口，而不是直接桥接 Cargo crate。
+**前置条件**：P3 标准库已冻结第一版；不要求等待 P4 全完成。
+**阶段关系**：P5 与 P4 是并行中线，不是严格串行关系。
+**执行顺序固定为**：
 
-**目标**
+1. 本地 path package
+2. 锁定文件与可复现依赖
+3. registry package
+4. native host extension ABI
 
-做出第一个能真正跑起来的 `axc` 原型。
+**第三方库接口规则锁定**：
 
-**产出**
+- 用户永远依赖 **AX 包**
+- 不允许出现“用户在 AX 里直接 `import` Rust crate”
+- Rust / 宿主实现只能藏在 AX 包接口或 host extension ABI 后面
+- 第三方包必须先通过 AX package contract，再谈底层语言来源
 
-- `axc check`
-- `axc run`
-- `axc ast`
-- `axc fmt`
-- 错误恢复 parser
-- 名称解析
-- 最小类型检查器
-- 解释器
-- AI 反馈协议骨架
-- 首批高频错误规则卡
-- `axc check --json --ai`
+**阶段产物**：
 
-**退出条件**
+- `AX.toml` 新增依赖层
+- 本地 path 依赖
+- lockfile
+- registry 依赖
+- 包解析 diagnostics
+- 包级 smoke 与回归
 
-- 至少 `50` 个示例程序可 `check/run`
-- `fmt` 幂等
-- JSON diagnostics 稳定
-- AST/HIR dump 稳定到可用于 benchmark 与 AI 修复实验
-- AI 增强 diagnostics 在首批高频错误上稳定可回归
+**退出条件**：
 
-### 阶段 3：Benchmark 验证与项目继续决策（2-4 周）
+- 标准库与第三方包有明确边界
+- 本地包、registry 包、lockfile 都有稳定契约
+- 第三方包不破坏 benchmark / diagnostics / context 的稳定性
 
-**目标**
+### P6. 部分自举阶段
 
-验证 AX 的主张是否真的成立，而不是继续靠愿景推进。
+**目标**：AX 开始承载自己的一部分基础设施。
+**前置条件**：P5 已提供最小复用路径；P4 至少已提供稳定交付路径；两者不要求同一时刻一起完全结束。
+**启动规则**：
 
-**产出**
+- `SH-0 / SH-1` 可以在 `P3 + P5-core` 已稳定、解释器路径足够承载工具时先行启动
+- 更强的“官方自举”口径要等 `P4` 至少进入 `Build-2` 之后
+- `P6` 的完成态仍然要求同时消化 `P4` 和 `P5`
+**执行顺序固定为**：
 
-- benchmark 执行结果
-- 基线对照报告
-- 失败分布统计
-- 单轮修复实验结果
-- 基础 diagnostics 与 AI 增强 diagnostics 的修复提升对照
+1. AX 编写标准库高层逻辑与官方工具
+2. AX 编写 benchmark 报表、对比报表、上下文消费工具
+3. AX 编写项目/工作区辅助工具
+4. 再评估 compiler-adjacent 非核心部件迁移
+5. 最后才评估前端核心迁移
 
-**退出条件**
+**自举范围锁定为“部分自举优先”**：
 
-- AX 在目标任务上对至少一个主流基线显示出明确正信号
-- 团队可以清楚说明收益来自语言设计，而不是 prompt 污染
+- 先迁外围工具、标准库、报表、workflow code
+- 不提前把 lexer/parser/semantic 核心当成 KPI
+- 只有在工具链、AOT、包接口都稳定后，才评估核心编译器迁移
 
-**若失败**
+**退出条件**：
 
-- 不进入更大规模实现
-- 缩小为研究型内核或工具化成果
+- AX 已经不仅写 `examples`，也写自己的工具与官方库
+- 至少一部分仓库辅助链路由 AX 自己承载
 
-### 阶段 4：原生后端与 `axc build`（4-6 周）
+### P7. 完整生态与项目收口阶段
 
-**目标**
+**目标**：从公开可用原型升级为生态完整的 AI-execution language。
+**前置条件**：P6 完成。
+**必须完成**：
 
-从“可运行的解释器原型”进入“可交付的原生语言原型”。
+- 完整包生态进入稳定期
+- 更成熟标准库形成层级
+- Linux 与 macOS 进入同级 core support
+- 至少一轮 cross-language public benchmark 完成
+- JIT 若存在，必须证明价值；若无价值，则正式放弃
+- 项目从“猛增功能”切换到“稳定演进 + benchmark 扩展 + 生态治理”
 
-**产出**
+**项目收口条件**：
 
-- `HIR -> MIR(or lower IR) -> Native Backend`
-- `axc build`
-- Debug / Release 构建模式
-- Windows x86_64 原生可执行文件
-- 最小 FFI 或宿主调用能力
+- 具备公开发布、可持续维护、可外部扩展的完整闭环
+- 不再依赖“这是早期项目”来解释结构缺口
+- 进入长期维护与生态治理阶段
 
-**退出条件**
+## 4. 语法、标准库、三方接口、后端、自举、平台的详细分轨计划
 
-- 至少 `10` 个真实工具程序可原生编译运行
-- 编译时间、冷启动、内存占用进入可接受范围
-- 在目标 workload 上具备可信的系统语言性能区间
+### A. 语法缺口总表与启动时机
 
-### 阶段 5：语言加固与 AI 工具链资产（4-6 周）
+| 语法组 | 当前状态 | 启动阶段 | 前置条件 | 完成时必须同步 |
+| --- | --- | --- | --- | --- |
+| `match` 第二刀 | 未完成 | P2 | 代表样例与现有 `match` 回归稳定 | parser、semantic、AI 规则、HIR/MIR、interpreter、snapshots、样例 |
+| payload enum 深化 | 未完成 | P2 | 现有 payload enum 稳定 | 同上 |
+| 可见性 `pub` / 模块边界 | 缺失 | P5 前 | module/import 第一刀稳定 | parser、resolver、semantic、包解析、docs、样例 |
+| import 人体工学第二刀 | 缺失 | P5 前 | 可见性方案确定 | parser、diagnostics、context topology、docs |
+| `const` / 常量定义 | 缺失 | P5 前 | 标准库开始需要稳定常量 | parser、semantic、formatter、AOT/interpreter |
+| methods / `impl` | 缺失 | P5-P6 | 标准库 API 复杂度开始上升 | parser、name resolution、docs、examples |
+| 泛型 | 缺失 | P6 后 | collections 与标准库压力明确出现 | parser、type system、AI diagnostics、HIR/MIR/AOT |
+| traits / interfaces | 缺失 | P6-P7 | 包生态与抽象层明确需要 | type system、package contracts、stdlib design |
+| richer pattern matching | 缺失 | P6 后 | `match` 第一版与 enum 使用成熟 | parser、semantic exhaustiveness、AI rule cards |
+| 闭包 / lambda | 缺失 | P7 前 | 高阶标准库和并发前置需要 | parser、capture model、AOT/interpreter |
+| async / await | 缺失 | P7 | AOT、包系统、错误模型、并发模型已稳定 | syntax、runtime model、scheduler/ABI、docs、benchmarks |
+| 异常系统 | 不计划优先做 | 不进入主线 | 与 AI-first 低熵目标冲突 | 默认不用异常，优先显式结果类型 |
 
-**目标**
+### B. 新增语法的一律准入规则
 
-把“能用”提升到“适合 AI 持续稳定生成”。
+任何新增语法，只有同时满足下面条件才允许进入：
 
-**产出**
+- 它来自代表样例、benchmark 或自举的真实缺口
+- 它能先定义 canonical 写法，避免多种等价拼法
+- 它能先定义稳定 diagnostics 和 AI repair contract
+- 它能落到 HIR/MIR/解释器或 AOT 的一致行为
+- 它能补回样例、文档、快照、benchmark 或 repair case
 
-- 稳定错误码体系
-- 诊断消息模板
-- 机器可消费的 AST/HIR/MIR 表达
-- 规范化示例程序集
-- 一页式代码生成提示词
-- cookbook
-- benchmark 自动化回归
-- 扩展规则卡库
-- 更完整的修复上下文切片能力
-- unsupported feature guidance（第二批 AI 反馈能力）
+任何新增语法必须同步修改：
 
-**退出条件**
+- lexer / token
+- parser / AST
+- formatter
+- semantic / diagnostics
+- `src/ai.rs` 的 `rule_id / repair_goal / fixits`
+- HIR lowering
+- MIR lowering
+- interpreter 或 AOT backend
+- `SYNTAX.md`
+- `docs/feature-matrix.md`
+- 单元测试
+- interface snapshots
+- 至少一个代表样例
+- 如能进入修复链，则补 benchmark case
 
-- formatter、diagnostics、AST/HIR dump 达到外部接口稳定状态
-- AX 在 benchmark 上持续领先或至少持续有正信号
-- AI 冷启动资产足以让未见过 AX 的模型生成基本正确代码
+### C. 标准库路线
 
-### 阶段 6：自举准备与 AX 1.0 路线（8-12 周）
+#### Std-0：当前孵化层
 
-**目标**
+- 载体：`foundation/*`
+- 定位：实验性共享 helper，不算正式标准库
+- 继续时间：P2 结束前
 
-开始用 AX 重写编译器核心组件，并验证自举可行性。
+#### Std-1：官方最小工具标准库
 
-**产出**
+- 启动阶段：P3
+- 正式范围：`std.text / std.cli / std.fs / std.path / std.env / std.process / std.report / std.workspace / std.collections`
+- 完成条件：`5` 个代表样例稳定复用
 
-- AX 版 lexer / parser / type checker 的子集实现
-- 交叉校验管线
-- 自编译流程
+#### Std-2：中层实用库
 
-**退出条件**
+- 启动阶段：P5 后
+- 允许范围：配置读取、时间、编码、正则、简单数据结构
+- 前置条件：包接口、AOT、标准库 v1 已稳定
+- 原则：先 AX 接口，再谈实现来源
 
-- AX 编译器可编译自己
-- 连续两轮自编译稳定
-- 测试通过
-- benchmark 无明显回退
-- 新开发者可复现工具链安装
+#### Std-3：生态型库
 
-## 7. 当前两周执行清单
+- 启动阶段：P7
+- 允许范围：network、concurrency、database、protocol client
+- 前置条件：async / 包系统 / host extension ABI 至少有一版稳定方案
+- 原则：不直接塞主仓库，先通过包生态扩张
 
-从今天开始，优先顺序固定如下：
+### D. 第三方库接口路线
 
-1. 维护本 `PLAN.md` 为唯一主文档。
-2. 扩 full repair benchmark 资产与 compare replay 基线，避免证据长期停留在 smoke 子集。
-3. 继续稳定 formatter、基础 diagnostics、`--json --ai` 与运行期 repair 合同，确保它们都是可回归的 benchmark 接口。
-4. 继续收敛高频错误规则卡、会话级教学状态和脆弱触发逻辑，优先减少对 message 文案匹配的依赖。
-5. 启动最小工具宿主能力第一批，围绕 `process / env / path / fs / string` 形成真实可写工具程序的最低可用面。
-6. 每补一项宿主能力，就同步补真实工具样例与常见误用诊断，不把能力和样例脱节推进。
-7. 只有在 benchmark 资产和真实工具样例都站稳后，才把 `axc build` 从骨架推进到可验证的原生后端目标。
+#### TP-0：当前状态
 
-在阶段 2 之前，不做以下事情：
+- 无正式第三方库接口
+- 只有主仓库标准接口与 project-private code
 
-- GUI
-- Web
-- WASM
-- 嵌入式
-- 大生态叙事
-- “统一所有语言”的扩张叙事
+#### TP-1：本地 path package
 
-## 8. 项目停止条件
+- 启动阶段：P5
+- 前置条件：`pub`、模块边界、标准库 v1、AOT v1
+- 能力：只支持本地 AX 包依赖
+- 目的：先解决“项目之间如何稳定复用 AX 库”
 
-出现以下任一情况，项目必须暂停、缩小或停止：
+#### TP-2：registry package
 
-- benchmark 无法证明 AX 对 AI 生成有明显收益
-- 语言范围失控
-- 种子编译器实现复杂度明显超出承受范围
-- 为了追求性能而破坏了语言的可预测性与实现现实性
-- 出现多个并行事实来源，导致路线不再清晰
+- 启动阶段：P5 后半
+- 前置条件：path package 与 lockfile 稳定
+- 能力：registry 发布与精确版本锁定
+- 目的：开始形成真正第三方生态
 
-## 9. 最终判断标准
+#### TP-3：host extension ABI
 
-AX 的成功标准不是：
+- 启动阶段：P6-P7
+- 前置条件：包系统、AOT、标准库、trait/interface 至少一版稳定
+- 能力：允许宿主扩展提供原生能力
+- 原则：用户看到的仍然是 AX 包，不是 Rust crate
 
-- 语法看起来多新
-- 能讲多少生态故事
-- 能否在纸面上覆盖所有场景
+#### 明确禁止
 
-AX 的成功标准只有三个：
+- 不做 `AX import -> Cargo crate` 直通桥
+- 不允许让用户感知“我在 AX 里其实直接下载 Rust 包”
 
-- AI 更容易生成正确程序
-- AI 更容易根据诊断修复程序
-- 在目标场景下保留可信的高性能路径
+### E. 后端路线
+
+| 阶段 | 目标 | 启动条件 | 退出条件 |
+| --- | --- | --- | --- |
+| Build-0 | skeleton build | 当前已在做 | manifest/HIR/MIR/source 契约稳定 |
+| Build-1 | 单文件 AOT | P3 完成 | hello world 真可执行 |
+| Build-2 | 多文件 AOT | Build-1 完成 | `3` 个代表项目可 build/run |
+| Build-3 | 发布级 AOT | Build-2 完成 | AOT 成为正式 public path |
+| JIT-Eval | JIT 评估 | Build-3 完成 | 明确证明值不值得做 |
+| JIT-Exp | JIT 实验 | 仅在评估通过后 | 只作为实验/开发路径，不抢主线 |
+
+### F. 自举路线
+
+| 阶段 | 先迁什么 | 不迁什么 | 门槛 |
+| --- | --- | --- | --- |
+| SH-0 | `foundation` 高层逻辑 | compiler core | P4 未完成前不启动 |
+| SH-1 | benchmark/report/context 工具 | parser/semantic core | P5 完成 |
+| SH-2 | 项目辅助工具 | lexer/parser core | AX 工具链已稳定 |
+| SH-3 | compiler-adjacent 辅助模块 | 整个编译器核心 | 多轮里程碑稳定 |
+| SH-4 | 核心自举评估 | 无门槛强推 | 仅在生态与后端都站稳后 |
+
+### G. 平台路线
+
+| 平台 | 当前 | 下一阶段 | 启动门槛 |
+| --- | --- | --- | --- |
+| Windows | Full workflow | 继续保持主参考平台 | 无 |
+| Linux | Core support | 向发布级 core support 推进 | AOT/CLI/core tests 长期稳定 |
+| macOS | Deferred | Linux 稳定后启动 | Ubuntu core 连续稳定、Unix 抽象不漂移 |
+
+macOS 启动规则锁定为：
+
+- 先看 Linux，不与 Linux 并发抢资源
+- Ubuntu core CI 至少连续多个里程碑稳定
+- core CLI、context、build 契约在 Unix 上已稳定
+- 第一阶段只覆盖 `build / check / run / fmt / interface snapshots`
+
+## 5. 六层协议、诊断闭环、验证闭环的完整执行顺序
+
+### 六层协议当前状态
+
+当前六层不是“还没开始”，而是“已能输出、还没完全进入消费闭环”。
+
+| 层 | 当前状态 | 下一步 |
+| --- | --- | --- |
+| `overview` | 已实现 | 冻结 schema，接入 repair/export |
+| `boundaries` | 已实现 | 作为 agent 安全网接入 repair/bundle |
+| `topology` | 已实现 | 接入 symbol targeting 与 module/package planning |
+| `flow` | 已实现 | 接入回归验证与主流程分析 |
+| `symbol` | 已实现 | 接入最小修改半径决策 |
+| `impact` | 已实现 | 接入 change risk 与 regression target |
+| `evidence` | 已实现 | 接入 benchmark/export/adapter 的验证链 |
+
+### Context 闭环顺序固定为
+
+1. `C1`
+   冻结 `overview / boundaries`
+   目标：让 agent 先别迷路、别乱碰宿主边界
+2. `C2`
+   冻结 `topology / symbol`
+   目标：让 agent 能稳定知道改哪一层、改哪个 symbol
+3. `C3`
+   冻结 `flow / impact / evidence`
+   目标：让 agent 知道改动主流程、影响面和验证命令
+4. `C4`
+   接入 repair adapter / benchmark export
+   目标：让 context 成为修复输入，不只是阅读输出
+5. `C5`
+   升级为 stdlib/package aware context
+   目标：让 context 理解官方标准库、第三方包、host extension 边界
+
+### 诊断与验证闭环必须遵守
+
+每新增一项语法、builtin、标准库接口、package 机制或后端能力，都必须补齐下面闭环：
+
+- 可解析
+- 可格式化
+- 可检查
+- 可执行或可构建
+- 可诊断
+- 可修复
+- 可快照
+- 可样例验证
+- 如属于修复面，则可 benchmark
+
+如果缺其中任一环，这项能力不算进入主线。
+
+## 6. 公开接口、测试计划与收口条件
+
+### Public Interfaces / Contracts
+
+- `axc` 命令面在 P0-P3 不继续扩张，优先稳现有命令
+- `AX.toml` 在 P5 前只承担项目发现，不承担包生态
+- P5 才开始把 `AX.toml` 扩到 package/dependency contract
+- context 继续只保留当前 `7` 个视图，不再新增第二套并行协议命令
+- build contract 演进顺序固定为：
+  - `skeleton artifacts`
+  - `AOT executable metadata`
+  - `real executable output`
+
+### Test Plan
+
+- P0：修复本地 Windows 可复跑环境；CI 与本机路径对齐
+- P1：repair benchmark smoke、compare smoke、mode smoke、diagnostics benchmark smoke 全绿
+- P2：代表样例 `check / run / build` 固定进入 smoke 或 regression
+- P3：标准库接口每个都要有 semantic tests、runtime tests、example coverage
+- P4：AOT 与 interpreter 做语义对照；build manifest 与 executable artifacts 进入 snapshots
+- P5：package resolution、lockfile、dependency diagnostics、package smoke
+- P6：AX 自写工具纳入回归链
+- P7：Windows / Linux / macOS core matrix，cross-language public benchmark matrix
+
+### 项目最终收口条件
+
+项目从“开发态”切到“生态稳定态”，必须同时满足：
+
+- 语言内核、标准库、包接口、AOT、context、repair benchmark 都稳定
+- Linux 与 macOS 达到同一层级的 core support
+- 第三方包接口已经通过 AX contract 运行，不依赖 Cargo crate 直通
+- 部分自举成立
+- 公共 benchmark 已能解释 AX 为什么不是“现有语言子集 + 一些 lint”
+- README、docs、CI、examples、snapshots、benchmark、package story 全部一致
+
+### Assumptions
+
+- 本计划采用已锁定决策：`AOT 优先`、`部分自举优先`、`Linux 先稳后带 macOS`、`最小工具标准库优先`、`AX 包接口优先`、`终局是完整语言生态`
+- “完整语言生态”不等于放弃 AI-first；AX 终局仍然必须服从自回归模型适配、低歧义表面、稳定 diagnostics、可修复性和 benchmark 可证性
+- 当前本机 `link.exe` 缺失是一个真实前置阻塞，它必须被纳入 P0，而不能继续被忽略
+
+## 执行纪律
+
+- `WORKLIST.md` 里的每一项都必须显式挂靠到 `P0-P7` 某一阶段。
+- 已完成事项不得长期堆在 `WORKLIST.md` 里，必须移入 [`ARCHIVE.md`](./ARCHIVE.md)。
+- 其他根目录文档不再承担路线职责；如果它们和本文件冲突，以本文件为准。
+- 后续如果有人想新增第二份“路线图 / 规划 / 缺口排序 / 施工方向”文档，默认视为不允许，除非先修改本文件并说明必要性。
+
+## 当前一句话结论
+
+AX 现在最该做的，不是把自己讲成研究项目，也不是脱离真实 workload 盲目摊大语法面；真正该做的是继续把语言内核推进到稳定可写工具的水位，并同步把 `diagnostics + context + repair + benchmark` 做成编译器护城河。语言本体先行，护城河跟进，二者在 `P3` 汇合成第一版标准库与冻结接口，这才是后续 AOT、包接口、自举和生态扩张的坚实起点。
