@@ -16,6 +16,10 @@ fn stem(path: string) -> string {
     return path_stem(path);
 }
 
+fn extension(path: string) -> string {
+    return path_extension(path);
+}
+
 fn resolve(path: string) -> string {
     return path_resolve(path);
 }

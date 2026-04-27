@@ -87,7 +87,7 @@
 ### 3. `std/` 已经开始试点，但还不是完整标准库
 
 - 当前 `foundation/` 仍是 Std-0 孵化层。
-- 当前 `std/` 已经有第一批 AX 源码模块，并由 `project_text_normalize` 与 `project_directory_index` 消费。
+- 当前 `std/` 已经有第一批 AX 源码模块，并由 `project_text_normalize`、`project_directory_index` 与 `project_release_promote` 消费。
 - 这不等于完整标准库已经冻结；P3 仍需要更多样例迁移、文档、diagnostics 和回归来确认接口。
 
 ### 4. Linux core support 不等于三平台同级成熟

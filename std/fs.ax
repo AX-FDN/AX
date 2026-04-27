@@ -14,6 +14,20 @@ fn create_dir_all(path: string) -> i32 {
     return 0;
 }
 
+fn exists(path: string) -> bool {
+    return fs_exists(path);
+}
+
+fn remove_file(path: string) -> i32 {
+    fs_remove_file(path);
+    return 0;
+}
+
+fn rename(from: string, to: string) -> i32 {
+    fs_rename(from, to);
+    return 0;
+}
+
 fn read_dir(path: string) -> [string] {
     return fs_read_dir(path);
 }

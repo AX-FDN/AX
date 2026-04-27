@@ -23,7 +23,7 @@ P3 的目标不是一次性做完整标准库，而是先把第一版官方标�
 | --- | --- | --- | --- |
 | `std.text` | 字符串统计、trim、split、contains、starts/ends with、简单 normalize | `std/text.ax`、`foundation/text.ax` 与宿主 string builtin | 只放纯文本处理，不放文件读取 |
 | `std.cli` | 参数数量校验、usage、退出消息、输入路径校验 | `std/cli.ax` 与 `foundation/cli.ax` | 只放 CLI 程序入口常用约束，不放业务流程 |
-| `std.fs` | 文件/目录存在性、读写、复制、移动、删除、目录创建、目录枚举、文件大小 | `std/fs.ax` 与宿主 `fs_*` builtin | AX 接口稳定，宿主实现细节隐藏 |
+| `std.fs` | 文件/目录存在性、读写、复制、移动、删除、重命名、目录创建、目录枚举、文件大小 | `std/fs.ax` 与宿主 `fs_*` builtin | AX 接口稳定，宿主实现细节隐藏 |
 | `std.path` | join、parent、file name、stem、extension、resolve、文件类型辅助 | `std/path.ax`、宿主 `path_*` builtin 与 `foundation/file_kind.ax` | 路径操作和轻量分类放这里，工作区递归逻辑不放这里 |
 | `std.env` | 环境变量存在性与读取 | 宿主 `env_*` builtin | 只暴露 AX 函数，不暴露宿主环境实现 |
 | `std.process` | 命令执行、工作目录内执行、输出捕获 | 宿主 `process_*` builtin | 保持小而明确，不引入 async 或流式进程 API |
@@ -47,9 +47,9 @@ P3 的目标不是一次性做完整标准库，而是先把第一版官方标�
 | 文件 | 模块 | 当前职责 | 迁移状态 |
 | --- | --- | --- | --- |
 | [`../std/cli.ax`](../std/cli.ax) | `std.cli` | CLI 参数校验、usage、错误退出消息、输入文本校验 | 第一试点已用 |
-| [`../std/fs.ax`](../std/fs.ax) | `std.fs` | 文件读取、文件写入、目录创建、目录枚举、文件大小、文件/目录存在性判断 | 第一、第二试点已用 |
-| [`../std/path.ax`](../std/path.ax) | `std.path` | `join / parent / file_name / stem / resolve / classify_file_kind / is_text_file` | 第一、第二试点已用 |
-| [`../std/report.ax`](../std/report.ax) | `std.report` | key/value 报告、路径报告、section 片段 | 第一试点已用 |
+| [`../std/fs.ax`](../std/fs.ax) | `std.fs` | 文件读取、文件写入、目录创建、目录枚举、文件大小、文件/目录存在性判断、删除文件、重命名 | 第一、第二、第三试点已用 |
+| [`../std/path.ax`](../std/path.ax) | `std.path` | `join / parent / file_name / stem / extension / resolve / classify_file_kind / is_text_file` | 第一、第二、第三试点已用 |
+| [`../std/report.ax`](../std/report.ax) | `std.report` | key/value 报告、路径报告、section 片段 | 第一、第二、第三试点已用 |
 | [`../std/text.ax`](../std/text.ax) | `std.text` | 文本统计、基础 normalize | 第一试点已用 |
 | [`../std/workspace.ax`](../std/workspace.ax) | `std.workspace` | workspace 条目行、深度前缀、展示 label | 第二试点已用 |
 
@@ -97,6 +97,21 @@ P3 的目标不是一次性做完整标准库，而是先把第一版官方标�
 - interface snapshots 已覆盖该项目的运行夹具和 build source tree。
 
 暂不选 [`../examples/project_command_batch/`](../examples/project_command_batch/) 作为第一试点，因为它触碰 `std.process / std.env`，宿主边界更多，适合在文本与报告接口先稳定后再迁。
+
+第三迁移试点：[`../examples/project_release_promote/`](../examples/project_release_promote/)
+
+理由：
+
+- 能验证发布型工具常见的 rename、覆盖已有文件、receipt report 和路径 extension。
+- 继续使用 `std.cli / std.fs / std.path / std.report`，不提前触碰 `std.process / std.env`。
+- 是 P2 主代表样例之一，迁移价值高于继续迁移 toy example。
+
+当前迁移结果：
+
+- `AX.toml` 使用 `sources = ["../../std", "lib"]`。
+- `src/main.ax` 通过 `std.cli / std.fs / std.path` 完成入口校验、发布目录处理、文件提升和 receipt 输出。
+- `lib.receipt` 通过 `std.report / std.path / std.fs` 构造发布收据。
+- interface snapshots 已覆盖该项目的运行夹具和 build source tree。
 
 ## Rust 宿主边界
 

@@ -25,6 +25,15 @@
 
 ### 2026-04-27
 
+- `A-2026-04-27-18` `[P3]` 第三组 `std.*` 迁移试点落地
+  - 结果：
+    - 扩展 `std/fs.ax` 的 `exists / remove_file / rename`
+    - 扩展 `std/path.ax` 的 `extension`
+    - `examples/project_release_promote/` 已从 `../../foundation` 迁移到 `../../std + lib`
+    - `lib.receipt` 保留项目私有 receipt 逻辑，通用 fs/path/report/cli 能力下沉到 `std.*`
+    - `tests/interface_snapshots.rs` 已更新 release promote 的运行和 build source 回归
+    - `WORKLIST.md` 已把下一步推进到 `std.process / std.env` 宿主边界评估
+
 - `A-2026-04-27-17` `[P3]` 第二组 `std.*` 迁移试点落地并修复递归调用栈问题
   - 结果：
     - 新增 `std/workspace.ax`

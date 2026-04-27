@@ -711,7 +711,7 @@ AX 的六层协议上下文，不只是让模型“更快读懂项目”，更�
 | --- | --- | --- |
 | 推进语言内核与最小可写工具能力 | 继续补最值钱的表达能力、宿主能力和 project-backed 工程组织 | `foundation/`、`examples/project_*`、`SYNTAX.md` |
 | 推进显式、确定的模块组织 | 让 shared foundation 和 project-private logic 有清晰边界 | `AX.toml + sources`、`module`、`import`、全限定名 |
-| 为第一版最小标准库做冻结试点 | 用 `project_text_normalize` 与 `project_directory_index` 验证 `std.*` 命名空间、全限定调用、递归工具逻辑和项目私有 `lib.*` 的组合成本 | `std/`、`examples/project_text_normalize/`、`examples/project_directory_index/`、`PLAN.md`、`WORKLIST.md` |
+| 为第一版最小标准库做冻结试点 | 用 `project_text_normalize`、`project_directory_index`、`project_release_promote` 验证 `std.*` 命名空间、全限定调用、递归工具逻辑、发布型文件操作和项目私有 `lib.*` 的组合成本 | `std/`、`examples/project_text_normalize/`、`examples/project_directory_index/`、`examples/project_release_promote/`、`PLAN.md`、`WORKLIST.md` |
 | 做硬 diagnostics / context / repair / benchmark | 让语言主线自带可消费的编译器反馈和可回放证据链 | `src/ai.rs`、`benchmarks/`、`scripts/`、`docs/benchmark-showcase.md` |
 | 用代表性样例反向驱动语言设计 | 每补一项能力，都要求它能支撑一个更真实的工具样例 | `examples/`、`tests/interface_snapshots.rs` |
 
@@ -804,7 +804,7 @@ P2 阶段固定样例集合与回归职责见 [`docs/representative-samples.md`]
 | [`examples/docs_release_snapshot.ax`](./examples/docs_release_snapshot.ax) | 文档快照、复制、收据与汇总 | AX 能写发布辅助与文件处理逻辑 |
 | [`examples/workspace_search_report.ax`](./examples/workspace_search_report.ax) | 关键字搜索与匹配报告 | AX 能承载递归扫描和报告生成 |
 | [`examples/project_directory_index/`](./examples/project_directory_index/) | project-backed 目录索引工具 | 第二批 `std.workspace / std.path / std.report / std.fs` 试点样例 |
-| [`examples/project_release_promote/`](./examples/project_release_promote/) | 构建产物整理与提升 | path/fs 边界已经可用于真实自动化流程 |
+| [`examples/project_release_promote/`](./examples/project_release_promote/) | 构建产物整理与提升 | 第三批 `std.fs / std.path / std.report / std.cli` 试点样例 |
 | [`examples/project_text_normalize/`](./examples/project_text_normalize/) | 文本读取、重写、输出报告 | 第一批 `std.cli / std.fs / std.path / std.report / std.text` 试点样例 |
 | [`examples/project_module_smoke/`](./examples/project_module_smoke/) | 第一阶段模块模式 smoke 工程 | `import/module` 已经进入主线验证链 |
 

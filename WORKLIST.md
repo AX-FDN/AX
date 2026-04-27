@@ -41,7 +41,7 @@
 - `P0` 是地基修复层，当前只剩入口口径收口
 - `P1` 是编译器护城河同步硬化层，当前这一轮 context / benchmark / public claims 已完成
 - `P2` 是语言内核主施工层，当前代表样例、宿主边界和语法优先级已完成冻结
-- `P3` 是第一版标准库冻结试点层，当前已完成 `project_text_normalize` 与 `project_directory_index` 两组 `std.*` 迁移试点
+- `P3` 是第一版标准库冻结试点层，当前已完成 `project_text_normalize`、`project_directory_index`、`project_release_promote` 三组 `std.*` 迁移试点
 
 ## 状态说明
 
@@ -59,19 +59,20 @@
 - `P1` 的 context-enabled repair export、benchmark 展示页和公开口径边界已经成立
 - `P2` 当前出口已经完成，语言内核主代表样例、宿主边界样例和第一项 `match` 语法线已经进入回归
 - `P3` 前置边界已经完成，`project_text_normalize` 已作为第一组 `foundation -> std.*` 迁移试点完成第一轮闭环
-- 当前 `P0 / P1 / P2` 本轮出口均已完成，`P3` 已完成两组样例迁移试点，下一步进入第三试点评估或标准库接口收紧
+- 当前 `P0 / P1 / P2` 本轮出口均已完成，`P3` 已完成三组样例迁移试点，下一步进入 `std.process / std.env` 宿主边界评估
 
 当前优先级顺序固定为：
 
 1. 先收紧当前 `P3` 标准库试点结果：
    - `project_text_normalize` 已验证 `std.cli / std.fs / std.path / std.report / std.text`
    - `project_directory_index` 已验证 `std.workspace / std.path / std.report / std.fs`
-   - 下一步只在第三个真实样例暴露明确缺口时再扩 `std.*`
+   - `project_release_promote` 已验证 `std.fs` 的 exists/remove/rename 与 `std.path.extension`
+   - 下一步只在命令类样例暴露明确缺口时再扩 `std.process / std.env`
    - 继续保持 `foundation/` 作为未迁移样例的 Std-0 孵化层
 2. 暂不启动 P4 AOT、P5 包接口、JIT、自举或三方库桥接
 3. 任何下一轮实现都必须继续回写 examples、diagnostics、context、repair/benchmark 或 interface snapshots
 
-当前判断：P1 这一轮已经完成，不再和新增语言能力抢资源。当前主线已经选定为 `P3 std.*`，但不继续全仓改名；下一步应先评估第三样例是否真的需要新接口。
+当前判断：P1 这一轮已经完成，不再和新增语言能力抢资源。当前主线已经选定为 `P3 std.*`，但不继续全仓改名；下一步应先评估命令类样例是否真的需要冻结 `std.process / std.env`。
 
 ## 阶段承接图
 
@@ -119,6 +120,7 @@
 - [x] 至少有一组样例能作为标准库迁移试点
 - [x] `project_text_normalize` 已消费第一批 `std.*` AX 源码模块并通过回归
 - [x] `project_directory_index` 已消费 `std.workspace / std.path / std.report / std.fs` 并通过回归
+- [x] `project_release_promote` 已消费 `std.fs / std.path / std.report / std.cli` 并通过回归
 
 ## 近期已解除阻塞
 
@@ -508,15 +510,48 @@
   - 完成标准：
     - `project_directory_index` 的 `check / run / build` 和对应 interface snapshots 通过
 
-- [ ] `W-P3-09` 评估第三迁移试点
+- [x] `W-P3-09` 评估第三迁移试点
   - 目标：在继续扩标准库前，先判断第三个样例到底暴露的是 `std.process/env` 缺口，还是现有 `std.*` 接口收紧问题。
   - 候选：
     - `project_release_promote`
     - `project_command_capture`
     - `project_command_batch`
+  - 当前结论：
+    - 第三试点选择 `project_release_promote`
+    - 命令类样例后置到 `W-P3-11`，因为它们触碰 `std.process / std.env` 和平台边界
   - 依赖：`W-P3-08`
   - 完成标准：
     - 写清第三试点选择理由、需要补的 `std.*` 接口，以及不做哪些全仓迁移
+
+- [x] `W-P3-10` 完成第三迁移试点 `project_release_promote`
+  - 目标：验证发布型文件操作能否由现有 `std.cli / std.fs / std.path / std.report` 承载，同时继续避开 `std.process / std.env`。
+  - 选择理由：
+    - 它是主代表样例之一，仍属于真实工具流程，不是 toy example
+    - 它能补齐 rename、remove existing file、path extension、receipt report 这类发布工具常见能力
+    - 它不触碰命令执行和环境变量，适合作为 process/env 前的最后一组低风险 P3 试点
+  - 当前结果：
+    - `std.fs` 已增加 `exists / remove_file / rename`
+    - `std.path` 已增加 `extension`
+    - `project_release_promote` 已从 `../../foundation` 迁移到 `../../std + lib`
+    - `lib.receipt` 保留项目私有 receipt 逻辑，通用 report/path/fs 能力下沉到 `std.*`
+  - 本轮仍不做：
+    - 不迁移 `project_command_capture`
+    - 不迁移 `project_command_batch`
+    - 不冻结 `std.process / std.env`
+  - 完成标准：
+    - `project_release_promote` 的 `check / run / build` 和对应 interface snapshots 通过
+
+- [ ] `W-P3-11` 评估命令类样例与 `std.process / std.env`
+  - 目标：决定是否启动宿主边界更重的标准库试点，而不是默认把所有 process/env builtin 直接搬进 `std.*`。
+  - 候选：
+    - `project_command_capture`
+    - `project_command_batch`
+  - 需要先回答：
+    - `std.process` 第一版只暴露 `run / run_in / capture_in`，还是需要更结构化的 exit/stdout/stderr 结果
+    - `std.env` 第一版只暴露 `has / get`，还是需要默认值和错误边界
+    - 命令类样例是否需要 Windows-only 说明，避免误导 Linux core support
+  - 完成标准：
+    - 写清是否启动第四迁移试点，以及 `std.process / std.env` 的最小冻结范围
 
 ## 当前明确不插队的方向
 

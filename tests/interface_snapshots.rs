@@ -5212,7 +5212,7 @@ fn project_release_promote_build_copies_real_example_source_tree() {
     assert_project_example_build_sources(
         "project-release-promote-build",
         "examples/project_release_promote",
-        &project_sources_with_shared_foundation(&["lib/receipt.ax", "src/main.ax"]),
+        &project_sources_with_shared_std(&["lib/receipt.ax", "src/main.ax"]),
     );
 }
 
