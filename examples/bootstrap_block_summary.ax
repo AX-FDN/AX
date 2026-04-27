@@ -20,27 +20,27 @@ fn summarize(tokens: [TokenKind; 10]) -> Summary {
     let mut balanced: i32 = 1;
 
     while (index < 10) {
-        if (tokens[index] == TokenKind.LBrace) {
-            depth = depth + 1;
-            if (depth > max_depth) {
-                max_depth = depth;
+        match (tokens[index]) {
+            TokenKind.LBrace => {
+                depth = depth + 1;
+                if (depth > max_depth) {
+                    max_depth = depth;
+                }
             }
-        }
-
-        if (tokens[index] == TokenKind.RBrace) {
-            if (depth == 0) {
-                balanced = 0;
-            } else {
-                depth = depth - 1;
+            TokenKind.RBrace => {
+                if (depth == 0) {
+                    balanced = 0;
+                } else {
+                    depth = depth - 1;
+                }
             }
-        }
-
-        if (tokens[index] == TokenKind.Semicolon) {
-            statements = statements + 1;
-        }
-
-        if (tokens[index] == TokenKind.End) {
-            break;
+            TokenKind.Semicolon => {
+                statements = statements + 1;
+            }
+            TokenKind.End => {
+                break;
+            }
+            TokenKind.Invalid => {}
         }
 
         index = index + 1;

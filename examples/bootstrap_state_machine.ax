@@ -13,28 +13,19 @@ enum ParseState {
 }
 
 fn advance_state(state: ParseState, token: TokenKind) -> ParseState {
-    if (state == ParseState.ExpectValue) {
-        if (token == TokenKind.Number) {
-            return ParseState.ExpectOperator;
-        }
-        return ParseState.Error;
-    }
-
-    if (state == ParseState.ExpectOperator) {
-        if (token == TokenKind.Plus) {
-            return ParseState.ExpectValue;
-        }
-        if (token == TokenKind.End) {
-            return ParseState.Accept;
-        }
-        return ParseState.Error;
-    }
-
-    if (state == ParseState.Accept) {
-        return ParseState.Error;
-    }
-
-    return ParseState.Error;
+    return match (state) {
+        ParseState.ExpectValue => match (token) {
+            TokenKind.Number => ParseState.ExpectOperator,
+            _ => ParseState.Error,
+        },
+        ParseState.ExpectOperator => match (token) {
+            TokenKind.Plus => ParseState.ExpectValue,
+            TokenKind.End => ParseState.Accept,
+            _ => ParseState.Error,
+        },
+        ParseState.Accept => ParseState.Error,
+        ParseState.Error => ParseState.Error,
+    };
 }
 
 fn validate_expression(tokens: [TokenKind; 6]) -> i32 {

@@ -292,26 +292,74 @@
     - 结论来自当前代表样例、宿主边界样例候选、现有 `match/payload enum` 样例和 repair case
     - 已明确“先做什么，不做什么”，后续 `P2` 不再随意跳语法点
 
-- [ ] `W-P2-S02` 冻结 `match` 第二刀 scope
+- [x] `W-P2-S02` 冻结 `match` 第二刀 scope
   - 目标：把“想继续补 `match`”收成一份明确范围，而不是边写边长。
-  - 需要写清：
-    - 本轮补哪些 pattern
-    - 本轮不补哪些高级能力
-    - 为什么这些补丁能直接服务主代表样例或 repair case
+  - 当前冻结范围：
+    - 本轮目标不是把 `match` 扩成完整 pattern matching 系统，而是把它收成“可稳定承载枚举驱动控制流和单 payload 枚举消费”的第二刀
+    - 本轮只围绕现有单 scrutinee、单层 pattern 面继续补强，不引入第二套并行写法
+    - 本轮允许继续打磨并回归的 pattern 只包括：
+      - `true` / `false`
+      - 整数字面量
+      - `Enum.Variant`
+      - `Enum.Variant(name)`
+      - `Enum.Variant(_)`
+      - 最终 `_`
+      - 最终裸标识符 catch-all
+  - 本轮必须直接服务的场景：
+    - 让 `match` 能承担 bootstrap 风格样例里的枚举状态/标记分派，而不是继续只停留在 `if (value == Enum.Variant)` 梯子
+    - 让 `match` 在 statement form 和 expression form 上都能稳定消费单 payload enum
+    - 在不新增大语法面的前提下，把现有 pattern 集合的 duplicate / final catch-all / non-exhaustive / payload-shape 诊断继续打硬
+  - 本轮明确不补：
+    - 字符串字面量 pattern
+    - tuple / array / struct destructuring
+    - 多 payload 或命名 payload fields
+    - 嵌套 payload destructuring
+    - match guards
+    - 多 pattern arm（如 `A | B`）
+    - range pattern
+    - block-valued match expression arm
+  - 冻结依据：
+    - `project_directory_index / project_text_normalize / project_release_promote` 的主压力不在新增表面 pattern，而在工程组织、宿主能力和共享 helper
+    - `bootstrap_state_machine / bootstrap_token_scan / bootstrap_block_summary` 这类样例已经暴露出“枚举驱动控制流应该由 match 承担”的方向，但当前写法还更依赖相等判断梯子
+    - repair 资产已经覆盖 enum variant 与 payload shape 误用，因此优先补强现有 enum-first `match` 面，比引入新的 pattern 家族更能直接回写到修复链
   - 依赖：`W-P2-S01`
   - 完成标准：
     - 能明确回答 `match` 第二刀到底是什么，不是什么
 
-- [ ] `W-P2-S03` 冻结 payload enum 深化 scope
+- [x] `W-P2-S03` 冻结 payload enum 深化 scope
   - 目标：把 payload enum 的下一刀写清楚，到底是补更稳的构造/匹配能力，还是补更深的 payload 形态。
-  - 需要写清：
-    - 当前真实缺口来自哪组样例或 repair case
-    - 本轮只补哪一层，不扩成完整代数数据类型系统
+  - 当前冻结范围：
+    - 本轮不是把 enum 扩成完整代数数据类型系统，而是把“unit variant + 单 payload variant”这一路做稳
+    - payload enum 深化的主目标是稳定三件事：
+      - 构造：`Enum.Variant(value)` 的类型与 payload-shape 约束
+      - 消费：`match` 里的 `Enum.Variant(name)` / `Enum.Variant(_)`
+      - 诊断：缺 payload、错 payload、错 variant、把类型名当值等高频错误的稳定反馈
+    - 本轮只允许继续补强：
+      - unit variant
+      - 单 payload variant
+      - 单名字 payload binding
+      - payload wildcard
+      - 模块限定路径下的同一套构造/匹配/诊断行为
+  - 本轮必须直接服务的样例与 repair 面：
+    - `examples/payload_enum.ax`
+    - `examples/type_name_as_value.ax`
+    - `examples/unknown_enum_variant.ax`
+    - 现有 enum/payload 相关 semantic tests 与 repair 资产
+  - 本轮明确不补：
+    - 多 payload variant
+    - 命名 payload fields
+    - 嵌套 payload pattern
+    - enum generic parameter 化
+    - 为 payload enum 单独引入新的构造语法
+  - 冻结依据：
+    - 当前 parser / semantic / interpreter / `SYNTAX.md` 已经围绕单 payload variant 建立了第一刀能力与边界说明
+    - 当前真实 repair 面首先暴露的是 enum surface 与 payload-shape 误用，而不是“payload 形态不够花”
+    - 如果在 `match` 第二刀还没站稳前就扩到多 payload 或命名字段，只会扩大实现面与 diagnostics 面，不会直接改善当前工具 workload
   - 依赖：`W-P2-S01`
   - 完成标准：
     - payload enum 深化不再是口头方向，而是可实施范围
 
-- [ ] `W-P2-S04` 建立 `P2` 语法施工同步清单
+- [x] `W-P2-S04` 建立 `P2` 语法施工同步清单
   - 目标：任何 `P2` 语法线一旦启动，必须同步补齐哪些层，先在 `WORKLIST` 里写死。
   - 必须同步：
     - lexer / parser / AST

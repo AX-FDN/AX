@@ -73,7 +73,7 @@ AX 的路线不是“先做协议，再决定要不要做语言”，而是：
 | benchmark | export / run / score / compare / smoke / CI 已落地 | `scripts/` `benchmarks/` |
 | build 后端 | 仍是骨架，只导出 `source/HIR/MIR/manifest`，`backend.status = pending` | `src/build.rs` |
 | 平台 | Windows 全量、Linux 核心、macOS 未启动 | `.github/workflows/ci.yml` `docs/platform-support.md` |
-| 本机环境 | 当前本机默认 `cargo test` 仍会被 `link.exe` 缺失卡住，GNU 路径是明确前置项 | 当前本地验证结果 |
+| 本机环境 | 当前本机默认 MSVC `cargo test` 仍会被 `link.exe` 缺失卡住，但仓库已固定 GNU 本地验证路径并完成实测 | 当前本地验证结果 |
 
 ### 当前语法完成度判断
 
@@ -89,7 +89,7 @@ AX 当前不是“语法刚起步”的玩具仓库，但也还不是“已经�
 
 当前最准确的判断是：
 
-- `P0` 的环境与契约修复仍未完全收口，本机可复跑路径还是明确阻塞项
+- `P0` 的环境与契约修复仍未完全收口，但 Windows 本地可复跑路径已经固定，剩余问题转向验证矩阵与外部契约收口
 - `P1` 的 diagnostics / context / repair / benchmark 护城河已经有骨架，但还缺更公开、更可复现的消费层和展示层
 - `P2` 的最小可写工具内核已经接近成型，但仍在依赖 `foundation/` 这一层孵化 helper，语言内核还没完全收口
 - `P3+` 之后的标准库、AOT、包接口、自举和生态都还不该提前宣传成“已经在做的主线”
@@ -677,7 +677,7 @@ macOS 启动规则锁定为：
 
 - 本计划采用已锁定决策：`AOT 优先`、`部分自举优先`、`Linux 先稳后带 macOS`、`最小工具标准库优先`、`AX 包接口优先`、`终局是完整语言生态`
 - “完整语言生态”不等于放弃 AI-first；AX 终局仍然必须服从自回归模型适配、低歧义表面、稳定 diagnostics、可修复性和 benchmark 可证性
-- 当前本机 `link.exe` 缺失是一个真实前置阻塞，它必须被纳入 P0，而不能继续被忽略
+- 当前本机默认 MSVC `link.exe` 缺失仍然存在，但它已经不再阻断正式本地验证路径；后续重点是继续收口 GNU 本地路径、CI 路径矩阵与外部契约一致性
 
 ## 执行纪律
 
