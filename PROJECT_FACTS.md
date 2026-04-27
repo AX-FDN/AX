@@ -19,7 +19,7 @@ AX 是一门面向自回归 Coding AI 的 AI-first 工具语言，目前处在�
 | 修复协议 | `rule_id / repair_goal / fixits / context_snippets` 已进入稳定输出 |
 | 上下文协议 | `overview / boundaries / topology / flow / symbol / impact / evidence` 七个视图已进入主线 |
 | 项目模式 | `AX.toml + sources` 与最小 `module/import` 已落地 |
-| 代表样例 | 已有多组 project-backed 工具型样例 |
+| 代表样例 | 已固定 P2 主代表样例与宿主边界样例，并接入 `check / run / build` 回归 |
 | benchmark | export / run / score / compare / smoke / CI 已落地 |
 | build | 当前仍是 skeleton build，不是成熟 AOT/native backend |
 | 平台 | Windows 为 full workflow，Linux 为 core support，macOS 尚未启动 |
@@ -55,6 +55,7 @@ AX 是一门面向自回归 Coding AI 的 AI-first 工具语言，目前处在�
 - 项目组织采用 `AX.toml + sources`
 - 第一阶段 `import / module` 已接入 parser、project、semantic 与诊断主链
 - 仓库内已有 project-backed 代表样例和共享 `foundation/` helper
+- P2 阶段主代表样例与宿主边界样例已在 [`docs/representative-samples.md`](./docs/representative-samples.md) 固定
 
 ### 5. benchmark 证据链是语言主线的验证层，不是附属脚本
 

@@ -25,6 +25,12 @@
 
 ### 2026-04-27
 
+- `A-2026-04-27-06` `[P2]` 代表样例与宿主边界样例固定
+  - 结果：
+    - `docs/representative-samples.md` 已定义 `3` 个主代表样例与 `2` 个宿主边界样例
+    - `README.md`、`PROJECT_FACTS.md`、`docs/README.md` 已指向固定样例集合
+    - `tests/interface_snapshots.rs` 已补充五组 project-backed 样例的 `axc check` 回归，与既有 `run / build` 回归形成闭环
+
 - `A-2026-04-27-05` `[P2]` `match` 第二刀启动并接入 bootstrap 回归
   - 结果：
     - `WORKLIST.md` 已冻结 `match` 第二刀与 payload enum 深化范围，并启动第一项 P2 语法实现

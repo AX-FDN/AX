@@ -24,6 +24,8 @@
   汇总当前已经验证过的 benchmark 结果，并区分“仓库内可复现事实”和“尚未完成的外部对照”。
 - [`killer-demo.md`](./killer-demo.md)
   给对外演示用的短 demo 脚本。
+- [`representative-samples.md`](./representative-samples.md)
+  固定 P2 阶段的主代表样例、宿主边界样例和对应回归职责。
 - [`quickstart.md`](./quickstart.md)
   Windows / Linux 快速开始总入口。
 - [`quickstart-windows.md`](./quickstart-windows.md)
@@ -49,6 +51,7 @@
 
 当前更像真实工具的样例主要在 [`../examples/`](../examples/)：
 
+- P2 固定代表样例与回归职责见 [`representative-samples.md`](./representative-samples.md)。
 - [`../examples/workspace_audit.ax`](../examples/workspace_audit.ax)
   工作区审计与摘要报告。
 - [`../examples/docs_release_snapshot.ax`](../examples/docs_release_snapshot.ax)

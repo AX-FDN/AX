@@ -788,6 +788,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 ## 真实样例与代表性工作负载
 
 AX 当前靠代表性样例证明自己。
+P2 阶段固定样例集合与回归职责见 [`docs/representative-samples.md`](./docs/representative-samples.md)。
 
 | 样例 | 说明 | 它证明什么 |
 | --- | --- | --- |

@@ -632,6 +632,18 @@ fn assert_project_example_build_sources(
     }
 }
 
+fn assert_project_example_checks(example_path: &str) {
+    let output = run_axc([OsStr::new("check"), OsStr::new(example_path)]);
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "check for `{example_path}` should succeed\nstdout:\n{}\nstderr:\n{}",
+        string_output(&output.stdout),
+        string_output(&output.stderr)
+    );
+    assert_clean_stderr(&output);
+}
+
 fn normalize_temp_output(text: &str, temp: &TempDir) -> String {
     let normalized = normalize_text(text).replace('\\', "/");
     let root = temp.path.display().to_string().replace('\\', "/");
@@ -3298,6 +3310,19 @@ fn project_module_smoke_run_executes_manifest_entry_with_module_support_sources(
     assert_eq!(output.status.code(), Some(7));
     assert_clean_stderr(&output);
     assert_eq!(normalize_text(&string_output(&output.stdout)), "");
+}
+
+#[test]
+fn representative_project_examples_check_cleanly() {
+    for example_path in [
+        "examples/project_directory_index",
+        "examples/project_text_normalize",
+        "examples/project_release_promote",
+        "examples/project_command_capture",
+        "examples/project_command_batch",
+    ] {
+        assert_project_example_checks(example_path);
+    }
 }
 
 #[test]
