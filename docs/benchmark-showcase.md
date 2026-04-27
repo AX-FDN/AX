@@ -290,6 +290,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command "& { `
 
 > AX 已经拥有可复现的仓库内 repair evidence loop，并且已把 structured diagnostics、AI repair contract 与 context bundle 接进同一条修复输入链。
 
+如果需要对外引用更完整的项目表述边界，见 [`public-claims.md`](./public-claims.md)。
+
 ## 下一步公开证明
 
 下一批 benchmark 要从“仓库内 replay 证据”升级到“外部可比较证据”：

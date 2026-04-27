@@ -29,6 +29,7 @@ AX 关注的不只是“模型能不能写出代码”，更关注三件更硬�
 | 项目是什么、为什么值得关注 | [`README.md`](./README.md) |
 | 当前已经做到哪了 | [`PROJECT_FACTS.md`](./PROJECT_FACTS.md) |
 | 当前 benchmark 证据链 | [`docs/benchmark-showcase.md`](./docs/benchmark-showcase.md) |
+| 对外怎么准确介绍 | [`docs/public-claims.md`](./docs/public-claims.md) |
 | 全项目按什么阶段推进 | [`PLAN.md`](./PLAN.md) |
 | 现在具体在做什么 | [`WORKLIST.md`](./WORKLIST.md) |
 | 哪些事情已经做完 | [`ARCHIVE.md`](./ARCHIVE.md) |
@@ -67,6 +68,8 @@ AX 关注的不只是“模型能不能写出代码”，更关注三件更硬�
 | benchmark 证据链是一等公民 | repair cases、adapter spec、export、score、compare、smoke、CI 都在仓库里 | 项目价值可以靠数据、回放和对比来建立 |
 
 当前仓库内可复现 benchmark 快照见 [`docs/benchmark-showcase.md`](./docs/benchmark-showcase.md)：full manifest 当前有 `30` 个 repair case，deterministic replay 对比为 `cold 23/30`、`base 25/30`、`ai 30/30`。这证明的是 AX 内部修复证据链已经成立；跨语言、跨模型 live benchmark 仍是下一阶段公开证明。
+
+对外引用 AX 时，建议同时遵守 [`docs/public-claims.md`](./docs/public-claims.md)：仓库内可复现事实可以直接说，跨语言、跨模型和 live-model 收益必须作为后续验证目标来表述。
 
 ## AX 的真实优势与应用场景
 

@@ -102,10 +102,11 @@ AX 是一门面向自回归 Coding AI 的 AI-first 工具语言，目前处在�
 1. [`README.md`](./README.md)：项目介绍与入口
 2. [`docs/feature-matrix.md`](./docs/feature-matrix.md)：当前能力面、边界和非目标
 3. [`docs/benchmark-showcase.md`](./docs/benchmark-showcase.md)：当前可复现 benchmark 展示页
-4. [`docs/repair-benchmark.md`](./docs/repair-benchmark.md)：benchmark 证据链
-5. [`PLAN.md`](./PLAN.md)：全项目闭环计划与阶段门槛
-6. [`WORKLIST.md`](./WORKLIST.md)：当前施工项
-7. [`ARCHIVE.md`](./ARCHIVE.md)：已完成事项归档
+4. [`docs/public-claims.md`](./docs/public-claims.md)：对外表述边界
+5. [`docs/repair-benchmark.md`](./docs/repair-benchmark.md)：benchmark 证据链
+6. [`PLAN.md`](./PLAN.md)：全项目闭环计划与阶段门槛
+7. [`WORKLIST.md`](./WORKLIST.md)：当前施工项
+8. [`ARCHIVE.md`](./ARCHIVE.md)：已完成事项归档
 
 ## 当前一句话判断
 

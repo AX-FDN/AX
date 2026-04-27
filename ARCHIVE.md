@@ -25,6 +25,12 @@
 
 ### 2026-04-27
 
+- `A-2026-04-27-12` `[P1]` 公开口径边界收紧
+  - 结果：
+    - 新增 `docs/public-claims.md`，把“可直接说的仓库内事实”和“只能作为后续验证目标的外部结论”分开
+    - README、PROJECT_FACTS、docs 入口和 benchmark showcase 已引用该边界
+    - `W-P1-06` 已完成，公开表述不再把仓库内 replay 结果说成跨语言或 live-model 胜负结论
+
 - `A-2026-04-27-11` `[P1]` benchmark 展示页升级为当前可引用事实页
   - 结果：
     - `docs/benchmark-showcase.md` 已更新到当前 `30` 个 full repair case
