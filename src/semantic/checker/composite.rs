@@ -44,6 +44,12 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 );
                 None
             }
+            None if self
+                .info
+                .named_type_candidate_exists(name, &current_unit_path) =>
+            {
+                None
+            }
             None => {
                 self.diagnostics.push(
                     Diagnostic::new(
@@ -211,6 +217,13 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     )
                     .with_suggestion("use an existing variant name from the enum declaration"),
                 );
+                return Type::Error;
+            }
+
+            if self
+                .info
+                .named_type_candidate_exists(&enum_name, &current_unit_path)
+            {
                 return Type::Error;
             }
         }

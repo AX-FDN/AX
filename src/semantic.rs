@@ -671,6 +671,30 @@ fn main() -> i32 {
     }
 
     #[test]
+    fn reports_unknown_payload_enum_constructor_variant_without_function_fallback() {
+        let diagnostics = diagnostics(
+            "\
+enum Result { Ok(i32) }
+
+fn main() -> i32 {
+    let result: Result = Result.Unknown(1);
+    return 0;
+}
+",
+        );
+        assert!(
+            diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "S0029")
+        );
+        assert!(
+            !diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "S0007")
+        );
+    }
+
+    #[test]
     fn reports_payload_enum_variant_used_without_payload() {
         let diagnostics = diagnostics(
             "\
@@ -1037,6 +1061,164 @@ sources = [\"lib\"]
             diagnostics
                 .iter()
                 .any(|diagnostic| diagnostic.code == "S0043")
+        );
+        assert!(
+            !diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "S0007")
+        );
+
+        let _ = fs::remove_dir_all(&project_root);
+    }
+
+    #[test]
+    fn reports_missing_import_for_cross_module_enum_constructor_without_function_noise() {
+        let project_root = repo_root()
+            .join("target")
+            .join("semantic-module-missing-import-enum-constructor-test");
+        let _ = fs::remove_dir_all(&project_root);
+        fs::create_dir_all(project_root.join("lib")).expect("lib directory should exist");
+        fs::create_dir_all(project_root.join("src")).expect("src directory should exist");
+        fs::write(
+            project_root.join("AX.toml"),
+            "\
+manifest_version = 1
+
+[package]
+name = \"semantic_module_missing_import_enum_constructor\"
+entry = \"src/main.ax\"
+sources = [\"lib\"]
+",
+        )
+        .expect("manifest should exist");
+        fs::write(
+            project_root.join("lib").join("result.ax"),
+            "module lib.result;\nenum Result { Ok(i32) }\n",
+        )
+        .expect("support file should exist");
+        fs::write(
+            project_root.join("src").join("main.ax"),
+            "fn main() -> i32 { lib.result.Result.Ok(1); return 0; }\n",
+        )
+        .expect("entry file should exist");
+
+        let diagnostics = project_diagnostics(&project_root);
+        assert!(
+            diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "S0043")
+        );
+        assert!(
+            !diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "S0007")
+        );
+
+        let _ = fs::remove_dir_all(&project_root);
+    }
+
+    #[test]
+    fn reports_missing_import_for_cross_module_struct_literal_without_unknown_type_noise() {
+        let project_root = repo_root()
+            .join("target")
+            .join("semantic-module-missing-import-struct-literal-test");
+        let _ = fs::remove_dir_all(&project_root);
+        fs::create_dir_all(project_root.join("lib")).expect("lib directory should exist");
+        fs::create_dir_all(project_root.join("src")).expect("src directory should exist");
+        fs::write(
+            project_root.join("AX.toml"),
+            "\
+manifest_version = 1
+
+[package]
+name = \"semantic_module_missing_import_struct_literal\"
+entry = \"src/main.ax\"
+sources = [\"lib\"]
+",
+        )
+        .expect("manifest should exist");
+        fs::write(
+            project_root.join("lib").join("point.ax"),
+            "module lib.point;\nstruct Point { value: i32 }\n",
+        )
+        .expect("support file should exist");
+        fs::write(
+            project_root.join("src").join("main.ax"),
+            "\
+fn main() -> i32 {
+    let point: lib.point.Point = lib.point.Point { value: 1 };
+    return point.value;
+}
+",
+        )
+        .expect("entry file should exist");
+
+        let diagnostics = project_diagnostics(&project_root);
+        assert!(
+            diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "S0043")
+        );
+        assert!(
+            !diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "S0006")
+        );
+
+        let _ = fs::remove_dir_all(&project_root);
+    }
+
+    #[test]
+    fn reports_missing_import_for_cross_module_enum_value_without_undefined_variable_noise() {
+        let project_root = repo_root()
+            .join("target")
+            .join("semantic-module-missing-import-enum-value-test");
+        let _ = fs::remove_dir_all(&project_root);
+        fs::create_dir_all(project_root.join("lib")).expect("lib directory should exist");
+        fs::create_dir_all(project_root.join("src")).expect("src directory should exist");
+        fs::write(
+            project_root.join("AX.toml"),
+            "\
+manifest_version = 1
+
+[package]
+name = \"semantic_module_missing_import_enum_value\"
+entry = \"src/main.ax\"
+sources = [\"lib\"]
+",
+        )
+        .expect("manifest should exist");
+        fs::write(
+            project_root.join("lib").join("result.ax"),
+            "module lib.result;\nenum Result { Ok, Err }\n",
+        )
+        .expect("support file should exist");
+        fs::write(
+            project_root.join("src").join("main.ax"),
+            "\
+fn main() -> i32 {
+    let result: lib.result.Result = lib.result.Result.Ok;
+    return 0;
+}
+",
+        )
+        .expect("entry file should exist");
+
+        let diagnostics = project_diagnostics(&project_root);
+        assert!(
+            diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "S0043")
+        );
+        assert!(
+            !diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "S0002")
+        );
+        assert!(
+            !diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "S0006")
         );
 
         let _ = fs::remove_dir_all(&project_root);

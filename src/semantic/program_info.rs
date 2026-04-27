@@ -341,18 +341,21 @@ impl<'a> ProgramInfo<'a> {
                         .get(&found)
                         .cloned()
                         .expect("resolved type should exist"),
+                    None if self.named_type_candidate_exists(name, current_unit_path) => {
+                        Type::Error
+                    }
                     None => {
                         diagnostics.push(
-                        Diagnostic::new(
-                            "S0006",
-                            format!("unknown type `{}`", name),
-                            self.source,
-                            ty.span,
-                        )
-                        .with_suggestion(
-                            "use a builtin type, `[Type]`, `[Type; N]`, a same-module type, or an imported fully qualified type name",
-                        ),
-                    );
+                            Diagnostic::new(
+                                "S0006",
+                                format!("unknown type `{}`", name),
+                                self.source,
+                                ty.span,
+                            )
+                            .with_suggestion(
+                                "use a builtin type, `[Type]`, `[Type; N]`, a same-module type, or an imported fully qualified type name",
+                            ),
+                        );
                         Type::Error
                     }
                 }
@@ -393,6 +396,10 @@ impl<'a> ProgramInfo<'a> {
         )
     }
 
+    pub(super) fn named_type_candidate_exists(&self, name: &str, current_unit_path: &str) -> bool {
+        self.named_key_candidate_exists(name, current_unit_path, &self.named_types)
+    }
+
     pub(super) fn resolve_function_key(
         &self,
         name: &str,
@@ -408,6 +415,10 @@ impl<'a> ProgramInfo<'a> {
             &self.functions,
             "function",
         )
+    }
+
+    pub(super) fn function_candidate_exists(&self, name: &str, current_unit_path: &str) -> bool {
+        self.named_key_candidate_exists(name, current_unit_path, &self.functions)
     }
 
     fn resolve_named_key<T>(
@@ -438,6 +449,28 @@ impl<'a> ProgramInfo<'a> {
         }
 
         None
+    }
+
+    fn named_key_candidate_exists<T>(
+        &self,
+        name: &str,
+        current_unit_path: &str,
+        table: &HashMap<String, T>,
+    ) -> bool {
+        if table.contains_key(name) {
+            return true;
+        }
+
+        if self.module_mode
+            && !name.contains('.')
+            && let Some(unit) = self.unit_context(current_unit_path)
+            && let Some(module_path) = &unit.module_path
+        {
+            let local_name = format!("{module_path}.{name}");
+            return table.contains_key(&local_name);
+        }
+
+        false
     }
 
     fn module_access_allowed(

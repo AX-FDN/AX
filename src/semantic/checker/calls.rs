@@ -34,7 +34,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
         }
 
         if let Some(result) =
-            self.check_enum_variant_constructor_call(expr, &callee_name, arguments)
+            self.check_enum_variant_constructor_call(expr, callee.span, &callee_name, arguments)
         {
             return result;
         }
@@ -87,6 +87,12 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
 
                 signature.return_type
             }
+            None if self
+                .info
+                .function_candidate_exists(&callee_name, &current_unit_path) =>
+            {
+                Type::Error
+            }
             None if !callee_name.contains('.') && self.lookup(&callee_name).is_some() => {
                 self.diagnostics.push(
                     Diagnostic::new(
@@ -117,6 +123,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
     fn check_enum_variant_constructor_call(
         &mut self,
         expr: &Expr,
+        callee_span: crate::source::Span,
         callee_name: &str,
         arguments: &[Expr],
     ) -> Option<Type> {
@@ -134,17 +141,28 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
         if !self.info.named_types.contains_key(enum_path) && !has_local_enum_candidate {
             return None;
         }
-        let resolved_enum_name = self.info.resolve_named_type_key(
+        let Some(resolved_enum_name) = self.info.resolve_named_type_key(
             enum_path,
             &current_unit_path,
             expr.span,
             self.diagnostics,
-        )?;
+        ) else {
+            return Some(Type::Error);
+        };
         let Some(enum_info) = self.info.enums.get(&resolved_enum_name).cloned() else {
             return None;
         };
         let Some(variant_info) = enum_info.variants.get(variant).cloned() else {
-            return None;
+            self.diagnostics.push(
+                Diagnostic::new(
+                    "S0029",
+                    format!("unknown enum variant `{variant}` for enum `{resolved_enum_name}`"),
+                    self.info.source,
+                    callee_span,
+                )
+                .with_suggestion("use one of the declared enum variants"),
+            );
+            return Some(Type::Error);
         };
 
         let argument_types = arguments

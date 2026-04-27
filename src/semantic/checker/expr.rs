@@ -67,13 +67,17 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     );
                     return Type::Error;
                 }
+                let function_candidate_exists = self
+                    .info
+                    .function_candidate_exists(value, &current_unit_path);
 
-                if let Some(type_name) = self.info.resolve_named_type_key(
+                let resolved_type_name = self.info.resolve_named_type_key(
                     value,
                     &current_unit_path,
                     expr.span,
                     self.diagnostics,
-                ) {
+                );
+                if let Some(type_name) = resolved_type_name {
                     let resolved_type = self
                         .info
                         .named_types
@@ -85,6 +89,13 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                         value,
                         resolved_type,
                     ));
+                    return Type::Error;
+                }
+                if function_candidate_exists
+                    || self
+                        .info
+                        .named_type_candidate_exists(value, &current_unit_path)
+                {
                     return Type::Error;
                 }
 

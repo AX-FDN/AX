@@ -1297,9 +1297,10 @@ impl<'a> LoweringContext<'a> {
             return Ok(None);
         };
 
-        let Some(argument) = arguments.first() else {
+        if arguments.len() != 1 {
             return Ok(None);
-        };
+        }
+        let argument = &arguments[0];
         Ok(Some(ExprKind::EnumVariant {
             enum_name,
             variant: variant.to_string(),
@@ -2037,6 +2038,38 @@ fn main() -> i32 {
                 ref variant,
                 payload: Some(_),
             } if enum_name == "Result" && variant == "Ok"
+        ));
+    }
+
+    #[test]
+    fn keeps_invalid_multi_argument_enum_constructor_calls_as_calls_in_hir() {
+        let source = SourceFile::anonymous(
+            "\
+enum Result { Ok(i32) }
+
+fn main() -> i32 {
+    Result.Ok(1, 2);
+    return 0;
+}
+",
+        );
+        let tokens = tokenize(&source);
+        let parsed = parse(&source, tokens.tokens);
+        let program =
+            lower_program(&source, &parsed.program).expect("HIR lowering should stay lossless");
+
+        let ItemKind::Function { body, .. } = &program.items[1].kind else {
+            panic!("expected main function");
+        };
+        let StmtKind::Expr { expr } = &body.statements[0].kind else {
+            panic!("expected expression statement");
+        };
+        assert!(matches!(
+            expr.kind,
+            ExprKind::Call {
+                ref function,
+                ref arguments,
+            } if function == "Result.Ok" && arguments.len() == 2
         ));
     }
 
