@@ -6,7 +6,7 @@ AX currently uses platform tiers instead of pretending every workflow is equally
 
 | Platform | Status | Scope |
 | --- | --- | --- |
-| Windows | Full workflow support | `axc` core commands, PowerShell benchmark/export/run/score scripts, CI smoke, and source quickstart |
+| Windows | Full workflow support | `cargo-gnu` local build/test path, `axc` core commands, PowerShell benchmark/export/run/score scripts, CI smoke, and source quickstart |
 | Linux | Core compiler/runtime support | `axc build/check/run/fmt`, core Rust tests, core examples, and Ubuntu CI |
 | macOS | Planned later | Not yet part of the supported CI or quickstart path |
 
@@ -23,6 +23,20 @@ Linux support in this phase means:
 - `axc fmt`
 
 The Linux path is intentionally limited to the compiler/runtime core and the shared example/test surface.
+
+## What Windows Local Validation Means Today
+
+The current supported local Windows path is:
+
+- install `stable-x86_64-pc-windows-gnu`
+- if needed, run `Set-ExecutionPolicy -Scope Process Bypass` for the current shell
+- run `.\scripts\cargo-gnu.ps1 build`
+- run `.\scripts\cargo-gnu.ps1 test --lib`
+- run `.\scripts\cargo-gnu.ps1 test --test interface_snapshots`
+- then run `axc` smoke commands
+
+This is the reference local path because some Windows shells still do not have a usable MSVC `link.exe` path.
+Plain `cargo test` in those shells is not the supported baseline.
 
 ## What Remains Windows-only
 

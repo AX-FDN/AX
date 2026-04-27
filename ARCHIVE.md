@@ -25,6 +25,12 @@
 
 ### 2026-04-27
 
+- `A-2026-04-27-04` `[P0]` Windows 本机 GNU 验证路径固定并实测通过
+  - 结果：
+    - `scripts/cargo-gnu.ps1` 的 native cargo 参数转发收紧，`test --lib` 可稳定透传
+    - `README.md`、`详细介绍.md`、`docs/quickstart.md`、`docs/quickstart-windows.md`、`docs/platform-support.md` 已统一写明 Windows 本机正式可复跑路径
+    - 本机已按 GNU 路径实际通过 `build`、`test --lib` 和 `test --test interface_snapshots`
+
 - `A-2026-04-27-01` `[P1]` 上下文协议补齐 `evidence`
   - 结果：
     - `axc context evidence <path> <symbol> --json` 已进入主线

@@ -776,7 +776,10 @@ fn build_summary() -> Summary {
 
 ```powershell
 rustup toolchain install stable-x86_64-pc-windows-gnu --profile minimal -c rustfmt
+Set-ExecutionPolicy -Scope Process Bypass
 .\scripts\cargo-gnu.ps1 build
+.\scripts\cargo-gnu.ps1 test --lib
+.\scripts\cargo-gnu.ps1 test --test interface_snapshots
 .\target\debug\axc.exe check examples\hello.ax
 .\target\debug\axc.exe run examples\workspace_audit.ax -- . target\workspace-audit.txt
 .\target\debug\axc.exe check examples\missing_semicolon.ax --json --ai

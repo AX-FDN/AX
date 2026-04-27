@@ -50,5 +50,12 @@ $cargoRest = if ($CargoArgs.Count -gt 1) {
     @()
 }
 
-& cargo +stable-x86_64-pc-windows-gnu $cargoCommand --manifest-path $manifestPath @cargoRest
+$cargoInvocation = @(
+    "+stable-x86_64-pc-windows-gnu"
+    $cargoCommand
+    "--manifest-path"
+    $manifestPath
+) + $cargoRest
+
+& cargo @cargoInvocation
 exit $LASTEXITCODE

@@ -25,6 +25,12 @@ git clone https://github.com/AX-FDN/AX.git
 cd AX
 ```
 
+If your current shell blocks local `.ps1` execution, unlock it for this shell only:
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+```
+
 ## 3. Build `axc`
 
 ```powershell
@@ -37,7 +43,19 @@ If the build succeeds, the compiler binary should be available at:
 .\target\debug\axc.exe
 ```
 
-## 4. Run The Smallest Sanity Check
+## 4. Run The Supported Local Test Path
+
+The current supported local Windows validation path uses the same GNU wrapper.
+Do not treat plain `cargo test` on an unconfigured MSVC shell as the reference path.
+
+```powershell
+.\scripts\cargo-gnu.ps1 test --lib
+.\scripts\cargo-gnu.ps1 test --test interface_snapshots
+```
+
+If those commands pass, the local Windows Rust/test path is healthy.
+
+## 5. Run The Smallest Sanity Check
 
 ```powershell
 .\target\debug\axc.exe check examples\hello.ax
@@ -49,7 +67,7 @@ Get-Content target\headings-demo.txt
 
 If those commands work, the local Windows compiler path is healthy.
 
-## 5. Optional: Run The Benchmark Smoke
+## 6. Optional: Run The Benchmark Smoke
 
 Windows is still the only platform that officially covers the PowerShell benchmark/orchestration layer.
 
