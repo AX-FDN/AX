@@ -20,7 +20,7 @@ AX 是一门面向自回归 Coding AI 的 AI-first 工具语言，目前处在�
 | 上下文协议 | `overview / boundaries / topology / flow / symbol / impact / evidence` 七个视图已进入主线 |
 | 项目模式 | `AX.toml + sources` 与最小 `module/import` 已落地 |
 | 代表样例 | 已固定 P2 主代表样例与宿主边界样例，并接入 `check / run / build` 回归 |
-| benchmark | export / run / score / compare / smoke / CI 已落地 |
+| benchmark | export / run / score / compare / smoke / CI 已落地，context-enabled export 已进入修复输入链 |
 | build | 当前仍是 skeleton build，不是成熟 AOT/native backend |
 | 平台 | Windows 为 full workflow，Linux 为 core support，macOS 尚未启动 |
 
@@ -61,11 +61,14 @@ AX 是一门面向自回归 Coding AI 的 AI-first 工具语言，目前处在�
 
 - 仓库内已有 repair cases、adapter spec、导出、评分、对比、smoke 与 CI
 - AX 的主张是“把语言本体和 AI 友好编译器一起做硬”，所以 benchmark 是继续条件的一部分
+- 当前 full manifest 有 `30` 个 repair case，仓库内 deterministic replay 当前可复现 `cold 23/30`、`base 25/30`、`ai 30/30`
+- 公开展示页见 [`docs/benchmark-showcase.md`](./docs/benchmark-showcase.md)
 
 ### 6. context 协议已经是对外接口，不是草图
 
 - `overview / boundaries / topology / flow / symbol / impact / evidence` 都已经有命令和 JSON
-- 当前欠缺的不是“有没有视图”，而是这些视图还没有完全进入 repair / benchmark 消费闭环
+- `export-repair-benchmark.ps1 -IncludeContext` 已能把 `overview / boundaries / evidence` 写入 repair bundle 与 prompt
+- 当前欠缺的不是“有没有视图”或“能不能进入输入链”，而是 context-enabled benchmark 还需要继续做 live-model A/B 与公开对照结果
 
 ## 当前仍在硬化、还不应被误读成完成态的部分
 
@@ -98,10 +101,11 @@ AX 是一门面向自回归 Coding AI 的 AI-first 工具语言，目前处在�
 
 1. [`README.md`](./README.md)：项目介绍与入口
 2. [`docs/feature-matrix.md`](./docs/feature-matrix.md)：当前能力面、边界和非目标
-3. [`docs/repair-benchmark.md`](./docs/repair-benchmark.md)：benchmark 证据链
-4. [`PLAN.md`](./PLAN.md)：全项目闭环计划与阶段门槛
-5. [`WORKLIST.md`](./WORKLIST.md)：当前施工项
-6. [`ARCHIVE.md`](./ARCHIVE.md)：已完成事项归档
+3. [`docs/benchmark-showcase.md`](./docs/benchmark-showcase.md)：当前可复现 benchmark 展示页
+4. [`docs/repair-benchmark.md`](./docs/repair-benchmark.md)：benchmark 证据链
+5. [`PLAN.md`](./PLAN.md)：全项目闭环计划与阶段门槛
+6. [`WORKLIST.md`](./WORKLIST.md)：当前施工项
+7. [`ARCHIVE.md`](./ARCHIVE.md)：已完成事项归档
 
 ## 当前一句话判断
 

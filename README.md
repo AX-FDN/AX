@@ -28,6 +28,7 @@ AX 关注的不只是“模型能不能写出代码”，更关注三件更硬�
 | --- | --- |
 | 项目是什么、为什么值得关注 | [`README.md`](./README.md) |
 | 当前已经做到哪了 | [`PROJECT_FACTS.md`](./PROJECT_FACTS.md) |
+| 当前 benchmark 证据链 | [`docs/benchmark-showcase.md`](./docs/benchmark-showcase.md) |
 | 全项目按什么阶段推进 | [`PLAN.md`](./PLAN.md) |
 | 现在具体在做什么 | [`WORKLIST.md`](./WORKLIST.md) |
 | 哪些事情已经做完 | [`ARCHIVE.md`](./ARCHIVE.md) |
@@ -60,10 +61,12 @@ AX 关注的不只是“模型能不能写出代码”，更关注三件更硬�
 | 对自回归模型原生友好 | 显式类型、较少等价写法、较少隐式规则、`fmt` 驱动的规范化输出 | 更容易提高首轮生成的一次通过率 |
 | 编译器反馈可直接给 Agent 消费 | `rule_id`、`repair_goal`、`fixits`、`context_snippets` 等字段已经进入输出层 | 错误反馈可直接进入自动化修复链 |
 | 架构上下文可直接给 Agent 消费 | `overview / topology / boundaries / flow / symbol / impact / evidence` 七个稳定视图承载同一套六层语义协议 | 多文件项目里的结构理解、边界识别和修改落点判断更稳定 |
-| 修复链不是口头承诺，而是协议闭环 | diagnostics、上下文协议、repair contract、benchmark 共用同一条输入输出链 | 修复成功率、回归率和上下文价值都可以被实际测量 |
+| 修复链不是口头承诺，而是协议闭环 | diagnostics、上下文协议、repair contract、benchmark 共用同一条输入输出链；`-IncludeContext` 已能把 context bundle 导入 repair export | 修复成功率、回归率和上下文价值都可以被实际测量 |
 | 真工具样例已经进入仓库主线 | 仓库里已经有 workspace audit、release snapshot、search report、directory index 等样例 | 可以直接观察 AX 在真实工具型任务上的表达能力 |
 | 多文件工程组织开始成型 | `AX.toml + sources` 已经稳定，第一阶段 `import/module` 已接入主线 | foundation 代码与项目私有逻辑开始拥有清晰边界 |
 | benchmark 证据链是一等公民 | repair cases、adapter spec、export、score、compare、smoke、CI 都在仓库里 | 项目价值可以靠数据、回放和对比来建立 |
+
+当前仓库内可复现 benchmark 快照见 [`docs/benchmark-showcase.md`](./docs/benchmark-showcase.md)：full manifest 当前有 `30` 个 repair case，deterministic replay 对比为 `cold 23/30`、`base 25/30`、`ai 30/30`。这证明的是 AX 内部修复证据链已经成立；跨语言、跨模型 live benchmark 仍是下一阶段公开证明。
 
 ## AX 的真实优势与应用场景
 

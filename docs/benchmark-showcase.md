@@ -1,122 +1,186 @@
 # AX Benchmark Showcase
 
-This page is the shortest honest answer to one question:
+> 这页回答一个很具体的问题：AX 现在已经能复现什么证据，证据怎么跑，哪些结论还不能越界说。
 
-> What has AX already proved, how was it measured, and what is still unproven?
+AX 的 benchmark 不是宣传页，而是项目的验证层。它用固定坏例子、固定导出物、固定 adapter 契约和固定评分脚本，验证一件事：
 
-## Executive Summary
+- 结构化 diagnostics、AI 修复协议和架构上下文，是否真的能进入同一条可复跑的修复链。
 
-Current reproduced snapshot on `2026-04-24`:
+## 当前快照
 
-| Item | Current value |
+当前仓库快照：`2026-04-27`
+
+| 项目 | 当前值 |
 | --- | --- |
-| Manifest | [`../benchmarks/repair-cases.json`](../benchmarks/repair-cases.json) |
-| Total cases | `26` |
+| Full manifest | [`../benchmarks/repair-cases.json`](../benchmarks/repair-cases.json) |
+| Smoke manifest | [`../benchmarks/repair-cases-smoke.json`](../benchmarks/repair-cases-smoke.json) |
+| Full cases | `30` |
+| Smoke cases | `11` |
 | Compare ladder | `cold -> base -> ai` |
-| `base` result | `21/26` |
-| `ai` result | `26/26` |
+| `cold` replay result | `23/30` |
+| `base` replay result | `25/30` |
+| `ai` replay result | `30/30` |
 | `base -> ai` lift | `+5` repaired cases |
-| `base -> ai` lift | `+19.23` percentage points |
+| `base -> ai` lift | `+16.67` percentage points |
+| `cold -> ai` lift | `+7` repaired cases |
+| Context-enabled export | `-IncludeContext` 已支持 |
 
-This is already a real evidence loop.
-It is **not yet** the final public proof against Rust / Go / Python subsets.
+这个结果证明的是：AX 仓库内部已经有一条可复现的修复证据链。它还不是跨语言、跨模型、公开 live-model benchmark 的最终结论。
 
-## What This Page Shows
+## 证据链结构
 
-This page summarizes the current verified AX-internal evidence chain:
+```mermaid
+flowchart LR
+    A["Broken AX cases"] --> B["export-repair-benchmark.ps1"]
+    B --> C["bundle.cold.json"]
+    B --> D["bundle.base.json"]
+    B --> E["bundle.ai.json"]
+    B --> F["prompt.*.md"]
+    G["axc context<br/>overview / boundaries / evidence"] --> B
+    C --> H["repair adapter"]
+    D --> H
+    E --> H
+    F --> H
+    H --> I["candidate AX source"]
+    I --> J["score-repair-benchmark.ps1"]
+    J --> K["compare reports"]
+```
 
-- a fixed repair manifest
-- deterministic replay candidates
-- stable export / run / score / compare scripts
-- reproduced comparison results from the current repository state
+当前最重要的新增事实是：`context` 不再只是独立阅读接口。开启 `-IncludeContext` 后，repair bundle 会带上 `context_bundle`，prompt 也会带上 `AX context bundle` 段落。
 
-It does **not** claim that AX has already beaten Rust, Go, or Python subsets in a public cross-language benchmark.
-That is the next benchmark step, not a finished result.
+首批 context 输入壳层固定为：
+
+| View | 作用 | 为什么先选它 |
+| --- | --- | --- |
+| `overview` | 给 agent 快速定位项目/源码入口、规模、核心 symbol | 低风险、稳定、所有 case 都能消费 |
+| `boundaries` | 标出宿主边界使用，如 `fs / process / env / argv` | 防止模型在修复时误动宿主边界 |
+| `evidence` | 给出相关 examples / tests / benchmarks / expected artifacts | 把修复自然接回验证链 |
+
+`evidence` 是 symbol-scoped 视图，导出时优先读 manifest 里的 `cases[].context_symbol`，缺省回退到 `main`。
 
 ## Case Set
 
-The current full manifest lives in [`../benchmarks/repair-cases.json`](../benchmarks/repair-cases.json).
+当前 full manifest 有 `30` 个 case。
 
-### Category Breakdown
+| Category | Cases | `cold` replay | `base` replay | `ai` replay | 代表 case |
+| --- | ---: | ---: | ---: | ---: | --- |
+| `syntax` | `3` | `3/3` | `3/3` | `3/3` | `missing_semicolon_basic`, `project_helper_missing_semicolon`, `missing_paren_condition` |
+| `semantic` | `19` | `14/19` | `16/19` | `19/19` | `type_mismatch_bool_from_int`, `missing_struct_literal_field`, `slice_assignment_read_only` |
+| `runtime` | `5` | `3/5` | `3/5` | `5/5` | `index_out_of_bounds_runtime`, `division_by_zero_runtime`, `missing_file_read_runtime` |
+| `module` | `2` | `2/2` | `2/2` | `2/2` | `import_declaration_unsupported`, `module_declaration_unsupported` |
+| `unsupported` | `1` | `1/1` | `1/1` | `1/1` | `empty_array_literal_unsupported` |
 
-| Category | Cases | Current `base` | Current `ai` | Representative cases |
-| --- | ---: | ---: | ---: | --- |
-| `syntax` | 2 | 2/2 | 2/2 | `missing_semicolon_basic`, `missing_paren_condition` |
-| `semantic` | 19 | 16/19 | 19/19 | `type_mismatch_bool_from_int`, `missing_struct_literal_field`, `slice_assignment_read_only` |
-| `runtime` | 2 | 0/2 | 2/2 | `index_out_of_bounds_runtime`, `division_by_zero_runtime` |
-| `unsupported` | 3 | 3/3 | 3/3 | `import_declaration_unsupported`, `module_declaration_unsupported`, `empty_array_literal_unsupported` |
+这批 case 已经覆盖：
 
-### Why This Case Mix Matters
+- 语法恢复：缺分号、缺括号、project-backed 文件错误
+- 语义错误：类型不匹配、缺字段、未知类型、不可变写入、slice 误用
+- 运行期错误：数组越界、除零、缺文件、缺目录、子进程非零退出
+- 模块与不支持表面：import/module 边界、空数组字面量策略
 
-The current manifest is already wider than trivial parser demos.
-It covers:
+这不是最终 workload，但已经不只是 `hello world + type mismatch`。
 
-- simple syntax recovery
-- semantic mismatches around types and shapes
-- runtime failures that passed `check`
-- explicit unsupported-surface cases
+## 方法说明
 
-That matters because AX is trying to prove a repair protocol, not only a prettier parser error.
+当前展示结果使用 deterministic replay，而不是直接调用 live model。
 
-## Method
-
-The current reproduced result is a deterministic replay comparison.
-That is deliberate.
-
-| Dimension | Current setup |
+| 维度 | 当前设置 |
 | --- | --- |
-| Snapshot date | `2026-04-24` |
-| Export input | fixed manifest + broken AX source files |
-| Feedback modes | `cold`, `base`, `ai` |
-| Benchmark budget | one repair attempt per case per mode |
-| Runner in reproduced report | [`../scripts/replay-repair-adapter.ps1`](../scripts/replay-repair-adapter.ps1) |
-| Shared passing baseline | [`../benchmarks/repair-candidates/compare/shared`](../benchmarks/repair-candidates/compare/shared) |
-| Mode-specific overrides | [`../benchmarks/repair-candidates/compare/cold`](../benchmarks/repair-candidates/compare/cold), [`../benchmarks/repair-candidates/compare/base`](../benchmarks/repair-candidates/compare/base) |
-| Scoring | [`../scripts/score-repair-benchmark.ps1`](../scripts/score-repair-benchmark.ps1) |
-| Pass condition | candidate finishes with no remaining check diagnostics; `run` cases also fail if runtime diagnostics remain |
+| Export script | [`../scripts/export-repair-benchmark.ps1`](../scripts/export-repair-benchmark.ps1) |
+| Runner | [`../scripts/replay-repair-adapter.ps1`](../scripts/replay-repair-adapter.ps1) |
+| Score script | [`../scripts/score-repair-benchmark.ps1`](../scripts/score-repair-benchmark.ps1) |
+| Feedback compare | [`../scripts/compare-repair-feedback.ps1`](../scripts/compare-repair-feedback.ps1) |
+| Mode compare | [`../scripts/compare-repair-modes.ps1`](../scripts/compare-repair-modes.ps1) |
+| Passing baseline | [`../benchmarks/repair-candidates/compare/shared`](../benchmarks/repair-candidates/compare/shared) |
+| Cold overrides | [`../benchmarks/repair-candidates/compare/cold`](../benchmarks/repair-candidates/compare/cold) |
+| Base overrides | [`../benchmarks/repair-candidates/compare/base`](../benchmarks/repair-candidates/compare/base) |
+| Attempt budget | 每个 case 每个 mode 一次候选 |
+| Pass condition | 修复后 `check` 无诊断；`run` case 还必须不再产生 runtime diagnostics |
 
-This setup isolates protocol drift from live-model variance.
-It answers:
+为什么先用 replay：
 
-- did the benchmark assets stay stable?
-- did the feedback contract keep its intended shape?
-- is the measured lift still present when only feedback mode changes?
+- replay 能把 benchmark 资产、评分脚本和 feedback contract 固定住
+- replay 不受 live model 温度、网络、版本漂移影响
+- replay 能清楚表达 `cold / base / ai` 三种输入差异
 
-## Results Summary
+它测的是协议链路是否稳定，不是“某个模型今天表现如何”。
+
+## 当前结果
 
 ### Full Compare Replay
 
-Using the committed shared replay baseline plus base-only overrides:
+| Mode | Passed | Failed | 说明 |
+| --- | ---: | ---: | --- |
+| `cold` | `23/30` | `7/30` | 只依赖 prompt 与坏源码，不给结构化 diagnostics |
+| `base` | `25/30` | `5/30` | 给基础 JSON diagnostics |
+| `ai` | `30/30` | `0/30` | 给 `--json --ai` 的 rule_id、repair_goal、fixits、context snippets |
 
-- `cold`: `19/26` passed
-- `base`: `21/26` passed
-- `ai`: `26/26` passed
-- `base -> ai` lift: `+5` repaired cases
-- `base -> ai` lift: `+19.23` percentage points
-- `cold -> ai` lift: `+7` repaired cases
+`base -> ai` 当前 lift 来自这些 case：
 
-### Improved Cases In `base -> ai`
+| Case | Category | 为什么有代表性 |
+| --- | --- | --- |
+| `type_mismatch_bool_from_int` | `semantic` | 需要明确 declared type 与 initializer 的修复方向 |
+| `missing_struct_literal_field` | `semantic` | 需要知道 struct literal 缺哪一个字段 |
+| `slice_assignment_read_only` | `semantic` | 需要知道 slice 是只读 view，应该改原数组或改策略 |
+| `index_out_of_bounds_runtime` | `runtime` | `check` 已通过，修复必须理解 runtime bounds |
+| `division_by_zero_runtime` | `runtime` | `check` 已通过，修复必须理解 runtime divisor 约束 |
 
-The current reproduced `base -> ai` lift comes from:
+`cold -> ai` 额外 lift 来自：
 
-- `type_mismatch_bool_from_int`
-- `missing_struct_literal_field`
-- `index_out_of_bounds_runtime`
-- `division_by_zero_runtime`
-- `slice_assignment_read_only`
+| Case | Category | 说明 |
+| --- | --- | --- |
+| `len_builtin_non_countable_value` | `semantic` | 需要知道 `len` 的合法输入族 |
+| `unknown_type_missing` | `semantic` | 需要把未知类型替换为已声明类型，或补声明 |
 
-### Category-Level Lift
+## Context-Enabled Export
 
-The strongest visible gains in the current snapshot are:
+开启 context bundle：
 
-- runtime repair: `0/2 -> 2/2`
-- semantic repair: `16/19 -> 19/19`
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\export-repair-benchmark.ps1 `
+  -ManifestPath benchmarks\repair-cases-smoke.json `
+  -OutputDir .ax-ai\repair-benchmark\context-smoke `
+  -IncludeContext `
+  -SkipBuild
+```
 
-That is important because it means the lift is not concentrated only in punctuation mistakes.
+导出的 `bundle.ai.json` 会出现：
 
-## Failure Sample
+```json
+{
+  "schema_version": 1,
+  "case_id": "project_helper_missing_semicolon",
+  "feedback_mode": "ai_json",
+  "context_bundle": {
+    "schema_version": 1,
+    "target": "benchmarks/repair-projects/helper_missing_semicolon",
+    "symbol": "main",
+    "views": {
+      "overview": { "schema_version": 1, "view": "overview" },
+      "boundaries": { "schema_version": 1, "view": "boundaries" },
+      "evidence": { "schema_version": 1, "view": "evidence" }
+    }
+  }
+}
+```
 
-One useful failure sample is [`../examples/slice_assignment.ax`](../examples/slice_assignment.ax):
+这一步的意义很大：AX 的护城河不再是几份孤立文档，而是进入同一条机器可消费链路。
+
+| 链路输入 | 是否已在 bundle/prompt 中成立 |
+| --- | --- |
+| Broken source | 是 |
+| Project snapshot | project-backed case 已支持 |
+| Base diagnostics | 是 |
+| AI repair contract | 是 |
+| Context bundle | `-IncludeContext` 开启后支持 |
+| Scoring / compare | 是 |
+
+## 失败样例说明
+
+当前展示页必须保留失败样例，因为 AX 不能把 benchmark 做成只报喜不报忧。
+
+### `slice_assignment_read_only`
+
+坏例子：
 
 ```ax
 fn main() -> i32 {
@@ -127,119 +191,116 @@ fn main() -> i32 {
 }
 ```
 
-Base structured diagnostics on this file currently tell you:
-
-- `code: S0035`
-- message: cannot assign through slice variable `view` because slices are read-only
-- suggestion: assign through the original mutable array instead of a slice view
-
-AI-enhanced diagnostics on the same file add:
+基础 diagnostics 能说清楚“slice 只读，不能通过 `view` 写入”。AI-enhanced diagnostics 进一步给出：
 
 - `rule_id: slice_values_are_read_only`
-- a concrete `repair_goal`
-- `focus_item`
-- `relevant_spans`
-- `rule_card`
-- `fixits`
+- 明确 repair goal
+- 相关 span
+- rule card
+- fixits
 
-That is the difference AX is trying to benchmark:
+这个 case 在 `base` replay 中保持失败，在 `ai` replay 中修复成功。它代表 AX 想证明的核心差异：不是报错文字更长，而是修复目标更窄、修改半径更明确。
 
-- not just whether the compiler says "wrong"
-- but whether the repair payload narrows the fix well enough to improve a single repair attempt
+### Runtime cases
 
-## Why The Replay Baseline Matters
+`index_out_of_bounds_runtime` 和 `division_by_zero_runtime` 的价值在于：它们已经通过 `check`，失败发生在 `run`。这说明 AX 的 repair benchmark 不只测 parser/semantic，也把 runtime diagnostics 纳入同一套 AI 修复协议。
 
-The replay comparison is intentionally deterministic.
-It isolates the effect of the feedback contract and benchmark assets from live-model variance.
+## 复现命令
 
-That makes it useful for:
-
-- regression testing protocol changes
-- checking whether benchmark assets still encode the intended differences between `cold`, `base`, and `ai`
-- preventing benchmark drift from being hidden behind anecdotal model behavior
-
-For AX, this matters because the project is trying to prove:
-
-- canonical source surface
-- structured diagnostics
-- repair goals
-- focused fixits and spans
-
-Those are protocol properties.
-They need a stable baseline before they can be fairly tested against live models.
-
-## Reproduce The Current Snapshot
-
-Prerequisite:
-
-- a compiled `axc` binary is available, for example via:
+先确保 `axc` 已编译：
 
 ```powershell
-.\scripts\cargo-gnu.ps1 build
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 build
 ```
 
-Then reproduce the exported benchmark and both comparison reports:
+导出 full benchmark：
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\export-repair-benchmark.ps1 `
-  -OutputDir .ax-ai\repair-benchmark\showcase-20260424 `
+  -ManifestPath benchmarks\repair-cases.json `
+  -OutputDir .ax-ai\repair-benchmark\showcase-current `
   -SkipBuild
+```
 
+导出 context-enabled smoke benchmark：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\export-repair-benchmark.ps1 `
+  -ManifestPath benchmarks\repair-cases-smoke.json `
+  -OutputDir .ax-ai\repair-benchmark\showcase-context-smoke `
+  -IncludeContext `
+  -SkipBuild
+```
+
+复现 `base -> ai` 对比：
+
+```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -Command "& { `
   .\scripts\compare-repair-feedback.ps1 `
-    -BenchmarkDir '.ax-ai\repair-benchmark\showcase-20260424' `
+    -BenchmarkDir '.ax-ai\repair-benchmark\showcase-current' `
     -RunnerScript '.\scripts\replay-repair-adapter.ps1' `
     -RunnerExtraArgs @('-SourceDir', '.\benchmarks\repair-candidates\compare\shared', '-SourceDirBase', '.\benchmarks\repair-candidates\compare\base') `
-    -OutputDir '.ax-ai\repair-comparisons\showcase-20260424' `
-    -SkipBuild `
-}"
-
-powershell -NoProfile -ExecutionPolicy Bypass -Command "& { `
-  .\scripts\compare-repair-modes.ps1 `
-    -BenchmarkDir '.ax-ai\repair-benchmark\showcase-20260424' `
-    -RunnerScript '.\scripts\replay-repair-adapter.ps1' `
-    -RunnerExtraArgs @('-SourceDir', '.\benchmarks\repair-candidates\compare\shared', '-SourceDirCold', '.\benchmarks\repair-candidates\compare\cold', '-SourceDirBase', '.\benchmarks\repair-candidates\compare\base') `
-    -OutputDir '.ax-ai\repair-mode-comparisons\showcase-20260424' `
+    -OutputDir '.ax-ai\repair-comparisons\showcase-current' `
     -SkipBuild `
 }"
 ```
 
-The resulting machine-readable reports are written to:
+复现 `cold -> base -> ai` 对比：
 
-- `.ax-ai\repair-comparisons\showcase-20260424\comparison.json`
-- `.ax-ai\repair-mode-comparisons\showcase-20260424\comparison.json`
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -Command "& { `
+  .\scripts\compare-repair-modes.ps1 `
+    -BenchmarkDir '.ax-ai\repair-benchmark\showcase-current' `
+    -RunnerScript '.\scripts\replay-repair-adapter.ps1' `
+    -RunnerExtraArgs @('-SourceDir', '.\benchmarks\repair-candidates\compare\shared', '-SourceDirCold', '.\benchmarks\repair-candidates\compare\cold', '-SourceDirBase', '.\benchmarks\repair-candidates\compare\base') `
+    -OutputDir '.ax-ai\repair-mode-comparisons\showcase-current' `
+    -SkipBuild `
+}"
+```
 
-For the underlying workflow details, see [`repair-benchmark.md`](./repair-benchmark.md).
+结果文件：
 
-## What This Evidence Proves
+- `.ax-ai\repair-comparisons\showcase-current\comparison.json`
+- `.ax-ai\repair-mode-comparisons\showcase-current\comparison.json`
 
-This benchmark does prove that AX already has a reproducible internal evidence chain for its repair protocol:
+底层流程见 [`repair-benchmark.md`](./repair-benchmark.md)，adapter 契约见 [`repair-adapter-spec.md`](./repair-adapter-spec.md)。
 
-- the benchmark cases are fixed and versioned
-- the diagnostics contract is stable enough to replay
-- `--json --ai` adds measurable repair lift over base diagnostics on the same benchmark snapshot
-- the lift is visible in runtime and semantic failures, not only trivial syntax cases
+## 目前已经证明什么
 
-## What It Does Not Yet Prove
+当前证据已经能证明：
 
-This benchmark does **not** yet prove the final external thesis:
+- AX 有稳定 repair case manifest
+- AX 能导出 `cold / base / ai` 三种修复输入
+- `--json --ai` 比 base diagnostics 提供更多可机器消费的修复信息
+- replay compare 能稳定复现 `base -> ai` 的 lift
+- context bundle 已经能进入 repair export 链路
+- runtime diagnostics 已经纳入修复 benchmark，不只测静态错误
 
-- it does not compare AX against Rust / Go / Python subsets
-- it does not yet measure live multi-model performance across providers
-- it does not yet prove that AX is universally better for all coding tasks
+## 目前还没有证明什么
 
-So the current honest claim is:
+当前证据不能越界说：
 
-> AX already has a hard, reproducible repair-evidence loop inside its own benchmark harness.
+- 不能说 AX 已经战胜 Rust / Go / Python 子集
+- 不能说 AX 对所有 coding model 都有稳定收益
+- 不能说 live model benchmark 已经完成
+- 不能说当前 case 集已经代表真实世界所有任务
+- 不能说 `context_bundle` 已经完成最终效果评估；它目前完成的是输入链路，不是收益结论
 
-That is enough to justify the project as an engineering protocol experiment.
-It is not yet the final proof that AX wins against existing language subsets.
+所以当前最严谨的对外说法是：
 
-## Next Public Proof To Add
+> AX 已经拥有可复现的仓库内 repair evidence loop，并且已把 structured diagnostics、AI repair contract 与 context bundle 接进同一条修复输入链。
 
-The next benchmark step should be explicit and narrow:
+## 下一步公开证明
 
-1. Fix a small cross-language task set.
-2. Compare AX against constrained Rust / Go / Python subsets.
-3. Hold model, retry budget, and tool access constant.
-4. Measure pass@1, single-round repair rate, token cost, and output stability.
+下一批 benchmark 要从“仓库内 replay 证据”升级到“外部可比较证据”：
+
+1. 固定 `10-20` 个 cross-language 小任务。
+2. 选择 AX、Rust subset、Go subset、TypeScript/Python subset 做对照。
+3. 固定同一个模型、同一轮数、同一工具权限。
+4. 测 `pass@1`、单轮修复率、平均回合数、输入/输出 token、格式漂移率。
+5. 单独做一组 `with context_bundle / without context_bundle` A/B。
+
+这一步完成前，AX 的公开表述必须继续区分：
+
+- 仓库内已复现事实
+- 外部尚未完成对照

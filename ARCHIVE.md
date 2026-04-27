@@ -25,6 +25,14 @@
 
 ### 2026-04-27
 
+- `A-2026-04-27-11` `[P1]` benchmark 展示页升级为当前可引用事实页
+  - 结果：
+    - `docs/benchmark-showcase.md` 已更新到当前 `30` 个 full repair case
+    - 展示页写清 `cold 23/30`、`base 25/30`、`ai 30/30` 的 deterministic replay 结果
+    - 展示页补充 `-IncludeContext` 的 context-enabled export 链路
+    - 展示页明确区分“仓库内已复现事实”和“跨语言 / live model 尚未完成对照”
+    - README、PROJECT_FACTS、docs 入口已指向展示页
+
 - `A-2026-04-27-10` `[P1]` context 进入 repair benchmark 导出链
   - 结果：
     - `scripts/export-repair-benchmark.ps1` 新增可选 `-IncludeContext` 路径，默认导出契约保持不变
