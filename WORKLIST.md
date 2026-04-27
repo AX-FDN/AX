@@ -106,7 +106,7 @@
 - [x] `3` 个主代表样例被正式固定
 - [x] `2` 个宿主边界样例被正式固定
 - [x] 主代表样例和宿主边界样例都有稳定 `check / run / build` 验证链
-- [ ] `foundation/` 不再依赖明显的一次性 glue helper
+- [x] `foundation/` 不再依赖明显的一次性 glue helper
 - [x] `P2` 语法优先级顺序已经冻结，不再一边补样例一边随意跳语法点
 - [x] 至少一项 `P2` 语法缺口完成 scope freeze，并进入主线闭环准备
 
@@ -246,7 +246,7 @@
     - 验证目标写清楚
     - 对应宿主能力有固定回归
 
-- [ ] `W-P2-04` 收紧 `foundation/` helper，清理一次性辅助层
+- [x] `W-P2-04` 收紧 `foundation/` helper，清理一次性辅助层
   - 目标：把当前 helper 分成“可复用、继续孵化、应该删除”三类。
   - 依赖：`W-P2-01`、`W-P2-03`
   - 产物：
@@ -255,9 +255,13 @@
     - 主代表样例不再依赖一次性 glue helper
     - 下一批能力缺口来自真实样例和 repair case，而不是拍脑袋
 
-- [ ] `W-P2-05` 从样例与 repair case 反推下一批最值钱缺口
+- [x] `W-P2-05` 从样例与 repair case 反推下一批最值钱缺口
   - 目标：不是先扩语法面，而是先判断“下一刀最该补的是 `match` 第二刀、payload enum 深化，还是更小的表达/宿主缺口”。
   - 依赖：`W-P2-01` 到 `W-P2-04`
+  - 当前结论：
+    - 第一优先级仍是 `match` 第二刀，并已通过 bootstrap 样例迁移和回归启动
+    - 第二优先级仍是 payload enum 深化，但只限 unit variant + 单 payload variant 做稳
+    - 更小表达缺口当前不主动插队；宿主压力优先回到 `foundation/`、runtime diagnostics 或后续 `std.*` 路线
   - 完成标准：
     - 结论来自代表样例与 repair case
     - 一旦决定补能力，必须能立刻回写样例或修复链

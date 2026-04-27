@@ -25,6 +25,12 @@
 
 ### 2026-04-27
 
+- `A-2026-04-27-07` `[P2]` `foundation/` helper 分类收口
+  - 结果：
+    - `docs/foundation-inventory.md` 已记录当前 helper 分类、保留理由、P3 迁移前置和新增 helper 准入规则
+    - 当前 `foundation/` 被定义为 Std-0 孵化层，不在 P2 直接改名为 `std.*`
+    - `WORKLIST.md` 已把 `W-P2-04` 标记为完成，后续标准库冻结进入 P3 前置项
+
 - `A-2026-04-27-06` `[P2]` 代表样例与宿主边界样例固定
   - 结果：
     - `docs/representative-samples.md` 已定义 `3` 个主代表样例与 `2` 个宿主边界样例

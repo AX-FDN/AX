@@ -36,6 +36,8 @@
   定义 Windows / Linux / macOS 当前支持层级与边界。
 - [`host-runtime-boundary.md`](./host-runtime-boundary.md)
   解释 Rust 宿主原语、AX 接口层、project-private 库和未来包系统之间的边界。
+- [`foundation-inventory.md`](./foundation-inventory.md)
+  记录 P2 阶段 `foundation/` helper 的分类与 P3 标准库迁移前置判断。
 - [`import-module-minimal-design.md`](./import-module-minimal-design.md)
   固定第一阶段 `import / module` 设计。
 - [`repair-benchmark.md`](./repair-benchmark.md)
