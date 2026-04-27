@@ -1,0 +1,327 @@
+{
+  "schema_version": 1,
+  "view": "boundaries",
+  "subject": {
+    "kind": "project",
+    "path": "examples/project_workspace_search_report",
+    "entry": "examples/project_workspace_search_report/src/main.ax",
+    "project_name": "project_workspace_search_report"
+  },
+  "facts": {
+    "host_boundary_classes": [
+      "argv",
+      "filesystem",
+      "stdout"
+    ],
+    "unit_boundary_usage": [
+      {
+        "path": "foundation/cli.ax",
+        "module_path": "foundation.cli",
+        "is_entry": false,
+        "function_count": 9,
+        "type_count": 0,
+        "host_classes": [
+          "filesystem",
+          "stdout"
+        ],
+        "host_builtins": [
+          "fs_create_dir_all",
+          "fs_is_dir",
+          "fs_is_file",
+          "fs_remove_dir_all",
+          "println"
+        ],
+        "host_call_count": 9,
+        "filesystem_write_builtins": [
+          "fs_create_dir_all",
+          "fs_remove_dir_all"
+        ]
+      },
+      {
+        "path": "foundation/file_kind.ax",
+        "module_path": "foundation.file_kind",
+        "is_entry": false,
+        "function_count": 4,
+        "type_count": 0,
+        "host_classes": [],
+        "host_builtins": [],
+        "host_call_count": 0,
+        "filesystem_write_builtins": []
+      },
+      {
+        "path": "foundation/report.ax",
+        "module_path": "foundation.report",
+        "is_entry": false,
+        "function_count": 8,
+        "type_count": 0,
+        "host_classes": [],
+        "host_builtins": [],
+        "host_call_count": 0,
+        "filesystem_write_builtins": []
+      },
+      {
+        "path": "foundation/search.ax",
+        "module_path": "foundation.search",
+        "is_entry": false,
+        "function_count": 2,
+        "type_count": 1,
+        "host_classes": [],
+        "host_builtins": [],
+        "host_call_count": 0,
+        "filesystem_write_builtins": []
+      },
+      {
+        "path": "foundation/text.ax",
+        "module_path": "foundation.text",
+        "is_entry": false,
+        "function_count": 2,
+        "type_count": 1,
+        "host_classes": [],
+        "host_builtins": [],
+        "host_call_count": 0,
+        "filesystem_write_builtins": []
+      },
+      {
+        "path": "foundation/workspace.ax",
+        "module_path": "foundation.workspace",
+        "is_entry": false,
+        "function_count": 4,
+        "type_count": 0,
+        "host_classes": [],
+        "host_builtins": [],
+        "host_call_count": 0,
+        "filesystem_write_builtins": []
+      },
+      {
+        "path": "examples/project_workspace_search_report/lib/file_search.ax",
+        "module_path": "lib.file_search",
+        "is_entry": false,
+        "function_count": 2,
+        "type_count": 1,
+        "host_classes": [
+          "filesystem"
+        ],
+        "host_builtins": [
+          "fs_file_size",
+          "fs_is_dir",
+          "fs_is_file",
+          "fs_read_dir",
+          "fs_read_to_string"
+        ],
+        "host_call_count": 5,
+        "filesystem_write_builtins": []
+      },
+      {
+        "path": "examples/project_workspace_search_report/lib/report.ax",
+        "module_path": "lib.report",
+        "is_entry": false,
+        "function_count": 2,
+        "type_count": 0,
+        "host_classes": [],
+        "host_builtins": [],
+        "host_call_count": 0,
+        "filesystem_write_builtins": []
+      },
+      {
+        "path": "examples/project_workspace_search_report/lib/search_totals.ax",
+        "module_path": "lib.search_totals",
+        "is_entry": false,
+        "function_count": 2,
+        "type_count": 1,
+        "host_classes": [],
+        "host_builtins": [],
+        "host_call_count": 0,
+        "filesystem_write_builtins": []
+      },
+      {
+        "path": "examples/project_workspace_search_report/src/main.ax",
+        "is_entry": true,
+        "function_count": 1,
+        "type_count": 0,
+        "host_classes": [
+          "argv",
+          "filesystem",
+          "stdout"
+        ],
+        "host_builtins": [
+          "argv_get",
+          "argv_len",
+          "fs_read_dir",
+          "fs_write_string",
+          "println"
+        ],
+        "host_call_count": 7,
+        "filesystem_write_builtins": [
+          "fs_write_string"
+        ]
+      }
+    ]
+  },
+  "hints": {
+    "host_heavy_units": [
+      {
+        "path": "foundation/cli.ax",
+        "module_path": "foundation.cli",
+        "host_classes": [
+          "filesystem",
+          "stdout"
+        ],
+        "host_builtins": [
+          "fs_create_dir_all",
+          "fs_is_dir",
+          "fs_is_file",
+          "fs_remove_dir_all",
+          "println"
+        ],
+        "reason": "touches filesystem mutation builtins"
+      },
+      {
+        "path": "examples/project_workspace_search_report/lib/file_search.ax",
+        "module_path": "lib.file_search",
+        "host_classes": [
+          "filesystem"
+        ],
+        "host_builtins": [
+          "fs_file_size",
+          "fs_is_dir",
+          "fs_is_file",
+          "fs_read_dir",
+          "fs_read_to_string"
+        ],
+        "reason": "concentrates repeated filesystem access"
+      },
+      {
+        "path": "examples/project_workspace_search_report/src/main.ax",
+        "host_classes": [
+          "argv",
+          "filesystem",
+          "stdout"
+        ],
+        "host_builtins": [
+          "argv_get",
+          "argv_len",
+          "fs_read_dir",
+          "fs_write_string",
+          "println"
+        ],
+        "reason": "touches filesystem mutation builtins"
+      }
+    ],
+    "safe_logic_units": [
+      {
+        "path": "foundation/file_kind.ax",
+        "module_path": "foundation.file_kind",
+        "function_count": 4,
+        "type_count": 0,
+        "reason": "no argv/env/process/filesystem/stdout builtins observed"
+      },
+      {
+        "path": "foundation/report.ax",
+        "module_path": "foundation.report",
+        "function_count": 8,
+        "type_count": 0,
+        "reason": "no argv/env/process/filesystem/stdout builtins observed"
+      },
+      {
+        "path": "foundation/search.ax",
+        "module_path": "foundation.search",
+        "function_count": 2,
+        "type_count": 1,
+        "reason": "no argv/env/process/filesystem/stdout builtins observed"
+      },
+      {
+        "path": "foundation/text.ax",
+        "module_path": "foundation.text",
+        "function_count": 2,
+        "type_count": 1,
+        "reason": "no argv/env/process/filesystem/stdout builtins observed"
+      },
+      {
+        "path": "foundation/workspace.ax",
+        "module_path": "foundation.workspace",
+        "function_count": 4,
+        "type_count": 0,
+        "reason": "no argv/env/process/filesystem/stdout builtins observed"
+      },
+      {
+        "path": "examples/project_workspace_search_report/lib/report.ax",
+        "module_path": "lib.report",
+        "function_count": 2,
+        "type_count": 0,
+        "reason": "no argv/env/process/filesystem/stdout builtins observed"
+      },
+      {
+        "path": "examples/project_workspace_search_report/lib/search_totals.ax",
+        "module_path": "lib.search_totals",
+        "function_count": 2,
+        "type_count": 1,
+        "reason": "no argv/env/process/filesystem/stdout builtins observed"
+      }
+    ],
+    "constraint_candidates": [
+      {
+        "kind": "keep_host_free",
+        "targets": [
+          "foundation/file_kind.ax"
+        ],
+        "reason": "support unit currently stays pure enough to keep free of host-boundary builtins"
+      },
+      {
+        "kind": "keep_host_free",
+        "targets": [
+          "foundation/report.ax"
+        ],
+        "reason": "support unit currently stays pure enough to keep free of host-boundary builtins"
+      },
+      {
+        "kind": "keep_host_free",
+        "targets": [
+          "foundation/search.ax"
+        ],
+        "reason": "support unit currently stays pure enough to keep free of host-boundary builtins"
+      },
+      {
+        "kind": "keep_host_free",
+        "targets": [
+          "foundation/text.ax"
+        ],
+        "reason": "support unit currently stays pure enough to keep free of host-boundary builtins"
+      },
+      {
+        "kind": "keep_host_free",
+        "targets": [
+          "foundation/workspace.ax"
+        ],
+        "reason": "support unit currently stays pure enough to keep free of host-boundary builtins"
+      },
+      {
+        "kind": "keep_host_free",
+        "targets": [
+          "examples/project_workspace_search_report/lib/report.ax"
+        ],
+        "reason": "support unit currently stays pure enough to keep free of host-boundary builtins"
+      },
+      {
+        "kind": "keep_host_free",
+        "targets": [
+          "examples/project_workspace_search_report/lib/search_totals.ax"
+        ],
+        "reason": "support unit currently stays pure enough to keep free of host-boundary builtins"
+      }
+    ]
+  },
+  "validation": {
+    "diagnostic_count": 0,
+    "partial": false,
+    "recommended_commands": [
+      "axc check examples/project_workspace_search_report",
+      "axc context boundaries examples/project_workspace_search_report --json",
+      "axc run examples/project_workspace_search_report"
+    ],
+    "notes": [
+      "P0 host-boundary classification tracks builtin calls only",
+      "path and string helpers stay outside host-boundary classes in this view",
+      "context built from a clean diagnostic pass"
+    ]
+  }
+}

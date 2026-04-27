@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "view": "overview",
+  "subject": {
+    "kind": "project",
+    "path": "examples/project_module_smoke",
+    "entry": "examples/project_module_smoke/src/main.ax",
+    "project_name": "project_module_smoke"
+  },
+  "facts": {
+    "project_name": "project_module_smoke",
+    "entry": "examples/project_module_smoke/src/main.ax",
+    "module_mode": true,
+    "source_roots": [
+      "lib"
+    ],
+    "summary": {
+      "source_unit_count": 2,
+      "support_unit_count": 1,
+      "module_count": 1,
+      "import_count": 1,
+      "function_count": 2,
+      "struct_count": 1,
+      "enum_count": 0,
+      "type_count": 1,
+      "diagnostic_count": 0
+    },
+    "source_units": [
+      {
+        "path": "examples/project_module_smoke/lib/report.ax",
+        "module_path": "lib.report",
+        "is_entry": false,
+        "imports": [],
+        "function_count": 1,
+        "type_count": 1
+      },
+      {
+        "path": "examples/project_module_smoke/src/main.ax",
+        "is_entry": true,
+        "imports": [
+          "lib.report"
+        ],
+        "function_count": 1,
+        "type_count": 0
+      }
+    ]
+  },
+  "hints": {
+    "entrypoints": [
+      "main"
+    ],
+    "support_modules": [
+      "lib.report"
+    ],
+    "core_symbols": [
+      "main",
+      "Summary",
+      "build_summary"
+    ]
+  },
+  "validation": {
+    "diagnostic_count": 0,
+    "partial": false,
+    "recommended_commands": [
+      "axc check examples/project_module_smoke",
+      "axc context overview examples/project_module_smoke --json",
+      "axc context boundaries examples/project_module_smoke --json"
+    ],
+    "notes": [
+      "overview facts come from parsed source units and top-level items",
+      "context built from a clean diagnostic pass"
+    ]
+  }
+}

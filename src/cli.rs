@@ -6,6 +6,7 @@ use crate::build::{
     BuildOptions, build_input_from_project, build_input_from_source, build_program,
     default_output_dir,
 };
+use crate::context::{ContextView, render_context_json};
 use crate::diagnostics::render_diagnostics;
 use crate::formatter::format_source;
 use crate::frontend::{analyze_with_project, check_only_with_project};
@@ -29,6 +30,7 @@ pub fn run_cli(args: Vec<String>) -> i32 {
         "build" => run_build(rest),
         "run" => run_run(rest),
         "fmt" => run_fmt(rest),
+        "context" => run_context_command(rest),
         "--help" | "-h" | "help" => {
             println!("{}", usage());
             0
@@ -377,6 +379,37 @@ fn run_fmt(args: Vec<String>) -> i32 {
     format_single_source(&input.source)
 }
 
+fn run_context_command(args: Vec<String>) -> i32 {
+    let options = match parse_context_args(args) {
+        Ok(options) => options,
+        Err(error) => {
+            eprintln!("{error}\nusage: axc context <overview|boundaries> <path> [--json]");
+            return 2;
+        }
+    };
+
+    let input = match load_input(&options.file) {
+        Ok(input) => input,
+        Err(error) => {
+            eprintln!("{error}");
+            return 1;
+        }
+    };
+
+    let output = check_only_with_project(&input.source, input.project.as_ref());
+    print!(
+        "{}",
+        render_context_json(
+            options.view,
+            &options.file,
+            &input,
+            &output.program,
+            &output.diagnostics,
+        )
+    );
+    0
+}
+
 fn format_project_sources(paths: Vec<&Path>) -> i32 {
     for path in paths {
         let source = match crate::source::SourceFile::from_path(path) {
@@ -431,6 +464,7 @@ Commands:
   build <path> [--out-dir <path>]   Emit the build skeleton artifacts for the native backend stage
   run <path> [--json] [--ai] [--ai-session <path>] [-- <args...>]   Execute the minimal interpreter
   fmt <path>               Rewrite the file or project sources to the canonical AX format
+  context <overview|boundaries> <path> [--json]   Print stable project/source context JSON
 "
 }
 
@@ -463,6 +497,12 @@ struct RunOptions {
     ai: bool,
     ai_session: Option<PathBuf>,
     argv: Vec<String>,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+struct ContextOptions {
+    view: ContextView,
+    file: PathBuf,
 }
 
 fn parse_check_args(args: Vec<String>) -> Result<CheckOptions, String> {
@@ -639,6 +679,42 @@ fn parse_build_args(args: Vec<String>) -> Result<BuildCliOptions, String> {
     Ok(BuildCliOptions { file, out_dir })
 }
 
+fn parse_context_args(args: Vec<String>) -> Result<ContextOptions, String> {
+    let Some((view, rest)) = args.split_first() else {
+        return Err("missing context view for `axc context`".to_string());
+    };
+
+    let view = match view.as_str() {
+        "overview" => ContextView::Overview,
+        "boundaries" => ContextView::Boundaries,
+        _ => {
+            return Err(format!(
+                "unknown context view `{view}`; expected `overview` or `boundaries`"
+            ));
+        }
+    };
+
+    let mut file = None;
+    for arg in rest {
+        match arg.as_str() {
+            "--json" => {}
+            _ if file.is_none() => {
+                file = Some(PathBuf::from(arg));
+            }
+            _ => return Err(format!("unexpected argument `{arg}`")),
+        }
+    }
+
+    let Some(file) = file else {
+        return Err(format!(
+            "missing input path for `axc context {}`",
+            view.as_str()
+        ));
+    };
+
+    Ok(ContextOptions { view, file })
+}
+
 fn load_input(path: &Path) -> Result<ResolvedInput, String> {
     resolve_input(path)
 }
@@ -646,9 +722,10 @@ fn load_input(path: &Path) -> Result<ResolvedInput, String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        BuildCliOptions, CheckOptions, RunOptions, parse_build_args, parse_check_args,
-        parse_run_args, render_check_success,
+        BuildCliOptions, CheckOptions, ContextOptions, RunOptions, parse_build_args,
+        parse_check_args, parse_context_args, parse_run_args, render_check_success,
     };
+    use crate::context::ContextView;
     use std::path::PathBuf;
 
     #[test]
@@ -768,5 +845,30 @@ mod tests {
         let error = parse_run_args(vec!["examples/hello.ax".to_string(), "--ai".to_string()])
             .expect_err("run arguments should be rejected");
         assert!(error.contains("`--ai` requires `--json`"));
+    }
+
+    #[test]
+    fn parses_context_overview_options() {
+        let options = parse_context_args(vec![
+            "overview".to_string(),
+            "examples/project_module_smoke".to_string(),
+            "--json".to_string(),
+        ])
+        .expect("context arguments should parse");
+
+        assert_eq!(
+            options,
+            ContextOptions {
+                view: ContextView::Overview,
+                file: PathBuf::from("examples/project_module_smoke"),
+            }
+        );
+    }
+
+    #[test]
+    fn rejects_unknown_context_view() {
+        let error = parse_context_args(vec!["impact".to_string(), "examples/hello.ax".to_string()])
+            .expect_err("unknown context view should be rejected");
+        assert!(error.contains("unknown context view"));
     }
 }
