@@ -14,6 +14,8 @@ const CONTEXT_SCHEMA_VERSION: u32 = 1;
 pub enum ContextView {
     Overview,
     Boundaries,
+    Topology,
+    Symbol,
 }
 
 impl ContextView {
@@ -21,6 +23,8 @@ impl ContextView {
         match self {
             Self::Overview => "overview",
             Self::Boundaries => "boundaries",
+            Self::Topology => "topology",
+            Self::Symbol => "symbol",
         }
     }
 }
@@ -31,17 +35,21 @@ pub fn render_context_json(
     input: &ResolvedInput,
     program: &Program,
     diagnostics: &[Diagnostic],
-) -> String {
+    requested_symbol: Option<&str>,
+) -> Result<String, String> {
     let units = collect_source_units(input, program);
     let unit_stats = collect_unit_stats(&input.source, program);
-    let subject = build_subject(request_path, input);
-    let command_target = subject.path.clone();
+    let symbol_catalog = build_symbol_catalog(&input.source, program, &units);
+    let command_target = match input.project.as_ref() {
+        Some(project) => normalize_path(project.root_dir()),
+        None => normalize_path(request_path),
+    };
 
     let rendered = match view {
         ContextView::Overview => serde_json::to_string_pretty(&ContextDocument {
             schema_version: CONTEXT_SCHEMA_VERSION,
             view: view.as_str(),
-            subject,
+            subject: build_subject(request_path, input, None),
             facts: build_overview_facts(input.project.as_ref(), &units, &unit_stats, diagnostics),
             hints: build_overview_hints(&units, &unit_stats),
             validation: build_validation(
@@ -56,7 +64,7 @@ pub fn render_context_json(
         ContextView::Boundaries => serde_json::to_string_pretty(&ContextDocument {
             schema_version: CONTEXT_SCHEMA_VERSION,
             view: view.as_str(),
-            subject,
+            subject: build_subject(request_path, input, None),
             facts: build_boundaries_facts(&units, &unit_stats),
             hints: build_boundaries_hints(&units, &unit_stats),
             validation: build_validation(
@@ -70,10 +78,52 @@ pub fn render_context_json(
                 ],
             ),
         }),
+        ContextView::Topology => serde_json::to_string_pretty(&ContextDocument {
+            schema_version: CONTEXT_SCHEMA_VERSION,
+            view: view.as_str(),
+            subject: build_subject(request_path, input, None),
+            facts: build_topology_facts(&units, &unit_stats, &symbol_catalog),
+            hints: build_topology_hints(&units, &unit_stats, &symbol_catalog),
+            validation: build_validation(
+                diagnostics,
+                &command_target,
+                ContextView::Topology,
+                vec![
+                    "P1 topology tracks source units, imports, and resolved top-level call edges"
+                        .to_string(),
+                ],
+            ),
+        }),
+        ContextView::Symbol => {
+            let requested_symbol = requested_symbol
+                .ok_or_else(|| "symbol view requires a symbol query".to_string())?;
+            let symbol_facts = build_symbol_facts(requested_symbol, &symbol_catalog)?;
+            serde_json::to_string_pretty(&ContextDocument {
+                schema_version: CONTEXT_SCHEMA_VERSION,
+                view: view.as_str(),
+                subject: build_subject(
+                    request_path,
+                    input,
+                    Some(symbol_facts.resolved_symbol.clone()),
+                ),
+                hints: build_symbol_hints(&symbol_facts, &symbol_catalog),
+                facts: symbol_facts,
+                validation: build_validation(
+                    diagnostics,
+                    &command_target,
+                    ContextView::Symbol,
+                    vec![
+                        "P1 symbol view resolves one top-level symbol plus direct call neighbors"
+                            .to_string(),
+                    ],
+                ),
+            })
+        }
     }
+    .map(|rendered| rendered + "\n")
     .expect("context json should serialize");
 
-    rendered + "\n"
+    Ok(rendered)
 }
 
 #[derive(Serialize)]
@@ -93,6 +143,8 @@ struct ContextSubject {
     entry: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     project_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    symbol: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -173,6 +225,106 @@ struct BoundariesHints {
 }
 
 #[derive(Serialize)]
+struct TopologyFacts {
+    module_mode: bool,
+    summary: TopologySummary,
+    source_units: Vec<TopologyUnit>,
+    module_edges: Vec<ModuleEdge>,
+    symbol_edges: Vec<SymbolEdge>,
+}
+
+#[derive(Serialize)]
+struct TopologySummary {
+    source_unit_count: usize,
+    module_edge_count: usize,
+    symbol_count: usize,
+    symbol_edge_count: usize,
+}
+
+#[derive(Serialize)]
+struct TopologyUnit {
+    path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    module_path: Option<String>,
+    is_entry: bool,
+    imports: Vec<String>,
+    imported_by_count: usize,
+    defined_symbols: Vec<String>,
+    host_classes: Vec<String>,
+    role_hints: Vec<String>,
+    role_evidence: Vec<String>,
+}
+
+#[derive(Serialize)]
+struct ModuleEdge {
+    from_path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    from_module: Option<String>,
+    to_module: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    to_path: Option<String>,
+    kind: &'static str,
+    resolved: bool,
+}
+
+#[derive(Serialize)]
+struct SymbolEdge {
+    from: String,
+    to: String,
+    kind: &'static str,
+    cross_unit: bool,
+}
+
+#[derive(Serialize)]
+struct TopologyHints {
+    entry_orchestrators: Vec<String>,
+    shared_foundations: Vec<String>,
+    central_symbols: Vec<String>,
+}
+
+#[derive(Serialize)]
+struct SymbolFacts {
+    requested_symbol: String,
+    resolved_symbol: String,
+    kind: &'static str,
+    source_unit: SymbolSourceUnit,
+    signature: SymbolSignature,
+    callers: Vec<String>,
+    callees: Vec<String>,
+    related_types: Vec<String>,
+    host_boundary_classes: Vec<String>,
+}
+
+#[derive(Serialize)]
+struct SymbolSourceUnit {
+    path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    module_path: Option<String>,
+    is_entry: bool,
+    imports: Vec<String>,
+}
+
+#[derive(Serialize)]
+struct SymbolSignature {
+    params: Vec<SymbolParamView>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    return_type: Option<String>,
+}
+
+#[derive(Serialize)]
+struct SymbolParamView {
+    name: String,
+    ty: String,
+}
+
+#[derive(Serialize)]
+struct SymbolHints {
+    role_hints: Vec<String>,
+    role_evidence: Vec<String>,
+    adjacent_symbols: Vec<String>,
+}
+
+#[derive(Serialize)]
 struct HostHeavyUnitHint {
     path: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -226,19 +378,77 @@ impl UnitStats {
     }
 }
 
-fn build_subject(request_path: &Path, input: &ResolvedInput) -> ContextSubject {
+#[derive(Debug, Clone)]
+struct SymbolCatalog {
+    definitions: BTreeMap<String, DefinedSymbol>,
+    simple_names: BTreeMap<String, Vec<String>>,
+    callers_by_symbol: BTreeMap<String, BTreeSet<String>>,
+}
+
+#[derive(Debug, Clone)]
+struct DefinedSymbol {
+    qualified_name: String,
+    kind: DefinedSymbolKind,
+    source_path: String,
+    module_path: Option<String>,
+    is_entry: bool,
+    imports: Vec<String>,
+    params: Vec<SymbolParamData>,
+    return_type: Option<String>,
+    related_types: BTreeSet<String>,
+    raw_calls: BTreeSet<String>,
+    resolved_callees: BTreeSet<String>,
+    host_classes: BTreeSet<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum DefinedSymbolKind {
+    Function,
+    Struct,
+    Enum,
+}
+
+impl DefinedSymbolKind {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Function => "function",
+            Self::Struct => "struct",
+            Self::Enum => "enum",
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct SymbolParamData {
+    name: String,
+    ty: String,
+}
+
+#[derive(Debug, Clone, Default)]
+struct SymbolWalk {
+    raw_calls: BTreeSet<String>,
+    related_types: BTreeSet<String>,
+}
+
+fn build_subject(
+    request_path: &Path,
+    input: &ResolvedInput,
+    symbol: Option<String>,
+) -> ContextSubject {
     match input.project.as_ref() {
         Some(project) => ContextSubject {
             kind: "project",
             path: normalize_path(project.root_dir()),
             entry: normalize_path(project.entry_path()),
             project_name: Some(project.target_name().to_string()),
+            symbol,
         },
         None => ContextSubject {
             kind: "source",
             path: normalize_path(request_path),
             entry: normalize_path(input.source.path()),
             project_name: None,
+            symbol,
         },
     }
 }
@@ -414,6 +624,264 @@ fn build_boundaries_hints(
     }
 }
 
+fn build_topology_facts(
+    units: &[ResolvedUnit],
+    unit_stats: &BTreeMap<String, UnitStats>,
+    symbol_catalog: &SymbolCatalog,
+) -> TopologyFacts {
+    let module_path_to_unit = units
+        .iter()
+        .filter_map(|unit| {
+            unit.module_path
+                .as_ref()
+                .map(|module_path| (module_path.clone(), unit.path.clone()))
+        })
+        .collect::<BTreeMap<_, _>>();
+    let imported_by_count = collect_imported_by_counts(units);
+
+    let source_units = units
+        .iter()
+        .map(|unit| {
+            let stats = unit_stats.get(&unit.path).cloned().unwrap_or_default();
+            let defined_symbols = symbol_catalog
+                .definitions
+                .values()
+                .filter(|symbol| symbol.source_path == unit.path)
+                .map(|symbol| symbol.qualified_name.clone())
+                .collect::<Vec<_>>();
+            let role_hints = unit_role_hints(
+                unit,
+                &stats,
+                *imported_by_count.get(&unit.path).unwrap_or(&0),
+            );
+            let role_evidence = unit_role_evidence(
+                unit,
+                &stats,
+                *imported_by_count.get(&unit.path).unwrap_or(&0),
+            );
+
+            TopologyUnit {
+                path: unit.path.clone(),
+                module_path: unit.module_path.clone(),
+                is_entry: unit.is_entry,
+                imports: unit.imports.clone(),
+                imported_by_count: *imported_by_count.get(&unit.path).unwrap_or(&0),
+                defined_symbols,
+                host_classes: stats.host_classes.iter().cloned().collect(),
+                role_hints,
+                role_evidence,
+            }
+        })
+        .collect::<Vec<_>>();
+
+    let module_edges = units
+        .iter()
+        .flat_map(|unit| {
+            unit.imports.iter().map(|import| ModuleEdge {
+                from_path: unit.path.clone(),
+                from_module: unit.module_path.clone(),
+                to_module: import.clone(),
+                to_path: module_path_to_unit.get(import).cloned(),
+                kind: "import",
+                resolved: module_path_to_unit.contains_key(import),
+            })
+        })
+        .collect::<Vec<_>>();
+
+    let symbol_edges = symbol_catalog
+        .definitions
+        .values()
+        .filter(|symbol| symbol.kind == DefinedSymbolKind::Function)
+        .flat_map(|symbol| {
+            symbol.resolved_callees.iter().filter_map(|callee| {
+                let target = symbol_catalog.definitions.get(callee)?;
+                Some(SymbolEdge {
+                    from: symbol.qualified_name.clone(),
+                    to: callee.clone(),
+                    kind: "call",
+                    cross_unit: symbol.source_path != target.source_path,
+                })
+            })
+        })
+        .collect::<Vec<_>>();
+
+    TopologyFacts {
+        module_mode: units.len() > 1
+            || units
+                .iter()
+                .any(|unit| unit.module_path.is_some() || !unit.imports.is_empty()),
+        summary: TopologySummary {
+            source_unit_count: units.len(),
+            module_edge_count: module_edges.len(),
+            symbol_count: symbol_catalog.definitions.len(),
+            symbol_edge_count: symbol_edges.len(),
+        },
+        source_units,
+        module_edges,
+        symbol_edges,
+    }
+}
+
+fn build_topology_hints(
+    units: &[ResolvedUnit],
+    unit_stats: &BTreeMap<String, UnitStats>,
+    symbol_catalog: &SymbolCatalog,
+) -> TopologyHints {
+    let imported_by_count = collect_imported_by_counts(units);
+    let entry_orchestrators = units
+        .iter()
+        .filter(|unit| unit.is_entry)
+        .map(|unit| unit.path.clone())
+        .collect::<Vec<_>>();
+    let shared_foundations = units
+        .iter()
+        .filter(|unit| is_foundation_unit(unit))
+        .filter_map(|unit| unit.module_path.clone())
+        .collect::<Vec<_>>();
+    let mut central_symbols = symbol_catalog
+        .definitions
+        .values()
+        .map(|symbol| {
+            let out_degree = symbol.resolved_callees.len();
+            let in_degree = symbol_catalog
+                .callers_by_symbol
+                .get(&symbol.qualified_name)
+                .map(BTreeSet::len)
+                .unwrap_or(0);
+            let unit_bonus = imported_by_count
+                .get(&symbol.source_path)
+                .copied()
+                .unwrap_or(0);
+            (
+                symbol.qualified_name.clone(),
+                out_degree + in_degree + unit_bonus,
+            )
+        })
+        .collect::<Vec<_>>();
+    central_symbols.sort_by(|left, right| right.1.cmp(&left.1).then(left.0.cmp(&right.0)));
+    let central_symbols = central_symbols
+        .into_iter()
+        .filter(|(_, score)| *score != 0)
+        .take(8)
+        .map(|(name, _)| name)
+        .collect::<Vec<_>>();
+
+    let _ = unit_stats;
+
+    TopologyHints {
+        entry_orchestrators,
+        shared_foundations,
+        central_symbols,
+    }
+}
+
+fn build_symbol_facts(
+    requested_symbol: &str,
+    symbol_catalog: &SymbolCatalog,
+) -> Result<SymbolFacts, String> {
+    let resolved_symbol = resolve_symbol_query(symbol_catalog, requested_symbol)?;
+    let symbol = symbol_catalog
+        .definitions
+        .get(&resolved_symbol)
+        .ok_or_else(|| {
+            format!("symbol `{resolved_symbol}` disappeared during context rendering")
+        })?;
+
+    let callers = symbol_catalog
+        .callers_by_symbol
+        .get(&symbol.qualified_name)
+        .map(|callers| callers.iter().cloned().collect())
+        .unwrap_or_default();
+    let callees = symbol.resolved_callees.iter().cloned().collect::<Vec<_>>();
+    let related_types = symbol.related_types.iter().cloned().collect::<Vec<_>>();
+    let host_boundary_classes = symbol.host_classes.iter().cloned().collect::<Vec<_>>();
+
+    Ok(SymbolFacts {
+        requested_symbol: requested_symbol.to_string(),
+        resolved_symbol: symbol.qualified_name.clone(),
+        kind: symbol.kind.as_str(),
+        source_unit: SymbolSourceUnit {
+            path: symbol.source_path.clone(),
+            module_path: symbol.module_path.clone(),
+            is_entry: symbol.is_entry,
+            imports: symbol.imports.clone(),
+        },
+        signature: SymbolSignature {
+            params: symbol
+                .params
+                .iter()
+                .map(|param| SymbolParamView {
+                    name: param.name.clone(),
+                    ty: param.ty.clone(),
+                })
+                .collect(),
+            return_type: symbol.return_type.clone(),
+        },
+        callers,
+        callees,
+        related_types,
+        host_boundary_classes,
+    })
+}
+
+fn build_symbol_hints(symbol_facts: &SymbolFacts, symbol_catalog: &SymbolCatalog) -> SymbolHints {
+    let mut role_hints = Vec::new();
+    let mut role_evidence = Vec::new();
+
+    if symbol_facts.source_unit.is_entry && symbol_facts.resolved_symbol == "main" {
+        role_hints.push("entrypoint".to_string());
+        role_evidence.push("declared in entry source unit as `main`".to_string());
+    }
+
+    if !symbol_facts.host_boundary_classes.is_empty() {
+        role_hints.push("host_boundary_symbol".to_string());
+        role_evidence.push(format!(
+            "touches host classes: {}",
+            symbol_facts.host_boundary_classes.join(", ")
+        ));
+    }
+
+    if !symbol_facts.callers.is_empty() && symbol_facts.callers.len() >= 2 {
+        role_hints.push("shared_helper".to_string());
+        role_evidence.push(format!("called by {} symbols", symbol_facts.callers.len()));
+    }
+
+    if !symbol_facts.callees.is_empty() && symbol_facts.callers.is_empty() {
+        role_hints.push("orchestrator".to_string());
+        role_evidence.push("fans out to other symbols without incoming project calls".to_string());
+    }
+
+    if symbol_facts.callees.is_empty() {
+        role_hints.push("leaf_symbol".to_string());
+        role_evidence.push("does not call any resolved top-level project symbol".to_string());
+    }
+
+    if role_hints.is_empty() {
+        role_hints.push("local_symbol".to_string());
+        role_evidence.push("symbol currently has a narrow project interaction surface".to_string());
+    }
+
+    let mut adjacent_symbols = BTreeSet::new();
+    for name in &symbol_facts.callers {
+        adjacent_symbols.insert(name.clone());
+    }
+    for name in &symbol_facts.callees {
+        adjacent_symbols.insert(name.clone());
+    }
+
+    let adjacent_symbols = adjacent_symbols
+        .into_iter()
+        .filter(|name| symbol_catalog.definitions.contains_key(name))
+        .take(12)
+        .collect::<Vec<_>>();
+
+    SymbolHints {
+        role_hints,
+        role_evidence,
+        adjacent_symbols,
+    }
+}
+
 fn build_constraint_candidates(
     units: &[ResolvedUnit],
     unit_stats: &BTreeMap<String, UnitStats>,
@@ -451,6 +919,449 @@ fn build_constraint_candidates(
     candidates
 }
 
+fn collect_imported_by_counts(units: &[ResolvedUnit]) -> BTreeMap<String, usize> {
+    let module_to_path = units
+        .iter()
+        .filter_map(|unit| {
+            unit.module_path
+                .as_ref()
+                .map(|module_path| (module_path.clone(), unit.path.clone()))
+        })
+        .collect::<BTreeMap<_, _>>();
+    let mut imported_by_count = BTreeMap::<String, usize>::new();
+
+    for unit in units {
+        for import in &unit.imports {
+            if let Some(path) = module_to_path.get(import) {
+                *imported_by_count.entry(path.clone()).or_insert(0) += 1;
+            }
+        }
+    }
+
+    imported_by_count
+}
+
+fn unit_role_hints(
+    unit: &ResolvedUnit,
+    stats: &UnitStats,
+    imported_by_count: usize,
+) -> Vec<String> {
+    let mut hints = Vec::new();
+
+    if unit.is_entry {
+        hints.push("entry_orchestrator".to_string());
+    }
+    if is_foundation_unit(unit) {
+        hints.push("shared_foundation".to_string());
+    }
+    if imported_by_count >= 2 {
+        hints.push("shared_library".to_string());
+    }
+    if is_host_heavy(stats) {
+        hints.push("host_bridge_heavy".to_string());
+    }
+
+    hints
+}
+
+fn unit_role_evidence(
+    unit: &ResolvedUnit,
+    stats: &UnitStats,
+    imported_by_count: usize,
+) -> Vec<String> {
+    let mut evidence = Vec::new();
+
+    if unit.is_entry {
+        evidence.push("selected as the project entry unit".to_string());
+    }
+    if !unit.imports.is_empty() {
+        evidence.push(format!("imports {} module(s)", unit.imports.len()));
+    }
+    if imported_by_count != 0 {
+        evidence.push(format!("imported by {} other unit(s)", imported_by_count));
+    }
+    if is_foundation_unit(unit) {
+        evidence.push("lives under the shared foundation surface".to_string());
+    }
+    if !stats.host_classes.is_empty() {
+        evidence.push(format!(
+            "touches host classes: {}",
+            stats
+                .host_classes
+                .iter()
+                .cloned()
+                .collect::<Vec<_>>()
+                .join(", ")
+        ));
+    }
+
+    evidence
+}
+
+fn is_foundation_unit(unit: &ResolvedUnit) -> bool {
+    unit.module_path
+        .as_deref()
+        .is_some_and(|module_path| module_path.starts_with("foundation."))
+        || unit.path.starts_with("foundation/")
+}
+
+fn build_symbol_catalog(
+    source: &SourceFile,
+    program: &Program,
+    units: &[ResolvedUnit],
+) -> SymbolCatalog {
+    let units_by_path = units
+        .iter()
+        .map(|unit| (unit.path.clone(), unit.clone()))
+        .collect::<BTreeMap<_, _>>();
+    let mut definitions = BTreeMap::<String, DefinedSymbol>::new();
+    let mut simple_names = BTreeMap::<String, Vec<String>>::new();
+
+    for item in &program.items {
+        let source_path = normalize_path_text(source.display_path_for_offset(item.span.start));
+        let Some(unit) = units_by_path.get(&source_path) else {
+            continue;
+        };
+
+        match &item.kind {
+            ItemKind::Function {
+                name,
+                params,
+                return_type,
+                body,
+            } => {
+                let qualified_name = qualify_symbol_name(unit.module_path.as_deref(), name);
+                let mut walk = SymbolWalk::default();
+                collect_type_ref_names(return_type, &mut walk.related_types);
+                for param in params {
+                    collect_type_ref_names(&param.ty, &mut walk.related_types);
+                }
+                collect_symbol_walk_for_block(body, &mut walk);
+                let host_classes = walk
+                    .raw_calls
+                    .iter()
+                    .filter_map(|call| host_boundary_class(call))
+                    .map(str::to_string)
+                    .collect::<BTreeSet<_>>();
+
+                let definition = DefinedSymbol {
+                    qualified_name: qualified_name.clone(),
+                    kind: DefinedSymbolKind::Function,
+                    source_path: source_path.clone(),
+                    module_path: unit.module_path.clone(),
+                    is_entry: unit.is_entry,
+                    imports: unit.imports.clone(),
+                    params: params
+                        .iter()
+                        .map(|param| SymbolParamData {
+                            name: param.name.clone(),
+                            ty: param.ty.describe(),
+                        })
+                        .collect(),
+                    return_type: Some(return_type.describe()),
+                    related_types: walk.related_types,
+                    raw_calls: walk.raw_calls,
+                    resolved_callees: BTreeSet::new(),
+                    host_classes,
+                };
+                definitions.insert(qualified_name.clone(), definition);
+                simple_names
+                    .entry(name.clone())
+                    .or_default()
+                    .push(qualified_name);
+            }
+            ItemKind::Struct { name, fields } => {
+                let qualified_name = qualify_symbol_name(unit.module_path.as_deref(), name);
+                let mut related_types = BTreeSet::new();
+                for field in fields {
+                    collect_type_ref_names(&field.ty, &mut related_types);
+                }
+                definitions.insert(
+                    qualified_name.clone(),
+                    DefinedSymbol {
+                        qualified_name: qualified_name.clone(),
+                        kind: DefinedSymbolKind::Struct,
+                        source_path: source_path.clone(),
+                        module_path: unit.module_path.clone(),
+                        is_entry: unit.is_entry,
+                        imports: unit.imports.clone(),
+                        params: Vec::new(),
+                        return_type: None,
+                        related_types,
+                        raw_calls: BTreeSet::new(),
+                        resolved_callees: BTreeSet::new(),
+                        host_classes: BTreeSet::new(),
+                    },
+                );
+                simple_names
+                    .entry(name.clone())
+                    .or_default()
+                    .push(qualified_name);
+            }
+            ItemKind::Enum { name, variants } => {
+                let qualified_name = qualify_symbol_name(unit.module_path.as_deref(), name);
+                let mut related_types = BTreeSet::new();
+                for variant in variants {
+                    if let Some(payload) = variant.payload.as_ref() {
+                        collect_type_ref_names(payload, &mut related_types);
+                    }
+                }
+                definitions.insert(
+                    qualified_name.clone(),
+                    DefinedSymbol {
+                        qualified_name: qualified_name.clone(),
+                        kind: DefinedSymbolKind::Enum,
+                        source_path: source_path.clone(),
+                        module_path: unit.module_path.clone(),
+                        is_entry: unit.is_entry,
+                        imports: unit.imports.clone(),
+                        params: Vec::new(),
+                        return_type: None,
+                        related_types,
+                        raw_calls: BTreeSet::new(),
+                        resolved_callees: BTreeSet::new(),
+                        host_classes: BTreeSet::new(),
+                    },
+                );
+                simple_names
+                    .entry(name.clone())
+                    .or_default()
+                    .push(qualified_name);
+            }
+        }
+    }
+
+    let mut callers_by_symbol = BTreeMap::<String, BTreeSet<String>>::new();
+    let symbol_names = definitions.keys().cloned().collect::<Vec<_>>();
+    for symbol_name in symbol_names {
+        let Some(definition) = definitions.get(&symbol_name).cloned() else {
+            continue;
+        };
+        if definition.kind != DefinedSymbolKind::Function {
+            continue;
+        }
+
+        let resolved_callees = definition
+            .raw_calls
+            .iter()
+            .filter_map(|call| {
+                resolve_symbol_reference(&definition, call, &definitions, &simple_names)
+            })
+            .collect::<BTreeSet<_>>();
+
+        if let Some(symbol) = definitions.get_mut(&symbol_name) {
+            symbol.resolved_callees = resolved_callees.clone();
+        }
+        for callee in resolved_callees {
+            callers_by_symbol
+                .entry(callee)
+                .or_default()
+                .insert(symbol_name.clone());
+        }
+    }
+
+    SymbolCatalog {
+        definitions,
+        simple_names,
+        callers_by_symbol,
+    }
+}
+
+fn qualify_symbol_name(module_path: Option<&str>, name: &str) -> String {
+    match module_path {
+        Some(module_path) => format!("{module_path}.{name}"),
+        None => name.to_string(),
+    }
+}
+
+fn collect_symbol_walk_for_block(block: &Block, walk: &mut SymbolWalk) {
+    for statement in &block.statements {
+        collect_symbol_walk_for_stmt(statement, walk);
+    }
+}
+
+fn collect_symbol_walk_for_stmt(statement: &Stmt, walk: &mut SymbolWalk) {
+    match &statement.kind {
+        StmtKind::Let {
+            ty, initializer, ..
+        } => {
+            collect_type_ref_names(ty, &mut walk.related_types);
+            collect_symbol_walk_for_expr(initializer, walk);
+        }
+        StmtKind::Assign { target, value } => {
+            collect_symbol_walk_for_expr(target, walk);
+            collect_symbol_walk_for_expr(value, walk);
+        }
+        StmtKind::Expr { expr } => collect_symbol_walk_for_expr(expr, walk),
+        StmtKind::Return { value } => {
+            if let Some(value) = value.as_ref() {
+                collect_symbol_walk_for_expr(value, walk);
+            }
+        }
+        StmtKind::Break | StmtKind::Continue => {}
+        StmtKind::Match { scrutinee, arms } => {
+            collect_symbol_walk_for_expr(scrutinee, walk);
+            for arm in arms {
+                collect_symbol_walk_for_block(&arm.body, walk);
+            }
+        }
+        StmtKind::If {
+            condition,
+            then_branch,
+            else_branch,
+        } => {
+            collect_symbol_walk_for_expr(condition, walk);
+            collect_symbol_walk_for_block(then_branch, walk);
+            if let Some(else_branch) = else_branch.as_ref() {
+                collect_symbol_walk_for_block(else_branch, walk);
+            }
+        }
+        StmtKind::While { condition, body } => {
+            collect_symbol_walk_for_expr(condition, walk);
+            collect_symbol_walk_for_block(body, walk);
+        }
+        StmtKind::For {
+            initializer,
+            condition,
+            step,
+            body,
+        } => {
+            if let Some(initializer) = initializer.as_ref() {
+                collect_symbol_walk_for_stmt(initializer, walk);
+            }
+            if let Some(condition) = condition.as_ref() {
+                collect_symbol_walk_for_expr(condition, walk);
+            }
+            if let Some(step) = step.as_ref() {
+                collect_symbol_walk_for_stmt(step, walk);
+            }
+            collect_symbol_walk_for_block(body, walk);
+        }
+        StmtKind::ForIn {
+            binding,
+            iterable,
+            body,
+        } => {
+            collect_type_ref_names(&binding.ty, &mut walk.related_types);
+            collect_symbol_walk_for_expr(iterable, walk);
+            collect_symbol_walk_for_block(body, walk);
+        }
+        StmtKind::Block { block } => collect_symbol_walk_for_block(block, walk),
+    }
+}
+
+fn collect_symbol_walk_for_expr(expression: &Expr, walk: &mut SymbolWalk) {
+    match &expression.kind {
+        ExprKind::Unary { expr, .. } => collect_symbol_walk_for_expr(expr, walk),
+        ExprKind::Binary { left, right, .. } => {
+            collect_symbol_walk_for_expr(left, walk);
+            collect_symbol_walk_for_expr(right, walk);
+        }
+        ExprKind::Call { callee, arguments } => {
+            if let Some(name) = callee.qualified_name() {
+                walk.raw_calls.insert(name);
+            }
+            collect_symbol_walk_for_expr(callee, walk);
+            for argument in arguments {
+                collect_symbol_walk_for_expr(argument, walk);
+            }
+        }
+        ExprKind::StructLiteral { name, fields } => {
+            walk.related_types.insert(name.clone());
+            for field in fields {
+                collect_symbol_walk_for_expr(&field.value, walk);
+            }
+        }
+        ExprKind::ArrayLiteral { elements } => {
+            for element in elements {
+                collect_symbol_walk_for_expr(element, walk);
+            }
+        }
+        ExprKind::Match { scrutinee, arms } => {
+            collect_symbol_walk_for_expr(scrutinee, walk);
+            for arm in arms {
+                collect_symbol_walk_for_expr(&arm.value, walk);
+            }
+        }
+        ExprKind::Field { base, .. } => collect_symbol_walk_for_expr(base, walk),
+        ExprKind::Index { base, index } => {
+            collect_symbol_walk_for_expr(base, walk);
+            collect_symbol_walk_for_expr(index, walk);
+        }
+        ExprKind::Slice { base, start, end } => {
+            collect_symbol_walk_for_expr(base, walk);
+            collect_symbol_walk_for_expr(start, walk);
+            collect_symbol_walk_for_expr(end, walk);
+        }
+        ExprKind::Int { .. }
+        | ExprKind::Float { .. }
+        | ExprKind::Bool { .. }
+        | ExprKind::String { .. }
+        | ExprKind::Name { .. }
+        | ExprKind::Error => {}
+    }
+}
+
+fn collect_type_ref_names(ty: &crate::ast::TypeRef, related_types: &mut BTreeSet<String>) {
+    if let Some(name) = ty.name.as_ref() {
+        related_types.insert(name.clone());
+    }
+    if let Some(element) = ty.element.as_ref() {
+        collect_type_ref_names(element, related_types);
+    }
+}
+
+fn resolve_symbol_reference(
+    definition: &DefinedSymbol,
+    raw_call: &str,
+    definitions: &BTreeMap<String, DefinedSymbol>,
+    simple_names: &BTreeMap<String, Vec<String>>,
+) -> Option<String> {
+    if host_boundary_class(raw_call).is_some() {
+        return None;
+    }
+    if definitions.contains_key(raw_call) {
+        return Some(raw_call.to_string());
+    }
+    if let Some(module_path) = definition.module_path.as_deref() {
+        let candidate = format!("{module_path}.{raw_call}");
+        if definitions.contains_key(&candidate) {
+            return Some(candidate);
+        }
+    }
+    for import in &definition.imports {
+        let candidate = format!("{import}.{raw_call}");
+        if definitions.contains_key(&candidate) {
+            return Some(candidate);
+        }
+    }
+    if let Some(matches) = simple_names.get(raw_call) {
+        if matches.len() == 1 {
+            return matches.first().cloned();
+        }
+    }
+    None
+}
+
+fn resolve_symbol_query(symbol_catalog: &SymbolCatalog, query: &str) -> Result<String, String> {
+    if symbol_catalog.definitions.contains_key(query) {
+        return Ok(query.to_string());
+    }
+
+    let Some(matches) = symbol_catalog.simple_names.get(query) else {
+        return Err(format!("unknown symbol `{query}`"));
+    };
+
+    if matches.len() == 1 {
+        return Ok(matches[0].clone());
+    }
+
+    Err(format!(
+        "symbol `{query}` is ambiguous; candidates: {}",
+        matches.join(", ")
+    ))
+}
+
 fn build_validation(
     diagnostics: &[Diagnostic],
     command_target: &str,
@@ -476,6 +1387,16 @@ fn build_validation(
             format!("axc check {command_target}"),
             format!("axc context boundaries {command_target} --json"),
             format!("axc run {command_target}"),
+        ],
+        ContextView::Topology => vec![
+            format!("axc check {command_target}"),
+            format!("axc context topology {command_target} --json"),
+            format!("axc context symbol {command_target} <symbol> --json"),
+        ],
+        ContextView::Symbol => vec![
+            format!("axc check {command_target}"),
+            format!("axc context topology {command_target} --json"),
+            format!("axc context symbol {command_target} <symbol> --json"),
         ],
     };
 

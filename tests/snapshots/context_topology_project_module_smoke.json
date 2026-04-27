@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "view": "topology",
+  "subject": {
+    "kind": "project",
+    "path": "examples/project_module_smoke",
+    "entry": "examples/project_module_smoke/src/main.ax",
+    "project_name": "project_module_smoke"
+  },
+  "facts": {
+    "module_mode": true,
+    "summary": {
+      "source_unit_count": 2,
+      "module_edge_count": 1,
+      "symbol_count": 3,
+      "symbol_edge_count": 1
+    },
+    "source_units": [
+      {
+        "path": "examples/project_module_smoke/lib/report.ax",
+        "module_path": "lib.report",
+        "is_entry": false,
+        "imports": [],
+        "imported_by_count": 1,
+        "defined_symbols": [
+          "lib.report.Summary",
+          "lib.report.build_summary"
+        ],
+        "host_classes": [],
+        "role_hints": [],
+        "role_evidence": [
+          "imported by 1 other unit(s)"
+        ]
+      },
+      {
+        "path": "examples/project_module_smoke/src/main.ax",
+        "is_entry": true,
+        "imports": [
+          "lib.report"
+        ],
+        "imported_by_count": 0,
+        "defined_symbols": [
+          "main"
+        ],
+        "host_classes": [],
+        "role_hints": [
+          "entry_orchestrator"
+        ],
+        "role_evidence": [
+          "selected as the project entry unit",
+          "imports 1 module(s)"
+        ]
+      }
+    ],
+    "module_edges": [
+      {
+        "from_path": "examples/project_module_smoke/src/main.ax",
+        "to_module": "lib.report",
+        "to_path": "examples/project_module_smoke/lib/report.ax",
+        "kind": "import",
+        "resolved": true
+      }
+    ],
+    "symbol_edges": [
+      {
+        "from": "main",
+        "to": "lib.report.build_summary",
+        "kind": "call",
+        "cross_unit": true
+      }
+    ]
+  },
+  "hints": {
+    "entry_orchestrators": [
+      "examples/project_module_smoke/src/main.ax"
+    ],
+    "shared_foundations": [],
+    "central_symbols": [
+      "lib.report.build_summary",
+      "lib.report.Summary",
+      "main"
+    ]
+  },
+  "validation": {
+    "diagnostic_count": 0,
+    "partial": false,
+    "recommended_commands": [
+      "axc check examples/project_module_smoke",
+      "axc context topology examples/project_module_smoke --json",
+      "axc context symbol examples/project_module_smoke <symbol> --json"
+    ],
+    "notes": [
+      "P1 topology tracks source units, imports, and resolved top-level call edges",
+      "context built from a clean diagnostic pass"
+    ]
+  }
+}

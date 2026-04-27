@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "view": "symbol",
+  "subject": {
+    "kind": "project",
+    "path": "examples/project_workspace_search_report",
+    "entry": "examples/project_workspace_search_report/src/main.ax",
+    "project_name": "project_workspace_search_report",
+    "symbol": "lib.file_search.search_path"
+  },
+  "facts": {
+    "requested_symbol": "lib.file_search.search_path",
+    "resolved_symbol": "lib.file_search.search_path",
+    "kind": "function",
+    "source_unit": {
+      "path": "examples/project_workspace_search_report/lib/file_search.ax",
+      "module_path": "lib.file_search",
+      "is_entry": false,
+      "imports": []
+    },
+    "signature": {
+      "params": [
+        {
+          "name": "match_lines",
+          "ty": "string_list"
+        },
+        {
+          "name": "totals",
+          "ty": "SearchTotals"
+        },
+        {
+          "name": "path",
+          "ty": "string"
+        },
+        {
+          "name": "depth",
+          "ty": "i32"
+        },
+        {
+          "name": "needle",
+          "ty": "string"
+        }
+      ],
+      "return_type": "FileSearch"
+    },
+    "callers": [
+      "lib.file_search.search_path",
+      "main"
+    ],
+    "callees": [
+      "foundation.file_kind.is_searchable_file",
+      "lib.file_search.search_file",
+      "lib.file_search.search_path"
+    ],
+    "related_types": [
+      "FileSearch",
+      "SearchTotals",
+      "i32",
+      "string",
+      "string_list"
+    ],
+    "host_boundary_classes": [
+      "filesystem"
+    ]
+  },
+  "hints": {
+    "role_hints": [
+      "host_boundary_symbol",
+      "shared_helper"
+    ],
+    "role_evidence": [
+      "touches host classes: filesystem",
+      "called by 2 symbols"
+    ],
+    "adjacent_symbols": [
+      "foundation.file_kind.is_searchable_file",
+      "lib.file_search.search_file",
+      "lib.file_search.search_path",
+      "main"
+    ]
+  },
+  "validation": {
+    "diagnostic_count": 0,
+    "partial": false,
+    "recommended_commands": [
+      "axc check examples/project_workspace_search_report",
+      "axc context topology examples/project_workspace_search_report --json",
+      "axc context symbol examples/project_workspace_search_report <symbol> --json"
+    ],
+    "notes": [
+      "P1 symbol view resolves one top-level symbol plus direct call neighbors",
+      "context built from a clean diagnostic pass"
+    ]
+  }
+}

@@ -383,7 +383,9 @@ fn run_context_command(args: Vec<String>) -> i32 {
     let options = match parse_context_args(args) {
         Ok(options) => options,
         Err(error) => {
-            eprintln!("{error}\nusage: axc context <overview|boundaries> <path> [--json]");
+            eprintln!(
+                "{error}\nusage: axc context <overview|boundaries|topology> <path> [--json]\n       axc context symbol <path> <symbol> [--json]"
+            );
             return 2;
         }
     };
@@ -397,16 +399,21 @@ fn run_context_command(args: Vec<String>) -> i32 {
     };
 
     let output = check_only_with_project(&input.source, input.project.as_ref());
-    print!(
-        "{}",
-        render_context_json(
-            options.view,
-            &options.file,
-            &input,
-            &output.program,
-            &output.diagnostics,
-        )
-    );
+    let rendered = match render_context_json(
+        options.view,
+        &options.file,
+        &input,
+        &output.program,
+        &output.diagnostics,
+        options.symbol.as_deref(),
+    ) {
+        Ok(rendered) => rendered,
+        Err(error) => {
+            eprintln!("{error}");
+            return 1;
+        }
+    };
+    print!("{rendered}");
     0
 }
 
@@ -464,7 +471,8 @@ Commands:
   build <path> [--out-dir <path>]   Emit the build skeleton artifacts for the native backend stage
   run <path> [--json] [--ai] [--ai-session <path>] [-- <args...>]   Execute the minimal interpreter
   fmt <path>               Rewrite the file or project sources to the canonical AX format
-  context <overview|boundaries> <path> [--json]   Print stable project/source context JSON
+  context <overview|boundaries|topology> <path> [--json]
+  context symbol <path> <symbol> [--json]   Print stable project/source context JSON
 "
 }
 
@@ -503,6 +511,7 @@ struct RunOptions {
 struct ContextOptions {
     view: ContextView,
     file: PathBuf,
+    symbol: Option<String>,
 }
 
 fn parse_check_args(args: Vec<String>) -> Result<CheckOptions, String> {
@@ -687,19 +696,25 @@ fn parse_context_args(args: Vec<String>) -> Result<ContextOptions, String> {
     let view = match view.as_str() {
         "overview" => ContextView::Overview,
         "boundaries" => ContextView::Boundaries,
+        "topology" => ContextView::Topology,
+        "symbol" => ContextView::Symbol,
         _ => {
             return Err(format!(
-                "unknown context view `{view}`; expected `overview` or `boundaries`"
+                "unknown context view `{view}`; expected `overview`, `boundaries`, `topology`, or `symbol`"
             ));
         }
     };
 
     let mut file = None;
+    let mut symbol = None;
     for arg in rest {
         match arg.as_str() {
             "--json" => {}
             _ if file.is_none() => {
                 file = Some(PathBuf::from(arg));
+            }
+            _ if view == ContextView::Symbol && symbol.is_none() => {
+                symbol = Some(arg.clone());
             }
             _ => return Err(format!("unexpected argument `{arg}`")),
         }
@@ -712,7 +727,11 @@ fn parse_context_args(args: Vec<String>) -> Result<ContextOptions, String> {
         ));
     };
 
-    Ok(ContextOptions { view, file })
+    if view == ContextView::Symbol && symbol.is_none() {
+        return Err("missing symbol query for `axc context symbol`".to_string());
+    }
+
+    Ok(ContextOptions { view, file, symbol })
 }
 
 fn load_input(path: &Path) -> Result<ResolvedInput, String> {
@@ -861,6 +880,7 @@ mod tests {
             ContextOptions {
                 view: ContextView::Overview,
                 file: PathBuf::from("examples/project_module_smoke"),
+                symbol: None,
             }
         );
     }
@@ -870,5 +890,25 @@ mod tests {
         let error = parse_context_args(vec!["impact".to_string(), "examples/hello.ax".to_string()])
             .expect_err("unknown context view should be rejected");
         assert!(error.contains("unknown context view"));
+    }
+
+    #[test]
+    fn parses_context_symbol_options() {
+        let options = parse_context_args(vec![
+            "symbol".to_string(),
+            "examples/project_workspace_search_report".to_string(),
+            "lib.file_search.search_path".to_string(),
+            "--json".to_string(),
+        ])
+        .expect("symbol context arguments should parse");
+
+        assert_eq!(
+            options,
+            ContextOptions {
+                view: ContextView::Symbol,
+                file: PathBuf::from("examples/project_workspace_search_report"),
+                symbol: Some("lib.file_search.search_path".to_string()),
+            }
+        );
     }
 }
