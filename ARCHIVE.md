@@ -25,6 +25,13 @@
 
 ### 2026-04-27
 
+- `A-2026-04-27-08` `[P3]` 最小标准库边界前置完成
+  - 结果：
+    - `docs/stdlib-minimal-boundary.md` 已定义 `std.text / std.cli / std.fs / std.path / std.env / std.process / std.report / std.workspace / std.collections` 的第一版边界
+    - 已建立 `foundation/* -> std.*` 映射表
+    - 已写清标准库接口四件套：diagnostics、docs、examples、regression
+    - 已选定 `project_text_normalize` 为第一迁移试点，`project_directory_index` 为第二迁移试点
+
 - `A-2026-04-27-07` `[P2]` `foundation/` helper 分类收口
   - 结果：
     - `docs/foundation-inventory.md` 已记录当前 helper 分类、保留理由、P3 迁移前置和新增 helper 准入规则
