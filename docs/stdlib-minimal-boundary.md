@@ -25,8 +25,8 @@ P3 的目标不是一次性做完整标准库，而是先把第一版官方标�
 | `std.cli` | 参数数量校验、usage、退出消息、输入路径校验 | `std/cli.ax` 与 `foundation/cli.ax` | 只放 CLI 程序入口常用约束，不放业务流程 |
 | `std.fs` | 文件/目录存在性、读写、复制、移动、删除、重命名、目录创建、目录枚举、文件大小 | `std/fs.ax` 与宿主 `fs_*` builtin | AX 接口稳定，宿主实现细节隐藏 |
 | `std.path` | join、parent、file name、stem、extension、resolve、文件类型辅助 | `std/path.ax`、宿主 `path_*` builtin 与 `foundation/file_kind.ax` | 路径操作和轻量分类放这里，工作区递归逻辑不放这里 |
-| `std.env` | 环境变量存在性与读取 | 宿主 `env_*` builtin | 只暴露 AX 函数，不暴露宿主环境实现 |
-| `std.process` | 命令执行、工作目录内执行、输出捕获 | 宿主 `process_*` builtin | 保持小而明确，不引入 async 或流式进程 API |
+| `std.env` | 环境变量存在性与读取 | `std/env.ax` 与宿主 `env_*` builtin | 只暴露 AX 函数，不暴露宿主环境实现 |
+| `std.process` | 命令执行、工作目录内执行、输出捕获 | `std/process.ax` 与宿主 `process_*` builtin | 保持小而明确，不引入 async 或流式进程 API |
 | `std.report` | key/value 行、section、path stat、bool/int/string stat | `std/report.ax` 与 `foundation/report.ax` | 只放确定性文本报告构造，不放展示主题系统 |
 | `std.workspace` | 工作区条目显示、深度前缀、递归扫描辅助 | `std/workspace.ax`、`foundation/workspace.ax` 与部分样例私有逻辑 | 只承接小型工具常用 workspace 输出，不做完整项目索引器 |
 | `std.collections` | `string_list` 和后续最小集合 helper | 宿主 `string_list_*` builtin | 第一版只承认已有最小集合，不提前上泛型 collections |
@@ -47,8 +47,10 @@ P3 的目标不是一次性做完整标准库，而是先把第一版官方标�
 | 文件 | 模块 | 当前职责 | 迁移状态 |
 | --- | --- | --- | --- |
 | [`../std/cli.ax`](../std/cli.ax) | `std.cli` | CLI 参数校验、usage、错误退出消息、输入文本校验 | 第一试点已用 |
+| [`../std/env.ax`](../std/env.ax) | `std.env` | 环境变量存在性判断与读取 | 第四试点已用 |
 | [`../std/fs.ax`](../std/fs.ax) | `std.fs` | 文件读取、文件写入、目录创建、目录枚举、文件大小、文件/目录存在性判断、删除文件、重命名 | 第一、第二、第三试点已用 |
 | [`../std/path.ax`](../std/path.ax) | `std.path` | `join / parent / file_name / stem / extension / resolve / classify_file_kind / is_text_file` | 第一、第二、第三试点已用 |
+| [`../std/process.ax`](../std/process.ax) | `std.process` | 命令执行、工作目录内执行与输出捕获 | 第四试点已用 |
 | [`../std/report.ax`](../std/report.ax) | `std.report` | key/value 报告、路径报告、section 片段 | 第一、第二、第三试点已用 |
 | [`../std/text.ax`](../std/text.ax) | `std.text` | 文本统计、基础 normalize | 第一试点已用 |
 | [`../std/workspace.ax`](../std/workspace.ax) | `std.workspace` | workspace 条目行、深度前缀、展示 label | 第二试点已用 |
@@ -112,6 +114,22 @@ P3 的目标不是一次性做完整标准库，而是先把第一版官方标�
 - `src/main.ax` 通过 `std.cli / std.fs / std.path` 完成入口校验、发布目录处理、文件提升和 receipt 输出。
 - `lib.receipt` 通过 `std.report / std.path / std.fs` 构造发布收据。
 - interface snapshots 已覆盖该项目的运行夹具和 build source tree。
+
+第四迁移试点：[`../examples/project_command_capture/`](../examples/project_command_capture/)
+
+理由：
+
+- 能验证最薄的宿主命令捕获路径是否可以下沉到 `std.process`。
+- 能验证环境变量存在性检查是否可以通过 `std.env` 暴露为 AX 侧标准接口。
+- 它是 P2 宿主边界样例之一，比继续迁移纯文本样例更能暴露真实 host boundary 压力。
+
+当前迁移结果：
+
+- `AX.toml` 使用 `sources = ["../../std"]`。
+- `src/main.ax` 通过 `std.cli / std.process / std.env / std.text / std.report / std.fs` 完成参数校验、命令输出捕获、环境变量检查、文本统计、报告构造和输出写入。
+- 第一版 `std.process` 只暴露 `run / run_in / capture_in`，不引入结构化 stdout/stderr/exit-code 结果体。
+- 第一版 `std.env` 只暴露 `has / get`，不提前设计默认值或错误传播语法。
+- interface snapshots 已覆盖该项目的 build source tree，命令捕获路径继续作为宿主边界回归样例。
 
 ## Rust 宿主边界
 

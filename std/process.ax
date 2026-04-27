@@ -1,0 +1,13 @@
+module std.process;
+
+fn run(command: string) -> i32 {
+    return process_run(command);
+}
+
+fn run_in(working_dir: string, command: string) -> i32 {
+    return process_run_in(working_dir, command);
+}
+
+fn capture_in(working_dir: string, command: string) -> string {
+    return process_capture_in(working_dir, command);
+}

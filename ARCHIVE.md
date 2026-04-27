@@ -25,6 +25,14 @@
 
 ### 2026-04-27
 
+- `A-2026-04-27-19` `[P3]` `std.process / std.env` 第一刀与 command capture 试点落地
+  - 结果：
+    - 新增 `std/process.ax`，第一版只暴露 `run / run_in / capture_in`
+    - 新增 `std/env.ax`，第一版只暴露 `has / get`
+    - `examples/project_command_capture/` 已从 `../../foundation` 迁移到 `../../std`
+    - `std.process.capture_in` 与 `std.env.has` 已进入真实命令捕获样例和 interface snapshots
+    - `WORKLIST.md` 已把下一步推进到 `project_command_batch` 评估，而不是继续无边界扩 process API
+
 - `A-2026-04-27-18` `[P3]` 第三组 `std.*` 迁移试点落地
   - 结果：
     - 扩展 `std/fs.ax` 的 `exists / remove_file / rename`

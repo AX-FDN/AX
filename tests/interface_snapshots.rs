@@ -585,8 +585,10 @@ const SHARED_FOUNDATION_PROJECT_SOURCES: &[&str] = &[
 
 const SHARED_STD_PROJECT_SOURCES: &[&str] = &[
     "external/std/cli.ax",
+    "external/std/env.ax",
     "external/std/fs.ax",
     "external/std/path.ax",
+    "external/std/process.ax",
     "external/std/report.ax",
     "external/std/text.ax",
     "external/std/workspace.ax",
@@ -5203,7 +5205,7 @@ fn project_command_capture_build_copies_real_example_source_tree() {
     assert_project_example_build_sources(
         "project-command-capture-build",
         "examples/project_command_capture",
-        &project_sources_with_shared_foundation(&["src/main.ax"]),
+        &project_sources_with_shared_std(&["src/main.ax"]),
     );
 }
 

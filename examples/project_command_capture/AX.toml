@@ -3,4 +3,4 @@ manifest_version = 1
 [package]
 name = "project_command_capture"
 entry = "src/main.ax"
-sources = ["../../foundation"]
+sources = ["../../std"]
