@@ -116,19 +116,23 @@
 - [x] `foundation/* -> std.*` 的映射先列清单
 - [x] 至少有一组样例能作为标准库迁移试点
 
-## 明确阻塞
+## 近期已解除阻塞
 
-- [!] `B-02` `[P1]` context 视图已经存在，但还未完全进入 repair/benchmark 消费闭环
+- [x] `B-02` `[P1]` context 视图已经存在，但还未完全进入 repair/benchmark 消费闭环
   - 影响：
     - `axc context` 还更像独立接口，而不是修复链输入层
   - 解除标准：
     - adapter、export 或 compare 链路里至少一条稳定消费 context
+  - 当前状态：
+    - 已通过 `export-repair-benchmark.ps1 -IncludeContext` 解除
 
-- [!] `B-03` `[P1]` benchmark 展示层还不够硬
+- [x] `B-03` `[P1]` benchmark 展示层还不够硬
   - 影响：
     - 当前更像“仓库内脚本齐了”，还不够像“外部可引用证据页”
   - 解除标准：
     - 展示页、失败样例、方法说明、结果摘要同时成立
+  - 当前状态：
+    - 已通过 `docs/benchmark-showcase.md` 和 `docs/public-claims.md` 解除
 
 ## P0 施工项：环境与契约修复
 
