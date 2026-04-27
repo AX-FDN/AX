@@ -6,6 +6,8 @@ AX 的 benchmark 不是宣传页，而是项目的验证层。它用固定坏例
 
 - 结构化 diagnostics、AI 修复协议和架构上下文，是否真的能进入同一条可复跑的修复链。
 
+下一轮证据展示层是 [`Repair Archaeology v0`](./repair-archaeology.md)：把 replay、score、compare 和 context-enabled export 产物整理成 case 级 JSON / Markdown 修复报告，让外部读者能按单个错误理解“怎么修、哪里失败、如何复现”。
+
 ## 当前快照
 
 当前仓库快照：`2026-04-27`

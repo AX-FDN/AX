@@ -24,6 +24,7 @@
 - 当前 full repair manifest 有 `30` 个 case。
 - 当前 deterministic replay 可复现 `cold 23/30`、`base 25/30`、`ai 30/30`。
 - `export-repair-benchmark.ps1 -IncludeContext` 已能把 `overview / boundaries / evidence` 写入 repair bundle 与 prompt。
+- `Repair Archaeology v0` 已进入规划，目标是把仓库内 replay / score / compare 事实整理成 case 级 JSON / Markdown 报告。
 - Windows 是 full workflow 平台，Linux 是 core support 平台，macOS 尚未进入承诺范围。
 
 ## 可以作为目标说，但不能作为结论说的内容
@@ -49,6 +50,7 @@
 - “AX 已经让所有模型生成更稳定。”
 - “AX 已经完成 AI 时代语言的最终答案。”
 - “AX 的 tokenizer 设计直接匹配 Codex / Claude 内部 tokenizer。”
+- “Repair Archaeology 展示的是模型在线协商全过程。” 当前 v0 只计划整理离线可复现证据。
 
 ## Benchmark 引用口径
 
@@ -59,6 +61,16 @@
 中文：
 
 > 在仓库内 deterministic replay benchmark 中，AX 当前在 30 个 repair case 上可复现 `cold 23/30`、`base 25/30`、`ai 30/30`。这证明内部修复证据链已经成立；跨语言和 live model 结论仍是后续工作。
+
+## Repair Archaeology 引用口径
+
+引用 Repair Archaeology 时，使用这句话：
+
+> Repair Archaeology v0 is a planned evidence display layer over AX's existing repair benchmark artifacts. It will explain individual replay cases as JSON and Markdown reports; it is not a live-model claim and not an agent runtime.
+
+中文：
+
+> Repair Archaeology v0 是计划中的证据展示层，建立在 AX 现有 repair benchmark 产物之上。它会把单个 replay case 解释成 JSON 和 Markdown 报告；它不是 live-model 结论，也不是 agent 运行时。
 
 ## Context 引用口径
 
@@ -95,4 +107,5 @@ AX 应该被表述为语言项目，而不是纯 research harness：
 - context bundle 默认视图变化
 - live-model benchmark 结果进入仓库
 - cross-language benchmark 结果进入仓库
+- Repair Archaeology artifact schema 或报告入口进入仓库
 - 平台支持等级变化

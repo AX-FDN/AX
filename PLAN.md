@@ -71,6 +71,7 @@ AX 的路线不是“先做协议，再决定要不要做语言”，而是：
 | 项目模式 | `AX.toml + sources`、最小 `module/import` 已进入主线 | `src/project.rs` `src/parser.rs` `src/semantic.rs` |
 | 代表样例 | 已有多组 project-backed 工具样例 | `examples/project_*` |
 | benchmark | export / run / score / compare / smoke / CI 已落地 | `scripts/` `benchmarks/` |
+| Repair Archaeology | 已登记为下一轮 P1 证据链展示层，尚未实现导出入口 | `docs/repair-archaeology.md` |
 | build 后端 | 仍是骨架，只导出 `source/HIR/MIR/manifest`，`backend.status = pending` | `src/build.rs` |
 | 平台 | Windows 全量、Linux 核心、macOS 未启动 | `.github/workflows/ci.yml` `docs/platform-support.md` |
 | 本机环境 | 当前本机默认 MSVC `cargo test` 仍会被 `link.exe` 缺失卡住，但仓库已固定 GNU 本地验证路径并完成实测 | 当前本地验证结果 |
@@ -270,17 +271,20 @@ flowchart TD
 - 公开 benchmark 展示页、失败样例、方法说明
 - 明确内部可复现结果与外部尚未证实结论的边界
 - 让 `context` 开始进入 repair / benchmark 输入链，而不是只做独立视图
+- 启动 `Repair Archaeology v0`，把已有 repair replay / score / compare 资产整理成可查询、可导出、可解释的修复证据对象
 
 **退出条件**：
 
 - 同一输入可重复得出同结构报告
 - `base -> ai` 或 `cold -> base -> ai` 的仓库内差异可稳定复现
 - context 已进入至少一条 repair/benchmark 消费链
+- 至少一批 repair case 能导出 Markdown / JSON 形式的 archaeology 报告，且报告明确区分 replay 事实和 live-model 结论
 
 **禁止事项**：
 
 - 不夸大“已胜过 Rust/Go/Python 子集”
 - 不为了宣传跳过失败样例
+- 不把 `Repair Archaeology v0` 扩成 `axc generate`、真实 LLM 客户端、UI 项目或新语法系统
 
 ### P2. 语言内核与最小可写工具阶段
 
@@ -622,6 +626,34 @@ macOS 启动规则锁定为：
    升级为 stdlib/package aware context
    目标：让 context 理解官方标准库、第三方包、host extension 边界
 
+### Repair Archaeology 闭环顺序固定为
+
+`Repair Archaeology` 是 P1 证据链的展示与解释层，不是模型调用层。
+
+1. `RA0`
+   从现有 repair benchmark / score / compare 产物中抽取 case 级事实
+   目标：不重新发明修复链，只整理已有证据
+2. `RA1`
+   定义稳定 JSON artifact
+   目标：让每个 case 的初始诊断、rule_id、repair_goal、模式结果和验证命令可查询
+3. `RA2`
+   导出 Markdown 报告
+   目标：让外部读者能看懂“这个错误如何被修复、哪一步失败、context 有没有帮助”
+4. `RA3`
+   补 smoke 或 interface regression
+   目标：防止 archaeology 报告格式随脚本漂移
+5. `RA4`
+   再评估 `json-stream` 展示层
+   目标：把离线 timeline 流式输出，作为未来 Live Repair Stream 的展示基础
+
+本路线明确不做：
+
+- 不调用真实 LLM
+- 不引入 API key
+- 不新增 AX 语法
+- 不启动 `axc generate`
+- 不把离线 replay 结果说成 live-model 胜负结论
+
 ### 诊断与验证闭环必须遵守
 
 每新增一项语法、builtin、标准库接口、package 机制或后端能力，都必须补齐下面闭环：
@@ -655,6 +687,7 @@ macOS 启动规则锁定为：
 
 - P0：修复本地 Windows 可复跑环境；CI 与本机路径对齐
 - P1：repair benchmark smoke、compare smoke、mode smoke、diagnostics benchmark smoke 全绿
+- P1：Repair Archaeology v0 至少覆盖通过 case、失败/退化 case 和 context-enabled case 的导出报告
 - P2：代表样例 `check / run / build` 固定进入 smoke 或 regression
 - P3：标准库接口每个都要有 semantic tests、runtime tests、example coverage
 - P4：AOT 与 interpreter 做语义对照；build manifest 与 executable artifacts 进入 snapshots

@@ -105,6 +105,7 @@ Expected deterministic result for the current repository state:
 - `ai`: `1/1`
 
 This is the cleanest "same bad example, only feedback mode changes" demo in the repo today.
+The planned next layer is [`Repair Archaeology v0`](./repair-archaeology.md), which will turn this kind of replay result into a case-level repair story: initial diagnostic, repair contract, candidate result, failure reason, and reproduction command.
 
 ## Step 3: Same Model, Same Single-Round Budget, Same Case
 

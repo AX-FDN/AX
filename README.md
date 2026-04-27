@@ -29,6 +29,7 @@ AX 关注的不只是“模型能不能写出代码”，更关注三件更硬�
 | 项目是什么、为什么值得关注 | [`README.md`](./README.md) |
 | 当前已经做到哪了 | [`PROJECT_FACTS.md`](./PROJECT_FACTS.md) |
 | 当前 benchmark 证据链 | [`docs/benchmark-showcase.md`](./docs/benchmark-showcase.md) |
+| 下一轮修复证据展示层 | [`docs/repair-archaeology.md`](./docs/repair-archaeology.md) |
 | 对外怎么准确介绍 | [`docs/public-claims.md`](./docs/public-claims.md) |
 | 本机和 CI 应该跑什么 | [`docs/validation-matrix.md`](./docs/validation-matrix.md) |
 | 外部 JSON / artifact 契约 | [`docs/interface-contracts.md`](./docs/interface-contracts.md) |
@@ -68,6 +69,7 @@ AX 关注的不只是“模型能不能写出代码”，更关注三件更硬�
 | 真工具样例已经进入仓库主线 | 仓库里已经有 workspace audit、release snapshot、search report、directory index 等样例 | 可以直接观察 AX 在真实工具型任务上的表达能力 |
 | 多文件工程组织开始成型 | `AX.toml + sources` 已经稳定，第一阶段 `import/module` 已接入主线 | foundation 代码与项目私有逻辑开始拥有清晰边界 |
 | benchmark 证据链是一等公民 | repair cases、adapter spec、export、score、compare、smoke、CI 都在仓库里 | 项目价值可以靠数据、回放和对比来建立 |
+| 修复证据将进入可解释展示层 | `Repair Archaeology v0` 已作为下一轮增长点登记，目标是把 replay / score / compare 变成 case 级 JSON 与 Markdown 修复故事 | 外部读者可以按 case 理解“怎么修、哪里失败、context 是否参与” |
 
 当前仓库内可复现 benchmark 快照见 [`docs/benchmark-showcase.md`](./docs/benchmark-showcase.md)：full manifest 当前有 `30` 个 repair case，deterministic replay 对比为 `cold 23/30`、`base 25/30`、`ai 30/30`。这证明的是 AX 内部修复证据链已经成立；跨语言、跨模型 live benchmark 仍是下一阶段公开证明。
 
@@ -1069,6 +1071,10 @@ AX 希望最终回答的是：
 3. 同一种语义下，AX 的源码形式是否更利于稳定生成  
 4. 同一批 case 上，结果能否被稳定回放、评分和比较
 
+下一轮 P1 增长点是 [`Repair Archaeology v0`](./docs/repair-archaeology.md)。
+它不会调用真实模型，也不会新增语法；它会先把已有 replay、score、compare 和 context-enabled export 产物整理成按 case 可查询、可导出的修复证据对象。
+这会让 benchmark 从“脚本结果”升级成“可读的修复故事”：初始错误是什么、哪种模式修复成功、哪一步失败、context 是否进入输入、如何复现。
+
 ## Quickstart
 
 平台入口：
@@ -1090,6 +1096,8 @@ AX 希望最终回答的是：
   结构化 diagnostics 与 AI 增强字段
 - [`docs/repair-benchmark.md`](./docs/repair-benchmark.md)
   benchmark 资产、导出链路、评分与 compare 方式
+- [`docs/repair-archaeology.md`](./docs/repair-archaeology.md)
+  Repair Archaeology v0 的定位、边界、输出结构和实施顺序
 - [`docs/repair-adapter-spec.md`](./docs/repair-adapter-spec.md)
   外部 repair adapter 的输入输出契约
 - [`docs/host-runtime-boundary.md`](./docs/host-runtime-boundary.md)

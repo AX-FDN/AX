@@ -25,6 +25,14 @@
 
 ### 2026-04-27
 
+- `A-2026-04-27-22` `[P1]` `Repair Archaeology v0` 增长点进入规划
+  - 结果：
+    - 新增 `docs/repair-archaeology.md`
+    - `PLAN.md` 已把 Repair Archaeology 定义为 P1 证据链展示与解释层
+    - `WORKLIST.md` 已登记 `W-P1-07`，并明确排在 `W-P3-15` 之后
+    - README、PROJECT_FACTS、docs README、benchmark showcase、repair benchmark、public claims、feature matrix 已加入入口或边界说明
+    - 明确 v0 不调用真实 LLM、不做 `axc generate`、不新增 AX 语法、不把离线 replay 结果说成 live-model 结论
+
 - `A-2026-04-27-21` `[P3]` Std-1 冻结候选清单收口
   - 结果：
     - `docs/stdlib-minimal-boundary.md` 已新增 Std-1 冻结候选清单

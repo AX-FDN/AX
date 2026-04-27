@@ -113,6 +113,9 @@ AX is trying to make the evidence loop first-class:
 That is why the repository matters as more than a parser prototype.
 It is trying to make the repair claim measurable instead of anecdotal.
 
+The next evidence layer is [`Repair Archaeology v0`](./repair-archaeology.md).
+It does not replace the benchmark; it explains individual replay cases as JSON / Markdown evidence objects so readers can inspect what failed, what repaired, which contract was used, and how to reproduce the result.
+
 ## Why Not Just Add These Four To A Subset?
 
 You can.

@@ -21,6 +21,7 @@ AX 是一门面向自回归 Coding AI 的 AI-first 工具语言，目前处在�
 | 项目模式 | `AX.toml + sources` 与最小 `module/import` 已落地 |
 | 代表样例 | 已固定 P2 主代表样例与宿主边界样例，并接入 `check / run / build` 回归 |
 | benchmark | export / run / score / compare / smoke / CI 已落地，context-enabled export 已进入修复输入链 |
+| repair archaeology | 已登记为下一轮证据链展示层，目标是把 repair replay / score / compare 资产导出为 case 级 JSON 与 Markdown 报告 |
 | build | 当前仍是 skeleton build，不是成熟 AOT/native backend |
 | 平台 | Windows 为 full workflow，Linux 为 core support，macOS 尚未启动 |
 
@@ -63,6 +64,7 @@ AX 是一门面向自回归 Coding AI 的 AI-first 工具语言，目前处在�
 - AX 的主张是“把语言本体和 AI 友好编译器一起做硬”，所以 benchmark 是继续条件的一部分
 - 当前 full manifest 有 `30` 个 repair case，仓库内 deterministic replay 当前可复现 `cold 23/30`、`base 25/30`、`ai 30/30`
 - 公开展示页见 [`docs/benchmark-showcase.md`](./docs/benchmark-showcase.md)
+- 下一轮 P1 增长点是 [`docs/repair-archaeology.md`](./docs/repair-archaeology.md)：把 replay / score / compare 从“结果表”升级成按 case 可查询、可导出的修复证据对象
 
 ### 6. context 协议已经是对外接口，不是草图
 
@@ -78,6 +80,7 @@ AX 是一门面向自回归 Coding AI 的 AI-first 工具语言，目前处在�
 - `build`：当前仍是 backend 前的构建骨架，不应被表述成成熟 native compiler
 - `std/`：当前已启动第一批标准库试点模块，并已由 `project_text_normalize`、`project_directory_index`、`project_release_promote`、`project_command_capture`、`project_command_batch` 五组真实样例消费；Std-1 冻结候选清单已在 [`docs/stdlib-minimal-boundary.md`](./docs/stdlib-minimal-boundary.md) 收口，但还不是完整官方标准库
 - `foundation/`：当前仍是 Std-0 孵化层，负责承载尚未迁移的样例和未充分验证的 helper，尤其是搜索、markdown/searchable 文件分类和目录重建策略
+- `Repair Archaeology v0`：当前是规划中的证据链展示层，还没有实现导出脚本或 `axc` 命令；它不代表 live-model benchmark 已经完成
 
 ## 当前明确后置、不是主线的方向
 
@@ -104,11 +107,12 @@ AX 是一门面向自回归 Coding AI 的 AI-first 工具语言，目前处在�
 2. [`docs/feature-matrix.md`](./docs/feature-matrix.md)：当前能力面、边界和非目标
 3. [`docs/benchmark-showcase.md`](./docs/benchmark-showcase.md)：当前可复现 benchmark 展示页
 4. [`docs/public-claims.md`](./docs/public-claims.md)：对外表述边界
-5. [`docs/interface-contracts.md`](./docs/interface-contracts.md)：外部契约与快照覆盖
-6. [`docs/repair-benchmark.md`](./docs/repair-benchmark.md)：benchmark 证据链
-7. [`PLAN.md`](./PLAN.md)：全项目闭环计划与阶段门槛
-8. [`WORKLIST.md`](./WORKLIST.md)：当前施工项
-9. [`ARCHIVE.md`](./ARCHIVE.md)：已完成事项归档
+5. [`docs/repair-archaeology.md`](./docs/repair-archaeology.md)：下一轮修复证据可解释展示层
+6. [`docs/interface-contracts.md`](./docs/interface-contracts.md)：外部契约与快照覆盖
+7. [`docs/repair-benchmark.md`](./docs/repair-benchmark.md)：benchmark 证据链
+8. [`PLAN.md`](./PLAN.md)：全项目闭环计划与阶段门槛
+9. [`WORKLIST.md`](./WORKLIST.md)：当前施工项
+10. [`ARCHIVE.md`](./ARCHIVE.md)：已完成事项归档
 
 ## 当前一句话判断
 

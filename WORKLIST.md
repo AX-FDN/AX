@@ -39,7 +39,7 @@
 当前激活主线判断固定为：
 
 - `P0` 是地基修复层，当前只剩入口口径收口
-- `P1` 是编译器护城河同步硬化层，当前这一轮 context / benchmark / public claims 已完成
+- `P1` 是编译器护城河同步硬化层，当前 context / benchmark / public claims 已完成，下一轮增长点登记为 `Repair Archaeology v0`
 - `P2` 是语言内核主施工层，当前代表样例、宿主边界和语法优先级已完成冻结
 - `P3` 是第一版标准库冻结试点层，当前已完成 `project_text_normalize`、`project_directory_index`、`project_release_promote`、`project_command_capture`、`project_command_batch` 五组 `std.*` 迁移试点
 
@@ -72,7 +72,8 @@
    - `std.*` 第一版接口冻结候选已收口，下一步只做冻结候选的验证入口与文档入口补强
    - 继续保持 `foundation/` 作为未迁移样例的 Std-0 孵化层
 2. 暂不启动 P4 AOT、P5 包接口、JIT、自举或三方库桥接
-3. 任何下一轮实现都必须继续回写 examples、diagnostics、context、repair/benchmark 或 interface snapshots
+3. `Repair Archaeology v0` 已登记为 P1 后续证据链展示层，但排在 `W-P3-15` 之后，不抢当前 Std-1 验证入口收口
+4. 任何下一轮实现都必须继续回写 examples、diagnostics、context、repair/benchmark 或 interface snapshots
 
 当前判断：P1 这一轮已经完成，不再和新增语言能力抢资源。当前主线已经选定为 `P3 std.*`，但不继续全仓改名；五组迁移试点已经足够暴露第一版工具标准库边界，冻结候选已经收口，下一步应把这些候选接进更明确的验证入口和对外文档入口。
 
@@ -228,6 +229,29 @@
     - README / docs / showcase 一致的措辞
   - 完成标准：
     - 不再出现“已经胜过某语言子集”式过界表述
+
+- [ ] `W-P1-07` 登记 `Repair Archaeology v0` 为下一轮证据链展示层
+  - 目标：把已有 repair cases、score、compare、context-enabled export 资产整理成按 case 可查询、可导出、可解释的修复证据对象。
+  - 定位：
+    - 它是 P1 编译器护城河的展示与解释层
+    - 它不是新语法
+    - 它不是 `axc generate`
+    - 它不调用真实 LLM
+    - 它不抢 P3 Std-1 验证入口
+  - v0 候选产物：
+    - `docs/repair-archaeology.md`
+    - case 级 JSON artifact schema
+    - 至少 `3` 个 Markdown archaeology 报告
+    - 至少 `1` 个失败或退化 case 的解释报告
+    - 可复跑导出入口
+  - 当前不做：
+    - 不启动 Live Repair Stream 实时模型协商
+    - 不做 UI
+    - 不新增 `axc` 命令面，除非脚本和 artifact schema 已经稳定
+  - 启动顺序：
+    - 排在 `W-P3-15` 之后
+  - 完成标准：
+    - 能清楚回答某个 repair case 的初始错误、修复模式、候选结果、失败原因、context 是否参与和复现命令
 
 ## P2 施工项：语言内核与最小可写工具
 
