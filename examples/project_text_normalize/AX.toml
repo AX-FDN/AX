@@ -3,4 +3,4 @@ manifest_version = 1
 [package]
 name = "project_text_normalize"
 entry = "src/main.ax"
-sources = ["../../foundation", "lib"]
+sources = ["../../std", "lib"]

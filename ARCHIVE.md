@@ -25,6 +25,14 @@
 
 ### 2026-04-27
 
+- `A-2026-04-27-16` `[P3]` 第一组 `std.*` 源码模块与 text normalize 迁移试点落地
+  - 结果：
+    - 新增 `std/cli.ax`、`std/fs.ax`、`std/path.ax`、`std/report.ax`、`std/text.ax` 五个 AX 源码模块
+    - `examples/project_text_normalize/` 已从 `../../foundation` 迁移到 `../../std + lib`
+    - `lib.normalize` 与 `lib.report` 保留项目私有业务层，`src/main.ax` 通过 `std.*` 完成通用 CLI、文件、路径、文本和报告能力调用
+    - `tests/interface_snapshots.rs` 已更新 build source tree 回归，运行夹具继续覆盖 text normalize 行为
+    - `WORKLIST.md` 的当前主线已切到第二迁移试点评估，不再停留在“是否启动 P3”判断
+
 - `A-2026-04-27-15` `[P0]` 根目录与 docs 入口口径收口
   - 结果：
     - `WORKLIST.md` 顶部当前主线已从旧的 P1 主攻口径改为 P0 收尾完成后的下一轮选择口径

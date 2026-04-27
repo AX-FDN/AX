@@ -583,8 +583,25 @@ const SHARED_FOUNDATION_PROJECT_SOURCES: &[&str] = &[
     "external/foundation/workspace.ax",
 ];
 
+const SHARED_STD_PROJECT_SOURCES: &[&str] = &[
+    "external/std/cli.ax",
+    "external/std/fs.ax",
+    "external/std/path.ax",
+    "external/std/report.ax",
+    "external/std/text.ax",
+];
+
 fn project_sources_with_shared_foundation(extra: &[&str]) -> Vec<String> {
     SHARED_FOUNDATION_PROJECT_SOURCES
+        .iter()
+        .copied()
+        .chain(extra.iter().copied())
+        .map(str::to_string)
+        .collect()
+}
+
+fn project_sources_with_shared_std(extra: &[&str]) -> Vec<String> {
+    SHARED_STD_PROJECT_SOURCES
         .iter()
         .copied()
         .chain(extra.iter().copied())
@@ -5226,11 +5243,7 @@ fn project_text_normalize_build_copies_real_example_source_tree() {
     assert_project_example_build_sources(
         "project-text-normalize-build",
         "examples/project_text_normalize",
-        &project_sources_with_shared_foundation(&[
-            "lib/normalize.ax",
-            "lib/report.ax",
-            "src/main.ax",
-        ]),
+        &project_sources_with_shared_std(&["lib/normalize.ax", "lib/report.ax", "src/main.ax"]),
     );
 }
 

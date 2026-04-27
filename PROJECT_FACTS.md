@@ -54,7 +54,7 @@ AX 是一门面向自回归 Coding AI 的 AI-first 工具语言，目前处在�
 
 - 项目组织采用 `AX.toml + sources`
 - 第一阶段 `import / module` 已接入 parser、project、semantic 与诊断主链
-- 仓库内已有 project-backed 代表样例和共享 `foundation/` helper
+- 仓库内已有 project-backed 代表样例、共享 `foundation/` helper，以及第一批 `std/` 标准库试点模块
 - P2 阶段主代表样例与宿主边界样例已在 [`docs/representative-samples.md`](./docs/representative-samples.md) 固定
 
 ### 5. benchmark 证据链是语言主线的验证层，不是附属脚本
@@ -76,7 +76,8 @@ AX 是一门面向自回归 Coding AI 的 AI-first 工具语言，目前处在�
 - host runtime boundary：已开始收紧，但仍是当前最重要的持续硬化方向之一
 - `src/ai.rs` 的规则触发：正在从文案匹配继续迁移到更稳定的内部语义标签
 - `build`：当前仍是 backend 前的构建骨架，不应被表述成成熟 native compiler
-- `foundation/`：当前是 Std-0 孵化层，还不是冻结后的官方标准库
+- `std/`：当前已启动第一批标准库试点模块，但还不是全仓冻结后的完整官方标准库
+- `foundation/`：当前仍是 Std-0 孵化层，负责承载尚未迁移的样例和 helper
 
 ## 当前明确后置、不是主线的方向
 

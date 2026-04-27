@@ -1,24 +1,29 @@
+module lib.report;
+
+import std.report;
+import std.text;
+
 fn build_report(
     input_path: string,
     output_path: string,
     changed: bool,
-    before: TextStats,
-    after: TextStats,
+    before: std.text.TextStats,
+    after: std.text.TextStats,
     normalized: string
 ) -> string {
     let mut report: string = "";
-    report = append_path_stat(report, "input", input_path);
-    report = append_path_stat(report, "output", output_path);
-    report = append_bool_stat(report, "changed", changed);
-    report = append_int_stat(report, "before_lines", before.lines);
-    report = append_int_stat(report, "before_nonempty", before.nonempty);
-    report = append_int_stat(report, "before_headings", before.headings);
-    report = append_int_stat(report, "before_action_items", before.action_items);
-    report = append_int_stat(report, "after_lines", after.lines);
-    report = append_int_stat(report, "after_nonempty", after.nonempty);
-    report = append_int_stat(report, "after_headings", after.headings);
-    report = append_int_stat(report, "after_action_items", after.action_items);
-    report = append_int_stat(report, "output_bytes", len(normalized));
+    report = std.report.append_path_stat(report, "input", input_path);
+    report = std.report.append_path_stat(report, "output", output_path);
+    report = std.report.append_bool_stat(report, "changed", changed);
+    report = std.report.append_int_stat(report, "before_lines", before.lines);
+    report = std.report.append_int_stat(report, "before_nonempty", before.nonempty);
+    report = std.report.append_int_stat(report, "before_headings", before.headings);
+    report = std.report.append_int_stat(report, "before_action_items", before.action_items);
+    report = std.report.append_int_stat(report, "after_lines", after.lines);
+    report = std.report.append_int_stat(report, "after_nonempty", after.nonempty);
+    report = std.report.append_int_stat(report, "after_headings", after.headings);
+    report = std.report.append_int_stat(report, "after_action_items", after.action_items);
+    report = std.report.append_int_stat(report, "output_bytes", len(normalized));
 
     let mut details: string = "";
     let lines: [string] = string_split_lines(normalized);
@@ -27,13 +32,13 @@ fn build_report(
     for (let mut i: i32 = 0; i < len(lines); i = i + 1) {
         let line: string = lines[i];
         if (string_len(line) != 0) {
-            details = append_line(details, line);
+            details = std.report.append_line(details, line);
             shown = shown + 1;
             if (shown == preview_limit) {
-                return append_section_details_or_none(report, "preview", details, "(none)");
+                return std.report.append_section_details_or_none(report, "preview", details, "(none)");
             }
         }
     }
 
-    return append_section_details_or_none(report, "preview", details, "(none)");
+    return std.report.append_section_details_or_none(report, "preview", details, "(none)");
 }

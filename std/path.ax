@@ -1,0 +1,13 @@
+module std.path;
+
+fn join(left: string, right: string) -> string {
+    return path_join(left, right);
+}
+
+fn stem(path: string) -> string {
+    return path_stem(path);
+}
+
+fn resolve(path: string) -> string {
+    return path_resolve(path);
+}

@@ -41,7 +41,7 @@
 - `P0` 是地基修复层，当前只剩入口口径收口
 - `P1` 是编译器护城河同步硬化层，当前这一轮 context / benchmark / public claims 已完成
 - `P2` 是语言内核主施工层，当前代表样例、宿主边界和语法优先级已完成冻结
-- `P3` 是第一版标准库冻结准备层，当前边界已完成，下一步可启动小范围迁移试点
+- `P3` 是第一版标准库冻结试点层，当前已完成 `project_text_normalize` 第一轮 `std.*` 迁移，下一步评估第二迁移试点
 
 ## 状态说明
 
@@ -58,18 +58,19 @@
 - `P0` 的验证矩阵与外部契约已经写清，当前只剩根目录与 docs 入口口径收尾
 - `P1` 的 context-enabled repair export、benchmark 展示页和公开口径边界已经成立
 - `P2` 当前出口已经完成，语言内核主代表样例、宿主边界样例和第一项 `match` 语法线已经进入回归
-- `P3` 前置边界已经完成，`foundation -> std.*` 的真正迁移暂不启动
-- 当前 `P0 / P1 / P2` 本轮出口均已完成，下一轮主攻应在 `P2` 语言实现和 `P3` 标准库迁移试点之间选择
+- `P3` 前置边界已经完成，`project_text_normalize` 已作为第一组 `foundation -> std.*` 迁移试点完成第一轮闭环
+- 当前 `P0 / P1 / P2` 本轮出口均已完成，下一轮主攻固定为 `P3 std.*` 试点验证与第二样例迁移准备
 
 当前优先级顺序固定为：
 
-1. 先确认下一轮主施工线：
-   - 如果要继续语言能力，回到 `P2` 的 `match` 第二刀实现
-   - 如果要推进标准库，启动 `P3` 的 `foundation -> std.*` 小范围迁移试点
+1. 先评估第二个 `P3` 标准库迁移试点：
+   - 优先看 `project_directory_index`
+   - 只补它真实需要的 `std.workspace / std.path / std.report` 接口
+   - 继续保持 `foundation/` 作为未迁移样例的 Std-0 孵化层
 2. 暂不启动 P4 AOT、P5 包接口、JIT、自举或三方库桥接
 3. 任何下一轮实现都必须继续回写 examples、diagnostics、context、repair/benchmark 或 interface snapshots
 
-当前判断：P1 这一轮已经完成，不再和新增语言能力抢资源。下一步应在 `P2 match 第二刀实现` 与 `P3 std.* 迁移试点` 之间选一条作为主线。
+当前判断：P1 这一轮已经完成，不再和新增语言能力抢资源。当前主线已经选定为 `P3 std.*`，下一步只评估并准备第二迁移试点，不全仓改名。
 
 ## 阶段承接图
 
@@ -110,11 +111,12 @@
 - [x] `P2` 语法优先级顺序已经冻结，不再一边补样例一边随意跳语法点
 - [x] 至少一项 `P2` 语法缺口完成 scope freeze，并进入主线闭环准备
 
-### `P3` 当前只做前置，不做全面启动
+### `P3` 当前进入小范围试点，不做全面启动
 
 - [x] 第一版 `std.*` 命名空间边界先写清
 - [x] `foundation/* -> std.*` 的映射先列清单
 - [x] 至少有一组样例能作为标准库迁移试点
+- [x] `project_text_normalize` 已消费第一批 `std.*` AX 源码模块并通过回归
 
 ## 近期已解除阻塞
 
@@ -459,6 +461,43 @@
   - 依赖：`W-P3-01`
   - 完成标准：
     - 用户视角看到的是 AX 接口，不是 Rust crate 名单
+
+- [x] `W-P3-06` 启动第一组 `std.*` AX 源码模块
+  - 目标：把标准库从纯文档边界推进到真实 AX 源码模块，但只覆盖第一试点需要的最小接口面。
+  - 当前范围：
+    - `std/cli.ax`
+    - `std/fs.ax`
+    - `std/path.ax`
+    - `std/report.ax`
+    - `std/text.ax`
+  - 依赖：`W-P3-01` 到 `W-P3-05`
+  - 完成标准：
+    - `project_text_normalize` 可以只通过 `../../std` 与项目私有 `lib` 完成 `check / run / build`
+    - `foundation/` 继续保留给未迁移样例，不做全仓重命名
+    - interface snapshot 覆盖 build source tree 与运行夹具
+
+- [x] `W-P3-07` 完成 `project_text_normalize` 标准库迁移试点
+  - 目标：让第一个真实工具样例消费 `std.cli / std.fs / std.path / std.report / std.text`，验证模块命名、全限定调用和项目私有 `lib.*` 的组合成本。
+  - 当前分层：
+    - `std.*` 承担通用文本、CLI、文件、路径、报告接口
+    - `lib.normalize` 与 `lib.report` 保留项目私有业务逻辑
+    - `src/main.ax` 只做流程编排
+  - 依赖：`W-P3-06`
+  - 完成标准：
+    - `axc check examples/project_text_normalize` 成功
+    - `axc run examples/project_text_normalize -- <input> <output_dir>` 成功
+    - `axc build examples/project_text_normalize` 成功
+    - `tests/interface_snapshots.rs` 的 text normalize 运行与 build source 回归通过
+
+- [ ] `W-P3-08` 评估第二迁移试点 `project_directory_index`
+  - 目标：不要马上全仓迁移；先确认 `std.workspace / std.path / std.report` 是否已经足够承载目录索引工具。
+  - 依赖：`W-P3-07` 完成并通过回归
+  - 当前不做：
+    - 不迁移 `std.process / std.env`
+    - 不改包系统
+    - 不把 `foundation/` 删除
+  - 完成标准：
+    - 写清第二迁移试点需要补哪些 `std.*` 接口，再决定是否实施
 
 ## 当前明确不插队的方向
 

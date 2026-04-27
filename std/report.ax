@@ -1,0 +1,39 @@
+module std.report;
+
+import std.path;
+
+fn append_line(report: string, line: string) -> string {
+    if (string_len(report) == 0) {
+        return line;
+    }
+
+    return report + "\n" + line;
+}
+
+fn append_string_stat(report: string, key: string, value: string) -> string {
+    return append_line(report, key + "=" + value);
+}
+
+fn append_int_stat(report: string, key: string, value: i32) -> string {
+    return append_string_stat(report, key, to_string(value));
+}
+
+fn append_bool_stat(report: string, key: string, value: bool) -> string {
+    return append_string_stat(report, key, to_string(value));
+}
+
+fn append_path_stat(report: string, key: string, path: string) -> string {
+    return append_string_stat(report, key, std.path.resolve(path));
+}
+
+fn begin_section(report: string, title: string) -> string {
+    return report + "\n\n" + title + ":\n";
+}
+
+fn append_section_details_or_none(report: string, title: string, details: string, empty_line: string) -> string {
+    let mut next: string = begin_section(report, title);
+    if (string_len(details) == 0) {
+        return next + empty_line + "\n";
+    }
+    return next + details;
+}

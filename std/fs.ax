@@ -1,0 +1,23 @@
+module std.fs;
+
+fn read_to_string(path: string) -> string {
+    return fs_read_to_string(path);
+}
+
+fn write_string(path: string, contents: string) -> i32 {
+    fs_write_string(path, contents);
+    return 0;
+}
+
+fn create_dir_all(path: string) -> i32 {
+    fs_create_dir_all(path);
+    return 0;
+}
+
+fn is_file(path: string) -> bool {
+    return fs_is_file(path);
+}
+
+fn is_dir(path: string) -> bool {
+    return fs_is_dir(path);
+}

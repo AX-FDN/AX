@@ -20,7 +20,7 @@ AX 关注的不只是“模型能不能写出代码”，更关注三件更硬�
 - 能不能在出错后提高结构化修复成功率
 - 能不能让 agent 在多文件项目里更快理解架构、边界和修改落点
 
-仓库已经具备可运行的 `axc check / run / fmt / build`、结构化 `diagnostics`、`--json --ai` 输出、project-backed 多文件组织、第一阶段 `import/module` 模式、AX 侧共享 foundation，以及 repair benchmark 的导出、评分、对比、smoke 与 CI 资产。
+仓库已经具备可运行的 `axc check / run / fmt / build`、结构化 `diagnostics`、`--json --ai` 输出、project-backed 多文件组织、第一阶段 `import/module` 模式、AX 侧共享 foundation、第一批 `std.*` 标准库试点模块，以及 repair benchmark 的导出、评分、对比、smoke 与 CI 资产。
 
 ## 项目导航
 
@@ -41,7 +41,7 @@ AX 关注的不只是“模型能不能写出代码”，更关注三件更硬�
 - `P0` 继续收紧环境与外部契约
 - `P1` 继续做硬 repair/context/benchmark 证据链
 - `P2` 继续收紧最小可写工具内核与代表样例
-- `P3` 还处于“为官方最小标准库冻结做准备”的阶段
+- `P3` 已进入第一批 `std.*` 标准库试点阶段，但尚未全仓冻结
 
 完整的阶段门槛和前置条件看 [`PLAN.md`](./PLAN.md)。
 
@@ -698,7 +698,7 @@ AX 的六层协议上下文，不只是让模型“更快读懂项目”，更�
 | AI 修复反馈 | 已沉淀 `rule_id / repair_goal / fixits / context_snippets` | [`src/ai.rs`](./src/ai.rs) |
 | 项目组织 | 已支持 `AX.toml + sources` 的 project-backed 多文件项目 | [`src/project.rs`](./src/project.rs) |
 | 模块模式 | 第一阶段 `import/module` 已接入 parser、project、semantic check，并有 smoke 项目验证 | [`examples/project_module_smoke/`](./examples/project_module_smoke/) |
-| AX 侧共享库 | 已沉淀 `foundation/cli / report / text / search / file_kind / workspace` | [`foundation/`](./foundation/) |
+| AX 侧共享库 | 已沉淀 `foundation/cli / report / text / search / file_kind / workspace`，并启动 `std.cli / std.fs / std.path / std.report / std.text` 试点 | [`foundation/`](./foundation/) [`std/`](./std/) |
 | 构建产物 | `build` 已稳定导出 `source.ax`、HIR、MIR、manifest、project-sources 快照 | [`src/build.rs`](./src/build.rs) |
 | benchmark 证据链 | repair cases、adapter、export、score、compare、smoke、CI 均已进入仓库主线 | [`docs/repair-benchmark.md`](./docs/repair-benchmark.md) |
 | 平台支持 | Windows 工作流最完整；Linux 已打通核心 compiler/runtime 命令 | [`docs/platform-support.md`](./docs/platform-support.md) |
@@ -711,7 +711,7 @@ AX 的六层协议上下文，不只是让模型“更快读懂项目”，更�
 | --- | --- | --- |
 | 推进语言内核与最小可写工具能力 | 继续补最值钱的表达能力、宿主能力和 project-backed 工程组织 | `foundation/`、`examples/project_*`、`SYNTAX.md` |
 | 推进显式、确定的模块组织 | 让 shared foundation 和 project-private logic 有清晰边界 | `AX.toml + sources`、`module`、`import`、全限定名 |
-| 为第一版最小标准库做冻结准备 | 把当前 `foundation/*` 收口成后续 `std.*` 的接口映射 | `foundation/`、`PLAN.md`、`WORKLIST.md` |
+| 为第一版最小标准库做冻结试点 | 用 `project_text_normalize` 验证 `std.*` 命名空间、全限定调用和项目私有 `lib.*` 的组合成本 | `std/`、`examples/project_text_normalize/`、`PLAN.md`、`WORKLIST.md` |
 | 做硬 diagnostics / context / repair / benchmark | 让语言主线自带可消费的编译器反馈和可回放证据链 | `src/ai.rs`、`benchmarks/`、`scripts/`、`docs/benchmark-showcase.md` |
 | 用代表性样例反向驱动语言设计 | 每补一项能力，都要求它能支撑一个更真实的工具样例 | `examples/`、`tests/interface_snapshots.rs` |
 
@@ -723,7 +723,7 @@ AX 的六层协议上下文，不只是让模型“更快读懂项目”，更�
 - 先做硬 `P0` 的契约地基
 - 再以 `P2` 继续推进语言内核与最小可写工具能力
 - 同步推进 `P1` 的编译器护城河闭环
-- 再进入 `P3` 的官方最小标准库冻结
+- 继续推进 `P3` 的官方最小标准库试点与冻结
 - AOT、包接口、自举和生态扩张统一后置到 [`PLAN.md`](./PLAN.md) 的后续阶段
 
 ## 快速理解 AX 现在能做什么
@@ -805,7 +805,7 @@ P2 阶段固定样例集合与回归职责见 [`docs/representative-samples.md`]
 | [`examples/workspace_search_report.ax`](./examples/workspace_search_report.ax) | 关键字搜索与匹配报告 | AX 能承载递归扫描和报告生成 |
 | [`examples/project_directory_index/`](./examples/project_directory_index/) | project-backed 目录索引工具 | foundation 与项目私有逻辑已经能协同 |
 | [`examples/project_release_promote/`](./examples/project_release_promote/) | 构建产物整理与提升 | path/fs 边界已经可用于真实自动化流程 |
-| [`examples/project_text_normalize/`](./examples/project_text_normalize/) | 文本读取、重写、输出报告 | 文本处理链条已经具备基础可写性 |
+| [`examples/project_text_normalize/`](./examples/project_text_normalize/) | 文本读取、重写、输出报告 | 第一批 `std.cli / std.fs / std.path / std.report / std.text` 试点样例 |
 | [`examples/project_module_smoke/`](./examples/project_module_smoke/) | 第一阶段模块模式 smoke 工程 | `import/module` 已经进入主线验证链 |
 
 ## 当前已经落地的语法面
@@ -956,7 +956,7 @@ AX 当前采用“manifest 控制文件集合，module/import 控制命名边界
 
 - `AX.toml` 继续作为项目文件集合的唯一来源
 - `module` 路径由 source root 与文件路径推导并校验
-- foundation 代码与项目私有代码开始拥有清晰命名边界
+- foundation、`std.*` 试点代码与项目私有代码开始拥有清晰命名边界
 - `check / run / fmt / build` 依旧围绕整个 manifest 项目运作
 
 对应设计文档见 [`docs/import-module-minimal-design.md`](./docs/import-module-minimal-design.md)。

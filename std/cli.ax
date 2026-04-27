@@ -1,0 +1,32 @@
+module std.cli;
+
+fn usage_error(command: string, arguments: string) -> i32 {
+    println("usage: axc run " + command + " -- " + arguments);
+    return 1;
+}
+
+fn require_min_args(actual: i32, minimum: i32, command: string, arguments: string) -> i32 {
+    if (actual < minimum) {
+        return usage_error(command, arguments);
+    }
+    return 0;
+}
+
+fn exit_with_message(message: string, code: i32) -> i32 {
+    println(message);
+    return code;
+}
+
+fn require_file(path: string, label: string, code: i32) -> i32 {
+    if (!fs_is_file(path)) {
+        return exit_with_message(label + " does not exist: " + path, code);
+    }
+    return 0;
+}
+
+fn require_non_empty_text(text: string, label: string, code: i32) -> i32 {
+    if (string_len(text) == 0) {
+        return exit_with_message(label + " must not be empty", code);
+    }
+    return 0;
+}
