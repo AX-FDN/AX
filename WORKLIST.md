@@ -108,7 +108,7 @@
 - [ ] 主代表样例和宿主边界样例都有稳定 `check / run / build` 验证链
 - [ ] `foundation/` 不再依赖明显的一次性 glue helper
 - [x] `P2` 语法优先级顺序已经冻结，不再一边补样例一边随意跳语法点
-- [ ] 至少一项 `P2` 语法缺口完成 scope freeze，并进入主线闭环准备
+- [x] 至少一项 `P2` 语法缺口完成 scope freeze，并进入主线闭环准备
 
 ### `P3` 当前只做前置，不做全面启动
 
@@ -377,12 +377,26 @@
   - 完成标准：
     - 后续不会再出现“语法进了 parser，但没进修复链和样例”的半截能力
 
-- [ ] `W-P2-S05` 选择并启动第一项 `P2` 语法实现
+- [x] `W-P2-S05` 选择并启动第一项 `P2` 语法实现
   - 目标：按当前冻结顺序先启动 `match` 第二刀；只有代表样例被真实卡住时，才允许插入一个更小表达缺口。
+  - 当前已选择：
+    - 第一项启动对象固定为 `match` 第二刀
+    - 第一组落点不是新增一组 pattern，而是先把 bootstrap 风格样例从 `if (value == Enum.Variant)` 梯子迁到 enum-first `match`
+  - 已完成的最小实现面：
+    - `examples/bootstrap_state_machine.ax` 使用 nested expression `match` 承担状态机分派
+    - `examples/bootstrap_block_summary.ax` 使用 statement `match` 承担 token 分派
+    - `examples/bootstrap_token_scan.ax` 使用 statement `match` 承担 token kind 分派
+    - `tests/interface_snapshots.rs` 覆盖三个 bootstrap 样例的运行回归
+    - `src/semantic.rs` 补充 enum `match` 非穷尽诊断回归
   - 依赖：`W-P2-S01`、`W-P2-S02`、`W-P2-S03`、`W-P2-S04`
   - 完成标准：
     - 第一项语法实现进入主线时，能立刻回写代表样例与回归链
     - 如果不是 `match` 第二刀，必须先在 `WORKLIST` 里补一条“为什么代表样例被它真实卡住”的说明
+  - 验证：
+    - `.\scripts\cargo-gnu.ps1 test --test interface_snapshots`
+    - `.\scripts\cargo-gnu.ps1 test --lib`
+    - `.\scripts\cargo-gnu.ps1 test --lib reports_non_exhaustive_enum_match`
+    - `.\scripts\cargo-gnu.ps1 test --test interface_snapshots bootstrap_token_scan_example_runs`
 
 ## P3 前置语法与接口项：为包接口和标准库做准备
 

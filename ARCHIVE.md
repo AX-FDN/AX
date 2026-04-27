@@ -25,6 +25,13 @@
 
 ### 2026-04-27
 
+- `A-2026-04-27-05` `[P2]` `match` 第二刀启动并接入 bootstrap 回归
+  - 结果：
+    - `WORKLIST.md` 已冻结 `match` 第二刀与 payload enum 深化范围，并启动第一项 P2 语法实现
+    - `examples/bootstrap_state_machine.ax`、`examples/bootstrap_block_summary.ax`、`examples/bootstrap_token_scan.ax` 已改成用 enum-first `match` 承担真实控制流分派
+    - `tests/interface_snapshots.rs` 已覆盖三个 bootstrap 样例运行回归
+    - `src/semantic.rs` 已补充 enum `match` 非穷尽诊断回归
+
 - `A-2026-04-27-04` `[P0]` Windows 本机 GNU 验证路径固定并实测通过
   - 结果：
     - `scripts/cargo-gnu.ps1` 的 native cargo 参数转发收紧，`test --lib` 可稳定透传

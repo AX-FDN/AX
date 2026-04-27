@@ -560,6 +560,29 @@ fn main() -> i32 {
     }
 
     #[test]
+    fn reports_non_exhaustive_enum_match() {
+        let codes = check(
+            "\
+enum Flag {
+    On,
+    Off,
+}
+
+fn choose(flag: Flag) -> i32 {
+    return match (flag) {
+        Flag.On => 1,
+    };
+}
+
+fn main() -> i32 {
+    return choose(Flag.On);
+}
+",
+        );
+        assert!(codes.iter().any(|code| code == "S0049"));
+    }
+
+    #[test]
     fn reports_for_initializer_variable_used_outside_loop() {
         let codes = check(
             "\

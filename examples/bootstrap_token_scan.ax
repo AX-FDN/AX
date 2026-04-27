@@ -15,8 +15,13 @@ fn count_number_tokens(tokens: [Token; 6]) -> i32 {
     let mut index: i32 = 0;
 
     while (index < 6) {
-        if (tokens[index].kind == TokenKind.Number) {
-            count = count + 1;
+        match (tokens[index].kind) {
+            TokenKind.Number => {
+                count = count + 1;
+            }
+            TokenKind.Plus => {}
+            TokenKind.Minus => {}
+            TokenKind.End => {}
         }
         index = index + 1;
     }
@@ -29,8 +34,13 @@ fn sum_number_tokens(tokens: [Token; 6]) -> i32 {
     let mut index: i32 = 0;
 
     while (index < 6) {
-        if (tokens[index].kind == TokenKind.Number) {
-            total = total + tokens[index].value;
+        match (tokens[index].kind) {
+            TokenKind.Number => {
+                total = total + tokens[index].value;
+            }
+            TokenKind.Plus => {}
+            TokenKind.Minus => {}
+            TokenKind.End => {}
         }
         index = index + 1;
     }

@@ -3947,6 +3947,17 @@ fn bootstrap_block_summary_example_runs() {
 }
 
 #[test]
+fn bootstrap_token_scan_example_runs() {
+    let output = run_axc([
+        OsStr::new("run"),
+        OsStr::new("examples/bootstrap_token_scan.ax"),
+    ]);
+    assert_eq!(output.status.code(), Some(0));
+    assert_clean_stderr(&output);
+    assert_eq!(normalize_text(&string_output(&output.stdout)), "3\n21\n");
+}
+
+#[test]
 fn slices_example_runs() {
     let output = run_axc([OsStr::new("run"), OsStr::new("examples/slices.ax")]);
     assert_eq!(output.status.code(), Some(3));
