@@ -384,7 +384,7 @@ fn run_context_command(args: Vec<String>) -> i32 {
         Ok(options) => options,
         Err(error) => {
             eprintln!(
-                "{error}\nusage: axc context <overview|boundaries|topology|flow> <path> [--json]\n       axc context <symbol|impact> <path> <symbol> [--json]"
+                "{error}\nusage: axc context <overview|boundaries|topology|flow> <path> [--json]\n       axc context <symbol|impact|evidence> <path> <symbol> [--json]"
             );
             return 2;
         }
@@ -472,7 +472,7 @@ Commands:
   run <path> [--json] [--ai] [--ai-session <path>] [-- <args...>]   Execute the minimal interpreter
   fmt <path>               Rewrite the file or project sources to the canonical AX format
   context <overview|boundaries|topology|flow> <path> [--json]
-  context <symbol|impact> <path> <symbol> [--json]   Print stable project/source context JSON
+  context <symbol|impact|evidence> <path> <symbol> [--json]   Print stable project/source context JSON
 "
 }
 
@@ -700,9 +700,10 @@ fn parse_context_args(args: Vec<String>) -> Result<ContextOptions, String> {
         "flow" => ContextView::Flow,
         "symbol" => ContextView::Symbol,
         "impact" => ContextView::Impact,
+        "evidence" => ContextView::Evidence,
         _ => {
             return Err(format!(
-                "unknown context view `{view}`; expected `overview`, `boundaries`, `topology`, `flow`, `symbol`, or `impact`"
+                "unknown context view `{view}`; expected `overview`, `boundaries`, `topology`, `flow`, `symbol`, `impact`, or `evidence`"
             ));
         }
     };
@@ -715,7 +716,11 @@ fn parse_context_args(args: Vec<String>) -> Result<ContextOptions, String> {
             _ if file.is_none() => {
                 file = Some(PathBuf::from(arg));
             }
-            _ if matches!(view, ContextView::Symbol | ContextView::Impact) && symbol.is_none() => {
+            _ if matches!(
+                view,
+                ContextView::Symbol | ContextView::Impact | ContextView::Evidence
+            ) && symbol.is_none() =>
+            {
                 symbol = Some(arg.clone());
             }
             _ => return Err(format!("unexpected argument `{arg}`")),
@@ -729,7 +734,11 @@ fn parse_context_args(args: Vec<String>) -> Result<ContextOptions, String> {
         ));
     };
 
-    if matches!(view, ContextView::Symbol | ContextView::Impact) && symbol.is_none() {
+    if matches!(
+        view,
+        ContextView::Symbol | ContextView::Impact | ContextView::Evidence
+    ) && symbol.is_none()
+    {
         return Err(format!(
             "missing symbol query for `axc context {}`",
             view.as_str()
@@ -892,11 +901,9 @@ mod tests {
 
     #[test]
     fn rejects_unknown_context_view() {
-        let error = parse_context_args(vec![
-            "evidence".to_string(),
-            "examples/hello.ax".to_string(),
-        ])
-        .expect_err("unknown context view should be rejected");
+        let error =
+            parse_context_args(vec!["unknown".to_string(), "examples/hello.ax".to_string()])
+                .expect_err("unknown context view should be rejected");
         assert!(error.contains("unknown context view"));
     }
 
@@ -953,6 +960,26 @@ mod tests {
             options,
             ContextOptions {
                 view: ContextView::Impact,
+                file: PathBuf::from("examples/project_workspace_search_report"),
+                symbol: Some("lib.file_search.search_path".to_string()),
+            }
+        );
+    }
+
+    #[test]
+    fn parses_context_evidence_options() {
+        let options = parse_context_args(vec![
+            "evidence".to_string(),
+            "examples/project_workspace_search_report".to_string(),
+            "lib.file_search.search_path".to_string(),
+            "--json".to_string(),
+        ])
+        .expect("evidence context arguments should parse");
+
+        assert_eq!(
+            options,
+            ContextOptions {
+                view: ContextView::Evidence,
                 file: PathBuf::from("examples/project_workspace_search_report"),
                 symbol: Some("lib.file_search.search_path".to_string()),
             }

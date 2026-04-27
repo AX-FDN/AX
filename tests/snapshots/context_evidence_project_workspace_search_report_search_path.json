@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "view": "evidence",
+  "subject": {
+    "kind": "project",
+    "path": "examples/project_workspace_search_report",
+    "entry": "examples/project_workspace_search_report/src/main.ax",
+    "project_name": "project_workspace_search_report",
+    "symbol": "lib.file_search.search_path"
+  },
+  "facts": {
+    "requested_symbol": "lib.file_search.search_path",
+    "resolved_symbol": "lib.file_search.search_path",
+    "affected_units": [
+      "examples/project_workspace_search_report/lib/file_search.ax",
+      "examples/project_workspace_search_report/lib/search_totals.ax",
+      "examples/project_workspace_search_report/src/main.ax",
+      "foundation/file_kind.ax",
+      "foundation/search.ax",
+      "foundation/workspace.ax"
+    ],
+    "related_examples": [
+      "examples/project_workspace_search_report",
+      "examples/workspace_search_report.ax"
+    ],
+    "related_tests": [
+      "tests/interface_snapshots.rs"
+    ],
+    "related_docs": [
+      "docs/README.md",
+      "docs/feature-matrix.md",
+      "docs/host-runtime-boundary.md",
+      "docs/import-module-minimal-design.md",
+      "架构上下文文档.md"
+    ],
+    "related_benchmarks": [],
+    "expected_artifacts": [
+      "tests/snapshots/context_flow_project_workspace_search_report.json",
+      "tests/snapshots/context_symbol_project_workspace_search_report_search_path.json",
+      "tests/snapshots/context_impact_project_workspace_search_report_search_path.json",
+      "tests/snapshots/context_evidence_project_workspace_search_report_search_path.json"
+    ]
+  },
+  "hints": {
+    "recommended_commands": [
+      "axc check examples/project_workspace_search_report",
+      "axc context impact examples/project_workspace_search_report lib.file_search.search_path --json",
+      "axc context evidence examples/project_workspace_search_report lib.file_search.search_path --json",
+      "axc run examples/project_workspace_search_report -- <args...>",
+      "cargo test --test interface_snapshots context_"
+    ],
+    "expected_artifacts": [
+      "tests/snapshots/context_flow_project_workspace_search_report.json",
+      "tests/snapshots/context_symbol_project_workspace_search_report_search_path.json",
+      "tests/snapshots/context_impact_project_workspace_search_report_search_path.json",
+      "tests/snapshots/context_evidence_project_workspace_search_report_search_path.json"
+    ]
+  },
+  "validation": {
+    "diagnostic_count": 0,
+    "partial": false,
+    "recommended_commands": [
+      "axc check examples/project_workspace_search_report",
+      "axc context impact examples/project_workspace_search_report <symbol> --json",
+      "axc context evidence examples/project_workspace_search_report <symbol> --json"
+    ],
+    "notes": [
+      "P2 evidence maps the nearest examples, tests, docs, benchmarks, and expected artifacts",
+      "context built from a clean diagnostic pass"
+    ]
+  }
+}

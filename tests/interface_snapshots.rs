@@ -5303,3 +5303,28 @@ fn context_impact_matches_snapshot() {
         snapshot("context_impact_project_workspace_search_report_search_path.json")
     );
 }
+
+#[test]
+fn context_evidence_matches_snapshot() {
+    let output = run_axc([
+        OsStr::new("context"),
+        OsStr::new("evidence"),
+        OsStr::new("examples/project_workspace_search_report"),
+        OsStr::new("lib.file_search.search_path"),
+        OsStr::new("--json"),
+    ]);
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "context evidence should succeed\nstdout:\n{}\nstderr:\n{}",
+        string_output(&output.stdout),
+        string_output(&output.stderr)
+    );
+    assert_clean_stderr(&output);
+
+    let stdout = normalize_text(&string_output(&output.stdout));
+    assert_eq!(
+        stdout,
+        snapshot("context_evidence_project_workspace_search_report_search_path.json")
+    );
+}
