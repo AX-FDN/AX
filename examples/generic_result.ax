@@ -1,0 +1,21 @@
+enum Result<T, E> {
+    Ok(T),
+    Err(E),
+}
+
+fn value_or_zero(result: Result<i32, string>) -> i32 {
+    return match (result) { Result.Ok(value) => value, Result.Err(_) => 0 };
+}
+
+fn label(result: Result<i32, string>) -> string {
+    return match (result) { Result.Ok(_) => "ok", Result.Err(message) => message };
+}
+
+fn main() -> i32 {
+    let ok: Result<i32, string> = Result.Ok(7);
+    let err: Result<i32, string> = Result.Err("bad");
+    println(value_or_zero(ok));
+    println(value_or_zero(err));
+    println(label(err));
+    return value_or_zero(ok);
+}

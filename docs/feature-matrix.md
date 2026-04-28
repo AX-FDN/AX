@@ -53,7 +53,7 @@
 | semantic 高频错误稳定化 | `[x]` | 模块误用与首批高价值 `S0022` 变体已接稳定 kind | 还会继续扩，但主框架已成立 | `src/diagnostics.rs` `src/ai.rs` |
 | runtime 高频错误稳定化 | `[~]` | 数组越界、除零、可读文件/目录、argv/env/process 一批误用已接 AI 规则 | runtime 还在持续硬化，不代表 host boundary 已完全收口 | `src/interpreter.rs` `src/ai.rs` |
 | context 协议 | `[x]` | `overview / boundaries / topology / flow / symbol / impact / evidence`，并可通过 `-IncludeContext` 进入 repair export | 当前完成的是输入链路，live-model A/B 收益仍需后续证明 | `src/context.rs` `docs/interface-contracts.md` |
-| 语言表面 | `[~]` | 基础函数、显式类型、数组、slice、struct、enum、for、match 第一刀、module/import 第一刀 | 不含复杂泛型、trait、async、异常、宏 | `SYNTAX.md` |
+| 语言表面 | `[~]` | 基础函数、显式类型、数组、slice、struct、enum、泛型结构体/函数/enum 第一刀、trait/interface 第一刀、for、match、module/import 第一刀 | 不含 trait bounds、泛型方法、async、异常、宏 | `SYNTAX.md` |
 | 项目组织 | `[x]` | `AX.toml + sources`、project-backed 样例、共享 `foundation/` 与第一批 `std/` 试点 | 当前是最小工程模型，不是成熟包系统 | `examples/project_*/` |
 | 模块系统 | `[~]` | support source 模块路径、重复模块 / import、缺 import 等诊断已存在 | 当前是 minimal module mode，不是完整 package/visibility 系统 | `docs/import-module-minimal-design.md` |
 | 共享基础层 | `[~]` | `foundation/cli.ax`、`report.ax`、`search.ax`、`workspace.ax` 等，以及第一批 `std/cli.ax`、`env.ax`、`fs.ax`、`path.ax`、`process.ax`、`report.ax`、`text.ax`、`workspace.ax` | `std/` 仍是试点，不是全仓冻结后的完整标准库 | `foundation/` `std/` |
@@ -72,7 +72,7 @@
 | 顶层声明 | `[x]` | `fn`、`struct`、`enum`、`module`、`import` | `const`、`pub`、`impl`、traits/interfaces |
 | 语句 | `[x]` | `let`、`let mut`、赋值、`return`、`if/else`、`while`、`for`、`for in`、`break`、`continue`、语句 `match` | `defer`、异常传播、`switch` 类语法 |
 | 表达式 | `[~]` | 调用、字段访问、索引、slice、结构体字面量、枚举值、表达式 `match`、逻辑运算、余数、字符串拼接 | 闭包、方法调用语法糖、复杂 pattern matching、guard |
-| 类型系统 | `[~]` | `bool / i32 / f32 / string / string_list`、固定长度数组、只读 slice、payload enum 第一刀 | 泛型、traits、接口约束、错误结果体系 |
+| 类型系统 | `[~]` | `bool / i32 / f32 / string / string_list`、固定长度数组、只读 slice、payload enum 第一刀、泛型结构体/函数/enum 第一刀、trait/interface 声明与实现第一刀 | trait bounds、where 约束、泛型方法、完整错误结果体系 |
 | 工程组织 | `[x]` | `AX.toml + sources`、最小模块模式、全限定跨模块引用 | 包依赖、registry、lockfile、可见性体系 |
 
 ## 现在最容易被误读的五件事

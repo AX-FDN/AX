@@ -271,6 +271,17 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             .map(|argument| self.check_expr(argument))
             .collect::<Vec<_>>();
 
+        let enum_result_type = generic_enum_result_type(
+            &resolved_enum_name,
+            self.info
+                .enums
+                .get(&resolved_enum_name)
+                .map(|info| info.type_params.as_slice())
+                .unwrap_or(&[]),
+            variant_info.payload.as_ref(),
+            argument_types.first(),
+        );
+
         match variant_info.payload {
             Some(payload_type) => {
                 if argument_types.len() != 1 {
@@ -293,19 +304,28 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     return Some(Type::Error);
                 }
 
-                self.expect_type_match_with_kind(
+                let mut payload_substitutions = HashMap::new();
+                if !unify_generic_call_type(
                     &payload_type,
                     &argument_types[0],
-                    arguments[0].span,
-                    format!(
-                        "enum variant `{callee_name}` expects payload type `{}`, found `{}`",
-                        payload_type.describe(),
-                        argument_types[0].describe()
-                    ),
-                    DiagnosticKind::EnumVariantPayloadTypeMismatch,
-                );
+                    &mut payload_substitutions,
+                ) {
+                    let expected_payload =
+                        substitute_type_params(&payload_type, &payload_substitutions);
+                    self.expect_type_match_with_kind(
+                        &expected_payload,
+                        &argument_types[0],
+                        arguments[0].span,
+                        format!(
+                            "enum variant `{callee_name}` expects payload type `{}`, found `{}`",
+                            expected_payload.describe(),
+                            argument_types[0].describe()
+                        ),
+                        DiagnosticKind::EnumVariantPayloadTypeMismatch,
+                    );
+                }
 
-                Some(Type::Enum(resolved_enum_name))
+                Some(enum_result_type)
             }
             None => {
                 self.diagnostics.push(
@@ -324,6 +344,35 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 Some(Type::Error)
             }
         }
+    }
+}
+
+fn generic_enum_result_type(
+    enum_name: &str,
+    type_params: &[String],
+    payload_type: Option<&Type>,
+    argument_type: Option<&Type>,
+) -> Type {
+    if type_params.is_empty() {
+        return Type::Enum(enum_name.to_string());
+    }
+
+    let mut substitutions = HashMap::new();
+    if let (Some(payload_type), Some(argument_type)) = (payload_type, argument_type) {
+        let _ = unify_generic_call_type(payload_type, argument_type, &mut substitutions);
+    }
+
+    Type::EnumInstance {
+        name: enum_name.to_string(),
+        args: type_params
+            .iter()
+            .map(|param| {
+                substitutions
+                    .get(param)
+                    .cloned()
+                    .unwrap_or_else(|| Type::TypeParam(param.clone()))
+            })
+            .collect(),
     }
 }
 
@@ -381,6 +430,23 @@ fn unify_generic_call_type(
             }
             _ => expected == actual,
         },
+        Type::EnumInstance {
+            name: expected_name,
+            args: expected_args,
+        } => match actual {
+            Type::EnumInstance {
+                name: actual_name,
+                args: actual_args,
+            } if expected_name == actual_name && expected_args.len() == actual_args.len() => {
+                expected_args
+                    .iter()
+                    .zip(actual_args)
+                    .all(|(expected, actual)| {
+                        unify_generic_call_type(expected, actual, substitutions)
+                    })
+            }
+            _ => expected == actual,
+        },
         _ => expected == actual,
     }
 }
@@ -399,6 +465,13 @@ fn substitute_type_params(ty: &Type, substitutions: &HashMap<String, Type>) -> T
             length: *length,
         },
         Type::StructInstance { name, args } => Type::StructInstance {
+            name: name.clone(),
+            args: args
+                .iter()
+                .map(|arg| substitute_type_params(arg, substitutions))
+                .collect(),
+        },
+        Type::EnumInstance { name, args } => Type::EnumInstance {
             name: name.clone(),
             args: args
                 .iter()

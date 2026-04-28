@@ -13,6 +13,7 @@ pub(super) enum Type {
     Struct(String),
     StructInstance { name: String, args: Vec<Type> },
     Enum(String),
+    EnumInstance { name: String, args: Vec<Type> },
     TypeParam(String),
     Void,
     Error,
@@ -30,7 +31,7 @@ impl Type {
             Self::Slice { element } => format!("[{}]", element.describe()),
             Self::Array { element, length } => format!("[{}; {}]", element.describe(), length),
             Self::Struct(name) | Self::Enum(name) => name.clone(),
-            Self::StructInstance { name, args } => {
+            Self::StructInstance { name, args } | Self::EnumInstance { name, args } => {
                 let args = args
                     .iter()
                     .map(Type::describe)
@@ -63,6 +64,40 @@ impl Type {
                 (Self::Slice { element: expected_element }, Self::Array { element: actual_element, .. })
                     if expected_element.as_ref() == actual_element.as_ref()
             )
+            || generic_instance_assignable(self, expected)
+    }
+}
+
+fn generic_instance_assignable(actual: &Type, expected: &Type) -> bool {
+    match (actual, expected) {
+        (
+            Type::StructInstance {
+                name: actual_name,
+                args: actual_args,
+            },
+            Type::StructInstance {
+                name: expected_name,
+                args: expected_args,
+            },
+        )
+        | (
+            Type::EnumInstance {
+                name: actual_name,
+                args: actual_args,
+            },
+            Type::EnumInstance {
+                name: expected_name,
+                args: expected_args,
+            },
+        ) if actual_name == expected_name && actual_args.len() == expected_args.len() => {
+            actual_args
+                .iter()
+                .zip(expected_args)
+                .all(|(actual, expected)| {
+                    matches!(actual, Type::TypeParam(_)) || actual.is_assignable_to(expected)
+                })
+        }
+        _ => false,
     }
 }
 
@@ -97,6 +132,7 @@ pub(super) struct StructInfo {
 
 #[derive(Debug, Clone)]
 pub(super) struct EnumInfo {
+    pub(super) type_params: Vec<String>,
     pub(super) variants: HashMap<String, EnumVariantInfo>,
 }
 

@@ -24,6 +24,7 @@
 - 第一版 trait 当前写成 `trait Name { fn method(self: Self) -> Ret; }`，实现写成 `impl Name for Type { ... }`
 - 第一版泛型当前支持泛型结构体：`struct Box<T> { value: T }`，使用时写成 `Box<i32>`；结构体字面量仍写成 `Box { value: 1 }`
 - 第一版泛型函数当前支持由实参推断类型参数：`fn identity<T>(value: T) -> T { return value; }`
+- 第一版泛型 enum 当前支持 Result-like 类型：`enum Result<T, E> { Ok(T), Err(E) }`，使用时写成 `Result<i32, string>`
 - 可写目标当前支持嵌套路径：`point.x = expr;`、`outer.inner.value = expr;`、`tokens[index].value = expr;`
 
 ## 2. 顶层声明
@@ -80,6 +81,22 @@ enum Result {
     Ok(i32),
     Err(string),
     Empty,
+}
+```
+
+泛型 enum / Result-like 类型第一刀：
+
+```ax
+enum Result<T, E> {
+    Ok(T),
+    Err(E),
+}
+
+fn value_or_zero(result: Result<i32, string>) -> i32 {
+    return match (result) {
+        Result.Ok(value) => value,
+        Result.Err(_) => 0,
+    };
 }
 ```
 
@@ -142,10 +159,11 @@ import lib.report;
 - 用户声明的 `struct` 名
 - 用户声明的泛型 `struct` 实例，例如 `Box<i32>`、`Pair<string>`
 - 用户声明的 `enum` 名
+- 用户声明的泛型 `enum` 实例，例如 `Result<i32, string>`
 
 当前没有：
 
-- 泛型方法、泛型 enum、trait bounds / where 约束
+- 泛型方法、trait bounds / where 约束
 - `Option` / `Result` 的完整表面语法
 
 补充说明：
@@ -587,7 +605,7 @@ array_type        := "[" type_ref ";" INT "]"
 
 - 异常
 - async / await
-- 泛型方法、泛型 enum、trait bounds / where 约束
+- 泛型方法、trait bounds / where 约束
 - 宏
 - 原生后端
 
@@ -600,8 +618,9 @@ array_type        := "[" type_ref ";" INT "]"
 - `module / import` 当前是最小第一版：不支持 alias、wildcard import、`pub`、包管理与远程依赖。
 - `impl / methods` 当前是第一刀：支持值方法与显式 `self: Type` 参数；暂不支持泛型 impl、静态方法、可变接收者或方法重载。
 - `trait / interface` 当前是第一刀：支持 trait 方法签名、`impl Trait for Type`、缺失方法检查、签名匹配检查，以及 trait impl 方法作为普通方法调用；暂不支持 trait bounds、动态派发、关联类型、默认方法或泛型 trait。
-- `generic struct` 当前是第一刀：支持 `struct Box<T>`、`Box<i32>` 类型引用、字段推断、字段读取与可变字段写入；暂不支持泛型 enum、trait bounds 或 where 约束。
+- `generic struct` 当前是第一刀：支持 `struct Box<T>`、`Box<i32>` 类型引用、字段推断、字段读取与可变字段写入；暂不支持 trait bounds 或 where 约束。
 - `generic function` 当前是第一刀：支持 `fn identity<T>(value: T) -> T` 并由调用实参推断 `T`；暂不支持显式 turbofish、泛型方法、trait bounds 或 where 约束。
+- `generic enum` 当前是第一刀：支持 `enum Result<T, E> { Ok(T), Err(E) }`、`Result<i32, string>`、payload 构造与 `match` payload 绑定；暂不支持 trait bounds、where 约束、多 payload tuple variant 或命名 payload 字段。
 
 ## 9. 给 AI 的直接提示词
 

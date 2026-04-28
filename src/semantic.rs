@@ -898,6 +898,68 @@ fn main() -> i32 {
     }
 
     #[test]
+    fn accepts_generic_enum_construction_and_match_payloads() {
+        let codes = check(
+            "\
+enum Result<T, E> {
+    Ok(T),
+    Err(E),
+}
+
+fn value_or_zero(result: Result<i32, string>) -> i32 {
+    return match (result) {
+        Result.Ok(value) => value,
+        Result.Err(_) => 0,
+    };
+}
+
+fn main() -> i32 {
+    let ok: Result<i32, string> = Result.Ok(7);
+    let err: Result<i32, string> = Result.Err(\"bad\");
+    return value_or_zero(ok) + value_or_zero(err);
+}
+",
+        );
+        assert!(codes.is_empty(), "unexpected diagnostics: {codes:?}");
+    }
+
+    #[test]
+    fn reports_generic_enum_type_argument_count_mismatch() {
+        let codes = check(
+            "\
+enum Result<T, E> {
+    Ok(T),
+    Err(E),
+}
+
+fn main() -> i32 {
+    let ok: Result<i32> = Result.Ok(7);
+    return 0;
+}
+",
+        );
+        assert!(codes.iter().any(|code| code == "S0058"));
+    }
+
+    #[test]
+    fn reports_generic_enum_payload_assignment_mismatch() {
+        let codes = check(
+            "\
+enum Result<T, E> {
+    Ok(T),
+    Err(E),
+}
+
+fn main() -> i32 {
+    let ok: Result<i32, string> = Result.Ok(\"bad\");
+    return 0;
+}
+",
+        );
+        assert!(codes.iter().any(|code| code == "S0022"));
+    }
+
+    #[test]
     fn accepts_string_match_patterns() {
         let codes = check(
             "\

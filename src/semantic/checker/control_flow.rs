@@ -318,7 +318,9 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
         }
 
         let scrutinee_supported = match &scrutinee_type {
-            Type::Bool | Type::I32 | Type::String | Type::Enum(_) => true,
+            Type::Bool | Type::I32 | Type::String | Type::Enum(_) | Type::EnumInstance { .. } => {
+                true
+            }
             Type::Error => false,
             _ => {
                 self.diagnostics.push(
@@ -526,6 +528,34 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     );
                 }
             }
+            Type::EnumInstance { name, .. } => {
+                let Some(enum_info) = self.info.enums.get(name) else {
+                    return;
+                };
+                let missing = enum_info
+                    .variants
+                    .keys()
+                    .filter(|variant| !coverage.seen_variants.contains(*variant))
+                    .cloned()
+                    .collect::<Vec<_>>();
+                if !missing.is_empty() {
+                    self.diagnostics.push(
+                        Diagnostic::new(
+                            "S0049",
+                            format!(
+                                "non-exhaustive `match`: missing enum arm(s) for {}",
+                                missing.join(", ")
+                            ),
+                            self.info.source,
+                            match_span,
+                        )
+                        .with_kind(DiagnosticKind::MatchNotExhaustive)
+                        .with_suggestion(
+                            "cover the remaining enum variants or add a final `_ => ...` arm",
+                        ),
+                    );
+                }
+            }
             _ => {}
         }
     }
@@ -632,6 +662,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 };
 
                 if !matches!(scrutinee_type, Type::Enum(name) if name == &enum_name)
+                    && !matches!(scrutinee_type, Type::EnumInstance { name, .. } if name == &enum_name)
                     && !matches!(scrutinee_type, Type::Error)
                 {
                     self.report_match_pattern_type_mismatch(pattern, scrutinee_type);
@@ -756,7 +787,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 payload: Some(EnumVariantPayloadPattern::Binding { name }),
             } => {
                 if let Some(payload_type) =
-                    self.resolve_enum_pattern_payload_type(path, pattern.span)
+                    self.resolve_enum_pattern_payload_type(path, scrutinee_type, pattern.span)
                 {
                     self.declare(name, payload_type, false, pattern.span.start);
                 }
@@ -765,7 +796,12 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
         }
     }
 
-    fn resolve_enum_pattern_payload_type(&mut self, path: &str, span: Span) -> Option<Type> {
+    fn resolve_enum_pattern_payload_type(
+        &mut self,
+        path: &str,
+        scrutinee_type: &Type,
+        span: Span,
+    ) -> Option<Type> {
         let (enum_path, variant) = path.rsplit_once('.')?;
         let current_unit_path = self.current_unit_path().to_string();
         let resolved_key = self.info.resolve_named_type_key(
@@ -778,7 +814,62 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             return None;
         };
         let enum_info = self.info.enums.get(&enum_name)?;
-        enum_info.variants.get(variant)?.payload.clone()
+        let payload_type = enum_info.variants.get(variant)?.payload.clone()?;
+        Some(substitute_enum_payload_type(
+            payload_type,
+            enum_info.type_params.as_slice(),
+            scrutinee_type,
+        ))
+    }
+}
+
+fn substitute_enum_payload_type(
+    payload_type: Type,
+    type_params: &[String],
+    scrutinee_type: &Type,
+) -> Type {
+    let Type::EnumInstance { args, .. } = scrutinee_type else {
+        return payload_type;
+    };
+    if type_params.len() != args.len() {
+        return payload_type;
+    }
+    let substitutions = type_params
+        .iter()
+        .cloned()
+        .zip(args.iter().cloned())
+        .collect::<HashMap<_, _>>();
+    substitute_type_params(&payload_type, &substitutions)
+}
+
+fn substitute_type_params(ty: &Type, substitutions: &HashMap<String, Type>) -> Type {
+    match ty {
+        Type::TypeParam(name) => substitutions
+            .get(name)
+            .cloned()
+            .unwrap_or_else(|| ty.clone()),
+        Type::Slice { element } => Type::Slice {
+            element: Box::new(substitute_type_params(element, substitutions)),
+        },
+        Type::Array { element, length } => Type::Array {
+            element: Box::new(substitute_type_params(element, substitutions)),
+            length: *length,
+        },
+        Type::StructInstance { name, args } => Type::StructInstance {
+            name: name.clone(),
+            args: args
+                .iter()
+                .map(|arg| substitute_type_params(arg, substitutions))
+                .collect(),
+        },
+        Type::EnumInstance { name, args } => Type::EnumInstance {
+            name: name.clone(),
+            args: args
+                .iter()
+                .map(|arg| substitute_type_params(arg, substitutions))
+                .collect(),
+        },
+        _ => ty.clone(),
     }
 }
 

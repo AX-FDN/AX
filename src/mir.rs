@@ -39,6 +39,7 @@ pub enum ItemKind {
     },
     Enum {
         name: String,
+        type_params: Vec<String>,
         variants: Vec<EnumVariant>,
     },
 }
@@ -320,8 +321,13 @@ fn lower_item(item: &hir::Item) -> Result<Item, String> {
             type_params: type_params.clone(),
             fields: fields.clone(),
         },
-        hir::ItemKind::Enum { name, variants } => ItemKind::Enum {
+        hir::ItemKind::Enum {
+            name,
+            type_params,
+            variants,
+        } => ItemKind::Enum {
             name: name.clone(),
+            type_params: type_params.clone(),
             variants: variants.clone(),
         },
     };

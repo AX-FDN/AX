@@ -1380,11 +1380,16 @@ fn item_descriptor(item: &Item) -> AiFocusItem {
             )),
             span: item.span,
         },
-        ItemKind::Enum { name, variants } => AiFocusItem {
+        ItemKind::Enum {
+            name,
+            type_params,
+            variants,
+        } => AiFocusItem {
             kind: "enum".to_string(),
             name: name.clone(),
             signature: Some(format!(
-                "enum {name} {{ {} }}",
+                "enum {name}{} {{ {} }}",
+                format_type_params(type_params),
                 variants
                     .iter()
                     .map(|variant| match &variant.payload {
@@ -1654,6 +1659,14 @@ fn collect_type_ref_names(ty: &TypeRef, names: &mut BTreeSet<String>) {
             collect_type_ref_names(element, names)
         }
         _ => {}
+    }
+}
+
+fn format_type_params(type_params: &[String]) -> String {
+    if type_params.is_empty() {
+        String::new()
+    } else {
+        format!("<{}>", type_params.join(", "))
     }
 }
 

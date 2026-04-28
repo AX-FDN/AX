@@ -69,6 +69,16 @@
     - `docs/validation-matrix.md` 和 `docs/interface-contracts.md` 已同步 CI 口径
     - `WORKLIST.md` 已把下一步切回 `W-P2-S06`，开始 `match` 第二刀实现闭环
 
+- `A-2026-04-28-06` `[P6/P2]` 泛型 enum / Result-like 类型第一刀落地
+  - 结果：
+    - 支持 `enum Result<T, E> { Ok(T), Err(E) }` 与 `Result<i32, string>` 类型引用
+    - payload variant 构造、赋值检查和 `match` payload 绑定已进入语义链路
+    - HIR / MIR / formatter / AI focus / context 的 enum 表示已同步 `type_params`
+    - 新增 `examples/generic_result.ax`
+    - `src/semantic.rs` 已补泛型 enum 接受、类型参数数量错误和 payload 赋值错误回归
+    - `tests/interface_snapshots.rs` 已固定 `generic_result_example_runs`
+    - `SYNTAX.md`、`README.md`、`PLAN.md`、`PROJECT_FACTS.md`、`WORKLIST.md`、`docs/feature-matrix.md` 与 `详细介绍.md` 已同步当前语法水位
+
 - `A-2026-04-28-06` `[P2]` `match` 第二刀第一组 payload enum 修复闭环
   - 结果：
     - payload enum `match` arm 的 payload-shape 错误收敛为 `S0055 / match_enum_variant_payload_must_match_declaration` 主诊断

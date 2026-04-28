@@ -241,6 +241,7 @@ impl<'a> Parser<'a> {
 
     fn parse_enum_item(&mut self, start: usize) -> Item {
         let name = self.expect_identifier("expected an enum name");
+        let type_params = self.parse_type_params();
         self.expect(TokenKind::LBrace, "expected `{` after enum name", &["`{`"]);
         let mut variants = Vec::new();
         while !self.check(TokenKind::RBrace) && !self.is_at_end() {
@@ -269,6 +270,7 @@ impl<'a> Parser<'a> {
         Item {
             kind: ItemKind::Enum {
                 name: name.lexeme,
+                type_params,
                 variants,
             },
             span: Span::new(start, end.span.end),

@@ -37,6 +37,7 @@ pub enum ItemKind {
     },
     Enum {
         name: String,
+        type_params: Vec<String>,
         variants: Vec<EnumVariant>,
     },
 }
@@ -83,6 +84,7 @@ pub enum Type {
     Struct { name: String },
     StructInstance { name: String, args: Vec<Type> },
     Enum { name: String },
+    EnumInstance { name: String, args: Vec<Type> },
     TypeParam { name: String },
 }
 
@@ -416,8 +418,13 @@ impl<'a> LoweringContext<'a> {
                     })
                     .collect::<Result<Vec<_>, Diagnostic>>()?,
             },
-            ast::ItemKind::Enum { name, variants } => ItemKind::Enum {
+            ast::ItemKind::Enum {
+                name,
+                type_params,
+                variants,
+            } => ItemKind::Enum {
                 name: self.canonical_name(name, item.span),
+                type_params: type_params.clone(),
                 variants: variants
                     .iter()
                     .map(|variant| {
@@ -501,24 +508,29 @@ impl<'a> LoweringContext<'a> {
                 }
             },
             (Some(name), args, None, None) => {
-                let Some(name) = self.resolve_canonical_name(name, ty.span, &self.struct_names)
-                else {
-                    return Err(self.lowering_error(
-                        "H0001",
-                        format!(
-                            "cannot lower unknown generic struct type `{}` into HIR",
-                            name
-                        ),
-                        ty.span,
-                    ));
-                };
-                Ok(Type::StructInstance {
-                    name,
-                    args: args
-                        .iter()
-                        .map(|arg| self.lower_type_ref(arg))
-                        .collect::<Result<Vec<_>, _>>()?,
-                })
+                if let Some(name) = self.resolve_canonical_name(name, ty.span, &self.struct_names) {
+                    return Ok(Type::StructInstance {
+                        name,
+                        args: args
+                            .iter()
+                            .map(|arg| self.lower_type_ref(arg))
+                            .collect::<Result<Vec<_>, _>>()?,
+                    });
+                }
+                if let Some(name) = self.resolve_canonical_name(name, ty.span, &self.enum_names) {
+                    return Ok(Type::EnumInstance {
+                        name,
+                        args: args
+                            .iter()
+                            .map(|arg| self.lower_type_ref(arg))
+                            .collect::<Result<Vec<_>, _>>()?,
+                    });
+                }
+                Err(self.lowering_error(
+                    "H0001",
+                    format!("cannot lower unknown generic type `{}` into HIR", name),
+                    ty.span,
+                ))
             }
             (None, [], Some(element), None) => Ok(Type::Slice {
                 element: Box::new(self.lower_type_ref(element)?),

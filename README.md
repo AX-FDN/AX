@@ -852,11 +852,12 @@ P2 阶段固定样例集合与回归职责见 [`docs/representative-samples.md`]
 | --- | --- | --- |
 | 基础类型 | 已支持 | `bool` `i32` `f32` `string` `string_list` |
 | 结构体值 | 已支持 | `Point { x: 1, y: 2 }`、`point.x` |
-| 枚举值 | 已支持 payload enum | `Flag.On`、`Result.Ok(7)`、枚举值比较 |
+| 枚举值 | 已支持 payload enum 与泛型 enum 第一刀 | `Flag.On`、`Result.Ok(7)`、`Result<i32, string>`、枚举值比较 |
 | 固定长度数组 | 已支持 | `[Type; N]`、数组字面量、索引读取 |
 | 只读 slice | 已支持 | `[Type]`、`values[start:end]` |
 | 泛型结构体 | 第一刀已支持 | `struct Box<T> { value: T }`、`Box<i32>`、字段读取与可变字段写入 |
 | 泛型函数 | 第一刀已支持 | `fn identity<T>(value: T) -> T`，当前由实参推断类型参数 |
+| 泛型 enum | 第一刀已支持 | `enum Result<T, E> { Ok(T), Err(E) }`、`Result<i32, string>`、payload 构造与 match 绑定 |
 | traits / interfaces | 第一刀已支持 | `trait Label { fn label(self: Self) -> string; }` 与 `impl Label for Command { ... }` |
 | `for in` 遍历 | 已支持 | 当前支持 `for (let value: T in values) { ... }`，目标为数组 / slice |
 | 表达式 `match` | 已支持 | 当前支持单表达式 arm、最终绑定 catch-all、字符串 pattern，以及 `Result.Ok(value)` / `Result.Err(_)` 这类 payload enum pattern；所有 arm 仍必须返回同类型 |
@@ -893,8 +894,8 @@ P2 阶段固定样例集合与回归职责见 [`docs/representative-samples.md`]
   - 已支持 `value.method(...)`
   - 当前仍不支持泛型 impl、trait impl、静态方法、可变接收者或方法重载
 - 泛型第一刀
-  - 已支持泛型结构体和泛型函数
-  - 当前仍不支持显式 turbofish、trait bounds、where 约束、泛型 enum 或泛型方法
+  - 已支持泛型结构体、泛型函数和泛型 enum
+  - 当前仍不支持显式 turbofish、trait bounds、where 约束或泛型方法
 - traits / interfaces 第一刀
   - 已支持 trait 方法签名与 `impl Trait for Type`
   - 已支持缺失方法检查、签名匹配检查，以及 trait impl 方法作为普通方法调用

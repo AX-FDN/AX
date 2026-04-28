@@ -301,7 +301,18 @@ impl<'a> ProgramInfo<'a> {
                         },
                     );
                 }
-                ItemKind::Enum { variants, .. } => {
+                ItemKind::Enum {
+                    type_params,
+                    variants,
+                    ..
+                } => {
+                    check_generic_type_params(
+                        source,
+                        &canonical_name,
+                        type_params,
+                        item.span,
+                        diagnostics,
+                    );
                     let mut variant_names = HashMap::new();
                     for variant in variants {
                         if variant_names.contains_key(&variant.name) {
@@ -319,15 +330,20 @@ impl<'a> ProgramInfo<'a> {
                             );
                             continue;
                         }
-                        let payload = variant
-                            .payload
-                            .as_ref()
-                            .map(|payload| info.resolve_type_ref(payload, &unit_path, diagnostics));
+                        let payload = variant.payload.as_ref().map(|payload| {
+                            info.resolve_type_ref_with_params(
+                                payload,
+                                &unit_path,
+                                type_params,
+                                diagnostics,
+                            )
+                        });
                         variant_names.insert(variant.name.clone(), EnumVariantInfo { payload });
                     }
                     info.enums.insert(
                         canonical_name,
                         EnumInfo {
+                            type_params: type_params.clone(),
                             variants: variant_names,
                         },
                     );
@@ -603,22 +619,22 @@ impl<'a> ProgramInfo<'a> {
                             .get(&found)
                             .cloned()
                             .expect("resolved type should exist");
-                        if let Type::Struct(struct_name) = &resolved
-                            && let Some(struct_info) = self.structs.get(struct_name)
-                            && !struct_info.type_params.is_empty()
+                        if let Some((kind, generic_name, count)) =
+                            self.generic_type_arity(&resolved)
+                            && count > 0
                         {
                             diagnostics.push(
                                 Diagnostic::new(
                                     "S0058",
                                     format!(
-                                        "generic struct `{struct_name}` requires type arguments"
+                                        "generic {kind} `{generic_name}` requires type arguments"
                                     ),
                                     self.source,
                                     ty.span,
                                 )
                                 .with_suggestion(format!(
                                     "write `{}` with type arguments like `{}<i32>`",
-                                    struct_name, struct_name
+                                    generic_name, generic_name
                                 )),
                             );
                             Type::Error
@@ -658,7 +674,7 @@ impl<'a> ProgramInfo<'a> {
                                 ty.span,
                             )
                             .with_suggestion(
-                                "use a declared generic struct like `Box<i32>` or a builtin type",
+                                "use a declared generic type like `Box<i32>` or `Result<i32, string>`",
                             ),
                         );
                     }
@@ -711,6 +727,36 @@ impl<'a> ProgramInfo<'a> {
                             }
                         }
                     }
+                    Type::Enum(enum_name) => {
+                        let Some(enum_info) = self.enums.get(&enum_name) else {
+                            return Type::Error;
+                        };
+                        if enum_info.type_params.len() != resolved_args.len() {
+                            diagnostics.push(
+                                Diagnostic::new(
+                                    "S0058",
+                                    format!(
+                                        "generic enum `{enum_name}` expects {} type argument(s), found {}",
+                                        enum_info.type_params.len(),
+                                        resolved_args.len()
+                                    ),
+                                    self.source,
+                                    ty.span,
+                                )
+                                .with_suggestion(format!(
+                                    "write `{}` with exactly {} type argument(s)",
+                                    enum_name,
+                                    enum_info.type_params.len()
+                                )),
+                            );
+                            Type::Error
+                        } else {
+                            Type::EnumInstance {
+                                name: enum_name,
+                                args: resolved_args,
+                            }
+                        }
+                    }
                     other => {
                         diagnostics.push(
                             Diagnostic::new(
@@ -722,9 +768,7 @@ impl<'a> ProgramInfo<'a> {
                                 self.source,
                                 ty.span,
                             )
-                            .with_suggestion(
-                                "only generic struct types accept `<...>` in this slice",
-                            ),
+                            .with_suggestion("only generic struct or enum types accept `<...>`"),
                         );
                         Type::Error
                     }
@@ -799,6 +843,20 @@ impl<'a> ProgramInfo<'a> {
 
     pub(super) fn function_candidate_exists(&self, name: &str, current_unit_path: &str) -> bool {
         self.named_key_candidate_exists(name, current_unit_path, &self.functions)
+    }
+
+    fn generic_type_arity(&self, ty: &Type) -> Option<(&'static str, String, usize)> {
+        match ty {
+            Type::Struct(name) => self
+                .structs
+                .get(name)
+                .map(|info| ("struct", name.clone(), info.type_params.len())),
+            Type::Enum(name) => self
+                .enums
+                .get(name)
+                .map(|info| ("enum", name.clone(), info.type_params.len())),
+            _ => None,
+        }
     }
 
     fn resolve_trait_ref(
@@ -1136,6 +1194,13 @@ fn substitute_self_type(ty: &Type, self_type: &Type) -> Type {
             length: *length,
         },
         Type::StructInstance { name, args } => Type::StructInstance {
+            name: name.clone(),
+            args: args
+                .iter()
+                .map(|arg| substitute_self_type(arg, self_type))
+                .collect(),
+        },
+        Type::EnumInstance { name, args } => Type::EnumInstance {
             name: name.clone(),
             args: args
                 .iter()

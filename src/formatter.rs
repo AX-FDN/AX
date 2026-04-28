@@ -90,7 +90,11 @@ impl Formatter {
                 type_params,
                 fields,
             } => self.format_struct_item(name, type_params, fields),
-            ItemKind::Enum { name, variants } => self.format_enum_item(name, variants),
+            ItemKind::Enum {
+                name,
+                type_params,
+                variants,
+            } => self.format_enum_item(name, type_params, variants),
             ItemKind::Trait { name, methods } => self.format_trait_item(name, methods),
             ItemKind::Impl {
                 trait_ref,
@@ -205,13 +209,19 @@ impl Formatter {
         self.format_block(&method.body);
     }
 
-    fn format_enum_item(&mut self, name: &str, variants: &[crate::ast::EnumVariant]) {
+    fn format_enum_item(
+        &mut self,
+        name: &str,
+        type_params: &[String],
+        variants: &[crate::ast::EnumVariant],
+    ) {
+        let params = format_type_params(type_params);
         if variants.is_empty() {
-            let _ = write!(self.out, "enum {name} {{}}");
+            let _ = write!(self.out, "enum {name}{params} {{}}");
             return;
         }
 
-        let _ = writeln!(self.out, "enum {name} {{");
+        let _ = writeln!(self.out, "enum {name}{params} {{");
         self.indent += 1;
         for variant in variants {
             self.write_indent();

@@ -2008,7 +2008,7 @@ fn build_symbol_catalog(
                     .or_default()
                     .push(qualified_name);
             }
-            ItemKind::Enum { name, variants } => {
+            ItemKind::Enum { name, variants, .. } => {
                 let qualified_name = qualify_symbol_name(unit.module_path.as_deref(), name);
                 let mut related_types = BTreeSet::new();
                 for variant in variants {

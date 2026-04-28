@@ -60,6 +60,7 @@ pub enum ItemKind {
     },
     Enum {
         name: String,
+        type_params: Vec<String>,
         variants: Vec<EnumVariant>,
     },
     Trait {

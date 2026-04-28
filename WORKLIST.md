@@ -816,13 +816,19 @@
 - [x] `Q-P6-02a` 泛型结构体第一刀
   - 状态：已支持 `struct Box<T> { value: T }`、`Box<i32>` 类型引用、泛型结构体字面量字段推断与字段读取
   - 已覆盖：parser / semantic / HIR / MIR / formatter / example / interface snapshot
-  - 当前边界：不支持泛型方法、trait bounds、where 约束、显式 turbofish 构造、泛型 enum
-  - 后续补强：`Q-P6-02c` 泛型 enum / Result-like 类型；`Q-P6-02d` 泛型诊断与 AI repair case
+  - 当前边界：不支持泛型方法、trait bounds、where 约束或显式 turbofish 构造
+  - 后续补强：`Q-P6-02d` 泛型诊断与 AI repair case
 - [x] `Q-P6-02b` 泛型函数第一刀
   - 状态：已支持 `fn identity<T>(value: T) -> T` 这类由实参推断类型参数的泛型函数
   - 已覆盖：parser / semantic / HIR / MIR / formatter / example / interface snapshot
   - 当前边界：不支持显式 turbofish、where 约束、trait bounds、泛型方法、泛型 impl
-  - 后续补强：`Q-P6-02c` 泛型 enum / Result-like 类型；`Q-P6-02d` 泛型诊断与 AI repair case
+  - 后续补强：`Q-P6-02d` 泛型诊断与 AI repair case
+- [x] `Q-P6-02c` 泛型 enum / Result-like 类型第一刀
+  - 状态：已支持 `enum Result<T, E> { Ok(T), Err(E) }`、`Result<i32, string>` 类型引用、payload variant 构造、赋值检查和 `match` payload 绑定
+  - 已覆盖：parser / AST / semantic / HIR / MIR / formatter / example / interface snapshot / syntax docs
+  - 代表样例：`examples/generic_result.ax`
+  - 当前边界：不支持 trait bounds、where 约束、显式类型参数构造、多 payload tuple variant、命名 payload 字段或 enum 方法
+  - 后续补强：`Q-P6-02d` 泛型诊断与 AI repair case；`Q-P6-02e` 泛型 enum 与标准库 `Result` 候选接口评估
 - [x] `Q-P6-03a` traits / interfaces 第一刀
   - 状态：已支持 `trait Label { fn label(self: Self) -> string; }` 与 `impl Label for Command { ... }`
   - 已覆盖：lexer / parser / semantic conformance / HIR lowering / formatter / context / AI focus / example / interface snapshot
