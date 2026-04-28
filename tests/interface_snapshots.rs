@@ -4314,6 +4314,17 @@ fn trait_bounds_example_runs() {
 }
 
 #[test]
+fn trait_multi_bounds_example_runs() {
+    let output = run_axc([
+        OsStr::new("run"),
+        OsStr::new("examples/trait_multi_bounds.ax"),
+    ]);
+    assert_eq!(output.status.code(), Some(5));
+    assert_clean_stderr(&output);
+    assert_eq!(normalize_text(&string_output(&output.stdout)), "build:5\n");
+}
+
+#[test]
 fn consts_example_runs() {
     let output = run_axc([OsStr::new("run"), OsStr::new("examples/consts.ax")]);
     assert_eq!(output.status.code(), Some(7));

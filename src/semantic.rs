@@ -1193,6 +1193,46 @@ fn main() -> i32 {
     }
 
     #[test]
+    fn accepts_generic_function_multiple_trait_bounds() {
+        let codes = check(
+            "\
+trait Label {
+    fn label(self: Self) -> string;
+}
+
+trait Code {
+    fn code(self: Self) -> i32;
+}
+
+struct Command { name: string, exit_code: i32 }
+
+impl Label for Command {
+    fn label(self: Command) -> string {
+        return self.name;
+    }
+}
+
+impl Code for Command {
+    fn code(self: Command) -> i32 {
+        return self.exit_code;
+    }
+}
+
+fn render<T: Label + Code>(value: T) -> string {
+    return value.label() + \":\" + to_string(value.code());
+}
+
+fn main() -> i32 {
+    let command: Command = Command { name: \"build\", exit_code: 5 };
+    println(render(command));
+    return 0;
+}
+",
+        );
+        assert!(codes.is_empty(), "unexpected diagnostics: {codes:?}");
+    }
+
+    #[test]
     fn reports_generic_function_trait_bound_mismatch() {
         let codes = check(
             "\

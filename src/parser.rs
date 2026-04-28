@@ -236,12 +236,17 @@ impl<'a> Parser<'a> {
             let param = self.expect_identifier("expected a generic type parameter name");
             let param_name = param.lexeme;
             if self.matches(&[TokenKind::Colon]) {
-                let trait_ref = self.parse_type();
-                bounds.push(TypeParamBound {
-                    type_param: param_name.clone(),
-                    span: Span::new(param.span.start, trait_ref.span.end),
-                    trait_ref,
-                });
+                loop {
+                    let trait_ref = self.parse_type();
+                    bounds.push(TypeParamBound {
+                        type_param: param_name.clone(),
+                        span: Span::new(param.span.start, trait_ref.span.end),
+                        trait_ref,
+                    });
+                    if !self.matches(&[TokenKind::Plus]) {
+                        break;
+                    }
+                }
             }
             params.push(param_name);
 
@@ -1773,6 +1778,28 @@ mod tests {
             output.program.items[0].kind,
             ItemKind::Function { .. }
         ));
+    }
+
+    #[test]
+    fn parses_multiple_trait_bounds_on_generic_function() {
+        let source = SourceFile::anonymous(
+            "fn render<T: Label + Code>(value: T) -> string { return value.label(); }",
+        );
+        let tokens = tokenize(&source).tokens;
+        let output = parse(&source, tokens);
+        assert!(output.diagnostics.is_empty(), "{:?}", output.diagnostics);
+
+        let ItemKind::Function {
+            type_param_bounds, ..
+        } = &output.program.items[0].kind
+        else {
+            panic!("expected function");
+        };
+        assert_eq!(type_param_bounds.len(), 2);
+        assert_eq!(type_param_bounds[0].type_param, "T");
+        assert_eq!(type_param_bounds[0].trait_ref.describe(), "Label");
+        assert_eq!(type_param_bounds[1].type_param, "T");
+        assert_eq!(type_param_bounds[1].trait_ref.describe(), "Code");
     }
 
     #[test]

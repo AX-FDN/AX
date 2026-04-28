@@ -838,10 +838,10 @@ P2 阶段固定样例集合与回归职责见 [`docs/representative-samples.md`]
 | 固定长度数组          | 已支持   | `[Type; N]`、数组字面量、索引读取                                                                                                                  |
 | 只读 slice            | 已支持   | `[Type]`、`values[start:end]`                                                                                                                      |
 | 泛型结构体            | 已支持   | `struct Box<T> { value: T }`、`Box<i32>`、字段读取与可变字段写入                                                                                   |
-| 泛型函数              | 已支持   | `fn identity<T>(value: T) -> T`，由实参推断类型参数；支持 `fn render<T: Label>(value: T) -> string` 这类单 trait bound                            |
+| 泛型函数              | 已支持   | `fn identity<T>(value: T) -> T`，由实参推断类型参数；支持 `fn render<T: Label + ExitCode>(value: T) -> string` 这类 trait bounds                   |
 | 泛型 enum             | 已支持   | `enum Result<T, E> { Ok(T), Err(E) }`、`Result<i32, string>`、payload 构造与 match 绑定                                                            |
 | traits / interfaces   | 已支持   | `trait Label { fn label(self: Self) -> string; }` 与 `impl Label for Command { ... }`                                                              |
-| trait bounds          | 已支持   | 当前支持泛型函数参数上的单 trait bound，并允许在函数体内调用 bound 提供的方法                                                                      |
+| trait bounds          | 已支持   | 当前支持泛型函数参数上的一个或多个 trait bounds，并允许在函数体内调用 bound 提供的方法                                                            |
 | `for in` 遍历         | 已支持   | 当前支持 `for (let value: T in values) { ... }`，目标为数组 / slice                                                                                |
 | 表达式 `match`        | 已支持   | 支持单表达式 arm、最终绑定 catch-all、字符串 pattern，以及 `Result.Ok(value)` / `Result.Err(_)` 这类 payload enum pattern；所有 arm 必须返回同类型 |
 | 嵌套可写路径          | 已支持   | `outer.inner.value = ...`、`items[index].field = ...`                                                                                              |
@@ -878,8 +878,8 @@ P2 阶段固定样例集合与回归职责见 [`docs/representative-samples.md`]
   - 当前仍不支持泛型 impl、静态方法、可变接收者或方法重载
 - 泛型
   - 已支持泛型结构体、泛型函数和泛型 enum
-  - 已支持泛型函数上的单 trait bound，例如 `fn render<T: Label>(value: T) -> string`
-  - 当前仍不支持显式 turbofish、where 约束、多 trait bound、泛型方法或泛型 impl
+  - 已支持泛型函数上的 trait bounds，例如 `fn render<T: Label + ExitCode>(value: T) -> string`
+  - 当前仍不支持显式 turbofish、where 约束、泛型方法或泛型 impl
 - traits / interfaces
   - 已支持 trait 方法签名与 `impl Trait for Type`
   - 已支持缺失方法检查、签名匹配检查，以及 trait impl 方法作为普通方法调用

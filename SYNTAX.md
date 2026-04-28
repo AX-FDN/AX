@@ -24,7 +24,7 @@
 - trait 当前写成 `trait Name { fn method(self: Self) -> Ret; }`，实现写成 `impl Name for Type { ... }`
 - 泛型当前支持泛型结构体：`struct Box<T> { value: T }`，使用时写成 `Box<i32>`；结构体字面量仍写成 `Box { value: 1 }`
 - 泛型函数当前支持由实参推断类型参数：`fn identity<T>(value: T) -> T { return value; }`
-- 泛型函数支持单 trait bound：`fn render<T: Label>(value: T) -> string { return value.label(); }`
+- 泛型函数支持一个或多个 trait bounds：`fn render<T: Label + ExitCode>(value: T) -> string { return value.label(); }`
 - 泛型 enum 当前支持 Result-like 类型：`enum Result<T, E> { Ok(T), Err(E) }`，使用时写成 `Result<i32, string>`
 - 可写目标当前支持嵌套路径：`point.x = expr;`、`outer.inner.value = expr;`、`tokens[index].value = expr;`
 
@@ -63,11 +63,11 @@ fn identity<T>(value: T) -> T {
 }
 ```
 
-带 trait bound 的泛型函数：
+带 trait bounds 的泛型函数：
 
 ```ax
-fn render<T: Label>(value: T) -> string {
-    return value.label();
+fn render<T: Label + ExitCode>(value: T) -> string {
+    return value.label() + ":" + to_string(value.exit_code());
 }
 ```
 
@@ -479,7 +479,7 @@ const_decl        := "const" IDENT ":" type_ref "=" expr ";"
 
 struct_decl       := "struct" IDENT plain_generic_params? "{" struct_field_list? "}"
 function_generic_params := "<" function_generic_param ("," function_generic_param)* ">"
-function_generic_param  := IDENT (":" type_ref)?
+function_generic_param  := IDENT (":" type_ref ("+" type_ref)*)?
 plain_generic_params    := "<" IDENT ("," IDENT)* ">"
 struct_field_list := struct_field ("," struct_field)* ","?
 struct_field      := IDENT ":" type_ref
@@ -636,7 +636,7 @@ array_type        := "[" type_ref ";" INT "]"
 
 - 异常
 - async / await
-- 泛型方法、where 约束、多 trait bound、泛型 trait、泛型 impl
+- 泛型方法、where 约束、泛型 trait、泛型 impl
 - 宏
 - 原生后端
 
@@ -650,7 +650,7 @@ array_type        := "[" type_ref ";" INT "]"
 - `impl / methods` 当前支持值方法与显式 `self: Type` 参数；暂不支持泛型 impl、静态方法、可变接收者或方法重载。
 - `trait / interface` 当前支持 trait 方法签名、`impl Trait for Type`、缺失方法检查、签名匹配检查、trait impl 方法作为普通方法调用，以及泛型函数上的单 trait bound；暂不支持动态派发、关联类型、默认方法、泛型 trait 或泛型 impl。
 - `generic struct` 当前支持 `struct Box<T>`、`Box<i32>` 类型引用、字段推断、字段读取与可变字段写入；暂不支持 trait bounds 或 where 约束。
-- `generic function` 当前支持 `fn identity<T>(value: T) -> T` 并由调用实参推断 `T`；也支持 `fn render<T: Label>(value: T) -> string` 这类单 trait bound；暂不支持显式 turbofish、泛型方法、where 约束或多 trait bound。
+- `generic function` 当前支持 `fn identity<T>(value: T) -> T` 并由调用实参推断 `T`；也支持 `fn render<T: Label + ExitCode>(value: T) -> string` 这类 trait bounds；暂不支持显式 turbofish、泛型方法或 where 约束。
 - `generic enum` 当前支持 `enum Result<T, E> { Ok(T), Err(E) }`、`Result<i32, string>`、payload 构造与 `match` payload 绑定；暂不支持 trait bounds、where 约束、多 payload tuple variant 或命名 payload 字段。
 
 ## 9. 给 AI 的直接提示词
@@ -678,7 +678,7 @@ Rules:
 - Enum values must use `EnumName.Variant` or `EnumName.Variant(value)` when the variant declares a payload.
 - Methods are declared in `impl Type { fn name(self: Type, ...) -> Ret { ... } }` blocks and called as `value.name(...)`.
 - Traits are declared as `trait Name { fn method(self: Self) -> Ret; }` and implemented as `impl Name for Type { ... }`.
-- Generic functions may use a single trait bound such as `fn render<T: Label>(value: T) -> string { return value.label(); }`.
+- Generic functions may use trait bounds such as `fn render<T: Label + ExitCode>(value: T) -> string { return value.label(); }`.
 - Construct structs with TypeName { field: expr, ... }.
 - Use for loops only as `for (init; condition; step) { ... }` or `for (let value: T in values) { ... }`.
 - Read-only slices are allowed as [Type] and values[start:end].
@@ -689,7 +689,7 @@ Rules:
 - In project mode, support sources may declare `module ...;` and files may use explicit `import module.path;`.
 - Generic structs may be declared as `struct Box<T> { value: T }` and used in type positions like `Box<i32>`; construct them with normal struct literals like `Box { value: 1 }`.
 - Generic functions may be declared as `fn identity<T>(value: T) -> T { return value; }`; type parameters are inferred from arguments.
-- Do not use exceptions, async, generic methods, explicit turbofish calls, where clauses, multiple trait bounds, dynamic dispatch, associated types, default trait methods, generic traits, generic impls, destructuring match patterns, match guards, multi-pattern match arms, named payload fields, or multi-payload enum variants.
+- Do not use exceptions, async, generic methods, explicit turbofish calls, where clauses, dynamic dispatch, associated types, default trait methods, generic traits, generic impls, destructuring match patterns, match guards, multi-pattern match arms, named payload fields, or multi-payload enum variants.
 - Use [] only when the target type is explicitly a zero-length array like [i32; 0].
 - Return 0 from main on success unless a different exit code is explicitly needed.
 ```

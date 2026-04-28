@@ -614,11 +614,16 @@ fn format_function_type_params(
     let params = type_params
         .iter()
         .map(|param| {
-            type_param_bounds
+            let bounds = type_param_bounds
                 .iter()
-                .find(|bound| bound.type_param == *param)
-                .map(|bound| format!("{param}: {}", format_type_ref(&bound.trait_ref)))
-                .unwrap_or_else(|| param.clone())
+                .filter(|bound| bound.type_param == *param)
+                .map(|bound| format_type_ref(&bound.trait_ref))
+                .collect::<Vec<_>>();
+            if bounds.is_empty() {
+                param.clone()
+            } else {
+                format!("{param}: {}", bounds.join(" + "))
+            }
         })
         .collect::<Vec<_>>()
         .join(", ");
@@ -773,6 +778,18 @@ mod tests {
         let source = SourceFile::anonymous("pub fn helper()->i32{return 1;}");
         let formatted = format_source(&source).expect("source should format");
         assert_eq!(formatted, "pub fn helper() -> i32 {\n    return 1;\n}\n");
+    }
+
+    #[test]
+    fn formats_multiple_trait_bounds() {
+        let source = SourceFile::anonymous(
+            "fn render<T:Label+Code>(value:T)->string{return value.label();}",
+        );
+        let formatted = format_source(&source).expect("source should format");
+        assert_eq!(
+            formatted,
+            "fn render<T: Label + Code>(value: T) -> string {\n    return value.label();\n}\n"
+        );
     }
 
     #[test]
