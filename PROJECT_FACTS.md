@@ -42,8 +42,8 @@ AX 当前优先服务四类能被仓库直接验证的场景：
 
 | 层级 | 完成度 | 说明 |
 | --- | --- | --- |
-| 最小可写工具内核 | `75%~80%` | 已具备显式类型、数组/切片、`for/for in`、`break/continue`、最小 `match`、payload enum、模块第一刀、宿主 builtin |
-| 通用语言表面 | `35%~40%` | 还缺泛型、`impl`、traits/interfaces、可见性、包系统、闭包、async 等 |
+| 最小可写工具内核 | `80%~83%` | 已具备显式类型、数组/切片、`for/for in`、`break/continue`、最小 `match`、字符串 pattern、payload enum、模块第一刀、methods/impl 第一刀、泛型结构体与泛型函数第一刀、宿主 builtin |
+| 通用语言表面 | `46%~51%` | 已补 methods/impl 第一刀、泛型结构体/函数第一刀与 traits/interfaces 第一刀；还缺 trait bounds、可见性、包系统、闭包、async 等 |
 | 生态支撑语法 | `20%~30%` | 已能组织项目，但还不能支撑完整标准库与第三方包生态 |
 
 ## AX 现在已经成立的事实

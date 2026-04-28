@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use crate::ast::{Expr, StructLiteralField};
 use crate::diagnostics::{Diagnostic, DiagnosticKind};
@@ -72,6 +72,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
         };
 
         let mut seen_fields = HashSet::new();
+        let mut generic_args = HashMap::new();
         for field in fields {
             let value_type = self.check_expr(&field.value);
             if !seen_fields.insert(field.name.clone()) {
@@ -92,17 +93,21 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
 
             match struct_info.fields.get(&field.name) {
                 Some(expected_field) => {
-                    self.expect_type_match(
-                        &expected_field.ty,
-                        &value_type,
-                        field.value.span,
-                        format!(
-                            "field `{}` of `{struct_name}` expects `{}`, found `{}`",
-                            field.name,
-                            expected_field.ty.describe(),
-                            value_type.describe()
-                        ),
-                    );
+                    if !unify_generic_field_type(&expected_field.ty, &value_type, &mut generic_args)
+                    {
+                        let expected = substitute_type_params(&expected_field.ty, &generic_args);
+                        self.expect_type_match(
+                            &expected,
+                            &value_type,
+                            field.value.span,
+                            format!(
+                                "field `{}` of `{struct_name}` expects `{}`, found `{}`",
+                                field.name,
+                                expected.describe(),
+                                value_type.describe()
+                            ),
+                        );
+                    }
                 }
                 None => {
                     self.diagnostics.push(
@@ -135,7 +140,34 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             }
         }
 
-        Type::Struct(struct_name)
+        if struct_info.type_params.is_empty() {
+            Type::Struct(struct_name)
+        } else {
+            let mut args = Vec::new();
+            for param in &struct_info.type_params {
+                let Some(arg) = generic_args.get(param).cloned() else {
+                    self.diagnostics.push(
+                        Diagnostic::new(
+                            "S0058",
+                            format!(
+                                "could not infer generic type parameter `{param}` for `{struct_name}`"
+                            ),
+                            self.info.source,
+                            expr.span,
+                        )
+                        .with_suggestion(format!(
+                            "initialize a field that fixes `{param}` or use a non-generic struct"
+                        )),
+                    );
+                    return Type::Error;
+                };
+                args.push(arg);
+            }
+            Type::StructInstance {
+                name: struct_name,
+                args,
+            }
+        }
     }
 
     pub(super) fn check_array_literal_expr(&mut self, _expr: &Expr, elements: &[Expr]) -> Type {
@@ -232,28 +264,21 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
         match base_type {
             Type::Struct(struct_name) => {
                 let struct_info = self.info.structs.get(&struct_name).cloned();
-                match struct_info {
-                    Some(struct_info) => match struct_info.fields.get(field) {
-                        Some(field_info) => field_info.ty.clone(),
-                        None => {
-                            self.diagnostics.push(
-                                Diagnostic::new(
-                                    "S0020",
-                                    format!(
-                                        "struct `{struct_name}` does not have a field `{field}`"
-                                    ),
-                                    self.info.source,
-                                    expr.span,
-                                )
-                                .with_suggestion(
-                                    "use an existing field name from the struct declaration",
-                                ),
-                            );
-                            Type::Error
-                        }
-                    },
-                    None => Type::Error,
-                }
+                self.field_type_for_struct(expr, &struct_name, struct_info, field, &HashMap::new())
+            }
+            Type::StructInstance { name, args } => {
+                let struct_info = self.info.structs.get(&name).cloned();
+                let substitutions = struct_info
+                    .as_ref()
+                    .map(|info| {
+                        info.type_params
+                            .iter()
+                            .cloned()
+                            .zip(args)
+                            .collect::<HashMap<_, _>>()
+                    })
+                    .unwrap_or_default();
+                self.field_type_for_struct(expr, &name, struct_info, field, &substitutions)
             }
             Type::Error => Type::Error,
             other => {
@@ -268,6 +293,34 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 ));
                 Type::Error
             }
+        }
+    }
+
+    fn field_type_for_struct(
+        &mut self,
+        expr: &Expr,
+        struct_name: &str,
+        struct_info: Option<super::super::types::StructInfo>,
+        field: &str,
+        substitutions: &HashMap<String, Type>,
+    ) -> Type {
+        match struct_info {
+            Some(struct_info) => match struct_info.fields.get(field) {
+                Some(field_info) => substitute_type_params(&field_info.ty, substitutions),
+                None => {
+                    self.diagnostics.push(
+                        Diagnostic::new(
+                            "S0020",
+                            format!("struct `{struct_name}` does not have a field `{field}`"),
+                            self.info.source,
+                            expr.span,
+                        )
+                        .with_suggestion("use an existing field name from the struct declaration"),
+                    );
+                    Type::Error
+                }
+            },
+            None => Type::Error,
         }
     }
 
@@ -355,5 +408,87 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 Type::Error
             }
         }
+    }
+}
+
+fn unify_generic_field_type(
+    expected: &Type,
+    actual: &Type,
+    substitutions: &mut HashMap<String, Type>,
+) -> bool {
+    match expected {
+        Type::TypeParam(name) => match substitutions.get(name) {
+            Some(existing) => actual.is_assignable_to(existing),
+            None => {
+                substitutions.insert(name.clone(), actual.clone());
+                true
+            }
+        },
+        Type::Slice {
+            element: expected_element,
+        } => match actual {
+            Type::Slice {
+                element: actual_element,
+            } => unify_generic_field_type(expected_element, actual_element, substitutions),
+            Type::Array {
+                element: actual_element,
+                ..
+            } => unify_generic_field_type(expected_element, actual_element, substitutions),
+            _ => expected == actual,
+        },
+        Type::Array {
+            element: expected_element,
+            length: expected_length,
+        } => match actual {
+            Type::Array {
+                element: actual_element,
+                length: actual_length,
+            } if expected_length == actual_length => {
+                unify_generic_field_type(expected_element, actual_element, substitutions)
+            }
+            _ => expected == actual,
+        },
+        Type::StructInstance {
+            name: expected_name,
+            args: expected_args,
+        } => match actual {
+            Type::StructInstance {
+                name: actual_name,
+                args: actual_args,
+            } if expected_name == actual_name && expected_args.len() == actual_args.len() => {
+                expected_args
+                    .iter()
+                    .zip(actual_args)
+                    .all(|(expected, actual)| {
+                        unify_generic_field_type(expected, actual, substitutions)
+                    })
+            }
+            _ => expected == actual,
+        },
+        _ => expected == actual,
+    }
+}
+
+fn substitute_type_params(ty: &Type, substitutions: &HashMap<String, Type>) -> Type {
+    match ty {
+        Type::TypeParam(name) => substitutions
+            .get(name)
+            .cloned()
+            .unwrap_or_else(|| ty.clone()),
+        Type::Slice { element } => Type::Slice {
+            element: Box::new(substitute_type_params(element, substitutions)),
+        },
+        Type::Array { element, length } => Type::Array {
+            element: Box::new(substitute_type_params(element, substitutions)),
+            length: *length,
+        },
+        Type::StructInstance { name, args } => Type::StructInstance {
+            name: name.clone(),
+            args: args
+                .iter()
+                .map(|arg| substitute_type_params(arg, substitutions))
+                .collect(),
+        },
+        _ => ty.clone(),
     }
 }

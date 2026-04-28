@@ -808,10 +808,31 @@
 
 ### `P6-P7` 后续语法线
 
-- [ ] `Q-P6-01` methods / `impl`
-- [ ] `Q-P6-02` 泛型
-- [ ] `Q-P6-03` traits / interfaces
-- [ ] `Q-P6-04` richer pattern matching
+- [x] `Q-P6-01` methods / `impl`
+  - 状态：第一刀已进入主线候选，支持 `impl Type { fn method(self: Type, ...) -> Ret { ... } }` 与 `value.method(...)`
+  - 已覆盖：parser / semantic / HIR / MIR / interpreter / formatter / context / AI focus / example / interface snapshot
+  - 当前边界：不支持泛型 impl、trait impl、静态方法、可变接收者或方法重载
+  - 后续补强：`Q-P6-01b` 方法专属 AI rule card、method call repair case、AOT method lowering 收口
+- [x] `Q-P6-02a` 泛型结构体第一刀
+  - 状态：已支持 `struct Box<T> { value: T }`、`Box<i32>` 类型引用、泛型结构体字面量字段推断与字段读取
+  - 已覆盖：parser / semantic / HIR / MIR / formatter / example / interface snapshot
+  - 当前边界：不支持泛型方法、trait bounds、where 约束、显式 turbofish 构造、泛型 enum
+  - 后续补强：`Q-P6-02c` 泛型 enum / Result-like 类型；`Q-P6-02d` 泛型诊断与 AI repair case
+- [x] `Q-P6-02b` 泛型函数第一刀
+  - 状态：已支持 `fn identity<T>(value: T) -> T` 这类由实参推断类型参数的泛型函数
+  - 已覆盖：parser / semantic / HIR / MIR / formatter / example / interface snapshot
+  - 当前边界：不支持显式 turbofish、where 约束、trait bounds、泛型方法、泛型 impl
+  - 后续补强：`Q-P6-02c` 泛型 enum / Result-like 类型；`Q-P6-02d` 泛型诊断与 AI repair case
+- [x] `Q-P6-03a` traits / interfaces 第一刀
+  - 状态：已支持 `trait Label { fn label(self: Self) -> string; }` 与 `impl Label for Command { ... }`
+  - 已覆盖：lexer / parser / semantic conformance / HIR lowering / formatter / context / AI focus / example / interface snapshot
+  - 当前边界：不支持 trait bounds、动态派发、关联类型、默认方法、泛型 trait、泛型 impl
+  - 后续补强：`Q-P6-03b` trait bounds 第一刀；`Q-P6-03c` std 接口抽象迁移试点；`Q-P6-03d` trait diagnostics / AI repair case
+- [x] `Q-P6-04a` richer pattern matching：字符串字面量 pattern
+  - 状态：已支持 `match (command) { "check" => ..., _ => ... }`
+  - 已覆盖：parser / semantic / HIR / MIR / interpreter / formatter / example / interface snapshot
+  - 当前边界：`string` match 与 `i32` 一样必须有最终 catch-all；不支持 guard、多 pattern arm、解构或 block-valued expression arm
+  - 后续补强：`Q-P6-04b` 多 pattern arm；`Q-P6-04c` guard；`Q-P6-04d` 更深 enum/struct 解构
 - [ ] `Q-P7-01` 闭包 / lambda
 - [ ] `Q-P7-02` async / await
 

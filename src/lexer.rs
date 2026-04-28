@@ -150,6 +150,8 @@ impl<'a> Lexer<'a> {
             "fn" => TokenKind::FnKw,
             "struct" => TokenKind::StructKw,
             "enum" => TokenKind::EnumKw,
+            "trait" => TokenKind::TraitKw,
+            "impl" => TokenKind::ImplKw,
             "module" => TokenKind::ModuleKw,
             "import" => TokenKind::ImportKw,
             "match" => TokenKind::MatchKw,

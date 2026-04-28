@@ -595,6 +595,7 @@ enum DefinedSymbolKind {
     Function,
     Struct,
     Enum,
+    Trait,
 }
 
 impl DefinedSymbolKind {
@@ -603,6 +604,7 @@ impl DefinedSymbolKind {
             Self::Function => "function",
             Self::Struct => "struct",
             Self::Enum => "enum",
+            Self::Trait => "trait",
         }
     }
 }
@@ -1930,6 +1932,7 @@ fn build_symbol_catalog(
                 params,
                 return_type,
                 body,
+                ..
             } => {
                 let qualified_name = qualify_symbol_name(unit.module_path.as_deref(), name);
                 let mut walk = SymbolWalk::default();
@@ -1974,7 +1977,7 @@ fn build_symbol_catalog(
                     .or_default()
                     .push(qualified_name);
             }
-            ItemKind::Struct { name, fields } => {
+            ItemKind::Struct { name, fields, .. } => {
                 let qualified_name = qualify_symbol_name(unit.module_path.as_deref(), name);
                 let mut related_types = BTreeSet::new();
                 for field in fields {
@@ -2037,6 +2040,101 @@ fn build_symbol_catalog(
                     .entry(name.clone())
                     .or_default()
                     .push(qualified_name);
+            }
+            ItemKind::Trait { name, methods } => {
+                let qualified_name = qualify_symbol_name(unit.module_path.as_deref(), name);
+                let mut related_types = BTreeSet::new();
+                for method in methods {
+                    collect_type_ref_names(&method.return_type, &mut related_types);
+                    for param in &method.params {
+                        collect_type_ref_names(&param.ty, &mut related_types);
+                    }
+                }
+                definitions.insert(
+                    qualified_name.clone(),
+                    DefinedSymbol {
+                        qualified_name: qualified_name.clone(),
+                        kind: DefinedSymbolKind::Trait,
+                        source_path: source_path.clone(),
+                        module_path: unit.module_path.clone(),
+                        is_entry: unit.is_entry,
+                        imports: unit.imports.clone(),
+                        params: Vec::new(),
+                        return_type: None,
+                        related_types,
+                        raw_call_order: Vec::new(),
+                        resolved_callees: BTreeSet::new(),
+                        resolved_callee_order: Vec::new(),
+                        host_classes: BTreeSet::new(),
+                        branch_kinds: BTreeSet::new(),
+                        branch_count: 0,
+                    },
+                );
+                simple_names
+                    .entry(name.clone())
+                    .or_default()
+                    .push(qualified_name);
+            }
+            ItemKind::Impl {
+                trait_ref,
+                target,
+                methods,
+            } => {
+                let target_name = target.describe();
+                for method in methods {
+                    let qualified_name = qualify_symbol_name(
+                        unit.module_path.as_deref(),
+                        &format!("{target_name}.{}", method.name),
+                    );
+                    let mut walk = SymbolWalk::default();
+                    if let Some(trait_ref) = trait_ref {
+                        collect_type_ref_names(trait_ref, &mut walk.related_types);
+                    }
+                    collect_type_ref_names(target, &mut walk.related_types);
+                    collect_type_ref_names(&method.return_type, &mut walk.related_types);
+                    for param in &method.params {
+                        collect_type_ref_names(&param.ty, &mut walk.related_types);
+                    }
+                    collect_symbol_walk_for_block(&method.body, &mut walk);
+                    let host_classes = walk
+                        .raw_calls
+                        .iter()
+                        .filter_map(|call| host_boundary_class(call))
+                        .map(str::to_string)
+                        .collect::<BTreeSet<_>>();
+
+                    definitions.insert(
+                        qualified_name.clone(),
+                        DefinedSymbol {
+                            qualified_name: qualified_name.clone(),
+                            kind: DefinedSymbolKind::Function,
+                            source_path: source_path.clone(),
+                            module_path: unit.module_path.clone(),
+                            is_entry: unit.is_entry,
+                            imports: unit.imports.clone(),
+                            params: method
+                                .params
+                                .iter()
+                                .map(|param| SymbolParamData {
+                                    name: param.name.clone(),
+                                    ty: param.ty.describe(),
+                                })
+                                .collect(),
+                            return_type: Some(method.return_type.describe()),
+                            related_types: walk.related_types,
+                            raw_call_order: walk.raw_call_order,
+                            resolved_callees: BTreeSet::new(),
+                            resolved_callee_order: Vec::new(),
+                            host_classes,
+                            branch_kinds: walk.branch_kinds,
+                            branch_count: walk.branch_count,
+                        },
+                    );
+                    simple_names
+                        .entry(method.name.clone())
+                        .or_default()
+                        .push(qualified_name);
+                }
             }
         }
     }
@@ -2577,6 +2675,17 @@ fn collect_unit_stats(source: &SourceFile, program: &Program) -> BTreeMap<String
             ItemKind::Enum { name, .. } => {
                 stats.enum_count += 1;
                 stats.symbols.push(name.clone());
+            }
+            ItemKind::Trait { name, .. } => {
+                stats.symbols.push(name.clone());
+            }
+            ItemKind::Impl { methods, .. } => {
+                for method in methods {
+                    stats.function_count += 1;
+                    stats.function_names.push(method.name.clone());
+                    stats.symbols.push(method.name.clone());
+                    visit_block(&method.body, stats);
+                }
             }
         }
     }

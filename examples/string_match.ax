@@ -1,0 +1,14 @@
+fn classify(command: string) -> i32 {
+    return match (command) {
+        "check" => 1,
+        "run" => 2,
+        "build" => 3,
+        _ => 0,
+    };
+}
+
+fn main() -> i32 {
+    println(classify("check"));
+    println(classify("build"));
+    return classify("build");
+}

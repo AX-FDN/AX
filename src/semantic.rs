@@ -1,4 +1,4 @@
-use crate::ast::{ItemKind, Program};
+use crate::ast::{Block, ItemKind, Param, Program, TypeRef};
 use crate::diagnostics::Diagnostic;
 use crate::project::Project;
 use crate::source::{SourceFile, Span};
@@ -46,49 +46,93 @@ pub fn check_program_with_project(
     for item in &program.items {
         if let ItemKind::Function {
             name,
+            type_params,
             params,
             return_type,
             body,
             ..
         } = &item.kind
         {
-            let current_unit_path = source.display_path_for_offset(item.span.start).to_string();
-            let resolved_return_type =
-                program_info.resolve_type_ref(return_type, &current_unit_path, &mut diagnostics);
-            let mut checker = TypeChecker::new(
-                &program_info,
-                resolved_return_type,
-                current_unit_path.clone(),
-                &mut diagnostics,
-            );
-
-            for param in params {
-                let resolved_param_type = program_info.resolve_type_ref(
-                    &param.ty,
-                    &current_unit_path,
-                    checker.diagnostics_mut(),
-                );
-                checker.declare(&param.name, resolved_param_type, false, param.span.start);
-            }
-
-            checker.check_block(body);
-            let missing_return = missing_return_diagnostic(
+            check_function_body(
                 source,
                 name,
-                checker.return_type(),
+                type_params,
+                params,
+                return_type,
                 body,
                 &program_info,
-                &current_unit_path,
+                item.span.start,
+                &mut diagnostics,
             );
-            drop(checker);
-
-            if let Some(diagnostic) = missing_return {
-                diagnostics.push(diagnostic);
+        } else if let ItemKind::Impl { methods, .. } = &item.kind {
+            for method in methods {
+                check_function_body(
+                    source,
+                    &method.name,
+                    &[],
+                    &method.params,
+                    &method.return_type,
+                    &method.body,
+                    &program_info,
+                    method.span.start,
+                    &mut diagnostics,
+                );
             }
         }
     }
 
     diagnostics
+}
+
+fn check_function_body(
+    source: &SourceFile,
+    name: &str,
+    type_params: &[String],
+    params: &[Param],
+    return_type: &TypeRef,
+    body: &Block,
+    program_info: &ProgramInfo<'_>,
+    span_start: usize,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let current_unit_path = source.display_path_for_offset(span_start).to_string();
+    let resolved_return_type = program_info.resolve_type_ref_with_params(
+        return_type,
+        &current_unit_path,
+        type_params,
+        diagnostics,
+    );
+    let mut checker = TypeChecker::new(
+        program_info,
+        resolved_return_type,
+        current_unit_path.clone(),
+        diagnostics,
+    );
+
+    for param in params {
+        let resolved_param_type = program_info.resolve_type_ref_with_params(
+            &param.ty,
+            &current_unit_path,
+            type_params,
+            checker.diagnostics_mut(),
+        );
+        checker.declare(&param.name, resolved_param_type, false, param.span.start);
+    }
+
+    checker.check_block(body);
+    let missing_return = missing_return_diagnostic(
+        source,
+        name,
+        checker.return_type(),
+        body,
+        program_info,
+        &current_unit_path,
+    );
+    drop(checker);
+
+    if let Some(diagnostic) = missing_return {
+        diagnostics.push(diagnostic);
+    }
 }
 
 #[cfg(test)]
@@ -691,6 +735,272 @@ fn main() -> i32 {
 ",
         );
         assert!(codes.is_empty(), "unexpected diagnostics: {codes:?}");
+    }
+
+    #[test]
+    fn accepts_impl_methods_and_method_calls() {
+        let codes = check(
+            "\
+struct Point { x: i32, y: i32 }
+
+impl Point {
+    fn sum(self: Point) -> i32 {
+        return self.x + self.y;
+    }
+
+    fn offset_sum(self: Point, delta: i32) -> i32 {
+        return self.sum() + delta;
+    }
+}
+
+fn main() -> i32 {
+    let point: Point = Point { x: 4, y: 5 };
+    return point.offset_sum(3);
+}
+",
+        );
+        assert!(codes.is_empty(), "unexpected diagnostics: {codes:?}");
+    }
+
+    #[test]
+    fn reports_unknown_method_call() {
+        let diagnostics = diagnostics(
+            "\
+struct Point { x: i32 }
+
+fn main() -> i32 {
+    let point: Point = Point { x: 1 };
+    return point.missing();
+}
+",
+        );
+        assert!(
+            diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "S0057")
+        );
+    }
+
+    #[test]
+    fn reports_impl_method_self_shape_error() {
+        let diagnostics = diagnostics(
+            "\
+struct Point { x: i32 }
+
+impl Point {
+    fn bad(value: Point) -> i32 {
+        return value.x;
+    }
+}
+
+fn main() -> i32 {
+    let point: Point = Point { x: 1 };
+    return point.bad();
+}
+",
+        );
+        assert!(
+            diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "S0056")
+        );
+    }
+
+    #[test]
+    fn accepts_generic_struct_instances() {
+        let codes = check(
+            "\
+struct Box<T> { value: T }
+struct Pair<T> { left: T, right: T }
+
+fn main() -> i32 {
+    let mut number_box: Box<i32> = Box { value: 7 };
+    number_box.value = number_box.value + 1;
+    let text_box: Box<string> = Box { value: \"ax\" };
+    let pair: Pair<i32> = Pair { left: number_box.value, right: 5 };
+    println(text_box.value);
+    return pair.left + pair.right;
+}
+",
+        );
+        assert!(codes.is_empty(), "unexpected diagnostics: {codes:?}");
+    }
+
+    #[test]
+    fn reports_generic_struct_type_argument_count_mismatch() {
+        let codes = check(
+            "\
+struct Box<T> { value: T }
+
+fn main() -> i32 {
+    let number_box: Box = Box { value: 7 };
+    return number_box.value;
+}
+",
+        );
+        assert!(codes.iter().any(|code| code == "S0058"));
+    }
+
+    #[test]
+    fn reports_generic_struct_field_type_mismatch() {
+        let codes = check(
+            "\
+struct Pair<T> { left: T, right: T }
+
+fn main() -> i32 {
+    let pair: Pair<i32> = Pair { left: 1, right: \"bad\" };
+    return pair.left;
+}
+",
+        );
+        assert!(codes.iter().any(|code| code == "S0022"));
+    }
+
+    #[test]
+    fn accepts_generic_functions() {
+        let codes = check(
+            "\
+struct Box<T> { value: T }
+
+fn identity<T>(value: T) -> T {
+    return value;
+}
+
+fn unwrap_box<T>(box: Box<T>) -> T {
+    return box.value;
+}
+
+fn main() -> i32 {
+    let number_box: Box<i32> = Box { value: identity(9) };
+    let text_box: Box<string> = Box { value: identity(\"ax\") };
+    println(unwrap_box(text_box));
+    return unwrap_box(number_box);
+}
+",
+        );
+        assert!(codes.is_empty(), "unexpected diagnostics: {codes:?}");
+    }
+
+    #[test]
+    fn reports_generic_function_argument_type_mismatch() {
+        let codes = check(
+            "\
+fn choose<T>(left: T, right: T) -> T {
+    return left;
+}
+
+fn main() -> i32 {
+    return choose(1, \"bad\");
+}
+",
+        );
+        assert!(codes.iter().any(|code| code == "S0022"));
+    }
+
+    #[test]
+    fn accepts_string_match_patterns() {
+        let codes = check(
+            "\
+fn classify(command: string) -> i32 {
+    return match (command) {
+        \"check\" => 1,
+        \"run\" => 2,
+        _ => 0,
+    };
+}
+
+fn main() -> i32 {
+    return classify(\"check\");
+}
+",
+        );
+        assert!(codes.is_empty(), "unexpected diagnostics: {codes:?}");
+    }
+
+    #[test]
+    fn reports_string_match_without_catch_all() {
+        let codes = check(
+            "\
+fn main() -> i32 {
+    return match (\"check\") {
+        \"check\" => 1,
+    };
+}
+",
+        );
+        assert!(codes.iter().any(|code| code == "S0049"));
+    }
+
+    #[test]
+    fn accepts_trait_impl_methods() {
+        let codes = check(
+            "\
+trait Label {
+    fn label(self: Self) -> string;
+}
+
+struct Command { name: string }
+
+impl Label for Command {
+    fn label(self: Command) -> string {
+        return self.name;
+    }
+}
+
+fn main() -> i32 {
+    let command: Command = Command { name: \"build\" };
+    println(command.label());
+    return string_len(command.label());
+}
+",
+        );
+        assert!(codes.is_empty(), "unexpected diagnostics: {codes:?}");
+    }
+
+    #[test]
+    fn reports_trait_impl_missing_method() {
+        let codes = check(
+            "\
+trait Label {
+    fn label(self: Self) -> string;
+}
+
+struct Command { name: string }
+
+impl Label for Command {
+}
+
+fn main() -> i32 {
+    let command: Command = Command { name: \"build\" };
+    return 0;
+}
+",
+        );
+        assert!(codes.iter().any(|code| code == "S0059"));
+    }
+
+    #[test]
+    fn reports_trait_impl_signature_mismatch() {
+        let codes = check(
+            "\
+trait Label {
+    fn label(self: Self) -> string;
+}
+
+struct Command { name: string }
+
+impl Label for Command {
+    fn label(self: Command) -> i32 {
+        return 1;
+    }
+}
+
+fn main() -> i32 {
+    return 0;
+}
+",
+        );
+        assert!(codes.iter().any(|code| code == "S0059"));
     }
 
     #[test]

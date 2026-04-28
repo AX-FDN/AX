@@ -9,17 +9,21 @@
 
 - 块语法固定为大括号：`{ ... }`
 - 注释当前只支持 `//` 单行注释
-- 顶层声明当前支持 `module`、`import`、`fn`、`struct`、`enum`
+- 顶层声明当前支持 `module`、`import`、`fn`、`struct`、`enum`、`trait`、`impl`
 - 所有函数参数、返回类型、局部变量都必须显式写出类型
 - `main` 必须是 `fn main() -> i32`
 - `let`、赋值、表达式语句、`return` 必须带分号
 - `if`、`while`、`for` 必须写成带括号的头部：`if (cond) { ... }`、`while (cond) { ... }`、`for (init; cond; step) { ... }`、`for (let value: T in values) { ... }`
 - `break;` 当前已支持，可用于提前退出最近一层 `while` 或 `for`
 - `continue;` 当前已支持，可用于跳过最近一层 `while` 或 `for` 的本次迭代并进入下一轮
-- `match (...) { ... }` 当前已支持最小语句形态、表达式前三刀，以及最终裸标识符绑定模式与第一版 payload enum pattern；模式当前支持 `true` / `false`、整数、枚举值、最终 `_`、最终裸标识符（如 `other`），以及 `Enum.Variant(name)` / `Enum.Variant(_)`
+- `match (...) { ... }` 当前已支持最小语句形态、表达式前三刀，以及最终裸标识符绑定模式、字符串字面量 pattern 与第一版 payload enum pattern；模式当前支持 `true` / `false`、整数、字符串、枚举值、最终 `_`、最终裸标识符（如 `other`），以及 `Enum.Variant(name)` / `Enum.Variant(_)`
 - 逻辑运算当前已支持 `&&` 与 `||`，并按短路语义执行
 - 余数运算 `%` 当前已支持，且当前只接受 `i32` 操作数
 - 枚举值必须写成 `EnumName.Variant`；如果该 variant 声明了 payload，则当前写成 `EnumName.Variant(value)`
+- 第一版方法当前写成 `impl Type { fn method(self: Type, ...) -> Ret { ... } }`，调用写成 `value.method(...)`
+- 第一版 trait 当前写成 `trait Name { fn method(self: Self) -> Ret; }`，实现写成 `impl Name for Type { ... }`
+- 第一版泛型当前支持泛型结构体：`struct Box<T> { value: T }`，使用时写成 `Box<i32>`；结构体字面量仍写成 `Box { value: 1 }`
+- 第一版泛型函数当前支持由实参推断类型参数：`fn identity<T>(value: T) -> T { return value; }`
 - 可写目标当前支持嵌套路径：`point.x = expr;`、`outer.inner.value = expr;`、`tokens[index].value = expr;`
 
 ## 2. 顶层声明
@@ -32,12 +36,33 @@ fn add(left: i32, right: i32) -> i32 {
 }
 ```
 
+泛型函数第一刀：
+
+```ax
+fn identity<T>(value: T) -> T {
+    return value;
+}
+```
+
 结构体：
 
 ```ax
 struct Point {
     x: i32,
     y: i32,
+}
+```
+
+泛型结构体第一刀：
+
+```ax
+struct Box<T> {
+    value: T,
+}
+
+fn main() -> i32 {
+    let boxed: Box<i32> = Box { value: 7 };
+    return boxed.value;
 }
 ```
 
@@ -55,6 +80,39 @@ enum Result {
     Ok(i32),
     Err(string),
     Empty,
+}
+```
+
+第一版方法：
+
+```ax
+struct Point {
+    x: i32,
+    y: i32,
+}
+
+impl Point {
+    fn sum(self: Point) -> i32 {
+        return self.x + self.y;
+    }
+}
+```
+
+第一版 trait / interface：
+
+```ax
+trait Label {
+    fn label(self: Self) -> string;
+}
+
+struct Command {
+    name: string,
+}
+
+impl Label for Command {
+    fn label(self: Command) -> string {
+        return self.name;
+    }
 }
 ```
 
@@ -82,11 +140,12 @@ import lib.report;
 - 只读切片：`[Type]`
 - 固定长度数组：`[Type; N]`
 - 用户声明的 `struct` 名
+- 用户声明的泛型 `struct` 实例，例如 `Box<i32>`、`Pair<string>`
 - 用户声明的 `enum` 名
 
 当前没有：
 
-- 泛型
+- 泛型方法、泛型 enum、trait bounds / where 约束
 - `Option` / `Result` 的完整表面语法
 
 补充说明：
@@ -365,19 +424,31 @@ program           := source_unit+
 source_unit       := module_decl? import_decl* item*
 module_decl       := "module" qualified_name ";"
 import_decl       := "import" qualified_name ";"
-item              := function | struct_decl | enum_decl
+item              := function | struct_decl | enum_decl | trait_decl | impl_decl
 
-function          := "fn" IDENT "(" param_list? ")" "->" type_ref block
+function          := "fn" IDENT generic_params? "(" param_list? ")" "->" type_ref block
 param_list        := param ("," param)*
 param             := IDENT ":" type_ref
 
-struct_decl       := "struct" IDENT "{" struct_field_list? "}"
+struct_decl       := "struct" IDENT generic_params? "{" struct_field_list? "}"
+generic_params    := "<" IDENT ("," IDENT)* ">"
 struct_field_list := struct_field ("," struct_field)* ","?
 struct_field      := IDENT ":" type_ref
 
 enum_decl         := "enum" IDENT "{" enum_variant_list? "}"
 enum_variant_list := enum_variant ("," enum_variant)* ","?
 enum_variant      := IDENT ("(" type_ref ")")?
+
+trait_decl        := "trait" IDENT "{" trait_method* "}"
+trait_method      := "fn" IDENT "(" param_list? ")" "->" type_ref ";"
+
+impl_decl         := "impl" (type_ref | type_ref "for" type_ref) "{" impl_method* "}"
+impl_method       := "fn" IDENT "(" param_list? ")" "->" type_ref block
+
+type_ref          := qualified_name generic_args?
+                  | "[" type_ref "]"
+                  | "[" type_ref ";" INT "]"
+generic_args      := "<" type_ref ("," type_ref)* ">"
 
 block             := "{" stmt* "}"
 stmt              := let_stmt
@@ -402,6 +473,7 @@ match_pattern     := "_"
                   | "true"
                   | "false"
                   | INT
+                  | STRING
                   | enum_pattern
                   | qualified_name
                   | binding_name
@@ -515,7 +587,7 @@ array_type        := "[" type_ref ";" INT "]"
 
 - 异常
 - async / await
-- 泛型
+- 泛型方法、泛型 enum、trait bounds / where 约束
 - 宏
 - 原生后端
 
@@ -524,8 +596,12 @@ array_type        := "[" type_ref ";" INT "]"
 - 空数组字面量 `[]` 不是“完全不支持”。
 - 当前只支持带显式零长度数组上下文的写法：`let values: [i32; 0] = [];`
 - 如果上下文不是零长度数组，例如 `let values: [i32; 1] = [];`，会报 `S0032`。
-- `match` 当前是 `v2` 的前三小步：已支持表达式形态、最终绑定模式与第一版 payload enum pattern，但仍不支持解构、guard、多模式合并，表达式形态也还不支持 block-valued arm。
+- `match` 当前是 `v2` 的前三小步加一项轻量增强：已支持表达式形态、最终绑定模式、字符串字面量 pattern 与第一版 payload enum pattern，但仍不支持解构、guard、多模式合并，表达式形态也还不支持 block-valued arm。
 - `module / import` 当前是最小第一版：不支持 alias、wildcard import、`pub`、包管理与远程依赖。
+- `impl / methods` 当前是第一刀：支持值方法与显式 `self: Type` 参数；暂不支持泛型 impl、静态方法、可变接收者或方法重载。
+- `trait / interface` 当前是第一刀：支持 trait 方法签名、`impl Trait for Type`、缺失方法检查、签名匹配检查，以及 trait impl 方法作为普通方法调用；暂不支持 trait bounds、动态派发、关联类型、默认方法或泛型 trait。
+- `generic struct` 当前是第一刀：支持 `struct Box<T>`、`Box<i32>` 类型引用、字段推断、字段读取与可变字段写入；暂不支持泛型 enum、trait bounds 或 where 约束。
+- `generic function` 当前是第一刀：支持 `fn identity<T>(value: T) -> T` 并由调用实参推断 `T`；暂不支持显式 turbofish、泛型方法、trait bounds 或 where 约束。
 
 ## 9. 给 AI 的直接提示词
 
@@ -533,11 +609,11 @@ array_type        := "[" type_ref ";" INT "]"
 Generate code in the current AX prototype syntax only.
 Rules:
 - Use braces for all blocks.
-- Use only module, import, fn, struct, enum, let, let mut, return, if/else, while, for, and the current minimal match forms.
+- Use only module, import, fn, struct, enum, trait, impl, let, let mut, return, if/else, while, for, and the current minimal match forms.
 - `break;` may be used to exit the nearest `while` or `for` loop early.
 - `continue;` may be used to skip to the next iteration of the nearest `while` or `for` loop.
 - `match` supports statement form `match (value) { pattern => { ... } ... }` and expression form `match (value) { pattern => expr, ... }`.
-- `match` patterns currently support `true`, `false`, integer literals, enum variants, payload enum patterns like `Result.Ok(value)` / `Result.Err(_)`, final `_`, and final bare binding names like `other`.
+- `match` patterns currently support `true`, `false`, integer literals, string literals, enum variants, payload enum patterns like `Result.Ok(value)` / `Result.Err(_)`, final `_`, and final bare binding names like `other`.
 - A bare binding pattern is a final catch-all and introduces an immutable arm-local name.
 - Expression-form `match` arms must stay single expressions and all arms must produce the same type.
 - `&&` and `||` are supported and both sides must produce `bool`.
@@ -548,6 +624,8 @@ Rules:
 - Supported builtin types are bool, i32, f32, string, and string_list.
 - Builtin helpers are println(...), string_len(text), string_list_new(), string_list_push(list, value), string_list_join(list, separator), len(value), and to_string(value).
 - Enum values must use `EnumName.Variant` or `EnumName.Variant(value)` when the variant declares a payload.
+- Methods are declared in `impl Type { fn name(self: Type, ...) -> Ret { ... } }` blocks and called as `value.name(...)`.
+- Traits are declared as `trait Name { fn method(self: Self) -> Ret; }` and implemented as `impl Name for Type { ... }`.
 - Construct structs with TypeName { field: expr, ... }.
 - Use for loops only as `for (init; condition; step) { ... }` or `for (let value: T in values) { ... }`.
 - Read-only slices are allowed as [Type] and values[start:end].
@@ -556,7 +634,9 @@ Rules:
 - Mutable write paths may target variables, nested struct fields, and fields selected from mutable array elements.
 - Slice values remain read-only, so assignments through values[start:end] are not allowed.
 - In project mode, support sources may declare `module ...;` and files may use explicit `import module.path;`.
-- Do not use exceptions, async, generics, destructuring match patterns, match guards, multi-pattern match arms, named payload fields, or multi-payload enum variants.
+- Generic structs may be declared as `struct Box<T> { value: T }` and used in type positions like `Box<i32>`; construct them with normal struct literals like `Box { value: 1 }`.
+- Generic functions may be declared as `fn identity<T>(value: T) -> T { return value; }`; type parameters are inferred from arguments.
+- Do not use exceptions, async, generic methods, generic enum declarations, explicit turbofish calls, trait bounds, where clauses, dynamic dispatch, associated types, default trait methods, destructuring match patterns, match guards, multi-pattern match arms, named payload fields, or multi-payload enum variants.
 - Use [] only when the target type is explicitly a zero-length array like [i32; 0].
 - Return 0 from main on success unless a different exit code is explicitly needed.
 ```

@@ -25,12 +25,14 @@ pub struct Item {
 pub enum ItemKind {
     Function {
         name: String,
+        type_params: Vec<String>,
         params: Vec<Param>,
         return_type: Type,
         body: Block,
     },
     Struct {
         name: String,
+        type_params: Vec<String>,
         fields: Vec<StructField>,
     },
     Enum {
@@ -79,7 +81,9 @@ pub enum Type {
     Slice { element: Box<Type> },
     Array { element: Box<Type>, length: usize },
     Struct { name: String },
+    StructInstance { name: String, args: Vec<Type> },
     Enum { name: String },
+    TypeParam { name: String },
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -121,6 +125,9 @@ pub enum MatchPatternKind {
     },
     Int {
         value: i32,
+    },
+    String {
+        value: String,
     },
     EnumVariant {
         enum_name: String,
@@ -228,6 +235,11 @@ pub enum ExprKind {
         function: String,
         arguments: Vec<Expr>,
     },
+    MethodCall {
+        receiver: Box<Expr>,
+        method: String,
+        arguments: Vec<Expr>,
+    },
     StructLiteral {
         name: String,
         fields: Vec<StructLiteralField>,
@@ -309,6 +321,8 @@ impl<'a> LoweringContext<'a> {
                 ast::ItemKind::Enum { .. } => {
                     enum_names.insert(canonical_name);
                 }
+                ast::ItemKind::Trait { .. } => {}
+                ast::ItemKind::Impl { .. } => {}
             }
         }
 
@@ -353,24 +367,24 @@ impl<'a> LoweringContext<'a> {
     }
 
     fn lower_program(&self, program: &ast::Program) -> Result<Program, Diagnostic> {
-        Ok(Program {
-            items: program
-                .items
-                .iter()
-                .map(|item| self.lower_item(item))
-                .collect::<Result<Vec<_>, _>>()?,
-        })
+        let mut items = Vec::new();
+        for item in &program.items {
+            items.extend(self.lower_items(item)?);
+        }
+        Ok(Program { items })
     }
 
-    fn lower_item(&self, item: &ast::Item) -> Result<Item, Diagnostic> {
+    fn lower_items(&self, item: &ast::Item) -> Result<Vec<Item>, Diagnostic> {
         let kind = match &item.kind {
             ast::ItemKind::Function {
                 name,
+                type_params,
                 params,
                 return_type,
                 body,
             } => ItemKind::Function {
                 name: self.canonical_name(name, item.span),
+                type_params: type_params.clone(),
                 params: params
                     .iter()
                     .map(|param| {
@@ -384,8 +398,13 @@ impl<'a> LoweringContext<'a> {
                 return_type: self.lower_type_ref(return_type)?,
                 body: self.lower_block(body)?,
             },
-            ast::ItemKind::Struct { name, fields } => ItemKind::Struct {
+            ast::ItemKind::Struct {
+                name,
+                type_params,
+                fields,
+            } => ItemKind::Struct {
                 name: self.canonical_name(name, item.span),
+                type_params: type_params.clone(),
                 fields: fields
                     .iter()
                     .map(|field| {
@@ -414,17 +433,48 @@ impl<'a> LoweringContext<'a> {
                     })
                     .collect::<Result<Vec<_>, Diagnostic>>()?,
             },
+            ast::ItemKind::Trait { .. } => return Ok(Vec::new()),
+            ast::ItemKind::Impl {
+                target, methods, ..
+            } => {
+                let method_prefix = self.impl_method_prefix(target, item.span)?;
+                return methods
+                    .iter()
+                    .map(|method| {
+                        Ok(Item {
+                            kind: ItemKind::Function {
+                                name: format!("{method_prefix}.{}", method.name),
+                                type_params: Vec::new(),
+                                params: method
+                                    .params
+                                    .iter()
+                                    .map(|param| {
+                                        Ok(Param {
+                                            name: param.name.clone(),
+                                            ty: self.lower_type_ref(&param.ty)?,
+                                            span: param.span,
+                                        })
+                                    })
+                                    .collect::<Result<Vec<_>, Diagnostic>>()?,
+                                return_type: self.lower_type_ref(&method.return_type)?,
+                                body: self.lower_block(&method.body)?,
+                            },
+                            span: method.span,
+                        })
+                    })
+                    .collect();
+            }
         };
 
-        Ok(Item {
+        Ok(vec![Item {
             kind,
             span: item.span,
-        })
+        }])
     }
 
     fn lower_type_ref(&self, ty: &ast::TypeRef) -> Result<Type, Diagnostic> {
-        match (&ty.name, &ty.element, ty.length) {
-            (Some(name), None, None) => match name.as_str() {
+        match (&ty.name, &ty.type_args[..], &ty.element, ty.length) {
+            (Some(name), [], None, None) => match name.as_str() {
                 "bool" => Ok(Type::Bool),
                 "i32" => Ok(Type::I32),
                 "f32" => Ok(Type::F32),
@@ -440,6 +490,9 @@ impl<'a> LoweringContext<'a> {
                     {
                         return Ok(Type::Enum { name });
                     }
+                    if looks_like_type_param(name) {
+                        return Ok(Type::TypeParam { name: name.clone() });
+                    }
                     Err(self.lowering_error(
                         "H0001",
                         format!("cannot lower unknown type `{}` into HIR", name),
@@ -447,10 +500,30 @@ impl<'a> LoweringContext<'a> {
                     ))
                 }
             },
-            (None, Some(element), None) => Ok(Type::Slice {
+            (Some(name), args, None, None) => {
+                let Some(name) = self.resolve_canonical_name(name, ty.span, &self.struct_names)
+                else {
+                    return Err(self.lowering_error(
+                        "H0001",
+                        format!(
+                            "cannot lower unknown generic struct type `{}` into HIR",
+                            name
+                        ),
+                        ty.span,
+                    ));
+                };
+                Ok(Type::StructInstance {
+                    name,
+                    args: args
+                        .iter()
+                        .map(|arg| self.lower_type_ref(arg))
+                        .collect::<Result<Vec<_>, _>>()?,
+                })
+            }
+            (None, [], Some(element), None) => Ok(Type::Slice {
                 element: Box::new(self.lower_type_ref(element)?),
             }),
-            (None, Some(element), Some(length)) => Ok(Type::Array {
+            (None, [], Some(element), Some(length)) => Ok(Type::Array {
                 element: Box::new(self.lower_type_ref(element)?),
                 length,
             }),
@@ -944,6 +1017,9 @@ impl<'a> LoweringContext<'a> {
                     )
                 })?,
             },
+            ast::MatchPatternKind::String { value } => MatchPatternKind::String {
+                value: value.clone(),
+            },
             ast::MatchPatternKind::EnumVariant { path, payload } => {
                 let Some((enum_path, variant)) = path.rsplit_once('.') else {
                     return Err(self.lowering_error(
@@ -987,6 +1063,7 @@ impl<'a> LoweringContext<'a> {
             match &arm.pattern.kind {
                 ast::MatchPatternKind::Bool { .. } => return Ok(Type::Bool),
                 ast::MatchPatternKind::Int { .. } => return Ok(Type::I32),
+                ast::MatchPatternKind::String { .. } => return Ok(Type::String),
                 ast::MatchPatternKind::EnumVariant { path, .. } => {
                     let Some((enum_path, _)) = path.rsplit_once('.') else {
                         return Err(self.lowering_error(
@@ -1198,12 +1275,35 @@ impl<'a> LoweringContext<'a> {
                             callee.span,
                         ));
                     };
-                    ExprKind::Call {
-                        function: self.resolve_function_name(&function, callee.span),
-                        arguments: arguments
-                            .iter()
-                            .map(|argument| self.lower_expr(argument))
-                            .collect::<Result<Vec<_>, _>>()?,
+                    if let Some(resolved_function) =
+                        self.resolve_canonical_name(&function, callee.span, &self.function_names)
+                    {
+                        ExprKind::Call {
+                            function: resolved_function,
+                            arguments: arguments
+                                .iter()
+                                .map(|argument| self.lower_expr(argument))
+                                .collect::<Result<Vec<_>, _>>()?,
+                        }
+                    } else if let ast::ExprKind::Field { base, field } = &callee.kind
+                        && !self.field_base_names_type(base)
+                    {
+                        ExprKind::MethodCall {
+                            receiver: Box::new(self.lower_expr(base)?),
+                            method: field.clone(),
+                            arguments: arguments
+                                .iter()
+                                .map(|argument| self.lower_expr(argument))
+                                .collect::<Result<Vec<_>, _>>()?,
+                        }
+                    } else {
+                        ExprKind::Call {
+                            function: self.resolve_function_name(&function, callee.span),
+                            arguments: arguments
+                                .iter()
+                                .map(|argument| self.lower_expr(argument))
+                                .collect::<Result<Vec<_>, _>>()?,
+                        }
                     }
                 }
             }
@@ -1334,6 +1434,24 @@ impl<'a> LoweringContext<'a> {
             .unwrap_or_else(|| name.to_string())
     }
 
+    fn impl_method_prefix(&self, target: &ast::TypeRef, span: Span) -> Result<String, Diagnostic> {
+        let Some(name) = target.direct_name() else {
+            return Err(self.lowering_error("H0017", "impl target must be a named type", span));
+        };
+        self.resolve_canonical_name(name, span, &self.struct_names)
+            .or_else(|| self.resolve_canonical_name(name, span, &self.enum_names))
+            .ok_or_else(|| self.lowering_error("H0017", "impl target must resolve to a type", span))
+    }
+
+    fn field_base_names_type(&self, base: &ast::Expr) -> bool {
+        base.qualified_name()
+            .and_then(|name| {
+                self.resolve_canonical_name(&name, base.span, &self.struct_names)
+                    .or_else(|| self.resolve_canonical_name(&name, base.span, &self.enum_names))
+            })
+            .is_some()
+    }
+
     fn resolve_canonical_name(
         &self,
         name: &str,
@@ -1368,11 +1486,31 @@ fn canonical_item_name(
     match &item.kind {
         ast::ItemKind::Function { name, .. }
         | ast::ItemKind::Struct { name, .. }
-        | ast::ItemKind::Enum { name, .. } => unit_modules
+        | ast::ItemKind::Enum { name, .. }
+        | ast::ItemKind::Trait { name, .. } => unit_modules
             .get(unit_path)
             .map(|module_path| format!("{module_path}.{name}"))
             .unwrap_or_else(|| name.clone()),
+        ast::ItemKind::Impl { target, .. } => target
+            .direct_name()
+            .map(|name| {
+                unit_modules
+                    .get(unit_path)
+                    .map(|module_path| format!("{module_path}.{name}"))
+                    .unwrap_or_else(|| name.to_string())
+            })
+            .unwrap_or_else(|| "<impl>".to_string()),
     }
+}
+
+fn looks_like_type_param(name: &str) -> bool {
+    name.chars()
+        .next()
+        .map(|ch| ch.is_ascii_uppercase())
+        .unwrap_or(false)
+        && name
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || ch == '_')
 }
 
 #[cfg(test)]

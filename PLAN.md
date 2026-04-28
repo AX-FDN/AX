@@ -104,8 +104,8 @@ AX 的 AI-first 必须落到具体工作负载，而不是停留在口号。
 
 | 层级 | 完成度 | 说明 |
 | --- | --- | --- |
-| 最小可写工具内核 | `75%~80%` | 已有显式类型、数组/切片、`for/for in`、`break/continue`、最小 `match`、payload enum、模块第一刀、宿主 builtin |
-| 通用语言表面 | `35%~40%` | 缺泛型、方法/impl、trait/interface、包系统、可见性、闭包、async、错误传播语法等 |
+| 最小可写工具内核 | `80%~83%` | 已有显式类型、数组/切片、`for/for in`、`break/continue`、最小 `match`、payload enum、模块第一刀、方法第一刀、泛型结构体与泛型函数第一刀、宿主 builtin |
+| 通用语言表面 | `46%~51%` | 已有 methods/impl 第一刀、泛型结构体/函数第一刀、trait/interface 第一刀；仍缺 trait bounds、包系统、可见性、闭包、async、错误传播语法等 |
 | 生态支撑语法 | `20%~30%` | 项目可组织，但还不能支撑完整标准库与第三方包生态 |
 
 ### 当前阶段判断
@@ -484,10 +484,10 @@ flowchart TD
 | 可见性 `pub` / 模块边界 | 缺失 | P5 前 | module/import 第一刀稳定 | parser、resolver、semantic、包解析、docs、样例 |
 | import 人体工学第二刀 | 缺失 | P5 前 | 可见性方案确定 | parser、diagnostics、context topology、docs |
 | `const` / 常量定义 | 缺失 | P5 前 | 标准库开始需要稳定常量 | parser、semantic、formatter、AOT/interpreter |
-| methods / `impl` | 缺失 | P5-P6 | 标准库 API 复杂度开始上升 | parser、name resolution、docs、examples |
-| 泛型 | 缺失 | P6 后 | collections 与标准库压力明确出现 | parser、type system、AI diagnostics、HIR/MIR/AOT |
-| traits / interfaces | 缺失 | P6-P7 | 包生态与抽象层明确需要 | type system、package contracts、stdlib design |
-| richer pattern matching | 缺失 | P6 后 | `match` 第一版与 enum 使用成熟 | parser、semantic exhaustiveness、AI rule cards |
+| methods / `impl` | 第一刀已实现 | P5-P6 | 标准库 API 复杂度开始上升 | 后续补泛型 impl、trait impl、静态方法、AOT method lowering、AI rule cards |
+| 泛型 | 泛型结构体与泛型函数第一刀已实现 | P6 后 | collections 与标准库压力明确出现 | 后续补泛型 enum、trait bounds、AI diagnostics、HIR/MIR/AOT |
+| traits / interfaces | trait 声明与 `impl Trait for Type` 第一刀已实现 | P6-P7 | 包生态与抽象层明确需要 | 后续补 trait bounds、stdlib 抽象迁移、package contracts |
+| richer pattern matching | 字符串字面量 pattern 第一刀已实现 | P6 后 | `match` 第一版与 enum 使用成熟 | 后续补多 pattern arm、guard、解构、AI rule cards |
 | 闭包 / lambda | 缺失 | P7 前 | 高阶标准库和并发前置需要 | parser、capture model、AOT/interpreter |
 | async / await | 缺失 | P7 | AOT、包系统、错误模型、并发模型已稳定 | syntax、runtime model、scheduler/ABI、docs、benchmarks |
 | 异常系统 | 不计划优先做 | 不进入主线 | 与 AI-first 低熵目标冲突 | 默认不用异常，优先显式结果类型 |

@@ -132,6 +132,7 @@ fn match_is_exhaustive(arms: &[MatchArm], info: &ProgramInfo<'_>, current_unit_p
                 enum_variants.insert(variant.to_string());
             }
             MatchPatternKind::Int { .. }
+            | MatchPatternKind::String { .. }
             | MatchPatternKind::Wildcard
             | MatchPatternKind::Binding { .. }
             | MatchPatternKind::Error => return false,

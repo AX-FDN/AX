@@ -25,6 +25,7 @@ pub struct Item {
 pub enum ItemKind {
     Function {
         name: String,
+        type_params: Vec<String>,
         params: Vec<Param>,
         return_type: Type,
         locals: Vec<Local>,
@@ -33,6 +34,7 @@ pub enum ItemKind {
     },
     Struct {
         name: String,
+        type_params: Vec<String>,
         fields: Vec<StructField>,
     },
     Enum {
@@ -173,6 +175,9 @@ pub enum MatchPatternKind {
     Int {
         value: i32,
     },
+    String {
+        value: String,
+    },
     EnumVariant {
         enum_name: String,
         variant: String,
@@ -276,6 +281,7 @@ fn lower_item(item: &hir::Item) -> Result<Item, String> {
     let kind = match &item.kind {
         hir::ItemKind::Function {
             name,
+            type_params,
             params,
             return_type,
             body,
@@ -297,6 +303,7 @@ fn lower_item(item: &hir::Item) -> Result<Item, String> {
 
             ItemKind::Function {
                 name: name.clone(),
+                type_params: type_params.clone(),
                 params,
                 return_type: return_type.clone(),
                 locals,
@@ -304,8 +311,13 @@ fn lower_item(item: &hir::Item) -> Result<Item, String> {
                 blocks,
             }
         }
-        hir::ItemKind::Struct { name, fields } => ItemKind::Struct {
+        hir::ItemKind::Struct {
+            name,
+            type_params,
+            fields,
+        } => ItemKind::Struct {
             name: name.clone(),
+            type_params: type_params.clone(),
             fields: fields.clone(),
         },
         hir::ItemKind::Enum { name, variants } => ItemKind::Enum {
@@ -588,6 +600,21 @@ impl FunctionLowerer {
                     .map(|argument| self.lower_expr(argument))
                     .collect::<Result<Vec<_>, _>>()?,
             },
+            hir::ExprKind::MethodCall {
+                receiver,
+                method,
+                arguments,
+            } => {
+                let mut lowered_arguments = Vec::with_capacity(arguments.len() + 1);
+                lowered_arguments.push(self.lower_expr(receiver)?);
+                for argument in arguments {
+                    lowered_arguments.push(self.lower_expr(argument)?);
+                }
+                ExprKind::Call {
+                    function: format!("<method>.{method}"),
+                    arguments: lowered_arguments,
+                }
+            }
             hir::ExprKind::StructLiteral { name, fields } => ExprKind::StructLiteral {
                 name: name.clone(),
                 fields: fields
@@ -689,6 +716,9 @@ impl FunctionLowerer {
             }
             hir::MatchPatternKind::Bool { value } => MatchPatternKind::Bool { value: *value },
             hir::MatchPatternKind::Int { value } => MatchPatternKind::Int { value: *value },
+            hir::MatchPatternKind::String { value } => MatchPatternKind::String {
+                value: value.clone(),
+            },
             hir::MatchPatternKind::EnumVariant {
                 enum_name,
                 variant,
@@ -718,6 +748,7 @@ impl FunctionLowerer {
             match &arm.pattern.kind {
                 hir::MatchPatternKind::Bool { .. } => return Ok(Type::Bool),
                 hir::MatchPatternKind::Int { .. } => return Ok(Type::I32),
+                hir::MatchPatternKind::String { .. } => return Ok(Type::String),
                 hir::MatchPatternKind::EnumVariant { enum_name, .. } => {
                     return Ok(Type::Enum {
                         name: enum_name.clone(),

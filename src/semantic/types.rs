@@ -11,7 +11,9 @@ pub(super) enum Type {
     Slice { element: Box<Type> },
     Array { element: Box<Type>, length: usize },
     Struct(String),
+    StructInstance { name: String, args: Vec<Type> },
     Enum(String),
+    TypeParam(String),
     Void,
     Error,
 }
@@ -28,6 +30,15 @@ impl Type {
             Self::Slice { element } => format!("[{}]", element.describe()),
             Self::Array { element, length } => format!("[{}; {}]", element.describe(), length),
             Self::Struct(name) | Self::Enum(name) => name.clone(),
+            Self::StructInstance { name, args } => {
+                let args = args
+                    .iter()
+                    .map(Type::describe)
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                format!("{name}<{args}>")
+            }
+            Self::TypeParam(name) => name.clone(),
             Self::Void => "<void>".to_string(),
             Self::Error => "<error>".to_string(),
         }
@@ -57,8 +68,19 @@ impl Type {
 
 #[derive(Debug, Clone)]
 pub(super) struct FunctionSignature {
+    pub(super) type_params: Vec<String>,
     pub(super) params: Vec<ParamInfo>,
     pub(super) return_type: Type,
+}
+
+#[derive(Debug, Clone)]
+pub(super) struct MethodSignature {
+    pub(super) function: FunctionSignature,
+}
+
+#[derive(Debug, Clone)]
+pub(super) struct TraitInfo {
+    pub(super) methods: HashMap<String, FunctionSignature>,
 }
 
 #[derive(Debug, Clone)]
@@ -69,6 +91,7 @@ pub(super) struct ParamInfo {
 
 #[derive(Debug, Clone)]
 pub(super) struct StructInfo {
+    pub(super) type_params: Vec<String>,
     pub(super) fields: HashMap<String, StructFieldInfo>,
 }
 

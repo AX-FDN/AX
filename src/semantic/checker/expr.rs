@@ -301,6 +301,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
         match ty {
             Type::Bool | Type::I32 | Type::F32 | Type::String => true,
             Type::Array { element, .. } => self.type_is_equality_comparable(element),
+            Type::StructInstance { .. } => false,
             Type::Enum(enum_name) => self
                 .info
                 .enums

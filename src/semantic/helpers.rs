@@ -112,6 +112,8 @@ pub(super) fn item_name(kind: &ItemKind) -> &str {
     match kind {
         ItemKind::Function { name, .. }
         | ItemKind::Struct { name, .. }
-        | ItemKind::Enum { name, .. } => name.as_str(),
+        | ItemKind::Enum { name, .. }
+        | ItemKind::Trait { name, .. } => name.as_str(),
+        ItemKind::Impl { .. } => "<impl>",
     }
 }

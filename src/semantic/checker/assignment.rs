@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::ast::{Expr, ExprKind};
 use crate::diagnostics::Diagnostic;
 use crate::source::Span;
@@ -90,6 +92,39 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                                         format!(
                                             "struct `{struct_name}` does not have a field `{field}`"
                                         ),
+                                        self.info.source,
+                                        target.span,
+                                    )
+                                    .with_suggestion(
+                                        "use an existing field name from the struct declaration",
+                                    ),
+                                );
+                                None
+                            }
+                        }
+                    }
+                    Type::StructInstance { name, args } => {
+                        let struct_info = self.info.structs.get(name).cloned();
+                        let substitutions = struct_info
+                            .as_ref()
+                            .map(|info| {
+                                info.type_params
+                                    .iter()
+                                    .cloned()
+                                    .zip(args.iter().cloned())
+                                    .collect::<HashMap<_, _>>()
+                            })
+                            .unwrap_or_default();
+                        match struct_info.and_then(|info| info.fields.get(field).cloned()) {
+                            Some(field_info) => Some(ResolvedAssignmentPlace {
+                                ty: substitute_type_params(&field_info.ty, &substitutions),
+                                ..base_place
+                            }),
+                            None => {
+                                self.diagnostics.push(
+                                    Diagnostic::new(
+                                        "S0020",
+                                        format!("struct `{name}` does not have a field `{field}`"),
                                         self.info.source,
                                         target.span,
                                     )
@@ -240,6 +275,30 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             }
             _ => {}
         }
+    }
+}
+
+fn substitute_type_params(ty: &Type, substitutions: &HashMap<String, Type>) -> Type {
+    match ty {
+        Type::TypeParam(name) => substitutions
+            .get(name)
+            .cloned()
+            .unwrap_or_else(|| ty.clone()),
+        Type::Slice { element } => Type::Slice {
+            element: Box::new(substitute_type_params(element, substitutions)),
+        },
+        Type::Array { element, length } => Type::Array {
+            element: Box::new(substitute_type_params(element, substitutions)),
+            length: *length,
+        },
+        Type::StructInstance { name, args } => Type::StructInstance {
+            name: name.clone(),
+            args: args
+                .iter()
+                .map(|arg| substitute_type_params(arg, substitutions))
+                .collect(),
+        },
+        _ => ty.clone(),
     }
 }
 

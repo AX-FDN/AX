@@ -12,6 +12,7 @@ use super::{Type, TypeChecker, return_type_message};
 enum ResolvedMatchPattern {
     Bool(bool),
     Int(i32),
+    String(String),
     EnumVariant { variant: String },
 }
 
@@ -26,6 +27,7 @@ struct MatchCoverage {
     concrete_pattern_seen: bool,
     seen_bools: HashSet<bool>,
     seen_ints: HashSet<i32>,
+    seen_strings: HashSet<String>,
     seen_variants: HashSet<String>,
 }
 
@@ -316,14 +318,14 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
         }
 
         let scrutinee_supported = match &scrutinee_type {
-            Type::Bool | Type::I32 | Type::Enum(_) => true,
+            Type::Bool | Type::I32 | Type::String | Type::Enum(_) => true,
             Type::Error => false,
             _ => {
                 self.diagnostics.push(
                     Diagnostic::new(
                         "S0045",
                         format!(
-                            "`match` currently requires `bool`, `i32`, or enum input, found `{}`",
+                            "`match` currently requires `bool`, `i32`, `string`, or enum input, found `{}`",
                             scrutinee_type.describe()
                         ),
                         self.info.source,
@@ -331,10 +333,10 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     )
                     .with_kind(DiagnosticKind::MatchScrutineeTypeUnsupported)
                     .with_note(
-                        "the current AX `match` only covers boolean values, integer literals, and enum variants",
+                        "the current AX `match` only covers boolean values, integer literals, string literals, and enum variants",
                     )
                     .with_suggestion(
-                        "rewrite this with `if / else`, or change the match input to `bool`, `i32`, or an enum value",
+                        "rewrite this with `if / else`, or change the match input to `bool`, `i32`, `string`, or an enum value",
                     ),
                 );
                 false
@@ -348,6 +350,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             concrete_pattern_seen: false,
             seen_bools: HashSet::new(),
             seen_ints: HashSet::new(),
+            seen_strings: HashSet::new(),
             seen_variants: HashSet::new(),
         };
 
@@ -391,6 +394,14 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     }
                     ResolvedMatchPattern::Int(value) => {
                         if !coverage.seen_ints.insert(value) {
+                            self.report_duplicate_match_pattern(
+                                case.pattern.span,
+                                pattern_label(case.pattern),
+                            );
+                        }
+                    }
+                    ResolvedMatchPattern::String(value) => {
+                        if !coverage.seen_strings.insert(value.clone()) {
                             self.report_duplicate_match_pattern(
                                 case.pattern.span,
                                 pattern_label(case.pattern),
@@ -474,6 +485,19 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     .with_suggestion("add a final `_ => ...` arm to cover the remaining values"),
                 );
             }
+            Type::String => {
+                self.diagnostics.push(
+                    Diagnostic::new(
+                        "S0049",
+                        "non-exhaustive `match`: `string` matches require a final `_` arm",
+                        self.info.source,
+                        match_span,
+                    )
+                    .with_kind(DiagnosticKind::MatchNotExhaustive)
+                    .with_note("AX does not allow string matches to fall through silently")
+                    .with_suggestion("add a final `_ => ...` arm to cover the remaining values"),
+                );
+            }
             Type::Enum(enum_name) => {
                 let Some(enum_info) = self.info.enums.get(enum_name) else {
                     return;
@@ -540,6 +564,13 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     return None;
                 }
                 Some(ResolvedMatchPattern::Int(value))
+            }
+            MatchPatternKind::String { value } => {
+                if !matches!(scrutinee_type, Type::String | Type::Error) {
+                    self.report_match_pattern_type_mismatch(pattern, scrutinee_type);
+                    return None;
+                }
+                Some(ResolvedMatchPattern::String(value.clone()))
             }
             MatchPatternKind::EnumVariant { path, payload } => {
                 let Some((enum_path, variant)) = path.rsplit_once('.') else {
@@ -757,6 +788,7 @@ fn pattern_label(pattern: &MatchPattern) -> String {
         MatchPatternKind::Binding { name } => name.clone(),
         MatchPatternKind::Bool { value } => value.to_string(),
         MatchPatternKind::Int { value } => value.to_string(),
+        MatchPatternKind::String { value } => format!("{value:?}"),
         MatchPatternKind::EnumVariant { path, payload } => match payload {
             Some(EnumVariantPayloadPattern::Wildcard) => format!("{path}(_)"),
             Some(EnumVariantPayloadPattern::Binding { name }) => format!("{path}({name})"),

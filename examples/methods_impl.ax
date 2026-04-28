@@ -1,0 +1,21 @@
+struct Point {
+    x: i32,
+    y: i32,
+}
+
+impl Point {
+    fn sum(self: Point) -> i32 {
+        return self.x + self.y;
+    }
+
+    fn offset_sum(self: Point, delta: i32) -> i32 {
+        return self.sum() + delta;
+    }
+}
+
+fn main() -> i32 {
+    let point: Point = Point { x: 4, y: 5 };
+    println(point.sum());
+    println(point.offset_sum(3));
+    return point.offset_sum(3);
+}

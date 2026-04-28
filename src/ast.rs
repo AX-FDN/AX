@@ -48,17 +48,28 @@ pub struct Item {
 pub enum ItemKind {
     Function {
         name: String,
+        type_params: Vec<String>,
         params: Vec<Param>,
         return_type: TypeRef,
         body: Block,
     },
     Struct {
         name: String,
+        type_params: Vec<String>,
         fields: Vec<StructField>,
     },
     Enum {
         name: String,
         variants: Vec<EnumVariant>,
+    },
+    Trait {
+        name: String,
+        methods: Vec<TraitMethod>,
+    },
+    Impl {
+        trait_ref: Option<TypeRef>,
+        target: TypeRef,
+        methods: Vec<ImplMethod>,
     },
 }
 
@@ -66,6 +77,23 @@ pub enum ItemKind {
 pub struct Param {
     pub name: String,
     pub ty: TypeRef,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ImplMethod {
+    pub name: String,
+    pub params: Vec<Param>,
+    pub return_type: TypeRef,
+    pub body: Block,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct TraitMethod {
+    pub name: String,
+    pub params: Vec<Param>,
+    pub return_type: TypeRef,
     pub span: Span,
 }
 
@@ -95,6 +123,8 @@ pub struct EnumVariant {
 pub struct TypeRef {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub type_args: Vec<TypeRef>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub element: Option<Box<TypeRef>>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -106,6 +136,17 @@ impl TypeRef {
     pub fn named(name: impl Into<String>, span: Span) -> Self {
         Self {
             name: Some(name.into()),
+            type_args: Vec::new(),
+            element: None,
+            length: None,
+            span,
+        }
+    }
+
+    pub fn named_with_args(name: impl Into<String>, type_args: Vec<TypeRef>, span: Span) -> Self {
+        Self {
+            name: Some(name.into()),
+            type_args,
             element: None,
             length: None,
             span,
@@ -115,6 +156,7 @@ impl TypeRef {
     pub fn array(element: TypeRef, length: usize, span: Span) -> Self {
         Self {
             name: None,
+            type_args: Vec::new(),
             element: Some(Box::new(element)),
             length: Some(length),
             span,
@@ -124,6 +166,7 @@ impl TypeRef {
     pub fn slice(element: TypeRef, span: Span) -> Self {
         Self {
             name: None,
+            type_args: Vec::new(),
             element: Some(Box::new(element)),
             length: None,
             span,
@@ -135,10 +178,20 @@ impl TypeRef {
     }
 
     pub fn describe(&self) -> String {
-        match (&self.name, &self.element, self.length) {
-            (Some(name), None, None) => name.clone(),
-            (None, Some(element), None) => format!("[{}]", element.describe()),
-            (None, Some(element), Some(length)) => format!("[{}; {}]", element.describe(), length),
+        match (&self.name, &self.type_args[..], &self.element, self.length) {
+            (Some(name), [], None, None) => name.clone(),
+            (Some(name), args, None, None) => {
+                let args = args
+                    .iter()
+                    .map(TypeRef::describe)
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                format!("{name}<{args}>")
+            }
+            (None, [], Some(element), None) => format!("[{}]", element.describe()),
+            (None, [], Some(element), Some(length)) => {
+                format!("[{}; {}]", element.describe(), length)
+            }
             _ => "<invalid-type>".to_string(),
         }
     }
@@ -198,6 +251,9 @@ pub enum MatchPatternKind {
     },
     Int {
         value: i64,
+    },
+    String {
+        value: String,
     },
     EnumVariant {
         path: String,

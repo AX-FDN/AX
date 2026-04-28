@@ -1,0 +1,18 @@
+struct Box<T> {
+    value: T,
+}
+
+struct Pair<T> {
+    left: T,
+    right: T,
+}
+
+fn main() -> i32 {
+    let mut number_box: Box<i32> = Box { value: 7 };
+    number_box.value = number_box.value + 1;
+    let text_box: Box<string> = Box { value: "ax" };
+    let pair: Pair<i32> = Pair { left: number_box.value, right: 5 };
+    println(text_box.value);
+    println(pair.left + pair.right);
+    return pair.left + pair.right;
+}

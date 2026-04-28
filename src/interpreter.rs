@@ -2347,6 +2347,34 @@ impl<'a> Interpreter<'a> {
                     self.call_function(function, argument_values, expr.span)
                 }
             }
+            ExprKind::MethodCall {
+                receiver,
+                method,
+                arguments,
+            } => {
+                let receiver_value = self.eval_expr(receiver, frame)?;
+                let method_function = match &receiver_value {
+                    Value::Struct { name, .. } | Value::Enum { name, .. } => {
+                        format!("{name}.{method}")
+                    }
+                    other => {
+                        return Err(self.runtime_error(
+                            "R0133",
+                            format!(
+                                "method call `{method}` requires a struct or enum receiver, got `{}`",
+                                other.display()
+                            ),
+                            expr.span,
+                        ));
+                    }
+                };
+                let mut argument_values = Vec::with_capacity(arguments.len() + 1);
+                argument_values.push(receiver_value);
+                for argument in arguments {
+                    argument_values.push(self.eval_expr(argument, frame)?);
+                }
+                self.call_declared_function(&method_function, argument_values, expr.span)
+            }
             ExprKind::StructLiteral { name, fields } => {
                 let mut values = BTreeMap::new();
                 for field in fields {
@@ -2511,6 +2539,17 @@ impl<'a> Interpreter<'a> {
                     span,
                 )),
             },
+            MatchPatternKind::String { value } => match scrutinee {
+                Value::String(actual) => Ok(actual == value),
+                other => Err(self.runtime_error(
+                    "R0037",
+                    format!(
+                        "match pattern `string` cannot be applied to runtime value `{}`",
+                        other.display()
+                    ),
+                    span,
+                )),
+            },
             MatchPatternKind::EnumVariant {
                 enum_name,
                 variant,
@@ -2622,6 +2661,7 @@ impl<'a> Interpreter<'a> {
             MatchPatternKind::Binding { name } => name.clone(),
             MatchPatternKind::Bool { value } => value.to_string(),
             MatchPatternKind::Int { value } => value.to_string(),
+            MatchPatternKind::String { value } => format!("{value:?}"),
             MatchPatternKind::EnumVariant {
                 enum_name,
                 variant,

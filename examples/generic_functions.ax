@@ -1,0 +1,19 @@
+struct Box<T> {
+    value: T,
+}
+
+fn identity<T>(value: T) -> T {
+    return value;
+}
+
+fn unwrap_box<T>(box: Box<T>) -> T {
+    return box.value;
+}
+
+fn main() -> i32 {
+    let number_box: Box<i32> = Box { value: identity(9) };
+    let text_box: Box<string> = Box { value: identity("ax") };
+    println(unwrap_box(text_box));
+    println(unwrap_box(number_box));
+    return unwrap_box(number_box);
+}

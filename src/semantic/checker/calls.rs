@@ -1,4 +1,6 @@
-use crate::ast::Expr;
+use std::collections::HashMap;
+
+use crate::ast::{Expr, ExprKind};
 use crate::diagnostics::{Diagnostic, DiagnosticKind};
 
 use super::{Type, TypeChecker};
@@ -50,13 +52,13 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             .as_ref()
             .and_then(|name| self.info.functions.get(name))
             .cloned();
-        let argument_types = arguments
-            .iter()
-            .map(|argument| self.check_expr(argument))
-            .collect::<Vec<_>>();
 
         match signature {
             Some(signature) => {
+                let argument_types = arguments
+                    .iter()
+                    .map(|argument| self.check_expr(argument))
+                    .collect::<Vec<_>>();
                 if signature.params.len() != argument_types.len() {
                     self.diagnostics.push(Diagnostic::new(
                         "S0017",
@@ -70,22 +72,45 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     ));
                 }
 
+                let mut generic_args = HashMap::new();
                 for (argument, parameter) in argument_types.iter().zip(signature.params.iter()) {
-                    self.expect_type_match_with_kind(
-                        &parameter.ty,
-                        argument,
-                        expr.span,
-                        format!(
-                            "function `{callee_name}` expects argument `{}` to be `{}`, found `{}`",
-                            parameter.name,
-                            parameter.ty.describe(),
-                            argument.describe()
-                        ),
-                        DiagnosticKind::FunctionArgumentTypeMismatch,
-                    );
+                    if !unify_generic_call_type(&parameter.ty, argument, &mut generic_args) {
+                        let expected = substitute_type_params(&parameter.ty, &generic_args);
+                        self.expect_type_match_with_kind(
+                            &expected,
+                            argument,
+                            expr.span,
+                            format!(
+                                "function `{callee_name}` expects argument `{}` to be `{}`, found `{}`",
+                                parameter.name,
+                                expected.describe(),
+                                argument.describe()
+                            ),
+                            DiagnosticKind::FunctionArgumentTypeMismatch,
+                        );
+                    }
                 }
 
-                signature.return_type
+                for type_param in &signature.type_params {
+                    if !generic_args.contains_key(type_param) {
+                        self.diagnostics.push(
+                            Diagnostic::new(
+                                "S0058",
+                                format!(
+                                    "could not infer generic type parameter `{type_param}` for function `{callee_name}`"
+                                ),
+                                self.info.source,
+                                expr.span,
+                            )
+                            .with_suggestion(
+                                "pass an argument whose type fixes the generic parameter",
+                            ),
+                        );
+                        return Type::Error;
+                    }
+                }
+
+                substitute_type_params(&signature.return_type, &generic_args)
             }
             None if self
                 .info
@@ -93,31 +118,107 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             {
                 Type::Error
             }
-            None if !callee_name.contains('.') && self.lookup(&callee_name).is_some() => {
-                self.diagnostics.push(
-                    Diagnostic::new(
-                        "S0018",
-                        format!("variable `{callee_name}` is not callable"),
-                        self.info.source,
-                        callee.span,
-                    )
-                    .with_suggestion("only function names and builtin functions can be called"),
-                );
-                Type::Error
-            }
             None => {
-                self.diagnostics.push(
-                    Diagnostic::new(
-                        "S0007",
-                        format!("call to undefined function `{callee_name}`"),
-                        self.info.source,
-                        callee.span,
-                    )
-                    .with_suggestion(format!("declare `{callee_name}` or fix the call target")),
-                );
-                Type::Error
+                if let ExprKind::Field { base, field } = &callee.kind
+                    && let Some(result) = self.check_method_call(expr, base, field, arguments)
+                {
+                    return result;
+                }
+
+                if !callee_name.contains('.') && self.lookup(&callee_name).is_some() {
+                    self.diagnostics.push(
+                        Diagnostic::new(
+                            "S0018",
+                            format!("variable `{callee_name}` is not callable"),
+                            self.info.source,
+                            callee.span,
+                        )
+                        .with_suggestion("only function names and builtin functions can be called"),
+                    );
+                    Type::Error
+                } else {
+                    self.diagnostics.push(
+                        Diagnostic::new(
+                            "S0007",
+                            format!("call to undefined function `{callee_name}`"),
+                            self.info.source,
+                            callee.span,
+                        )
+                        .with_suggestion(format!("declare `{callee_name}` or fix the call target")),
+                    );
+                    Type::Error
+                }
             }
         }
+    }
+
+    fn check_method_call(
+        &mut self,
+        expr: &Expr,
+        receiver: &Expr,
+        method: &str,
+        arguments: &[Expr],
+    ) -> Option<Type> {
+        let receiver_type = self.check_expr(receiver);
+        let argument_types = arguments
+            .iter()
+            .map(|argument| self.check_expr(argument))
+            .collect::<Vec<_>>();
+
+        let Some(signature) = self.info.method_signature(&receiver_type, method).cloned() else {
+            self.diagnostics.push(
+                Diagnostic::new(
+                    "S0057",
+                    format!(
+                        "type `{}` does not have a method `{method}`",
+                        receiver_type.describe()
+                    ),
+                    self.info.source,
+                    expr.span,
+                )
+                .with_suggestion(format!(
+                    "add `impl {} {{ fn {method}(self: {}) -> ... {{ ... }} }}` or call an existing function",
+                    receiver_type.describe(),
+                    receiver_type.describe()
+                )),
+            );
+            return Some(Type::Error);
+        };
+
+        let expected_extra_args = signature.function.params.len().saturating_sub(1);
+        if expected_extra_args != argument_types.len() {
+            self.diagnostics.push(Diagnostic::new(
+                "S0017",
+                format!(
+                    "method `{}` expects {} argument(s) after `self`, found {}",
+                    method,
+                    expected_extra_args,
+                    argument_types.len()
+                ),
+                self.info.source,
+                expr.span,
+            ));
+        }
+
+        for (argument, parameter) in argument_types
+            .iter()
+            .zip(signature.function.params.iter().skip(1))
+        {
+            self.expect_type_match_with_kind(
+                &parameter.ty,
+                argument,
+                expr.span,
+                format!(
+                    "method `{method}` expects argument `{}` to be `{}`, found `{}`",
+                    parameter.name,
+                    parameter.ty.describe(),
+                    argument.describe()
+                ),
+                DiagnosticKind::FunctionArgumentTypeMismatch,
+            );
+        }
+
+        Some(signature.function.return_type)
     }
 
     fn check_enum_variant_constructor_call(
@@ -223,5 +324,87 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 Some(Type::Error)
             }
         }
+    }
+}
+
+fn unify_generic_call_type(
+    expected: &Type,
+    actual: &Type,
+    substitutions: &mut HashMap<String, Type>,
+) -> bool {
+    match expected {
+        Type::TypeParam(name) => match substitutions.get(name) {
+            Some(existing) => actual.is_assignable_to(existing),
+            None => {
+                substitutions.insert(name.clone(), actual.clone());
+                true
+            }
+        },
+        Type::Slice {
+            element: expected_element,
+        } => match actual {
+            Type::Slice {
+                element: actual_element,
+            } => unify_generic_call_type(expected_element, actual_element, substitutions),
+            Type::Array {
+                element: actual_element,
+                ..
+            } => unify_generic_call_type(expected_element, actual_element, substitutions),
+            _ => expected == actual,
+        },
+        Type::Array {
+            element: expected_element,
+            length: expected_length,
+        } => match actual {
+            Type::Array {
+                element: actual_element,
+                length: actual_length,
+            } if expected_length == actual_length => {
+                unify_generic_call_type(expected_element, actual_element, substitutions)
+            }
+            _ => expected == actual,
+        },
+        Type::StructInstance {
+            name: expected_name,
+            args: expected_args,
+        } => match actual {
+            Type::StructInstance {
+                name: actual_name,
+                args: actual_args,
+            } if expected_name == actual_name && expected_args.len() == actual_args.len() => {
+                expected_args
+                    .iter()
+                    .zip(actual_args)
+                    .all(|(expected, actual)| {
+                        unify_generic_call_type(expected, actual, substitutions)
+                    })
+            }
+            _ => expected == actual,
+        },
+        _ => expected == actual,
+    }
+}
+
+fn substitute_type_params(ty: &Type, substitutions: &HashMap<String, Type>) -> Type {
+    match ty {
+        Type::TypeParam(name) => substitutions
+            .get(name)
+            .cloned()
+            .unwrap_or_else(|| ty.clone()),
+        Type::Slice { element } => Type::Slice {
+            element: Box::new(substitute_type_params(element, substitutions)),
+        },
+        Type::Array { element, length } => Type::Array {
+            element: Box::new(substitute_type_params(element, substitutions)),
+            length: *length,
+        },
+        Type::StructInstance { name, args } => Type::StructInstance {
+            name: name.clone(),
+            args: args
+                .iter()
+                .map(|arg| substitute_type_params(arg, substitutions))
+                .collect(),
+        },
+        _ => ty.clone(),
     }
 }

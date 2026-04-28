@@ -4252,6 +4252,49 @@ fn match_repair_triage_example_runs() {
 }
 
 #[test]
+fn methods_impl_example_runs() {
+    let output = run_axc([OsStr::new("run"), OsStr::new("examples/methods_impl.ax")]);
+    assert_eq!(output.status.code(), Some(12));
+    assert_clean_stderr(&output);
+    assert_eq!(normalize_text(&string_output(&output.stdout)), "9\n12\n");
+}
+
+#[test]
+fn generic_box_example_runs() {
+    let output = run_axc([OsStr::new("run"), OsStr::new("examples/generic_box.ax")]);
+    assert_eq!(output.status.code(), Some(13));
+    assert_clean_stderr(&output);
+    assert_eq!(normalize_text(&string_output(&output.stdout)), "ax\n13\n");
+}
+
+#[test]
+fn generic_functions_example_runs() {
+    let output = run_axc([
+        OsStr::new("run"),
+        OsStr::new("examples/generic_functions.ax"),
+    ]);
+    assert_eq!(output.status.code(), Some(9));
+    assert_clean_stderr(&output);
+    assert_eq!(normalize_text(&string_output(&output.stdout)), "ax\n9\n");
+}
+
+#[test]
+fn string_match_example_runs() {
+    let output = run_axc([OsStr::new("run"), OsStr::new("examples/string_match.ax")]);
+    assert_eq!(output.status.code(), Some(3));
+    assert_clean_stderr(&output);
+    assert_eq!(normalize_text(&string_output(&output.stdout)), "1\n3\n");
+}
+
+#[test]
+fn trait_impl_example_runs() {
+    let output = run_axc([OsStr::new("run"), OsStr::new("examples/trait_impl.ax")]);
+    assert_eq!(output.status.code(), Some(5));
+    assert_clean_stderr(&output);
+    assert_eq!(normalize_text(&string_output(&output.stdout)), "build\n");
+}
+
+#[test]
 fn logical_ops_example_runs() {
     let output = run_axc([OsStr::new("run"), OsStr::new("examples/logical_ops.ax")]);
     assert_eq!(output.status.code(), Some(7));

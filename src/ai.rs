@@ -1367,7 +1367,7 @@ fn item_descriptor(item: &Item) -> AiFocusItem {
             )),
             span: item.span,
         },
-        ItemKind::Struct { name, fields } => AiFocusItem {
+        ItemKind::Struct { name, fields, .. } => AiFocusItem {
             kind: "struct".to_string(),
             name: name.clone(),
             signature: Some(format!(
@@ -1396,6 +1396,32 @@ fn item_descriptor(item: &Item) -> AiFocusItem {
             )),
             span: item.span,
         },
+        ItemKind::Trait { name, methods } => AiFocusItem {
+            kind: "trait".to_string(),
+            name: name.clone(),
+            signature: Some(format!(
+                "trait {name} {{ {} }}",
+                methods
+                    .iter()
+                    .map(|method| format!("fn {}(...)", method.name))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )),
+            span: item.span,
+        },
+        ItemKind::Impl {
+            trait_ref, target, ..
+        } => AiFocusItem {
+            kind: "impl".to_string(),
+            name: target.describe(),
+            signature: Some(match trait_ref {
+                Some(trait_ref) => {
+                    format!("impl {} for {}", trait_ref.describe(), target.describe())
+                }
+                None => format!("impl {}", target.describe()),
+            }),
+            span: item.span,
+        },
     }
 }
 
@@ -1405,7 +1431,9 @@ fn related_symbols_for_item(program: &Program, focus_item: &Item) -> Vec<AiRelat
         let name = match &item.kind {
             ItemKind::Function { name, .. }
             | ItemKind::Struct { name, .. }
-            | ItemKind::Enum { name, .. } => name.clone(),
+            | ItemKind::Enum { name, .. }
+            | ItemKind::Trait { name, .. } => name.clone(),
+            ItemKind::Impl { target, .. } => format!("impl {}", target.describe()),
         };
         top_level.insert(name, item);
     }
@@ -1413,7 +1441,9 @@ fn related_symbols_for_item(program: &Program, focus_item: &Item) -> Vec<AiRelat
     let focus_name = match &focus_item.kind {
         ItemKind::Function { name, .. }
         | ItemKind::Struct { name, .. }
-        | ItemKind::Enum { name, .. } => name,
+        | ItemKind::Enum { name, .. }
+        | ItemKind::Trait { name, .. } => name.clone(),
+        ItemKind::Impl { target, .. } => format!("impl {}", target.describe()),
     };
 
     let mut referenced = BTreeSet::new();
@@ -1436,11 +1466,36 @@ fn related_symbols_for_item(program: &Program, focus_item: &Item) -> Vec<AiRelat
             }
         }
         ItemKind::Enum { .. } => {}
+        ItemKind::Trait { methods, .. } => {
+            for method in methods {
+                for param in &method.params {
+                    collect_type_ref_names(&param.ty, &mut referenced);
+                }
+                collect_type_ref_names(&method.return_type, &mut referenced);
+            }
+        }
+        ItemKind::Impl {
+            trait_ref,
+            target,
+            methods,
+        } => {
+            if let Some(trait_ref) = trait_ref {
+                collect_type_ref_names(trait_ref, &mut referenced);
+            }
+            collect_type_ref_names(target, &mut referenced);
+            for method in methods {
+                for param in &method.params {
+                    collect_type_ref_names(&param.ty, &mut referenced);
+                }
+                collect_type_ref_names(&method.return_type, &mut referenced);
+                collect_block_names(&method.body, &mut referenced);
+            }
+        }
     }
 
     referenced
         .into_iter()
-        .filter(|name| name != focus_name)
+        .filter(|name| name != &focus_name)
         .filter_map(|name| top_level.get(&name).copied())
         .map(item_descriptor)
         .map(|item| AiRelatedSymbol {

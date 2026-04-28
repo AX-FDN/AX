@@ -1,7 +1,8 @@
 use crate::ast::{
     BinaryOp, Block, EnumVariant, EnumVariantPayloadPattern, Expr, ExprKind, ForInBinding,
-    ImportDecl, Item, ItemKind, MatchArm, MatchExprArm, MatchPattern, MatchPatternKind, ModuleDecl,
-    Param, Program, SourceUnit, Stmt, StmtKind, StructField, StructLiteralField, TypeRef, UnaryOp,
+    ImplMethod, ImportDecl, Item, ItemKind, MatchArm, MatchExprArm, MatchPattern, MatchPatternKind,
+    ModuleDecl, Param, Program, SourceUnit, Stmt, StmtKind, StructField, StructLiteralField,
+    TraitMethod, TypeRef, UnaryOp,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticKind};
 use crate::source::{SourceFile, Span};
@@ -127,12 +128,20 @@ impl<'a> Parser<'a> {
                 self.advance();
                 Some(self.parse_enum_item(start))
             }
+            TokenKind::TraitKw => {
+                self.advance();
+                Some(self.parse_trait_item(start))
+            }
+            TokenKind::ImplKw => {
+                self.advance();
+                Some(self.parse_impl_item(start))
+            }
             TokenKind::Eof => None,
             _ => {
                 self.error_at_current(
                     "P0001",
                     "expected a top-level declaration",
-                    &["`fn`", "`struct`", "`enum`"],
+                    &["`fn`", "`struct`", "`enum`", "`trait`", "`impl`"],
                 );
                 None
             }
@@ -141,6 +150,7 @@ impl<'a> Parser<'a> {
 
     fn parse_function_item(&mut self, start: usize) -> Item {
         let name = self.expect_identifier("expected a function name");
+        let type_params = self.parse_type_params();
         self.expect(
             TokenKind::LParen,
             "expected `(` after function name",
@@ -158,6 +168,7 @@ impl<'a> Parser<'a> {
         Item {
             kind: ItemKind::Function {
                 name: name.lexeme,
+                type_params,
                 params,
                 return_type,
                 body: body.clone(),
@@ -168,6 +179,7 @@ impl<'a> Parser<'a> {
 
     fn parse_struct_item(&mut self, start: usize) -> Item {
         let name = self.expect_identifier("expected a struct name");
+        let type_params = self.parse_type_params();
         self.expect(
             TokenKind::LBrace,
             "expected `{` after struct name",
@@ -197,10 +209,34 @@ impl<'a> Parser<'a> {
         Item {
             kind: ItemKind::Struct {
                 name: name.lexeme,
+                type_params,
                 fields,
             },
             span: Span::new(start, end.span.end),
         }
+    }
+
+    fn parse_type_params(&mut self) -> Vec<String> {
+        if !self.matches(&[TokenKind::Less]) {
+            return Vec::new();
+        }
+
+        let mut params = Vec::new();
+        loop {
+            let param = self.expect_identifier("expected a generic type parameter name");
+            params.push(param.lexeme);
+
+            if !self.matches(&[TokenKind::Comma]) {
+                break;
+            }
+        }
+
+        self.expect(
+            TokenKind::Greater,
+            "expected `>` after generic type parameters",
+            &["`>`"],
+        );
+        params
     }
 
     fn parse_enum_item(&mut self, start: usize) -> Item {
@@ -236,6 +272,115 @@ impl<'a> Parser<'a> {
                 variants,
             },
             span: Span::new(start, end.span.end),
+        }
+    }
+
+    fn parse_impl_item(&mut self, start: usize) -> Item {
+        let first_type = self.parse_type();
+        let (trait_ref, target) = if self.matches(&[TokenKind::ForKw]) {
+            (Some(first_type), self.parse_type())
+        } else {
+            (None, first_type)
+        };
+        self.expect(
+            TokenKind::LBrace,
+            "expected `{` after impl target",
+            &["`{`"],
+        );
+        let mut methods = Vec::new();
+        while !self.check(TokenKind::RBrace) && !self.is_at_end() {
+            let method_start = self.peek().span.start;
+            self.expect(
+                TokenKind::FnKw,
+                "expected `fn` inside impl block",
+                &["`fn`"],
+            );
+            methods.push(self.parse_impl_method(method_start));
+        }
+        let end = self.expect(TokenKind::RBrace, "expected `}` after impl body", &["`}`"]);
+        Item {
+            kind: ItemKind::Impl {
+                trait_ref,
+                target,
+                methods,
+            },
+            span: Span::new(start, end.span.end),
+        }
+    }
+
+    fn parse_trait_item(&mut self, start: usize) -> Item {
+        let name = self.expect_identifier("expected a trait name");
+        self.expect(TokenKind::LBrace, "expected `{` after trait name", &["`{`"]);
+        let mut methods = Vec::new();
+        while !self.check(TokenKind::RBrace) && !self.is_at_end() {
+            let method_start = self.peek().span.start;
+            self.expect(
+                TokenKind::FnKw,
+                "expected `fn` inside trait block",
+                &["`fn`"],
+            );
+            methods.push(self.parse_trait_method(method_start));
+        }
+        let end = self.expect(TokenKind::RBrace, "expected `}` after trait body", &["`}`"]);
+        Item {
+            kind: ItemKind::Trait {
+                name: name.lexeme,
+                methods,
+            },
+            span: Span::new(start, end.span.end),
+        }
+    }
+
+    fn parse_trait_method(&mut self, start: usize) -> TraitMethod {
+        let name = self.expect_identifier("expected a trait method name");
+        self.expect(
+            TokenKind::LParen,
+            "expected `(` after trait method name",
+            &["`(`"],
+        );
+        let params = self.parse_params();
+        self.expect(TokenKind::RParen, "expected `)` after parameters", &["`)`"]);
+        self.expect(
+            TokenKind::Arrow,
+            "expected `->` before trait method return type",
+            &["`->`"],
+        );
+        let return_type = self.parse_type();
+        let end = self.expect(
+            TokenKind::Semicolon,
+            "expected `;` after trait method signature",
+            &["`;`"],
+        );
+        TraitMethod {
+            name: name.lexeme,
+            params,
+            return_type,
+            span: Span::new(start, end.span.end),
+        }
+    }
+
+    fn parse_impl_method(&mut self, start: usize) -> ImplMethod {
+        let name = self.expect_identifier("expected a method name");
+        self.expect(
+            TokenKind::LParen,
+            "expected `(` after method name",
+            &["`(`"],
+        );
+        let params = self.parse_params();
+        self.expect(TokenKind::RParen, "expected `)` after parameters", &["`)`"]);
+        self.expect(
+            TokenKind::Arrow,
+            "expected `->` before return type",
+            &["`->`"],
+        );
+        let return_type = self.parse_type();
+        let body = self.parse_block();
+        ImplMethod {
+            name: name.lexeme,
+            params,
+            return_type,
+            body: body.clone(),
+            span: Span::new(start, body.span.end),
         }
     }
 
@@ -314,12 +459,38 @@ impl<'a> Parser<'a> {
             self.advance()
         };
 
-        let (name, span) = self.finish_qualified_identifier_path(
+        let (name, mut span) = self.finish_qualified_identifier_path(
             token,
             "expected an identifier after `.` in type path",
         );
 
-        TypeRef::named(name, span)
+        let type_args = self.parse_type_args();
+        if let Some(last_arg) = type_args.last() {
+            span = Span::new(span.start, last_arg.span.end);
+        }
+
+        TypeRef::named_with_args(name, type_args, span)
+    }
+
+    fn parse_type_args(&mut self) -> Vec<TypeRef> {
+        if !self.matches(&[TokenKind::Less]) {
+            return Vec::new();
+        }
+
+        let mut args = Vec::new();
+        loop {
+            args.push(self.parse_type());
+            if !self.matches(&[TokenKind::Comma]) {
+                break;
+            }
+        }
+
+        self.expect(
+            TokenKind::Greater,
+            "expected `>` after generic type arguments",
+            &["`>`"],
+        );
+        args
     }
 
     fn parse_array_literal(&mut self, start: usize) -> Expr {
@@ -599,6 +770,12 @@ impl<'a> Parser<'a> {
                 span: token.span,
                 kind: MatchPatternKind::Int {
                     value: token.lexeme.parse().unwrap_or(0),
+                },
+            },
+            TokenKind::StringLiteral => MatchPattern {
+                span: token.span,
+                kind: MatchPatternKind::String {
+                    value: token.lexeme,
                 },
             },
             TokenKind::Minus => {

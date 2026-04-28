@@ -1,9 +1,9 @@
 use std::fmt::Write;
 
 use crate::ast::{
-    BinaryOp, Block, Expr, ExprKind, Item, ItemKind, MatchArm, MatchExprArm, MatchPattern,
-    MatchPatternKind, Param, Program, Stmt, StmtKind, StructField, StructLiteralField, TypeRef,
-    UnaryOp,
+    BinaryOp, Block, Expr, ExprKind, ImplMethod, Item, ItemKind, MatchArm, MatchExprArm,
+    MatchPattern, MatchPatternKind, Param, Program, Stmt, StmtKind, StructField,
+    StructLiteralField, TraitMethod, TypeRef, UnaryOp,
 };
 use crate::diagnostics::Diagnostic;
 use crate::lexer::tokenize;
@@ -80,23 +80,35 @@ impl Formatter {
         match &item.kind {
             ItemKind::Function {
                 name,
+                type_params,
                 params,
                 return_type,
                 body,
-            } => self.format_function_item(name, params, return_type, body),
-            ItemKind::Struct { name, fields } => self.format_struct_item(name, fields),
+            } => self.format_function_item(name, type_params, params, return_type, body),
+            ItemKind::Struct {
+                name,
+                type_params,
+                fields,
+            } => self.format_struct_item(name, type_params, fields),
             ItemKind::Enum { name, variants } => self.format_enum_item(name, variants),
+            ItemKind::Trait { name, methods } => self.format_trait_item(name, methods),
+            ItemKind::Impl {
+                trait_ref,
+                target,
+                methods,
+            } => self.format_impl_item(trait_ref.as_ref(), target, methods),
         }
     }
 
     fn format_function_item(
         &mut self,
         name: &str,
+        type_params: &[String],
         params: &[Param],
         return_type: &TypeRef,
         body: &Block,
     ) {
-        let _ = write!(self.out, "fn {name}(");
+        let _ = write!(self.out, "fn {name}{}(", format_type_params(type_params));
         for (index, param) in params.iter().enumerate() {
             if index > 0 {
                 self.out.push_str(", ");
@@ -107,13 +119,14 @@ impl Formatter {
         self.format_block(body);
     }
 
-    fn format_struct_item(&mut self, name: &str, fields: &[StructField]) {
+    fn format_struct_item(&mut self, name: &str, type_params: &[String], fields: &[StructField]) {
+        let params = format_type_params(type_params);
         if fields.is_empty() {
-            let _ = write!(self.out, "struct {name} {{}}");
+            let _ = write!(self.out, "struct {name}{params} {{}}");
             return;
         }
 
-        let _ = writeln!(self.out, "struct {name} {{");
+        let _ = writeln!(self.out, "struct {name}{params} {{");
         self.indent += 1;
         for field in fields {
             self.write_indent();
@@ -122,6 +135,74 @@ impl Formatter {
         self.indent -= 1;
         self.write_indent();
         self.out.push('}');
+    }
+
+    fn format_impl_item(
+        &mut self,
+        trait_ref: Option<&TypeRef>,
+        target: &TypeRef,
+        methods: &[ImplMethod],
+    ) {
+        if let Some(trait_ref) = trait_ref {
+            let _ = writeln!(
+                self.out,
+                "impl {} for {} {{",
+                format_type_ref(trait_ref),
+                format_type_ref(target)
+            );
+        } else {
+            let _ = writeln!(self.out, "impl {} {{", format_type_ref(target));
+        }
+        self.indent += 1;
+        for (index, method) in methods.iter().enumerate() {
+            self.write_indent();
+            self.format_method_item(method);
+            if index + 1 < methods.len() {
+                self.out.push('\n');
+                self.out.push('\n');
+            } else {
+                self.out.push('\n');
+            }
+        }
+        self.indent -= 1;
+        self.write_indent();
+        self.out.push('}');
+    }
+
+    fn format_trait_item(&mut self, name: &str, methods: &[TraitMethod]) {
+        if methods.is_empty() {
+            let _ = write!(self.out, "trait {name} {{}}");
+            return;
+        }
+
+        let _ = writeln!(self.out, "trait {name} {{");
+        self.indent += 1;
+        for method in methods {
+            self.write_indent();
+            let _ = write!(self.out, "fn {}(", method.name);
+            for (index, param) in method.params.iter().enumerate() {
+                if index > 0 {
+                    self.out.push_str(", ");
+                }
+                let _ = write!(self.out, "{}: {}", param.name, format_type_ref(&param.ty));
+            }
+            let _ = writeln!(self.out, ") -> {};", format_type_ref(&method.return_type));
+        }
+        self.indent -= 1;
+        self.write_indent();
+        self.out.push('}');
+    }
+
+    fn format_method_item(&mut self, method: &ImplMethod) {
+        let _ = write!(self.out, "fn {}(", method.name);
+        for (index, param) in method.params.iter().enumerate() {
+            if index > 0 {
+                self.out.push_str(", ");
+            }
+            let _ = write!(self.out, "{}: {}", param.name, format_type_ref(&param.ty));
+        }
+        let _ = write!(self.out, ") -> {} ", format_type_ref(&method.return_type));
+        self.format_block(&method.body);
     }
 
     fn format_enum_item(&mut self, name: &str, variants: &[crate::ast::EnumVariant]) {
@@ -349,6 +430,7 @@ fn format_match_pattern(pattern: &MatchPattern) -> String {
         MatchPatternKind::Binding { name } => name.clone(),
         MatchPatternKind::Bool { value } => value.to_string(),
         MatchPatternKind::Int { value } => value.to_string(),
+        MatchPatternKind::String { value } => escape_string_literal(value),
         MatchPatternKind::EnumVariant { path, payload } => match payload {
             Some(crate::ast::EnumVariantPayloadPattern::Wildcard) => format!("{path}(_)"),
             Some(crate::ast::EnumVariantPayloadPattern::Binding { name }) => {
@@ -459,13 +541,29 @@ fn format_struct_literal_fields(fields: &[StructLiteralField]) -> String {
 }
 
 fn format_type_ref(ty: &TypeRef) -> String {
-    match (&ty.name, &ty.element, ty.length) {
-        (Some(name), None, None) => name.clone(),
-        (None, Some(element), None) => format!("[{}]", format_type_ref(element)),
-        (None, Some(element), Some(length)) => {
+    match (&ty.name, &ty.type_args[..], &ty.element, ty.length) {
+        (Some(name), [], None, None) => name.clone(),
+        (Some(name), args, None, None) => {
+            let args = args
+                .iter()
+                .map(format_type_ref)
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!("{name}<{args}>")
+        }
+        (None, [], Some(element), None) => format!("[{}]", format_type_ref(element)),
+        (None, [], Some(element), Some(length)) => {
             format!("[{}; {}]", format_type_ref(element), length)
         }
         _ => "<invalid-type>".to_string(),
+    }
+}
+
+fn format_type_params(type_params: &[String]) -> String {
+    if type_params.is_empty() {
+        String::new()
+    } else {
+        format!("<{}>", type_params.join(", "))
     }
 }
 
@@ -719,6 +817,30 @@ mod tests {
                 "    let value: i32 = match (result) { Result.Ok(found) => found, Result.Err(_) => 0, Result.Empty => -1 };\n",
                 "    return value;\n",
                 "}\n"
+            )
+        );
+    }
+
+    #[test]
+    fn formats_impl_methods() {
+        let source = SourceFile::anonymous(
+            "struct Point{x:i32,y:i32} impl Point{fn sum(self:Point)->i32{return self.x+self.y;}}",
+        );
+
+        let formatted = format_source(&source).expect("source should format");
+        assert_eq!(
+            formatted,
+            concat!(
+                "struct Point {\n",
+                "    x: i32,\n",
+                "    y: i32,\n",
+                "}\n",
+                "\n",
+                "impl Point {\n",
+                "    fn sum(self: Point) -> i32 {\n",
+                "        return self.x + self.y;\n",
+                "    }\n",
+                "}\n",
             )
         );
     }
