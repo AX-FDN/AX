@@ -104,13 +104,22 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke-benchmark-di
 git diff --check
 ```
 
-如果开始新增 `export-repair-archaeology.ps1` 或修改 run / score / compare artifact 读取方式，必须补一条 smoke，至少覆盖：
+如果开始新增 `export-repair-archaeology.ps1` 或修改 run / score / compare artifact 读取方式，必须补一条 smoke，至少覆盖当前 comparison artifact 里存在的高价值类别：
 
 - 一个 `improved` case
 - 一个 `both_pass` case
-- 一个 `failed` 或 `regressed` case
+- 如果当前 deterministic replay 产物里存在 `failed / regressed / both_fail`，必须至少覆盖一个
 
 该 smoke 在 v0 阶段应继续读取 deterministic replay artifact，不调用真实 LLM。
+
+当前本地 smoke 入口：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\export-repair-archaeology.ps1 `
+  -ComparisonPath .ax-ai\repair-comparisons\showcase-20260424\comparison.json `
+  -OutputDir .ax-ai\repair-archaeology\local-smoke `
+  -CaseIds missing_semicolon_basic,missing_paren_condition,slice_assignment_read_only
+```
 
 ### Context-Enabled Repair Export
 

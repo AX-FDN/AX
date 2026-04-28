@@ -73,12 +73,13 @@ Repair Archaeology v0 的价值，是把它们升级成“可读的修复故事�
 
 v0 阶段优先选择脚本或独立工具入口，不急着扩 `axc` 命令面。
 
-候选入口：
+当前 v0 脚本入口：
 
 ```powershell
-.\scripts\export-repair-archaeology.ps1 `
-  -Case non_bool_condition `
-  -Out artifacts\repair-archaeology\non_bool_condition.md
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\export-repair-archaeology.ps1 `
+  -ComparisonPath .ax-ai\repair-comparisons\showcase-current\comparison.json `
+  -OutputDir .ax-ai\repair-archaeology\showcase-current `
+  -CaseIds missing_semicolon_basic,slice_assignment_read_only
 ```
 
 候选长期入口：
@@ -130,7 +131,8 @@ Live Repair Stream 不作为当前主实现。
 v0 完成时必须交付：
 
 - 一份 schema 说明
-- 至少 `3` 个 case 的 Markdown archaeology 报告
+- 一个最小导出脚本
+- 至少 `3` 个 case 的 JSON / Markdown archaeology 报告
 - 至少 `1` 个失败或退化 case 的解释报告
 - 一个可复跑导出入口
 - README / benchmark showcase / docs README 的入口链接
@@ -145,5 +147,6 @@ Repair Archaeology 是 `P1` 编译器护城河的展示与解释层。
 
 1. 先完成 `W-P3-15`，把 Std-1 冻结候选验证入口写清
 2. 再启动 Repair Archaeology v0 的 artifact schema
-3. 再做 Markdown export
-4. 最后再评估 `json-stream` 展示层
+3. 再做最小 JSON / Markdown export
+4. 再补 smoke 或 interface regression
+5. 最后再评估 `json-stream` 展示层

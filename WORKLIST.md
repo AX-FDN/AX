@@ -272,9 +272,16 @@
     - 能从现有 repair benchmark 资产映射出一个 case 报告对象
     - 能明确哪些字段是 replay 事实，哪些字段只是解释性 summary
 
-- [ ] `W-P1-09` 实现 `Repair Archaeology v0` 最小导出脚本
+- [x] `W-P1-09` 实现 `Repair Archaeology v0` 最小导出脚本
   - 目标：按 `W-P1-08` schema 从现有 export / run / score / compare artifact 生成 case JSON 与 Markdown 报告。
   - 依赖：`W-P1-08`
+  - 当前结果：
+    - 新增 `scripts/export-repair-archaeology.ps1`
+    - 支持读取 `compare-repair-feedback.ps1` 生成的 `comparison.json`
+    - 支持 `base -> ai` comparison
+    - 支持 `-CaseIds` 选择 case 与 `-MaxCases` 限制数量
+    - 输出 `index.json` 与 `cases/<case-id>.json/.md`
+    - 本地 smoke 已从 `showcase-20260424` deterministic replay 产物生成 `3` 个 case 报告
   - 当前范围：
     - `scripts/export-repair-archaeology.ps1`
     - 支持 `base -> ai` comparison
@@ -288,6 +295,20 @@
   - 完成标准：
     - smoke 能从 deterministic replay 产物生成至少 `3` 个 case 报告
     - JSON artifact 与 Markdown 报告都能说明 replay 事实和解释性 summary 的边界
+
+- [ ] `W-P1-10` 给 Repair Archaeology v0 补固定 smoke
+  - 目标：不要只靠本地 `.ax-ai` 历史产物验证脚本，要把最小导出路径变成可复跑 smoke。
+  - 依赖：`W-P1-09`
+  - 当前范围：
+    - 新增或复用 smoke 脚本
+    - 固定 deterministic replay 输入
+    - 验证 `index.json` 与至少 `3` 个 case JSON/Markdown 存在并可解析
+  - 当前不做：
+    - 不调用真实 LLM
+    - 不扩展 `axc` 命令
+  - 完成标准：
+    - smoke 不依赖旧本地产物
+    - CI 或本机验证矩阵能明确引用该 smoke
 
 ## P2 施工项：语言内核与最小可写工具
 

@@ -312,8 +312,8 @@ The JSON artifact remains the source of truth.
 
 ## 下一步实现顺序
 
-1. 先写 `export-repair-archaeology.ps1`，只读取现有 artifact。
-2. 先支持 `base -> ai` comparison，再扩到 `cold -> base -> ai`。
-3. 先输出 JSON，再从 JSON 渲染 Markdown。
-4. 至少覆盖一个 improved case、一个 both-pass case、一个 failed/regressed case。
-5. 再把 smoke 回归接入 interface snapshots 或脚本 smoke。
+1. `export-repair-archaeology.ps1` 已作为 v0 最小脚本入口落地，只读取现有 artifact。
+2. 当前先支持 `base -> ai` comparison，后续再扩到 `cold -> base -> ai`。
+3. 当前先输出 JSON，再从 JSON 渲染 Markdown。
+4. 当前 smoke 已覆盖一个 improved case 和两个 both-pass case；当 benchmark 出现 failed/regressed case 时，需要补对应 fixture。
+5. 下一步把 smoke 回归接入 interface snapshots 或脚本 smoke。

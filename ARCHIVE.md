@@ -43,6 +43,15 @@
     - `docs/interface-contracts.md` 与 `docs/validation-matrix.md` 已登记 Repair Archaeology artifact 的契约边界和后续 smoke 要求
     - `WORKLIST.md` 已把 `W-P1-08` 标记完成，并新增 `W-P1-09` 最小导出脚本
 
+- `A-2026-04-28-03` `[P1]` Repair Archaeology v0 最小导出脚本落地
+  - 结果：
+    - 新增 `scripts/export-repair-archaeology.ps1`
+    - 脚本读取现有 deterministic replay 的 `comparison.json`、benchmark index、run summary 与 score summary
+    - 脚本输出 `index.json` 与 `cases/<case-id>.json/.md`
+    - 当前支持 `base -> ai` comparison，不调用真实 LLM，不新增 `axc` 命令
+    - 本地 smoke 已用 `showcase-20260424` 产物导出 `missing_semicolon_basic`、`missing_paren_condition`、`slice_assignment_read_only` 三个 case
+    - `WORKLIST.md` 已把下一步推进到 `W-P1-10` 固定 smoke，避免长期依赖本地历史 `.ax-ai` 产物
+
 ### 2026-04-27
 
 - `A-2026-04-27-22` `[P1]` `Repair Archaeology v0` 增长点进入规划
