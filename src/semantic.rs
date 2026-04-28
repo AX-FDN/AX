@@ -775,6 +775,67 @@ fn main() -> i32 {
     }
 
     #[test]
+    fn payload_enum_pattern_shape_error_does_not_cascade_into_exhaustiveness() {
+        let diagnostics = diagnostics(
+            "\
+enum Result { Ok(i32), Err(string), Empty }
+
+fn score(result: Result) -> i32 {
+    return match (result) {
+        Result.Ok => 1,
+        Result.Err(_) => 0,
+        Result.Empty => -1,
+    };
+}
+
+fn main() -> i32 {
+    return score(Result.Ok(7));
+}
+",
+        );
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "S0055"
+                && diagnostic.kind() == Some(DiagnosticKind::MatchEnumVariantPayloadShapeMismatch)
+        }));
+        assert!(
+            !diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "S0049"),
+            "payload shape mistakes should keep the repair target focused instead of also reporting non-exhaustiveness: {diagnostics:?}"
+        );
+    }
+
+    #[test]
+    fn unit_enum_pattern_payload_error_does_not_cascade_into_exhaustiveness() {
+        let diagnostics = diagnostics(
+            "\
+enum Result { Ok(i32), Empty }
+
+fn score(result: Result) -> i32 {
+    return match (result) {
+        Result.Ok(value) => value,
+        Result.Empty(_) => 0,
+    };
+}
+
+fn main() -> i32 {
+    return score(Result.Empty);
+}
+",
+        );
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "S0055"
+                && diagnostic.kind() == Some(DiagnosticKind::MatchEnumVariantPayloadShapeMismatch)
+        }));
+        assert!(
+            !diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "S0049"),
+            "unit variant payload mistakes should not produce a second non-exhaustive match diagnostic: {diagnostics:?}"
+        );
+    }
+
+    #[test]
     fn reports_match_binding_before_final_arm() {
         let codes = check(
             "\

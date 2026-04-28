@@ -626,7 +626,6 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                                 "rewrite this arm as `{path}(value) => ...` or `{path}(_) => ...`",
                             )),
                         );
-                        return None;
                     }
                     (None, Some(_)) => {
                         self.diagnostics.push(
@@ -644,7 +643,6 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                                 "rewrite this arm as `{path} => ...` without payload binding",
                             )),
                         );
-                        return None;
                     }
                     _ => {}
                 }

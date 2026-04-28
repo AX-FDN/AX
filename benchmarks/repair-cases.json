@@ -148,6 +148,15 @@
       "notes": "Covers enum-surface repairs and symbol-aware guidance."
     },
     {
+      "id": "match_payload_shape",
+      "file": "examples/match_payload_shape.ax",
+      "category": "semantic",
+      "expected_codes": ["S0055"],
+      "expected_ai_rule_ids": ["match_enum_variant_payload_must_match_declaration"],
+      "repair_goal": "Match payload enum variants with an explicit payload binding or `_` ignore pattern.",
+      "notes": "Covers P2 match second-pass repair guidance for payload enum arm shape mistakes without cascading into exhaustiveness noise."
+    },
+    {
       "id": "immutable_struct_field_point",
       "file": "examples/immutable_struct_field.ax",
       "category": "semantic",

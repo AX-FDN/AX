@@ -1,0 +1,17 @@
+enum Result {
+    Ok(i32),
+    Err(string),
+    Empty,
+}
+
+fn score(result: Result) -> i32 {
+    return match (result) {
+        Result.Ok => 1,
+        Result.Err(_) => 0,
+        Result.Empty => -1,
+    };
+}
+
+fn main() -> i32 {
+    return score(Result.Ok(7));
+}

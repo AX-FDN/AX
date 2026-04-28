@@ -69,6 +69,14 @@
     - `docs/validation-matrix.md` 和 `docs/interface-contracts.md` 已同步 CI 口径
     - `WORKLIST.md` 已把下一步切回 `W-P2-S06`，开始 `match` 第二刀实现闭环
 
+- `A-2026-04-28-06` `[P2]` `match` 第二刀第一组 payload enum 修复闭环
+  - 结果：
+    - payload enum `match` arm 的 payload-shape 错误收敛为 `S0055 / match_enum_variant_payload_must_match_declaration` 主诊断
+    - 正确 variant 但 payload 形态错误时，不再额外级联 `S0049` 非穷尽诊断，降低 AI 修复噪音
+    - 新增 `examples/match_payload_shape.ax` 作为坏例子
+    - full repair manifest 新增 `match_payload_shape` case，并提供 shared replay 修复候选
+    - `WORKLIST.md` 已把 `W-P2-S06` 标记完成，并新增 `W-P2-S07` 作为下一轮 enum-first `match` 运行侧样例任务
+
 ### 2026-04-27
 
 - `A-2026-04-27-22` `[P1]` `Repair Archaeology v0` 增长点进入规划

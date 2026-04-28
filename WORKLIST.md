@@ -334,7 +334,7 @@
   - 完成标准：
     - 明确进入 CI、延后进入 CI，或改成 nightly/manual 的理由
 
-- [ ] `W-P2-S06` 启动 `match` 第二刀实现闭环
+- [x] `W-P2-S06` 启动 `match` 第二刀实现闭环
   - 目标：P1 Repair Archaeology 这一轮完成后，回到 P2 语法线，按冻结顺序先推进 `match` 第二刀。
   - 依赖：`W-P1-11`
   - 当前范围：
@@ -348,6 +348,22 @@
     - 不做 range / guard / destructuring pattern
   - 完成标准：
     - `match` 第二刀的第一组实现能回写样例、语义检查、解释执行、AI 反馈或 interface snapshots
+  - 本轮落点：
+    - payload enum arm 写成 `Result.Ok` 但声明是 `Ok(i32)` 时，只保留 `S0055 / match_enum_variant_payload_must_match_declaration` 作为主修复目标，不再额外级联 `S0049`
+    - unit variant arm 写成 `Result.Empty(_)` 时，同样保持单一 payload-shape 修复目标
+    - 新增 `examples/match_payload_shape.ax` 与 full repair manifest case，确保这类错误进入 AI 修复证据链
+
+- [ ] `W-P2-S07` 继续补 `match` 第二刀的运行侧代表样例
+  - 目标：在不新增 pattern 家族的前提下，让 enum-first `match` 出现在更像工具程序的状态机/分类器里，而不是只停留在单文件演示。
+  - 依赖：`W-P2-S06`
+  - 当前范围：
+    - 优先从 `bootstrap_*` 或 project-backed 小工具里挑一个真实分派点
+    - 使用现有 `Enum.Variant`、`Enum.Variant(name)`、`Enum.Variant(_)`、最终 `_` 或最终绑定
+    - 同步 interface snapshot 或固定运行回归
+  - 当前不做：
+    - 不做 guard、多模式、range、嵌套解构、block-valued match expression arm
+  - 完成标准：
+    - 至少一个工具味更强的样例稳定消费 enum-first `match`
 
 ## P2 施工项：语言内核与最小可写工具
 
