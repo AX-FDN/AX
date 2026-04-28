@@ -157,6 +157,24 @@
       "notes": "Covers P2 match second-pass repair guidance for payload enum arm shape mistakes without cascading into exhaustiveness noise."
     },
     {
+      "id": "match_guard_non_bool",
+      "file": "examples/match_guard_non_bool.ax",
+      "category": "semantic",
+      "expected_codes": ["S0022"],
+      "expected_ai_rule_ids": ["match_guard_must_be_bool"],
+      "repair_goal": "Rewrite the match guard so the expression after `if` evaluates to bool.",
+      "notes": "Covers binding-aware match guard repair guidance without falling back to generic condition feedback."
+    },
+    {
+      "id": "match_empty_range",
+      "file": "examples/match_empty_range.ax",
+      "category": "semantic",
+      "expected_codes": ["S0056"],
+      "expected_ai_rule_ids": ["match_range_must_be_non_empty"],
+      "repair_goal": "Rewrite the inclusive range pattern so the start bound is less than or equal to the end bound.",
+      "notes": "Covers i32 range pattern repair guidance for status-code and classifier style matches."
+    },
+    {
       "id": "immutable_struct_field_point",
       "file": "examples/immutable_struct_field.ax",
       "category": "semantic",

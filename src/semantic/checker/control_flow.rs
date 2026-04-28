@@ -664,7 +664,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                             self.info.source,
                             pattern.span,
                         )
-                        .with_kind(DiagnosticKind::MatchPatternTypeMismatch)
+                        .with_kind(DiagnosticKind::MatchRangeMustBeNonEmpty)
                         .with_suggestion(
                             "make the start bound less than or equal to the end bound",
                         ),
@@ -866,7 +866,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 "match guard must be `bool`, found `{}`",
                 guard_type.describe()
             ),
-            DiagnosticKind::ConditionTypeMismatch,
+            DiagnosticKind::MatchGuardTypeMismatch,
         );
         self.scopes.pop();
     }

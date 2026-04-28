@@ -262,6 +262,8 @@ fn match_rule_by_kind(kind: DiagnosticKind) -> Option<RuleTemplate> {
         DiagnosticKind::MatchEnumVariantPayloadShapeMismatch => {
             Some(RULE_MATCH_ENUM_VARIANT_PAYLOAD_MUST_MATCH_DECLARATION)
         }
+        DiagnosticKind::MatchGuardTypeMismatch => Some(RULE_MATCH_GUARD_MUST_BE_BOOL),
+        DiagnosticKind::MatchRangeMustBeNonEmpty => Some(RULE_MATCH_RANGE_MUST_BE_NON_EMPTY),
         DiagnosticKind::FunctionArgumentTypeMismatch => {
             Some(RULE_FUNCTION_ARGUMENT_TYPE_MUST_MATCH)
         }
@@ -781,6 +783,28 @@ const RULE_MATCH_ENUM_VARIANT_PAYLOAD_MUST_MATCH_DECLARATION: RuleTemplate = Rul
     minimal_example: "enum Result { Ok(i32), Err(string) }",
     anti_pattern: Some("match (result) { Result.Ok => 1, Result.Err(message) => 0 }"),
     default_fixit: "rewrite the match arm so its payload binding or `_` exactly matches the enum variant declaration",
+};
+
+const RULE_MATCH_GUARD_MUST_BE_BOOL: RuleTemplate = RuleTemplate {
+    rule_id: "match_guard_must_be_bool",
+    normalized_pattern: "match_guard_must_be_bool",
+    repair_goal: "Rewrite the `if` guard on the match arm so it evaluates to `bool`.",
+    summary: "AX match guards are boolean filters: `pattern if condition => ...` only accepts a `bool` condition.",
+    pattern: "match (token) { Token.Number(value) if value > 9 => 10, _ => 0 }",
+    minimal_example: "match (value) { 400..=499 if value != 418 => 4, _ => 0 }",
+    anti_pattern: Some("match (value) { 1 if 1 => 10, _ => 0 }"),
+    default_fixit: "replace the guard expression with a comparison or boolean expression",
+};
+
+const RULE_MATCH_RANGE_MUST_BE_NON_EMPTY: RuleTemplate = RuleTemplate {
+    rule_id: "match_range_must_be_non_empty",
+    normalized_pattern: "match_range_must_be_non_empty",
+    repair_goal: "Rewrite the inclusive `i32` range pattern so the start bound is less than or equal to the end bound.",
+    summary: "AX range patterns use inclusive `start..=end` syntax and cannot represent an empty interval.",
+    pattern: "match (status) { 400..=499 => 4, _ => 0 }",
+    minimal_example: "match (exit_code) { 0..=0 => 0, 1..=255 => 1, _ => 2 }",
+    anti_pattern: Some("match (status) { 499..=400 => 4, _ => 0 }"),
+    default_fixit: "swap the range bounds or change them to a non-empty inclusive interval",
 };
 
 const RULE_ENUM_VARIANT_PAYLOAD_MUST_MATCH_DECLARATION: RuleTemplate = RuleTemplate {
@@ -1971,6 +1995,18 @@ mod tests {
                 message: "match expression arm type placeholder",
                 kind: DiagnosticKind::MatchExpressionArmTypeMismatch,
                 expected_rule_id: "match_expression_arms_must_share_type",
+            },
+            KindCase {
+                code: "S0022",
+                message: "match guard type placeholder",
+                kind: DiagnosticKind::MatchGuardTypeMismatch,
+                expected_rule_id: "match_guard_must_be_bool",
+            },
+            KindCase {
+                code: "S0056",
+                message: "match range placeholder",
+                kind: DiagnosticKind::MatchRangeMustBeNonEmpty,
+                expected_rule_id: "match_range_must_be_non_empty",
             },
             KindCase {
                 code: "S0022",

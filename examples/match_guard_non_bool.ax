@@ -1,0 +1,7 @@
+fn main() -> i32 {
+    let code: i32 = match (2) {
+        2 if 1 => 10,
+        _ => 0,
+    };
+    return code;
+}

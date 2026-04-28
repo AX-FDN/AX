@@ -222,6 +222,19 @@ The following are intentionally allowed to evolve without breaking the public co
 - the amount of `context_snippets` detail at higher teaching levels
 - the specific set of diagnostics currently mapped to AI rules
 
+Current `match`-related AI rule ids include:
+
+- `match_input_must_use_supported_type`
+- `match_pattern_must_match_input`
+- `match_patterns_must_be_unique`
+- `match_wildcard_must_be_last`
+- `match_must_be_exhaustive`
+- `match_requires_concrete_pattern`
+- `match_expression_arms_must_share_type`
+- `match_enum_variant_payload_must_match_declaration`
+- `match_guard_must_be_bool`
+- `match_range_must_be_non_empty`
+
 ## Example: Base Versus AI
 
 Base mode:

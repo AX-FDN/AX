@@ -89,6 +89,17 @@ As of 2026-04-24, the committed manifests also include a repository-backed proje
 [`project_helper_missing_semicolon`](../benchmarks/repair-projects/helper_missing_semicolon).
 It validates the "repair one target file while keeping the rest of the AX project read-only" path end to end.
 
+The match-language cases are intentionally kept in the benchmark manifest, not just in parser or semantic unit tests. They currently cover:
+
+- `match_payload_shape`
+  Stabilizes payload enum arm repair, including the distinction between `Enum.Variant`, `Enum.Variant(name)`, and `Enum.Variant(_)`.
+- `match_guard_non_bool`
+  Stabilizes `pattern if bool_expr => ...` guard repair through the dedicated `match_guard_must_be_bool` AI rule.
+- `match_empty_range`
+  Stabilizes inclusive `i32` range pattern repair through the dedicated `match_range_must_be_non_empty` AI rule.
+
+These cases make the newer `match` surface part of the repair evidence chain: if a rule id, diagnostic code, or observed diagnostic order drifts, the manifest validation fails.
+
 ## Export Step
 
 Use [`../scripts/export-repair-benchmark.ps1`](../scripts/export-repair-benchmark.ps1) to freeze a benchmark snapshot:
