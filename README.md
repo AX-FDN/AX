@@ -827,7 +827,7 @@ P2 阶段固定样例集合与回归职责见 [`docs/representative-samples.md`]
 | --- | --- | --- |
 | `fn` | 已支持 | 显式参数类型、显式返回类型 |
 | `struct` | 已支持 | 结构体声明、字面量、字段访问 |
-| `enum` | 已支持 payload enum | 枚举声明、unit variant 与单 payload variant |
+| `enum` | 已支持 | 枚举声明、unit variant、单 payload variant 与泛型 enum |
 | `module ...;` | 已支持 | support source 显式声明模块路径 |
 | `import ...;` | 已支持 | entry / support source 显式导入模块 |
 | `AX.toml + sources` | 已支持 | project-backed 多文件组织主路径 |
@@ -844,7 +844,7 @@ P2 阶段固定样例集合与回归职责见 [`docs/representative-samples.md`]
 | `for (init; cond; step)` | 已支持 | 当前主循环表头形态 |
 | `break;` | 已支持 | 只能出现在 `while` / `for` 中 |
 | `continue;` | 已支持 | 已打通 `for -> while` lowering 下的 step 语义 |
-| `match (...) { ... }` | 已支持 | 语句形态、表达式形态、简单绑定 catch-all、字符串 pattern 与 payload enum pattern 都已进入 parser / semantic / interpreter / AI feedback 主链 |
+| `match (...) { ... }` | 已支持 | 语句形态、表达式形态、绑定 catch-all、字符串 pattern 与 payload enum pattern 都已进入 parser / semantic / interpreter / AI feedback 主链 |
 
 ### 表达式与类型能力
 
@@ -852,15 +852,15 @@ P2 阶段固定样例集合与回归职责见 [`docs/representative-samples.md`]
 | --- | --- | --- |
 | 基础类型 | 已支持 | `bool` `i32` `f32` `string` `string_list` |
 | 结构体值 | 已支持 | `Point { x: 1, y: 2 }`、`point.x` |
-| 枚举值 | 已支持 payload enum 与泛型 enum 第一刀 | `Flag.On`、`Result.Ok(7)`、`Result<i32, string>`、枚举值比较 |
+| 枚举值 | 已支持 | `Flag.On`、`Result.Ok(7)`、`Result<i32, string>`、枚举值比较 |
 | 固定长度数组 | 已支持 | `[Type; N]`、数组字面量、索引读取 |
 | 只读 slice | 已支持 | `[Type]`、`values[start:end]` |
-| 泛型结构体 | 第一刀已支持 | `struct Box<T> { value: T }`、`Box<i32>`、字段读取与可变字段写入 |
-| 泛型函数 | 第一刀已支持 | `fn identity<T>(value: T) -> T`，当前由实参推断类型参数 |
-| 泛型 enum | 第一刀已支持 | `enum Result<T, E> { Ok(T), Err(E) }`、`Result<i32, string>`、payload 构造与 match 绑定 |
-| traits / interfaces | 第一刀已支持 | `trait Label { fn label(self: Self) -> string; }` 与 `impl Label for Command { ... }` |
+| 泛型结构体 | 已支持 | `struct Box<T> { value: T }`、`Box<i32>`、字段读取与可变字段写入 |
+| 泛型函数 | 已支持 | `fn identity<T>(value: T) -> T`，由实参推断类型参数 |
+| 泛型 enum | 已支持 | `enum Result<T, E> { Ok(T), Err(E) }`、`Result<i32, string>`、payload 构造与 match 绑定 |
+| traits / interfaces | 已支持 | `trait Label { fn label(self: Self) -> string; }` 与 `impl Label for Command { ... }` |
 | `for in` 遍历 | 已支持 | 当前支持 `for (let value: T in values) { ... }`，目标为数组 / slice |
-| 表达式 `match` | 已支持 | 当前支持单表达式 arm、最终绑定 catch-all、字符串 pattern，以及 `Result.Ok(value)` / `Result.Err(_)` 这类 payload enum pattern；所有 arm 仍必须返回同类型 |
+| 表达式 `match` | 已支持 | 支持单表达式 arm、最终绑定 catch-all、字符串 pattern，以及 `Result.Ok(value)` / `Result.Err(_)` 这类 payload enum pattern；所有 arm 必须返回同类型 |
 | 嵌套可写路径 | 已支持 | `outer.inner.value = ...`、`items[index].field = ...` |
 | 逻辑运算 | 已支持 | `&&`、`||`，并按短路语义执行 |
 | 余数运算 | 已支持 | `%`，当前按 `i32` 运算处理 |
@@ -868,15 +868,15 @@ P2 阶段固定样例集合与回归职责见 [`docs/representative-samples.md`]
 | 常用 helpers | 已支持 | `len(value)`、`string_len(text)`、`to_string(value)` |
 | `string_list` helpers | 已支持 | `string_list_new / push / join` |
 
-### 最近补进并已经进入主链的语法点
+### 已进入主链的关键语法点
 
 这些不是“文档规划”，而是已经接进编译器、运行时、AI 反馈和回归链的能力：
 
 - `continue;`
   - 已支持在 `while` / `for` 中使用
   - `for` 场景下会先执行 step，再进入下一轮
-- 最小 `match`
-- 当前同时支持语句形态、表达式形态、最终裸标识符绑定模式、字符串 pattern，以及 payload enum pattern
+- `match`
+  - 支持语句形态、表达式形态、最终裸标识符绑定模式、字符串 pattern，以及 payload enum pattern
   - pattern 目前支持 `true` / `false`、整数、字符串、枚举值、最终 `_`、最终裸标识符（如 `other`），以及 `Enum.Variant(name)` / `Enum.Variant(_)`
   - 裸标识符 pattern 是 catch-all 绑定，只在当前 arm 内引入一个不可变局部名
   - 会做穷尽检查：
@@ -893,10 +893,10 @@ P2 阶段固定样例集合与回归职责见 [`docs/representative-samples.md`]
   - 已支持 `impl Type { fn method(self: Type, ...) -> Ret { ... } }`
   - 已支持 `value.method(...)`
   - 当前仍不支持泛型 impl、trait impl、静态方法、可变接收者或方法重载
-- 泛型第一刀
+- 泛型
   - 已支持泛型结构体、泛型函数和泛型 enum
   - 当前仍不支持显式 turbofish、trait bounds、where 约束或泛型方法
-- traits / interfaces 第一刀
+- traits / interfaces
   - 已支持 trait 方法签名与 `impl Trait for Type`
   - 已支持缺失方法检查、签名匹配检查，以及 trait impl 方法作为普通方法调用
   - 当前仍不支持 trait bounds、动态派发、关联类型、默认方法、泛型 trait 或泛型 impl
