@@ -1031,10 +1031,6 @@ impl<'a> LoweringContext<'a> {
             });
         }
 
-        let condition =
-            self.lower_match_arm_condition(temp_name, &first.pattern, first.guard.as_ref())?;
-        let then_branch =
-            self.lower_match_arm_block(temp_name, temp_type, &first.pattern, &first.body)?;
         let else_branch = if rest.is_empty() {
             Some(Block {
                 statements: Vec::new(),
@@ -1047,6 +1043,18 @@ impl<'a> LoweringContext<'a> {
                 statements: vec![nested],
             })
         };
+        let condition = self.lower_match_pattern_condition(temp_name, &first.pattern)?;
+        let then_branch = if let Some(guard) = &first.guard {
+            self.lower_guarded_match_arm_block(
+                temp_name,
+                temp_type,
+                first,
+                guard,
+                else_branch.clone(),
+            )?
+        } else {
+            self.lower_match_arm_block(temp_name, temp_type, &first.pattern, &first.body)?
+        };
 
         Ok(Stmt {
             kind: StmtKind::If {
@@ -1055,28 +1063,6 @@ impl<'a> LoweringContext<'a> {
                 else_branch,
             },
             span: first.span,
-        })
-    }
-
-    fn lower_match_arm_condition(
-        &self,
-        temp_name: &str,
-        pattern: &ast::MatchPattern,
-        guard: Option<&ast::Expr>,
-    ) -> Result<Expr, Diagnostic> {
-        let pattern_condition = self.lower_match_pattern_condition(temp_name, pattern)?;
-        let Some(guard) = guard else {
-            return Ok(pattern_condition);
-        };
-
-        let guard = self.lower_expr(guard)?;
-        Ok(Expr {
-            span: Span::new(pattern_condition.span.start, guard.span.end),
-            kind: ExprKind::Binary {
-                op: BinaryOp::LogicalAnd,
-                left: Box::new(pattern_condition),
-                right: Box::new(guard),
-            },
         })
     }
 
@@ -1229,30 +1215,76 @@ impl<'a> LoweringContext<'a> {
         body: &ast::Block,
     ) -> Result<Block, Diagnostic> {
         let body_block = self.lower_block(body)?;
+        let binding_statements =
+            self.lower_match_binding_statements(temp_name, temp_type, pattern)?;
+        if !binding_statements.is_empty() {
+            return Ok(Block {
+                statements: binding_statements
+                    .into_iter()
+                    .chain(std::iter::once(Stmt {
+                        kind: StmtKind::Block { block: body_block },
+                        span: body.span,
+                    }))
+                    .collect(),
+                span: body.span,
+            });
+        }
+        Ok(body_block)
+    }
+
+    fn lower_guarded_match_arm_block(
+        &self,
+        temp_name: &str,
+        temp_type: &Type,
+        arm: &ast::MatchArm,
+        guard: &ast::Expr,
+        fallback: Option<Block>,
+    ) -> Result<Block, Diagnostic> {
+        let mut statements =
+            self.lower_match_binding_statements(temp_name, temp_type, &arm.pattern)?;
+        let guard = self.lower_expr(guard)?;
+        let then_branch = self.lower_block(&arm.body)?;
+        let else_branch = fallback.or_else(|| {
+            Some(Block {
+                statements: Vec::new(),
+                span: arm.span,
+            })
+        });
+        statements.push(Stmt {
+            kind: StmtKind::If {
+                condition: guard,
+                then_branch,
+                else_branch,
+            },
+            span: arm.span,
+        });
+        Ok(Block {
+            statements,
+            span: arm.body.span,
+        })
+    }
+
+    fn lower_match_binding_statements(
+        &self,
+        temp_name: &str,
+        temp_type: &Type,
+        pattern: &ast::MatchPattern,
+    ) -> Result<Vec<Stmt>, Diagnostic> {
         match &pattern.kind {
-            ast::MatchPatternKind::Binding { name } => Ok(Block {
-                statements: vec![
-                    Stmt {
-                        kind: StmtKind::Let {
-                            mutable: false,
-                            name: name.clone(),
-                            ty: temp_type.clone(),
-                            initializer: Expr {
-                                kind: ExprKind::Name {
-                                    value: temp_name.to_string(),
-                                },
-                                span: pattern.span,
-                            },
+            ast::MatchPatternKind::Binding { name } => Ok(vec![Stmt {
+                kind: StmtKind::Let {
+                    mutable: false,
+                    name: name.clone(),
+                    ty: temp_type.clone(),
+                    initializer: Expr {
+                        kind: ExprKind::Name {
+                            value: temp_name.to_string(),
                         },
                         span: pattern.span,
                     },
-                    Stmt {
-                        kind: StmtKind::Block { block: body_block },
-                        span: body.span,
-                    },
-                ],
-                span: body.span,
-            }),
+                },
+                span: pattern.span,
+            }]),
             ast::MatchPatternKind::EnumVariant {
                 path,
                 payload: Some(ast::EnumVariantPayloadPattern::Binding { name }),
@@ -1268,36 +1300,27 @@ impl<'a> LoweringContext<'a> {
                             ));
                         }
                     };
-                Ok(Block {
-                    statements: vec![
-                        Stmt {
-                            kind: StmtKind::Let {
-                                mutable: false,
-                                name: name.clone(),
-                                ty: payload_type,
-                                initializer: Expr {
-                                    kind: ExprKind::EnumPayload {
-                                        value: Box::new(Expr {
-                                            kind: ExprKind::Name {
-                                                value: temp_name.to_string(),
-                                            },
-                                            span: pattern.span,
-                                        }),
+                Ok(vec![Stmt {
+                    kind: StmtKind::Let {
+                        mutable: false,
+                        name: name.clone(),
+                        ty: payload_type,
+                        initializer: Expr {
+                            kind: ExprKind::EnumPayload {
+                                value: Box::new(Expr {
+                                    kind: ExprKind::Name {
+                                        value: temp_name.to_string(),
                                     },
                                     span: pattern.span,
-                                },
+                                }),
                             },
                             span: pattern.span,
                         },
-                        Stmt {
-                            kind: StmtKind::Block { block: body_block },
-                            span: body.span,
-                        },
-                    ],
-                    span: body.span,
-                })
+                    },
+                    span: pattern.span,
+                }])
             }
-            _ => Ok(body_block),
+            _ => Ok(Vec::new()),
         }
     }
 

@@ -361,7 +361,7 @@ let code: i32 = match (value) {
 - 表达式形态当前使用 `pattern => expr`
 - 裸标识符 pattern 是最终 catch-all，并在当前 arm 内引入一个不可变局部名
 - 多 pattern arm 写作 `A | B => ...`，当前用于字面量或 unit enum variant；不要在多 pattern arm 中引入绑定
-- guard 写作 `pattern if bool_expr => ...`；guard 必须是 `bool`，带 guard 的 arm 不参与穷尽性证明，当前不在 guard 中引用 pattern binding
+- guard 写作 `pattern if bool_expr => ...`；guard 必须是 `bool`，带 guard 的 arm 不参与穷尽性证明，可以读取当前 arm 引入的 pattern binding
 - payload enum pattern 当前只支持单名字绑定或 `_`：`Result.Ok(value)`、`Result.Err(_)`
 - payload enum 当前只支持 unit variant 与单 payload variant，不支持多 payload、命名字段或更深解构
 - 表达式形态的所有 arm 必须返回同类型
@@ -591,7 +591,7 @@ array_type        := "[" type_ref ";" INT "]"
 - `match` 当前支持语句形态、表达式形态、最终绑定 catch-all、payload enum pattern、`A | B` 多 pattern arm 与 bool guard
 - `match` 模式当前只支持 `bool`、`i32`、`string`、枚举值、最终 `_`、最终裸标识符绑定、`A | B` 多 pattern arm，以及 `Enum.Variant(name)` / `Enum.Variant(_)`
 - `_` 与裸标识符绑定都属于 catch-all，必须出现在最后一个 arm
-- 带 guard 的 arm 不参与穷尽性证明；guard 必须返回 `bool`，当前不在 guard 中引用 pattern binding
+- 带 guard 的 arm 不参与穷尽性证明；guard 必须返回 `bool`，可以读取当前 arm 引入的 pattern binding
 - `match` 要求穷尽：`bool` 必须覆盖 `true/false` 或最终 catch-all，枚举必须覆盖全部 variant 或最终 catch-all，`i32` 当前必须以 `_` 或最终绑定兜底
 - 表达式 `match` 当前要求所有 arm 返回同类型，且 arm body 仍然必须是单个表达式
 - payload enum 当前只支持单 payload variant：声明 `Ok(i32)`，构造 `Result.Ok(7)`，pattern 写成 `Result.Ok(value)` 或 `Result.Ok(_)`
@@ -650,7 +650,7 @@ array_type        := "[" type_ref ";" INT "]"
 - 空数组字面量 `[]` 不是“完全不支持”。
 - 当前只支持带显式零长度数组上下文的写法：`let values: [i32; 0] = [];`
 - 如果上下文不是零长度数组，例如 `let values: [i32; 1] = [];`，会报 `S0032`。
-- `match` 当前已支持表达式形态、最终绑定模式、字符串字面量 pattern、payload enum pattern、`A | B` 多 pattern arm 与 bool guard，但仍不支持解构、binding-aware guard，表达式形态也还不支持 block-valued arm。
+- `match` 当前已支持表达式形态、最终绑定模式、字符串字面量 pattern、payload enum pattern、`A | B` 多 pattern arm 与 binding-aware bool guard，但仍不支持结构体/数组/tuple 解构，表达式形态也还不支持 block-valued arm。
 - `module / import` 当前支持显式模块声明与显式导入；`pub` 当前已作为顶层导出标记进入语法、formatter、AST/HIR/MIR、context 与 AI focus 元数据；暂不支持 alias、wildcard import、包管理与远程依赖。
 - `impl / methods` 当前支持值方法与显式 `self: Type` 参数；暂不支持泛型 impl、静态方法、可变接收者或方法重载。
 - `trait / interface` 当前支持 trait 方法签名、`impl Trait for Type`、缺失方法检查、签名匹配检查、trait impl 方法作为普通方法调用，以及泛型函数上的单 trait bound；暂不支持动态派发、关联类型、默认方法、泛型 trait 或泛型 impl。
@@ -669,7 +669,7 @@ Rules:
 - `continue;` may be used to skip to the next iteration of the nearest `while` or `for` loop.
 - `match` supports statement form `match (value) { pattern => { ... } ... }` and expression form `match (value) { pattern => expr, ... }`.
 - `match` patterns currently support `true`, `false`, integer literals, string literals, enum variants, `A | B` alternatives, payload enum patterns like `Result.Ok(value)` / `Result.Err(_)`, final `_`, and final bare binding names like `other`.
-- `match` guards use `pattern if bool_expr => ...`; guards must be bool, do not count as exhaustive coverage, and should not reference pattern bindings yet.
+- `match` guards use `pattern if bool_expr => ...`; guards must be bool, do not count as exhaustive coverage, and may read pattern bindings introduced by the same arm.
 - Top-level constants may be declared as `const NAME: Type = expr;` and used as read-only values.
 - Public top-level declarations may use `pub`, such as `pub fn helper() -> i32 { ... }` or `pub const STATUS_OK: i32 = 0;`.
 - A bare binding pattern is a final catch-all and introduces an immutable arm-local name.
@@ -695,7 +695,7 @@ Rules:
 - In project mode, support sources may declare `module ...;` and files may use explicit `import module.path;`.
 - Generic structs may be declared as `struct Box<T> { value: T }` and used in type positions like `Box<i32>`; construct them with normal struct literals like `Box { value: 1 }`.
 - Generic functions may be declared as `fn identity<T>(value: T) -> T { return value; }`; type parameters are inferred from arguments.
-- Do not use exceptions, async, generic methods, explicit turbofish calls, where clauses, dynamic dispatch, associated types, default trait methods, generic traits, generic impls, destructuring match patterns, binding-aware match guards, named payload fields, or multi-payload enum variants.
+- Do not use exceptions, async, generic methods, explicit turbofish calls, where clauses, dynamic dispatch, associated types, default trait methods, generic traits, generic impls, destructuring match patterns, named payload fields, or multi-payload enum variants.
 - Use [] only when the target type is explicitly a zero-length array like [i32; 0].
 - Return 0 from main on success unless a different exit code is explicitly needed.
 ```

@@ -785,10 +785,13 @@ fn main() -> i32 {
     fn accepts_match_guards() {
         let codes = check(
             "\
+enum Token { Number(i32), End }
+
 fn main() -> i32 {
-    let code: i32 = match (2) {
-        2 if true => 10,
-        _ => 0,
+    let code: i32 = match (Token.Number(12)) {
+        Token.Number(value) if value > 9 => value,
+        Token.Number(_) => 1,
+        Token.End => 0,
     };
     return code;
 }

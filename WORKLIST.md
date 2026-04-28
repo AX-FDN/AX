@@ -477,7 +477,7 @@
       - `Enum.Variant(_)`
       - 字符串字面量 pattern
       - `A | B` 多 pattern arm（仅字面量或 unit enum variant，不在同一 arm 内引入 binding）
-      - `pattern if bool_expr => ...` bool guard（guard 不参与穷尽性证明，当前不引用 pattern binding）
+      - `pattern if bool_expr => ...` bool guard（guard 不参与穷尽性证明，可读取当前 arm 引入的 pattern binding）
       - 最终 `_`
       - 最终裸标识符 catch-all
   - 本轮必须直接服务的场景：
@@ -488,7 +488,6 @@
     - tuple / array / struct destructuring
     - 多 payload 或命名 payload fields
     - 嵌套 payload destructuring
-    - binding-aware match guards
     - range pattern
     - block-valued match expression arm
   - 冻结依据：

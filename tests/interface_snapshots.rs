@@ -4240,11 +4240,11 @@ fn match_or_example_runs() {
 #[test]
 fn match_guard_example_runs() {
     let output = run_axc([OsStr::new("run"), OsStr::new("examples/match_guard.ax")]);
-    assert_eq!(output.status.code(), Some(-1));
+    assert_eq!(output.status.code(), Some(0));
     assert_clean_stderr(&output);
     assert_eq!(
         normalize_text(&string_output(&output.stdout)),
-        "0\n12\n12\n"
+        "12\n10\n1\n2\n"
     );
 }
 

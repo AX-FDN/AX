@@ -862,7 +862,7 @@ P2 阶段固定样例集合与回归职责见 [`docs/representative-samples.md`]
   - 支持语句形态、表达式形态、最终裸标识符绑定模式、字符串 pattern、payload enum pattern、`A | B` 多 pattern arm，以及 `pattern if bool_expr => ...` guard
   - pattern 目前支持 `true` / `false`、整数、字符串、枚举值、最终 `_`、最终裸标识符（如 `other`），以及 `Enum.Variant(name)` / `Enum.Variant(_)`
   - `A | B` arm 当前只建议用于字面量或 unit enum variant，不在同一个多 pattern arm 内引入绑定
-  - guard 必须返回 `bool`；带 guard 的 arm 不参与穷尽性证明，当前也不在 guard 里引用 pattern binding
+  - guard 必须返回 `bool`；带 guard 的 arm 不参与穷尽性证明，可以读取当前 arm 引入的 pattern binding
   - 裸标识符 pattern 是 catch-all 绑定，只在当前 arm 内引入一个不可变局部名
   - 会做穷尽检查：
     - `bool` 要覆盖 `true / false` 或最终 catch-all
@@ -873,7 +873,7 @@ P2 阶段固定样例集合与回归职责见 [`docs/representative-samples.md`]
 - payload enum
 - 当前支持 unit variant 与单 payload variant：`Flag.On`、`Result.Ok(7)`、`Result.Err("bad")`
   - 当前 match pattern 支持 `Result.Ok(value)`、`Result.Err(_)` 与 unit variant `Flag.On`
-  - 当前仍不支持命名 payload 字段、多 payload tuple variant、payload 解构链，guard 也先限定为不引用 pattern binding
+  - 当前仍不支持命名 payload 字段、多 payload tuple variant、payload 解构链
 - methods / impl
   - 已支持 `impl Type { fn method(self: Type, ...) -> Ret { ... } }`
   - 已支持 `value.method(...)`

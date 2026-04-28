@@ -822,24 +822,6 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             return;
         };
 
-        if pattern_contains_binding(pattern) {
-            self.diagnostics.push(
-                Diagnostic::new(
-                    "S0053",
-                    "match guards cannot reference pattern bindings in the current AX slice",
-                    self.info.source,
-                    pattern.span,
-                )
-                .with_kind(DiagnosticKind::MatchPatternTypeMismatch)
-                .with_note(
-                    "guarded binding arms need a scoped binding model before they can be lowered safely",
-                )
-                .with_suggestion(
-                    "split the branch into an unguarded binding arm and use `if` inside the arm body",
-                ),
-            );
-        }
-
         self.scopes.push(HashMap::new());
         self.declare_match_binding(scrutinee_type, pattern);
         let guard_type = self.check_expr(guard);

@@ -1,14 +1,30 @@
-fn classify(value: i32) -> i32 {
-    return match (value) {
-        0 => 0,
-        1 | 2 if true => 12,
-        _ => -1,
+enum Token {
+    Number(i32),
+    Word(string),
+    End,
+}
+
+fn weight(token: Token) -> i32 {
+    return match (token) {
+        Token.Number(value) if value > 9 => 10,
+        Token.Number(_) => 1,
+        Token.Word(_) => 2,
+        Token.End => 0,
     };
 }
 
 fn main() -> i32 {
-    println(classify(0));
-    println(classify(1));
-    println(classify(2));
-    return classify(9);
+    match (Token.Number(12)) {
+        Token.Number(value) if value > 10 => {
+            println(value);
+        }
+        _ => {
+            println(0);
+        }
+    }
+
+    println(weight(Token.Number(12)));
+    println(weight(Token.Number(3)));
+    println(weight(Token.Word("ax")));
+    return weight(Token.End);
 }
