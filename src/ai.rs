@@ -1477,7 +1477,10 @@ fn item_descriptor(item: &Item) -> AiFocusItem {
             span: item.span,
         },
         ItemKind::Impl {
-            trait_ref, target, ..
+            type_params,
+            trait_ref,
+            target,
+            ..
         } => AiFocusItem {
             kind: "impl".to_string(),
             name: target.describe(),
@@ -1485,12 +1488,17 @@ fn item_descriptor(item: &Item) -> AiFocusItem {
             signature: Some(match trait_ref {
                 Some(trait_ref) => {
                     format!(
-                        "{prefix}impl {} for {}",
+                        "{prefix}impl{} {} for {}",
+                        format_type_params(type_params),
                         trait_ref.describe(),
                         target.describe()
                     )
                 }
-                None => format!("{prefix}impl {}", target.describe()),
+                None => format!(
+                    "{prefix}impl{} {}",
+                    format_type_params(type_params),
+                    target.describe()
+                ),
             }),
             span: item.span,
         },
@@ -1560,6 +1568,7 @@ fn related_symbols_for_item(program: &Program, focus_item: &Item) -> Vec<AiRelat
             }
         }
         ItemKind::Impl {
+            type_params,
             trait_ref,
             target,
             methods,
@@ -1568,6 +1577,9 @@ fn related_symbols_for_item(program: &Program, focus_item: &Item) -> Vec<AiRelat
                 collect_type_ref_names(trait_ref, &mut referenced);
             }
             collect_type_ref_names(target, &mut referenced);
+            for type_param in type_params {
+                referenced.remove(type_param);
+            }
             for method in methods {
                 for param in &method.params {
                     collect_type_ref_names(&param.ty, &mut referenced);

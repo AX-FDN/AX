@@ -1,0 +1,7 @@
+fn main() -> i32 {
+    let code: i32 = match (404) {
+        400..=499 => 4,
+        _ => 0,
+    };
+    return code;
+}

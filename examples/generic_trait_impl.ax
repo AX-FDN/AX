@@ -1,0 +1,23 @@
+trait Label {
+    fn label(self: Self) -> string;
+}
+
+struct Box<T> {
+    value: T,
+}
+
+impl<T> Label for Box<T> {
+    fn label(self: Box<T>) -> string {
+        return to_string(self.value);
+    }
+}
+
+fn render<T: Label>(value: T) -> string {
+    return value.label();
+}
+
+fn main() -> i32 {
+    let number: Box<i32> = Box { value: 42 };
+    println(render(number));
+    return 0;
+}

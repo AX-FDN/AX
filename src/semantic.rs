@@ -78,12 +78,17 @@ pub fn check_program_with_project(
                 item.span.start,
                 &mut diagnostics,
             );
-        } else if let ItemKind::Impl { methods, .. } = &item.kind {
+        } else if let ItemKind::Impl {
+            type_params,
+            methods,
+            ..
+        } = &item.kind
+        {
             for method in methods {
                 check_function_body(
                     source,
                     &method.name,
-                    &[],
+                    type_params,
                     &method.params,
                     &method.return_type,
                     &method.body,
@@ -898,6 +903,57 @@ impl Point {
 fn main() -> i32 {
     let point: Point = Point { x: 4, y: 5 };
     return point.offset_sum(3);
+}
+",
+        );
+        assert!(codes.is_empty(), "unexpected diagnostics: {codes:?}");
+    }
+
+    #[test]
+    fn accepts_generic_impl_methods_and_method_calls() {
+        let codes = check(
+            "\
+struct Box<T> { value: T }
+
+impl<T> Box<T> {
+    fn get(self: Box<T>) -> T {
+        return self.value;
+    }
+}
+
+fn main() -> i32 {
+    let number: Box<i32> = Box { value: 7 };
+    return number.get();
+}
+",
+        );
+        assert!(codes.is_empty(), "unexpected diagnostics: {codes:?}");
+    }
+
+    #[test]
+    fn accepts_generic_trait_impl_for_trait_bounds() {
+        let codes = check(
+            "\
+trait Label {
+    fn label(self: Self) -> string;
+}
+
+struct Box<T> { value: T }
+
+impl<T> Label for Box<T> {
+    fn label(self: Box<T>) -> string {
+        return to_string(self.value);
+    }
+}
+
+fn render<T: Label>(value: T) -> string {
+    return value.label();
+}
+
+fn main() -> i32 {
+    let number: Box<i32> = Box { value: 42 };
+    println(render(number));
+    return 0;
 }
 ",
         );

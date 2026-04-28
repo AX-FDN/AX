@@ -3154,6 +3154,68 @@ fn main() -> i32 {
     }
 
     #[test]
+    fn runs_generic_impl_methods() {
+        let (source, hir) = analyzed_hir(
+            "\
+struct Box<T> {
+    value: T,
+}
+
+impl<T> Box<T> {
+    fn get(self: Box<T>) -> T {
+        return self.value;
+    }
+}
+
+fn main() -> i32 {
+    let number: Box<i32> = Box { value: 9 };
+    println(number.get());
+    return number.get();
+}
+",
+        );
+
+        let output = run_program(&source, &hir).expect("program should run");
+        assert_eq!(output.exit_code, 9);
+        assert_eq!(output.stdout, vec!["9"]);
+    }
+
+    #[test]
+    fn runs_generic_trait_impl_methods() {
+        let (source, hir) = analyzed_hir(
+            "\
+trait Label {
+    fn label(self: Self) -> string;
+}
+
+struct Box<T> {
+    value: T,
+}
+
+impl<T> Label for Box<T> {
+    fn label(self: Box<T>) -> string {
+        return to_string(self.value);
+    }
+}
+
+fn render<T: Label>(value: T) -> string {
+    return value.label();
+}
+
+fn main() -> i32 {
+    let number: Box<i32> = Box { value: 42 };
+    println(render(number));
+    return 0;
+}
+",
+        );
+
+        let output = run_program(&source, &hir).expect("program should run");
+        assert_eq!(output.exit_code, 0);
+        assert_eq!(output.stdout, vec!["42"]);
+    }
+
+    #[test]
     fn runs_enum_values_and_mutable_field_assignment() {
         let (source, hir) = analyzed_hir(
             "\

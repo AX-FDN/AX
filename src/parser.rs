@@ -366,6 +366,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_impl_item(&mut self, start: usize, visibility: Visibility) -> Item {
+        let type_params = self.parse_type_params();
         let first_type = self.parse_type();
         let (trait_ref, target) = if self.matches(&[TokenKind::ForKw]) {
             (Some(first_type), self.parse_type())
@@ -390,6 +391,7 @@ impl<'a> Parser<'a> {
         let end = self.expect(TokenKind::RBrace, "expected `}` after impl body", &["`}`"]);
         Item {
             kind: ItemKind::Impl {
+                type_params,
                 trait_ref,
                 target,
                 methods,
@@ -1874,6 +1876,29 @@ mod tests {
         assert_eq!(type_param_bounds[0].trait_ref.describe(), "Label");
         assert_eq!(type_param_bounds[1].type_param, "T");
         assert_eq!(type_param_bounds[1].trait_ref.describe(), "Code");
+    }
+
+    #[test]
+    fn parses_generic_impl_blocks() {
+        let source = SourceFile::anonymous(
+            "struct Box<T> { value: T } impl<T> Box<T> { fn get(self: Box<T>) -> T { return self.value; } }",
+        );
+        let tokens = tokenize(&source).tokens;
+        let output = parse(&source, tokens);
+        assert!(output.diagnostics.is_empty(), "{:?}", output.diagnostics);
+
+        let ItemKind::Impl {
+            type_params,
+            target,
+            methods,
+            ..
+        } = &output.program.items[1].kind
+        else {
+            panic!("expected impl");
+        };
+        assert_eq!(type_params, &vec!["T".to_string()]);
+        assert_eq!(target.describe(), "Box<T>");
+        assert_eq!(methods[0].return_type.describe(), "T");
     }
 
     #[test]

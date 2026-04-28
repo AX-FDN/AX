@@ -837,7 +837,7 @@ P2 阶段固定样例集合与回归职责见 [`docs/representative-samples.md`]
 | 枚举值                | 已支持   | `Flag.On`、`Result.Ok(7)`、`Result<i32, string>`、枚举值比较                                                                                       |
 | 固定长度数组          | 已支持   | `[Type; N]`、数组字面量、索引读取                                                                                                                  |
 | 只读 slice            | 已支持   | `[Type]`、`values[start:end]`                                                                                                                      |
-| 泛型结构体            | 已支持   | `struct Box<T> { value: T }`、`Box<i32>`、字段读取与可变字段写入                                                                                   |
+| 泛型结构体 / 泛型 impl | 已支持   | `struct Box<T> { value: T }`、`Box<i32>`、`impl<T> Box<T> { ... }`、`impl<T> Trait for Box<T> { ... }`、字段读取与可变字段写入                    |
 | 泛型函数              | 已支持   | `fn identity<T>(value: T) -> T`，由实参推断类型参数；支持 `fn render<T: Label + ExitCode>(value: T) -> string` 这类 trait bounds                   |
 | 泛型 enum             | 已支持   | `enum Result<T, E> { Ok(T), Err(E) }`、`Result<i32, string>`、payload 构造与 match 绑定                                                            |
 | traits / interfaces   | 已支持   | `trait Label { fn label(self: Self) -> string; }` 与 `impl Label for Command { ... }`                                                              |

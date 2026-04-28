@@ -109,10 +109,11 @@ impl Formatter {
             } => self.format_enum_item(name, type_params, variants),
             ItemKind::Trait { name, methods } => self.format_trait_item(name, methods),
             ItemKind::Impl {
+                type_params,
                 trait_ref,
                 target,
                 methods,
-            } => self.format_impl_item(trait_ref.as_ref(), target, methods),
+            } => self.format_impl_item(type_params, trait_ref.as_ref(), target, methods),
         }
     }
 
@@ -169,19 +170,22 @@ impl Formatter {
 
     fn format_impl_item(
         &mut self,
+        type_params: &[String],
         trait_ref: Option<&TypeRef>,
         target: &TypeRef,
         methods: &[ImplMethod],
     ) {
+        let params = format_type_params(type_params);
         if let Some(trait_ref) = trait_ref {
             let _ = writeln!(
                 self.out,
-                "impl {} for {} {{",
+                "impl{} {} for {} {{",
+                params,
                 format_type_ref(trait_ref),
                 format_type_ref(target)
             );
         } else {
-            let _ = writeln!(self.out, "impl {} {{", format_type_ref(target));
+            let _ = writeln!(self.out, "impl{} {} {{", params, format_type_ref(target));
         }
         self.indent += 1;
         for (index, method) in methods.iter().enumerate() {
@@ -807,6 +811,54 @@ mod tests {
         assert_eq!(
             formatted,
             "fn render<T: Label + Code>(value: T) -> string {\n    return value.label();\n}\n"
+        );
+    }
+
+    #[test]
+    fn formats_generic_impl_blocks() {
+        let source = SourceFile::anonymous(
+            "struct Box<T>{value:T}impl<T> Box<T>{fn get(self:Box<T>)->T{return self.value;}}",
+        );
+        let formatted = format_source(&source).expect("source should format");
+        assert_eq!(
+            formatted,
+            concat!(
+                "struct Box<T> {\n",
+                "    value: T,\n",
+                "}\n",
+                "\n",
+                "impl<T> Box<T> {\n",
+                "    fn get(self: Box<T>) -> T {\n",
+                "        return self.value;\n",
+                "    }\n",
+                "}\n"
+            )
+        );
+    }
+
+    #[test]
+    fn formats_generic_trait_impl_blocks() {
+        let source = SourceFile::anonymous(
+            "trait Label{fn label(self:Self)->string;}struct Box<T>{value:T}impl<T> Label for Box<T>{fn label(self:Box<T>)->string{return to_string(self.value);}}",
+        );
+        let formatted = format_source(&source).expect("source should format");
+        assert_eq!(
+            formatted,
+            concat!(
+                "trait Label {\n",
+                "    fn label(self: Self) -> string;\n",
+                "}\n",
+                "\n",
+                "struct Box<T> {\n",
+                "    value: T,\n",
+                "}\n",
+                "\n",
+                "impl<T> Label for Box<T> {\n",
+                "    fn label(self: Box<T>) -> string {\n",
+                "        return to_string(self.value);\n",
+                "    }\n",
+                "}\n"
+            )
         );
     }
 

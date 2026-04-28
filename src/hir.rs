@@ -27,6 +27,7 @@ pub struct Item {
 pub enum ItemKind {
     Function {
         name: String,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
         type_params: Vec<String>,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         type_param_bounds: Vec<TypeParamBound>,
@@ -41,11 +42,13 @@ pub enum ItemKind {
     },
     Struct {
         name: String,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
         type_params: Vec<String>,
         fields: Vec<StructField>,
     },
     Enum {
         name: String,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
         type_params: Vec<String>,
         variants: Vec<EnumVariant>,
     },
@@ -483,7 +486,10 @@ impl<'a> LoweringContext<'a> {
             },
             ast::ItemKind::Trait { .. } => return Ok(Vec::new()),
             ast::ItemKind::Impl {
-                target, methods, ..
+                type_params,
+                target,
+                methods,
+                ..
             } => {
                 let method_prefix = self.impl_method_prefix(target, item.span)?;
                 return methods
@@ -492,7 +498,7 @@ impl<'a> LoweringContext<'a> {
                         Ok(Item {
                             kind: ItemKind::Function {
                                 name: format!("{method_prefix}.{}", method.name),
-                                type_params: Vec::new(),
+                                type_params: type_params.clone(),
                                 type_param_bounds: Vec::new(),
                                 params: method
                                     .params

@@ -1,0 +1,15 @@
+struct Box<T> {
+    value: T,
+}
+
+impl<T> Box<T> {
+    fn get(self: Box<T>) -> T {
+        return self.value;
+    }
+}
+
+fn main() -> i32 {
+    let number: Box<i32> = Box { value: 9 };
+    println(number.get());
+    return number.get();
+}

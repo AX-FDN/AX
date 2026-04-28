@@ -2120,6 +2120,7 @@ fn build_symbol_catalog(
                 trait_ref,
                 target,
                 methods,
+                ..
             } => {
                 let target_name = target.describe();
                 for method in methods {

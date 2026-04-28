@@ -64,6 +64,7 @@ impl Visibility {
 pub enum ItemKind {
     Function {
         name: String,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
         type_params: Vec<String>,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         type_param_bounds: Vec<TypeParamBound>,
@@ -78,11 +79,13 @@ pub enum ItemKind {
     },
     Struct {
         name: String,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
         type_params: Vec<String>,
         fields: Vec<StructField>,
     },
     Enum {
         name: String,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
         type_params: Vec<String>,
         variants: Vec<EnumVariant>,
     },
@@ -91,6 +94,8 @@ pub enum ItemKind {
         methods: Vec<TraitMethod>,
     },
     Impl {
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        type_params: Vec<String>,
         trait_ref: Option<TypeRef>,
         target: TypeRef,
         methods: Vec<ImplMethod>,

@@ -814,14 +814,14 @@
 ### `P6-P7` 后续语法线
 
 - [x] `Q-P6-01` methods / `impl`
-  - 状态：第一刀已进入主线候选，支持 `impl Type { fn method(self: Type, ...) -> Ret { ... } }` 与 `value.method(...)`
+  - 状态：第一刀已进入主线候选，支持 `impl Type { fn method(self: Type, ...) -> Ret { ... } }`、`impl<T> Box<T> { ... }`、`impl<T> Trait for Box<T> { ... }` 与 `value.method(...)`
   - 已覆盖：parser / semantic / HIR / MIR / interpreter / formatter / context / AI focus / example / interface snapshot
-  - 当前边界：不支持泛型 impl、trait impl、静态方法、可变接收者或方法重载
+  - 当前边界：不支持泛型方法、静态方法、可变接收者或方法重载
   - 后续补强：`Q-P6-01b` 方法专属 AI rule card、method call repair case、AOT method lowering 收口
 - [x] `Q-P6-02a` 泛型结构体第一刀
   - 状态：已支持 `struct Box<T> { value: T }`、`Box<i32>` 类型引用、泛型结构体字面量字段推断与字段读取
   - 已覆盖：parser / semantic / HIR / MIR / formatter / example / interface snapshot
-  - 当前边界：不支持泛型方法、trait bounds、where 约束或显式 turbofish 构造
+  - 当前边界：支持泛型 impl；仍不支持泛型方法、where 约束或显式 turbofish 构造
   - 后续补强：`Q-P6-02d` 泛型诊断与 AI repair case
 - [x] `Q-P6-02b` 泛型函数第一刀
   - 状态：已支持 `fn identity<T>(value: T) -> T` 这类由实参推断类型参数的泛型函数
@@ -837,14 +837,14 @@
 - [x] `Q-P6-03a` traits / interfaces 第一刀
   - 状态：已支持 `trait Label { fn label(self: Self) -> string; }` 与 `impl Label for Command { ... }`
   - 已覆盖：lexer / parser / semantic conformance / HIR lowering / formatter / context / AI focus / example / interface snapshot
-  - 当前边界：不支持动态派发、关联类型、默认方法、泛型 trait、泛型 impl
+  - 当前边界：不支持动态派发、关联类型、默认方法或泛型 trait
   - 后续补强：`Q-P6-03c` std 接口抽象迁移试点；`Q-P6-03d` trait diagnostics / AI repair case
 - [x] `Q-P6-03b` trait bounds 第一刀
   - 状态：已支持泛型函数参数上的一个或多个 trait bounds，例如 `fn render<T: Label + ExitCode>(value: T) -> string`
   - 已覆盖：parser / AST / formatter / semantic signature collection / generic call checking / trait-bound method call / AI rule cards / examples / README / SYNTAX
   - 代表样例：`examples/trait_bounds.ax`
   - 补强样例：`examples/trait_multi_bounds.ax`
-  - 当前边界：不支持 `where`、泛型 trait、泛型 impl、动态派发或关联类型
+  - 当前边界：不支持 `where`、泛型 trait、动态派发或关联类型
   - 后续补强：把 trait bound 相关错误纳入 repair benchmark case，并在 `std.*` 抽象试点中验证接口复用价值
 - [x] `Q-P6-04a` richer pattern matching：字符串字面量 pattern
   - 状态：已支持 `match (command) { "check" => ..., _ => ... }`

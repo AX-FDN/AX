@@ -3131,8 +3131,8 @@ fn smoke_repair_manifest_stays_aligned_with_full_manifest() {
 
     assert_eq!(
         full_manifest.cases.len(),
-        31,
-        "full manifest should currently pin the 31-case repair benchmark baseline"
+        33,
+        "full manifest should currently pin the 33-case repair benchmark baseline"
     );
 
     assert_eq!(
@@ -3285,8 +3285,8 @@ fn full_compare_shared_replay_scores_cleanly() {
         &output_dir.join("summary.json"),
         "full compare shared score summary",
     );
-    assert_eq!(summary["totals"]["total"], Value::from(31));
-    assert_eq!(summary["totals"]["passed"], Value::from(31));
+    assert_eq!(summary["totals"]["total"], Value::from(33));
+    assert_eq!(summary["totals"]["passed"], Value::from(33));
     assert_eq!(summary["totals"]["failed"], Value::from(0));
     assert_eq!(summary["totals"]["missing"], Value::from(0));
 }

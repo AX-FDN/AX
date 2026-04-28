@@ -26,7 +26,7 @@ pub(super) struct ProgramInfo<'a> {
     pub(super) constants: HashMap<String, ConstInfo>,
     pub(super) methods: HashMap<String, MethodSignature>,
     pub(super) traits: HashMap<String, TraitInfo>,
-    trait_impls: HashSet<(String, String)>,
+    trait_impls: Vec<(Type, String)>,
     pub(super) structs: HashMap<String, StructInfo>,
     pub(super) enums: HashMap<String, EnumInfo>,
     pub(super) has_main: bool,
@@ -238,7 +238,7 @@ impl<'a> ProgramInfo<'a> {
             constants: HashMap::new(),
             methods: HashMap::new(),
             traits: HashMap::new(),
-            trait_impls: HashSet::new(),
+            trait_impls: Vec::new(),
             structs: HashMap::new(),
             enums: HashMap::new(),
             has_main,
@@ -469,11 +469,24 @@ impl<'a> ProgramInfo<'a> {
                     );
                 }
                 ItemKind::Impl {
+                    type_params,
                     trait_ref,
                     target,
                     methods,
                 } => {
-                    let self_type = info.resolve_type_ref(target, &unit_path, diagnostics);
+                    check_generic_type_params(
+                        source,
+                        &format!("impl {}", target.describe()),
+                        type_params,
+                        item.span,
+                        diagnostics,
+                    );
+                    let self_type = info.resolve_type_ref_with_params(
+                        target,
+                        &unit_path,
+                        type_params,
+                        diagnostics,
+                    );
                     if matches!(self_type, Type::Error) {
                         continue;
                     }
@@ -517,11 +530,20 @@ impl<'a> ProgramInfo<'a> {
                             .iter()
                             .map(|param| ParamInfo {
                                 name: param.name.clone(),
-                                ty: info.resolve_type_ref(&param.ty, &unit_path, diagnostics),
+                                ty: info.resolve_type_ref_with_params(
+                                    &param.ty,
+                                    &unit_path,
+                                    type_params,
+                                    diagnostics,
+                                ),
                             })
                             .collect::<Vec<_>>();
-                        let resolved_return_type =
-                            info.resolve_type_ref(&method.return_type, &unit_path, diagnostics);
+                        let resolved_return_type = info.resolve_type_ref_with_params(
+                            &method.return_type,
+                            &unit_path,
+                            type_params,
+                            diagnostics,
+                        );
 
                         if resolved_params.first().map(|param| param.name.as_str()) != Some("self")
                         {
@@ -564,10 +586,10 @@ impl<'a> ProgramInfo<'a> {
                         }
 
                         info.methods.insert(
-                            format!("{}.{}", self_type.describe(), method.name),
+                            format!("{}.{}", method_lookup_type_name(&self_type), method.name),
                             MethodSignature {
                                 function: FunctionSignature {
-                                    type_params: Vec::new(),
+                                    type_params: type_params.clone(),
                                     type_param_bounds: Vec::new(),
                                     params: resolved_params,
                                     return_type: resolved_return_type,
@@ -584,16 +606,18 @@ impl<'a> ProgramInfo<'a> {
                                     .iter()
                                     .map(|param| ParamInfo {
                                         name: param.name.clone(),
-                                        ty: info.resolve_type_ref(
+                                        ty: info.resolve_type_ref_with_params(
                                             &param.ty,
                                             &unit_path,
+                                            type_params,
                                             diagnostics,
                                         ),
                                     })
                                     .collect(),
-                                return_type: info.resolve_type_ref(
+                                return_type: info.resolve_type_ref_with_params(
                                     &method.return_type,
                                     &unit_path,
+                                    type_params,
                                     diagnostics,
                                 ),
                             },
@@ -610,7 +634,7 @@ impl<'a> ProgramInfo<'a> {
                             item.span,
                             diagnostics,
                         );
-                        info.trait_impls.insert((self_type.describe(), trait_name));
+                        info.trait_impls.push((self_type, trait_name));
                     }
                 }
             }
@@ -1017,11 +1041,21 @@ impl<'a> ProgramInfo<'a> {
     ) -> Option<&MethodSignature> {
         self.methods
             .get(&format!("{}.{}", receiver_type.describe(), method))
+            .or_else(|| {
+                self.methods.get(&format!(
+                    "{}.{}",
+                    method_lookup_type_name(receiver_type),
+                    method
+                ))
+            })
     }
 
     pub(super) fn type_satisfies_trait_bound(&self, ty: &Type, trait_name: &str) -> bool {
         self.trait_impls
-            .contains(&(ty.describe(), trait_name.to_string()))
+            .iter()
+            .any(|(impl_type, implemented_trait)| {
+                implemented_trait == trait_name && type_matches_impl_target(ty, impl_type)
+            })
     }
 
     pub(super) fn trait_bound_method_signature(
@@ -1194,6 +1228,46 @@ fn collect_unit_contexts(
     }
 
     units
+}
+
+fn method_lookup_type_name(ty: &Type) -> String {
+    match ty {
+        Type::StructInstance { name, .. } | Type::EnumInstance { name, .. } => name.clone(),
+        other => other.describe(),
+    }
+}
+
+fn type_matches_impl_target(actual: &Type, impl_target: &Type) -> bool {
+    match impl_target {
+        Type::TypeParam(_) => true,
+        Type::StructInstance {
+            name: impl_name,
+            args: impl_args,
+        } => match actual {
+            Type::StructInstance {
+                name: actual_name,
+                args: actual_args,
+            } if actual_name == impl_name && actual_args.len() == impl_args.len() => actual_args
+                .iter()
+                .zip(impl_args)
+                .all(|(actual_arg, impl_arg)| type_matches_impl_target(actual_arg, impl_arg)),
+            _ => false,
+        },
+        Type::EnumInstance {
+            name: impl_name,
+            args: impl_args,
+        } => match actual {
+            Type::EnumInstance {
+                name: actual_name,
+                args: actual_args,
+            } if actual_name == impl_name && actual_args.len() == impl_args.len() => actual_args
+                .iter()
+                .zip(impl_args)
+                .all(|(actual_arg, impl_arg)| type_matches_impl_target(actual_arg, impl_arg)),
+            _ => false,
+        },
+        _ => actual == impl_target,
+    }
 }
 
 fn canonical_item_name(module_mode: bool, unit: &UnitContext, item_name: &str) -> String {

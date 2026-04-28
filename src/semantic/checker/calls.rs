@@ -232,6 +232,12 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             return Some(Type::Error);
         };
 
+        let mut method_type_args = HashMap::new();
+        if let Some(self_param) = signature.params.first() {
+            let expected_self = substitute_self_type(&self_param.ty, &receiver_type);
+            let _ = unify_generic_call_type(&expected_self, &receiver_type, &mut method_type_args);
+        }
+
         let expected_extra_args = signature.params.len().saturating_sub(1);
         if expected_extra_args != argument_types.len() {
             self.diagnostics.push(Diagnostic::new(
@@ -248,7 +254,10 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
         }
 
         for (argument, parameter) in argument_types.iter().zip(signature.params.iter().skip(1)) {
-            let expected = substitute_self_type(&parameter.ty, &receiver_type);
+            let expected = substitute_type_params(
+                &substitute_self_type(&parameter.ty, &receiver_type),
+                &method_type_args,
+            );
             self.expect_type_match_with_kind(
                 &expected,
                 argument,
@@ -263,7 +272,10 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             );
         }
 
-        Some(substitute_self_type(&signature.return_type, &receiver_type))
+        Some(substitute_type_params(
+            &substitute_self_type(&signature.return_type, &receiver_type),
+            &method_type_args,
+        ))
     }
 
     fn type_satisfies_required_trait(&self, ty: &Type, trait_name: &str) -> bool {
