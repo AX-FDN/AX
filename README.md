@@ -829,20 +829,21 @@ P2 阶段固定样例集合与回归职责见 [`docs/representative-samples.md`]
 ### 表达式与类型能力
 
 | 语法面                | 当前状态 | 说明                                                                                                                                               |
-| --------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | --- | ------------------- |
+| --------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 基础类型              | 已支持   | `bool` `i32` `f32` `string` `string_list`                                                                                                          |
 | 结构体值              | 已支持   | `Point { x: 1, y: 2 }`、`point.x`                                                                                                                  |
 | 枚举值                | 已支持   | `Flag.On`、`Result.Ok(7)`、`Result<i32, string>`、枚举值比较                                                                                       |
 | 固定长度数组          | 已支持   | `[Type; N]`、数组字面量、索引读取                                                                                                                  |
 | 只读 slice            | 已支持   | `[Type]`、`values[start:end]`                                                                                                                      |
 | 泛型结构体            | 已支持   | `struct Box<T> { value: T }`、`Box<i32>`、字段读取与可变字段写入                                                                                   |
-| 泛型函数              | 已支持   | `fn identity<T>(value: T) -> T`，由实参推断类型参数                                                                                                |
+| 泛型函数              | 已支持   | `fn identity<T>(value: T) -> T`，由实参推断类型参数；支持 `fn render<T: Label>(value: T) -> string` 这类单 trait bound                            |
 | 泛型 enum             | 已支持   | `enum Result<T, E> { Ok(T), Err(E) }`、`Result<i32, string>`、payload 构造与 match 绑定                                                            |
 | traits / interfaces   | 已支持   | `trait Label { fn label(self: Self) -> string; }` 与 `impl Label for Command { ... }`                                                              |
+| trait bounds          | 已支持   | 当前支持泛型函数参数上的单 trait bound，并允许在函数体内调用 bound 提供的方法                                                                      |
 | `for in` 遍历         | 已支持   | 当前支持 `for (let value: T in values) { ... }`，目标为数组 / slice                                                                                |
 | 表达式 `match`        | 已支持   | 支持单表达式 arm、最终绑定 catch-all、字符串 pattern，以及 `Result.Ok(value)` / `Result.Err(_)` 这类 payload enum pattern；所有 arm 必须返回同类型 |
 | 嵌套可写路径          | 已支持   | `outer.inner.value = ...`、`items[index].field = ...`                                                                                              |
-| 逻辑运算              | 已支持   | `&&`、`                                                                                                                                            |     | `，并按短路语义执行 |
+| 逻辑运算              | 已支持   | `&&`、`||`，并按短路语义执行                                                                                                                       |
 | 余数运算              | 已支持   | `%`，当前按 `i32` 运算处理                                                                                                                         |
 | 字符串拼接            | 已支持   | `string + string`                                                                                                                                  |
 | 常用 helpers          | 已支持   | `len(value)`、`string_len(text)`、`to_string(value)`                                                                                               |
@@ -872,14 +873,16 @@ P2 阶段固定样例集合与回归职责见 [`docs/representative-samples.md`]
 - methods / impl
   - 已支持 `impl Type { fn method(self: Type, ...) -> Ret { ... } }`
   - 已支持 `value.method(...)`
-  - 当前仍不支持泛型 impl、trait impl、静态方法、可变接收者或方法重载
+  - 当前仍不支持泛型 impl、静态方法、可变接收者或方法重载
 - 泛型
   - 已支持泛型结构体、泛型函数和泛型 enum
-  - 当前仍不支持显式 turbofish、trait bounds、where 约束或泛型方法
+  - 已支持泛型函数上的单 trait bound，例如 `fn render<T: Label>(value: T) -> string`
+  - 当前仍不支持显式 turbofish、where 约束、多 trait bound、泛型方法或泛型 impl
 - traits / interfaces
   - 已支持 trait 方法签名与 `impl Trait for Type`
   - 已支持缺失方法检查、签名匹配检查，以及 trait impl 方法作为普通方法调用
-  - 当前仍不支持 trait bounds、动态派发、关联类型、默认方法、泛型 trait 或泛型 impl
+  - 已支持泛型函数通过 trait bound 调用 trait 方法
+  - 当前仍不支持动态派发、关联类型、默认方法、泛型 trait 或泛型 impl
 - 第一阶段 `module / import`
   - support source 使用 `module ...;`
   - entry 与 support source 都可写显式 `import ...;`

@@ -110,6 +110,36 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     }
                 }
 
+                for bound in &signature.type_param_bounds {
+                    let Some(actual_type) = generic_args.get(&bound.type_param) else {
+                        continue;
+                    };
+                    if actual_type.is_error() {
+                        continue;
+                    }
+                    if !self.type_satisfies_required_trait(actual_type, &bound.trait_name) {
+                        self.diagnostics.push(
+                            Diagnostic::new(
+                                "S0059",
+                                format!(
+                                    "type `{}` does not satisfy trait bound `{}: {}` for function `{callee_name}`",
+                                    actual_type.describe(),
+                                    bound.type_param,
+                                    bound.trait_name
+                                ),
+                                self.info.source,
+                                expr.span,
+                            )
+                            .with_suggestion(format!(
+                                "add `impl {} for {} {{ ... }}` or pass a value that implements the trait",
+                                bound.trait_name,
+                                actual_type.describe()
+                            )),
+                        );
+                        return Type::Error;
+                    }
+                }
+
                 substitute_type_params(&signature.return_type, &generic_args)
             }
             None if self
@@ -165,7 +195,23 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             .map(|argument| self.check_expr(argument))
             .collect::<Vec<_>>();
 
-        let Some(signature) = self.info.method_signature(&receiver_type, method).cloned() else {
+        let signature = self
+            .info
+            .method_signature(&receiver_type, method)
+            .map(|signature| signature.function.clone())
+            .or_else(|| {
+                if let Type::TypeParam(type_param) = &receiver_type {
+                    self.info.trait_bound_method_signature(
+                        type_param,
+                        method,
+                        &self.active_type_param_bounds,
+                    )
+                } else {
+                    None
+                }
+            });
+
+        let Some(signature) = signature else {
             self.diagnostics.push(
                 Diagnostic::new(
                     "S0057",
@@ -185,7 +231,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             return Some(Type::Error);
         };
 
-        let expected_extra_args = signature.function.params.len().saturating_sub(1);
+        let expected_extra_args = signature.params.len().saturating_sub(1);
         if expected_extra_args != argument_types.len() {
             self.diagnostics.push(Diagnostic::new(
                 "S0017",
@@ -200,25 +246,33 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             ));
         }
 
-        for (argument, parameter) in argument_types
-            .iter()
-            .zip(signature.function.params.iter().skip(1))
-        {
+        for (argument, parameter) in argument_types.iter().zip(signature.params.iter().skip(1)) {
+            let expected = substitute_self_type(&parameter.ty, &receiver_type);
             self.expect_type_match_with_kind(
-                &parameter.ty,
+                &expected,
                 argument,
                 expr.span,
                 format!(
                     "method `{method}` expects argument `{}` to be `{}`, found `{}`",
                     parameter.name,
-                    parameter.ty.describe(),
+                    expected.describe(),
                     argument.describe()
                 ),
                 DiagnosticKind::FunctionArgumentTypeMismatch,
             );
         }
 
-        Some(signature.function.return_type)
+        Some(substitute_self_type(&signature.return_type, &receiver_type))
+    }
+
+    fn type_satisfies_required_trait(&self, ty: &Type, trait_name: &str) -> bool {
+        match ty {
+            Type::TypeParam(type_param) => self
+                .active_type_param_bounds
+                .iter()
+                .any(|bound| bound.type_param == *type_param && bound.trait_name == trait_name),
+            _ => self.info.type_satisfies_trait_bound(ty, trait_name),
+        }
     }
 
     fn check_enum_variant_constructor_call(
@@ -476,6 +530,34 @@ fn substitute_type_params(ty: &Type, substitutions: &HashMap<String, Type>) -> T
             args: args
                 .iter()
                 .map(|arg| substitute_type_params(arg, substitutions))
+                .collect(),
+        },
+        _ => ty.clone(),
+    }
+}
+
+fn substitute_self_type(ty: &Type, self_type: &Type) -> Type {
+    match ty {
+        Type::TypeParam(name) if name == "Self" => self_type.clone(),
+        Type::Slice { element } => Type::Slice {
+            element: Box::new(substitute_self_type(element, self_type)),
+        },
+        Type::Array { element, length } => Type::Array {
+            element: Box::new(substitute_self_type(element, self_type)),
+            length: *length,
+        },
+        Type::StructInstance { name, args } => Type::StructInstance {
+            name: name.clone(),
+            args: args
+                .iter()
+                .map(|arg| substitute_self_type(arg, self_type))
+                .collect(),
+        },
+        Type::EnumInstance { name, args } => Type::EnumInstance {
+            name: name.clone(),
+            args: args
+                .iter()
+                .map(|arg| substitute_self_type(arg, self_type))
                 .collect(),
         },
         _ => ty.clone(),

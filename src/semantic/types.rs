@@ -104,8 +104,15 @@ fn generic_instance_assignable(actual: &Type, expected: &Type) -> bool {
 #[derive(Debug, Clone)]
 pub(super) struct FunctionSignature {
     pub(super) type_params: Vec<String>,
+    pub(super) type_param_bounds: Vec<TypeParamBoundInfo>,
     pub(super) params: Vec<ParamInfo>,
     pub(super) return_type: Type,
+}
+
+#[derive(Debug, Clone)]
+pub(super) struct TypeParamBoundInfo {
+    pub(super) type_param: String,
+    pub(super) trait_name: String,
 }
 
 #[derive(Debug, Clone)]

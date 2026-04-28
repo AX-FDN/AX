@@ -9,7 +9,7 @@ use crate::source::SourceFile;
 use super::helpers::{builtin_types, item_name};
 use super::types::{
     EnumInfo, EnumVariantInfo, FunctionSignature, MethodSignature, ParamInfo, StructFieldInfo,
-    StructInfo, TraitInfo, Type,
+    StructInfo, TraitInfo, Type, TypeParamBoundInfo,
 };
 
 #[derive(Debug, Clone, Default)]
@@ -25,6 +25,7 @@ pub(super) struct ProgramInfo<'a> {
     pub(super) functions: HashMap<String, FunctionSignature>,
     pub(super) methods: HashMap<String, MethodSignature>,
     pub(super) traits: HashMap<String, TraitInfo>,
+    trait_impls: HashSet<(String, String)>,
     pub(super) structs: HashMap<String, StructInfo>,
     pub(super) enums: HashMap<String, EnumInfo>,
     pub(super) has_main: bool,
@@ -198,12 +199,14 @@ impl<'a> ProgramInfo<'a> {
                 ItemKind::Function {
                     name,
                     type_params,
+                    type_param_bounds,
                     params,
                     return_type,
                     ..
                 } if name == "main" && unit.is_entry => {
                     has_main = true;
                     if !type_params.is_empty()
+                        || !type_param_bounds.is_empty()
                         || !params.is_empty()
                         || return_type.direct_name() != Some("i32")
                     {
@@ -233,6 +236,7 @@ impl<'a> ProgramInfo<'a> {
             functions: HashMap::new(),
             methods: HashMap::new(),
             traits: HashMap::new(),
+            trait_impls: HashSet::new(),
             structs: HashMap::new(),
             enums: HashMap::new(),
             has_main,
@@ -376,6 +380,7 @@ impl<'a> ProgramInfo<'a> {
                                 method.name.clone(),
                                 FunctionSignature {
                                     type_params: Vec::new(),
+                                    type_param_bounds: Vec::new(),
                                     params: resolved_params,
                                     return_type: resolved_return_type,
                                 },
@@ -405,6 +410,7 @@ impl<'a> ProgramInfo<'a> {
                 }
                 ItemKind::Function {
                     type_params,
+                    type_param_bounds,
                     params,
                     return_type,
                     ..
@@ -414,6 +420,12 @@ impl<'a> ProgramInfo<'a> {
                         &canonical_name,
                         type_params,
                         item.span,
+                        diagnostics,
+                    );
+                    let resolved_bounds = info.resolve_type_param_bounds(
+                        type_params,
+                        type_param_bounds,
+                        &unit_path,
                         diagnostics,
                     );
                     let resolved_params = params
@@ -438,6 +450,7 @@ impl<'a> ProgramInfo<'a> {
                         canonical_name,
                         FunctionSignature {
                             type_params: type_params.clone(),
+                            type_param_bounds: resolved_bounds,
                             params: resolved_params,
                             return_type: resolved_return_type,
                         },
@@ -543,6 +556,7 @@ impl<'a> ProgramInfo<'a> {
                             MethodSignature {
                                 function: FunctionSignature {
                                     type_params: Vec::new(),
+                                    type_param_bounds: Vec::new(),
                                     params: resolved_params,
                                     return_type: resolved_return_type,
                                 },
@@ -552,6 +566,7 @@ impl<'a> ProgramInfo<'a> {
                             method.name.clone(),
                             FunctionSignature {
                                 type_params: Vec::new(),
+                                type_param_bounds: Vec::new(),
                                 params: method
                                     .params
                                     .iter()
@@ -583,6 +598,7 @@ impl<'a> ProgramInfo<'a> {
                             item.span,
                             diagnostics,
                         );
+                        info.trait_impls.insert((self_type.describe(), trait_name));
                     }
                 }
             }
@@ -845,6 +861,26 @@ impl<'a> ProgramInfo<'a> {
         self.named_key_candidate_exists(name, current_unit_path, &self.functions)
     }
 
+    pub(super) fn function_signature_for_definition(
+        &self,
+        name: &str,
+        current_unit_path: &str,
+    ) -> Option<&FunctionSignature> {
+        if let Some(signature) = self.functions.get(name) {
+            return Some(signature);
+        }
+
+        if self.module_mode
+            && !name.contains('.')
+            && let Some(unit) = self.unit_context(current_unit_path)
+            && let Some(module_path) = &unit.module_path
+        {
+            return self.functions.get(&format!("{module_path}.{name}"));
+        }
+
+        None
+    }
+
     fn generic_type_arity(&self, ty: &Type) -> Option<(&'static str, String, usize)> {
         match ty {
             Type::Struct(name) => self
@@ -901,6 +937,44 @@ impl<'a> ProgramInfo<'a> {
         })
     }
 
+    fn resolve_type_param_bounds(
+        &self,
+        type_params: &[String],
+        bounds: &[crate::ast::TypeParamBound],
+        current_unit_path: &str,
+        diagnostics: &mut Vec<Diagnostic>,
+    ) -> Vec<TypeParamBoundInfo> {
+        let mut resolved = Vec::new();
+        for bound in bounds {
+            if !type_params.iter().any(|param| param == &bound.type_param) {
+                diagnostics.push(
+                    Diagnostic::new(
+                        "S0058",
+                        format!(
+                            "trait bound references unknown generic type parameter `{}`",
+                            bound.type_param
+                        ),
+                        self.source,
+                        bound.span,
+                    )
+                    .with_suggestion("bind only type parameters declared in this function"),
+                );
+                continue;
+            }
+
+            let Some(trait_name) =
+                self.resolve_trait_ref(&bound.trait_ref, current_unit_path, diagnostics)
+            else {
+                continue;
+            };
+            resolved.push(TypeParamBoundInfo {
+                type_param: bound.type_param.clone(),
+                trait_name,
+            });
+        }
+        resolved
+    }
+
     pub(super) fn method_signature(
         &self,
         receiver_type: &Type,
@@ -908,6 +982,28 @@ impl<'a> ProgramInfo<'a> {
     ) -> Option<&MethodSignature> {
         self.methods
             .get(&format!("{}.{}", receiver_type.describe(), method))
+    }
+
+    pub(super) fn type_satisfies_trait_bound(&self, ty: &Type, trait_name: &str) -> bool {
+        self.trait_impls
+            .contains(&(ty.describe(), trait_name.to_string()))
+    }
+
+    pub(super) fn trait_bound_method_signature(
+        &self,
+        type_param: &str,
+        method: &str,
+        active_bounds: &[TypeParamBoundInfo],
+    ) -> Option<FunctionSignature> {
+        active_bounds
+            .iter()
+            .filter(|bound| bound.type_param == type_param)
+            .find_map(|bound| {
+                self.traits
+                    .get(&bound.trait_name)
+                    .and_then(|trait_info| trait_info.methods.get(method))
+                    .cloned()
+            })
     }
 
     fn resolve_named_key<T>(

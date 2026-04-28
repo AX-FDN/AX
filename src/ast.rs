@@ -49,6 +49,8 @@ pub enum ItemKind {
     Function {
         name: String,
         type_params: Vec<String>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        type_param_bounds: Vec<TypeParamBound>,
         params: Vec<Param>,
         return_type: TypeRef,
         body: Block,
@@ -78,6 +80,13 @@ pub enum ItemKind {
 pub struct Param {
     pub name: String,
     pub ty: TypeRef,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct TypeParamBound {
+    pub type_param: String,
+    pub trait_ref: TypeRef,
     pub span: Span,
 }
 

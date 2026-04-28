@@ -27,13 +27,14 @@ pub(super) use super::helpers::{
     binary_op_name, type_mismatch_suggestion, type_name_as_value_diagnostic,
 };
 use super::program_info::ProgramInfo;
-use super::types::Type;
+use super::types::{Type, TypeParamBoundInfo};
 use names::Binding;
 
 pub(super) struct TypeChecker<'a, 'b> {
     info: &'a ProgramInfo<'a>,
     return_type: Type,
     current_unit_path: String,
+    active_type_param_bounds: Vec<TypeParamBoundInfo>,
     scopes: Vec<HashMap<String, Binding>>,
     loop_depth: usize,
     diagnostics: &'b mut Vec<Diagnostic>,
@@ -44,12 +45,14 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
         info: &'a ProgramInfo<'a>,
         return_type: Type,
         current_unit_path: String,
+        active_type_param_bounds: Vec<TypeParamBoundInfo>,
         diagnostics: &'b mut Vec<Diagnostic>,
     ) -> Self {
         Self {
             info,
             return_type,
             current_unit_path,
+            active_type_param_bounds,
             scopes: vec![HashMap::new()],
             loop_depth: 0,
             diagnostics,

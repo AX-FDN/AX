@@ -16,15 +16,16 @@
 - `if`、`while`、`for` 必须写成带括号的头部：`if (cond) { ... }`、`while (cond) { ... }`、`for (init; cond; step) { ... }`、`for (let value: T in values) { ... }`
 - `break;` 当前已支持，可用于提前退出最近一层 `while` 或 `for`
 - `continue;` 当前已支持，可用于跳过最近一层 `while` 或 `for` 的本次迭代并进入下一轮
-- `match (...) { ... }` 当前已支持最小语句形态、表达式前三刀，以及最终裸标识符绑定模式、字符串字面量 pattern 与第一版 payload enum pattern；模式当前支持 `true` / `false`、整数、字符串、枚举值、最终 `_`、最终裸标识符（如 `other`），以及 `Enum.Variant(name)` / `Enum.Variant(_)`
+- `match (...) { ... }` 当前已支持语句形态、表达式形态、最终裸标识符绑定模式、字符串字面量 pattern 与 payload enum pattern；模式当前支持 `true` / `false`、整数、字符串、枚举值、最终 `_`、最终裸标识符（如 `other`），以及 `Enum.Variant(name)` / `Enum.Variant(_)`
 - 逻辑运算当前已支持 `&&` 与 `||`，并按短路语义执行
 - 余数运算 `%` 当前已支持，且当前只接受 `i32` 操作数
 - 枚举值必须写成 `EnumName.Variant`；如果该 variant 声明了 payload，则当前写成 `EnumName.Variant(value)`
-- 第一版方法当前写成 `impl Type { fn method(self: Type, ...) -> Ret { ... } }`，调用写成 `value.method(...)`
-- 第一版 trait 当前写成 `trait Name { fn method(self: Self) -> Ret; }`，实现写成 `impl Name for Type { ... }`
-- 第一版泛型当前支持泛型结构体：`struct Box<T> { value: T }`，使用时写成 `Box<i32>`；结构体字面量仍写成 `Box { value: 1 }`
-- 第一版泛型函数当前支持由实参推断类型参数：`fn identity<T>(value: T) -> T { return value; }`
-- 第一版泛型 enum 当前支持 Result-like 类型：`enum Result<T, E> { Ok(T), Err(E) }`，使用时写成 `Result<i32, string>`
+- 方法当前写成 `impl Type { fn method(self: Type, ...) -> Ret { ... } }`，调用写成 `value.method(...)`
+- trait 当前写成 `trait Name { fn method(self: Self) -> Ret; }`，实现写成 `impl Name for Type { ... }`
+- 泛型当前支持泛型结构体：`struct Box<T> { value: T }`，使用时写成 `Box<i32>`；结构体字面量仍写成 `Box { value: 1 }`
+- 泛型函数当前支持由实参推断类型参数：`fn identity<T>(value: T) -> T { return value; }`
+- 泛型函数支持单 trait bound：`fn render<T: Label>(value: T) -> string { return value.label(); }`
+- 泛型 enum 当前支持 Result-like 类型：`enum Result<T, E> { Ok(T), Err(E) }`，使用时写成 `Result<i32, string>`
 - 可写目标当前支持嵌套路径：`point.x = expr;`、`outer.inner.value = expr;`、`tokens[index].value = expr;`
 
 ## 2. 顶层声明
@@ -37,11 +38,19 @@ fn add(left: i32, right: i32) -> i32 {
 }
 ```
 
-泛型函数第一刀：
+泛型函数：
 
 ```ax
 fn identity<T>(value: T) -> T {
     return value;
+}
+```
+
+带 trait bound 的泛型函数：
+
+```ax
+fn render<T: Label>(value: T) -> string {
+    return value.label();
 }
 ```
 
@@ -54,7 +63,7 @@ struct Point {
 }
 ```
 
-泛型结构体第一刀：
+泛型结构体：
 
 ```ax
 struct Box<T> {
@@ -84,7 +93,7 @@ enum Result {
 }
 ```
 
-泛型 enum / Result-like 类型第一刀：
+泛型 enum / Result-like 类型：
 
 ```ax
 enum Result<T, E> {
@@ -100,7 +109,7 @@ fn value_or_zero(result: Result<i32, string>) -> i32 {
 }
 ```
 
-第一版方法：
+方法：
 
 ```ax
 struct Point {
@@ -115,7 +124,7 @@ impl Point {
 }
 ```
 
-第一版 trait / interface：
+trait / interface：
 
 ```ax
 trait Label {
@@ -163,7 +172,7 @@ import lib.report;
 
 当前没有：
 
-- 泛型方法、trait bounds / where 约束
+- 泛型方法、where 约束、多 trait bound、泛型 trait、泛型 impl
 - `Option` / `Result` 的完整表面语法
 
 补充说明：
@@ -245,7 +254,7 @@ for (let mut i: i32 = 0; i < 3; i = i + 1) {
 }
 ```
 
-第一版 `for in`：
+`for in`：
 
 ```ax
 for (let value: i32 in values) {
@@ -253,7 +262,7 @@ for (let value: i32 in values) {
 }
 ```
 
-- 第一版 `for in` 当前只支持数组 `[T; N]` 与 slice `[T]`
+- `for in` 当前只支持数组 `[T; N]` 与 slice `[T]`
 - loop variable 仍要求显式类型：`let value: T`
 - 如果需要更底层控制，仍可退回 `for (init; cond; step)`
 
@@ -444,16 +453,18 @@ module_decl       := "module" qualified_name ";"
 import_decl       := "import" qualified_name ";"
 item              := function | struct_decl | enum_decl | trait_decl | impl_decl
 
-function          := "fn" IDENT generic_params? "(" param_list? ")" "->" type_ref block
+function          := "fn" IDENT function_generic_params? "(" param_list? ")" "->" type_ref block
 param_list        := param ("," param)*
 param             := IDENT ":" type_ref
 
-struct_decl       := "struct" IDENT generic_params? "{" struct_field_list? "}"
-generic_params    := "<" IDENT ("," IDENT)* ">"
+struct_decl       := "struct" IDENT plain_generic_params? "{" struct_field_list? "}"
+function_generic_params := "<" function_generic_param ("," function_generic_param)* ">"
+function_generic_param  := IDENT (":" type_ref)?
+plain_generic_params    := "<" IDENT ("," IDENT)* ">"
 struct_field_list := struct_field ("," struct_field)* ","?
 struct_field      := IDENT ":" type_ref
 
-enum_decl         := "enum" IDENT "{" enum_variant_list? "}"
+enum_decl         := "enum" IDENT plain_generic_params? "{" enum_variant_list? "}"
 enum_variant_list := enum_variant ("," enum_variant)* ","?
 enum_variant      := IDENT ("(" type_ref ")")?
 
@@ -553,7 +564,7 @@ array_type        := "[" type_ref ";" INT "]"
 - 只读切片仍然不能写入，因此 `view[index] = expr;` 和 `view[index].field = expr;` 都会被拒绝
 - `break;` 只能出现在 `while` 或 `for` 的循环体内
 - `continue;` 只能出现在 `while` 或 `for` 的循环体内
-- `match` 当前支持语句形态、表达式前三刀、最终绑定 catch-all 与第一版 payload enum pattern
+- `match` 当前支持语句形态、表达式形态、最终绑定 catch-all 与 payload enum pattern
 - `match` 模式当前只支持 `bool`、`i32`、枚举值、最终 `_`、最终裸标识符绑定，以及 `Enum.Variant(name)` / `Enum.Variant(_)`
 - `_` 与裸标识符绑定都属于 catch-all，必须出现在最后一个 arm
 - `match` 要求穷尽：`bool` 必须覆盖 `true/false` 或最终 catch-all，枚举必须覆盖全部 variant 或最终 catch-all，`i32` 当前必须以 `_` 或最终绑定兜底
@@ -605,7 +616,7 @@ array_type        := "[" type_ref ";" INT "]"
 
 - 异常
 - async / await
-- 泛型方法、trait bounds / where 约束
+- 泛型方法、where 约束、多 trait bound、泛型 trait、泛型 impl
 - 宏
 - 原生后端
 
@@ -614,13 +625,13 @@ array_type        := "[" type_ref ";" INT "]"
 - 空数组字面量 `[]` 不是“完全不支持”。
 - 当前只支持带显式零长度数组上下文的写法：`let values: [i32; 0] = [];`
 - 如果上下文不是零长度数组，例如 `let values: [i32; 1] = [];`，会报 `S0032`。
-- `match` 当前是 `v2` 的前三小步加一项轻量增强：已支持表达式形态、最终绑定模式、字符串字面量 pattern 与第一版 payload enum pattern，但仍不支持解构、guard、多模式合并，表达式形态也还不支持 block-valued arm。
-- `module / import` 当前是最小第一版：不支持 alias、wildcard import、`pub`、包管理与远程依赖。
-- `impl / methods` 当前是第一刀：支持值方法与显式 `self: Type` 参数；暂不支持泛型 impl、静态方法、可变接收者或方法重载。
-- `trait / interface` 当前是第一刀：支持 trait 方法签名、`impl Trait for Type`、缺失方法检查、签名匹配检查，以及 trait impl 方法作为普通方法调用；暂不支持 trait bounds、动态派发、关联类型、默认方法或泛型 trait。
-- `generic struct` 当前是第一刀：支持 `struct Box<T>`、`Box<i32>` 类型引用、字段推断、字段读取与可变字段写入；暂不支持 trait bounds 或 where 约束。
-- `generic function` 当前是第一刀：支持 `fn identity<T>(value: T) -> T` 并由调用实参推断 `T`；暂不支持显式 turbofish、泛型方法、trait bounds 或 where 约束。
-- `generic enum` 当前是第一刀：支持 `enum Result<T, E> { Ok(T), Err(E) }`、`Result<i32, string>`、payload 构造与 `match` payload 绑定；暂不支持 trait bounds、where 约束、多 payload tuple variant 或命名 payload 字段。
+- `match` 当前已支持表达式形态、最终绑定模式、字符串字面量 pattern 与 payload enum pattern，但仍不支持解构、guard、多模式合并，表达式形态也还不支持 block-valued arm。
+- `module / import` 当前支持显式模块声明与显式导入；不支持 alias、wildcard import、`pub`、包管理与远程依赖。
+- `impl / methods` 当前支持值方法与显式 `self: Type` 参数；暂不支持泛型 impl、静态方法、可变接收者或方法重载。
+- `trait / interface` 当前支持 trait 方法签名、`impl Trait for Type`、缺失方法检查、签名匹配检查、trait impl 方法作为普通方法调用，以及泛型函数上的单 trait bound；暂不支持动态派发、关联类型、默认方法、泛型 trait 或泛型 impl。
+- `generic struct` 当前支持 `struct Box<T>`、`Box<i32>` 类型引用、字段推断、字段读取与可变字段写入；暂不支持 trait bounds 或 where 约束。
+- `generic function` 当前支持 `fn identity<T>(value: T) -> T` 并由调用实参推断 `T`；也支持 `fn render<T: Label>(value: T) -> string` 这类单 trait bound；暂不支持显式 turbofish、泛型方法、where 约束或多 trait bound。
+- `generic enum` 当前支持 `enum Result<T, E> { Ok(T), Err(E) }`、`Result<i32, string>`、payload 构造与 `match` payload 绑定；暂不支持 trait bounds、where 约束、多 payload tuple variant 或命名 payload 字段。
 
 ## 9. 给 AI 的直接提示词
 
@@ -645,6 +656,7 @@ Rules:
 - Enum values must use `EnumName.Variant` or `EnumName.Variant(value)` when the variant declares a payload.
 - Methods are declared in `impl Type { fn name(self: Type, ...) -> Ret { ... } }` blocks and called as `value.name(...)`.
 - Traits are declared as `trait Name { fn method(self: Self) -> Ret; }` and implemented as `impl Name for Type { ... }`.
+- Generic functions may use a single trait bound such as `fn render<T: Label>(value: T) -> string { return value.label(); }`.
 - Construct structs with TypeName { field: expr, ... }.
 - Use for loops only as `for (init; condition; step) { ... }` or `for (let value: T in values) { ... }`.
 - Read-only slices are allowed as [Type] and values[start:end].
@@ -655,7 +667,7 @@ Rules:
 - In project mode, support sources may declare `module ...;` and files may use explicit `import module.path;`.
 - Generic structs may be declared as `struct Box<T> { value: T }` and used in type positions like `Box<i32>`; construct them with normal struct literals like `Box { value: 1 }`.
 - Generic functions may be declared as `fn identity<T>(value: T) -> T { return value; }`; type parameters are inferred from arguments.
-- Do not use exceptions, async, generic methods, generic enum declarations, explicit turbofish calls, trait bounds, where clauses, dynamic dispatch, associated types, default trait methods, destructuring match patterns, match guards, multi-pattern match arms, named payload fields, or multi-payload enum variants.
+- Do not use exceptions, async, generic methods, explicit turbofish calls, where clauses, multiple trait bounds, dynamic dispatch, associated types, default trait methods, generic traits, generic impls, destructuring match patterns, match guards, multi-pattern match arms, named payload fields, or multi-payload enum variants.
 - Use [] only when the target type is explicitly a zero-length array like [i32; 0].
 - Return 0 from main on success unless a different exit code is explicitly needed.
 ```

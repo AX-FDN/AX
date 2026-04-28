@@ -1,0 +1,23 @@
+trait Label {
+    fn label(self: Self) -> string;
+}
+
+struct Command {
+    name: string,
+}
+
+impl Label for Command {
+    fn label(self: Command) -> string {
+        return self.name;
+    }
+}
+
+fn render<T: Label>(value: T) -> string {
+    return value.label();
+}
+
+fn main() -> i32 {
+    let command: Command = Command { name: "build" };
+    println(render(command));
+    return 5;
+}

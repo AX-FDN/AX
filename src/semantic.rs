@@ -96,6 +96,10 @@ fn check_function_body(
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     let current_unit_path = source.display_path_for_offset(span_start).to_string();
+    let active_type_param_bounds = program_info
+        .function_signature_for_definition(name, &current_unit_path)
+        .map(|signature| signature.type_param_bounds.clone())
+        .unwrap_or_default();
     let resolved_return_type = program_info.resolve_type_ref_with_params(
         return_type,
         &current_unit_path,
@@ -106,6 +110,7 @@ fn check_function_body(
         program_info,
         resolved_return_type,
         current_unit_path.clone(),
+        active_type_param_bounds,
         diagnostics,
     );
 
@@ -1059,6 +1064,72 @@ impl Label for Command {
 
 fn main() -> i32 {
     return 0;
+}
+",
+        );
+        assert!(codes.iter().any(|code| code == "S0059"));
+    }
+
+    #[test]
+    fn accepts_generic_function_trait_bounds() {
+        let codes = check(
+            "\
+trait Label {
+    fn label(self: Self) -> string;
+}
+
+struct Command { name: string }
+
+impl Label for Command {
+    fn label(self: Command) -> string {
+        return self.name;
+    }
+}
+
+fn render<T: Label>(value: T) -> string {
+    return value.label();
+}
+
+fn main() -> i32 {
+    let command: Command = Command { name: \"build\" };
+    println(render(command));
+    return string_len(render(Command { name: \"check\" }));
+}
+",
+        );
+        assert!(codes.is_empty(), "unexpected diagnostics: {codes:?}");
+    }
+
+    #[test]
+    fn reports_generic_function_trait_bound_mismatch() {
+        let codes = check(
+            "\
+trait Label {
+    fn label(self: Self) -> string;
+}
+
+fn render<T: Label>(value: T) -> string {
+    return value.label();
+}
+
+fn main() -> i32 {
+    return string_len(render(1));
+}
+",
+        );
+        assert!(codes.iter().any(|code| code == "S0059"));
+    }
+
+    #[test]
+    fn reports_unknown_trait_in_generic_function_bound() {
+        let codes = check(
+            "\
+fn render<T: MissingTrait>(value: T) -> T {
+    return value;
+}
+
+fn main() -> i32 {
+    return render(1);
 }
 ",
         );

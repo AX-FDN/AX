@@ -26,6 +26,8 @@ pub enum ItemKind {
     Function {
         name: String,
         type_params: Vec<String>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        type_param_bounds: Vec<TypeParamBound>,
         params: Vec<Param>,
         return_type: Type,
         body: Block,
@@ -46,6 +48,13 @@ pub enum ItemKind {
 pub struct Param {
     pub name: String,
     pub ty: Type,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct TypeParamBound {
+    pub type_param: String,
+    pub trait_name: String,
     pub span: Span,
 }
 
@@ -291,6 +300,7 @@ struct LoweringContext<'a> {
     function_names: HashSet<String>,
     struct_names: HashSet<String>,
     enum_names: HashSet<String>,
+    trait_names: HashSet<String>,
     enum_variant_payloads: HashMap<String, HashMap<String, Type>>,
     next_match_temp: Cell<u32>,
     next_for_in_temp: Cell<u32>,
@@ -310,6 +320,7 @@ impl<'a> LoweringContext<'a> {
         let mut function_names = HashSet::new();
         let mut struct_names = HashSet::new();
         let mut enum_names = HashSet::new();
+        let mut trait_names = HashSet::new();
 
         for item in &program.items {
             let canonical_name = canonical_item_name(source, &unit_modules, item);
@@ -323,7 +334,9 @@ impl<'a> LoweringContext<'a> {
                 ast::ItemKind::Enum { .. } => {
                     enum_names.insert(canonical_name);
                 }
-                ast::ItemKind::Trait { .. } => {}
+                ast::ItemKind::Trait { .. } => {
+                    trait_names.insert(canonical_name);
+                }
                 ast::ItemKind::Impl { .. } => {}
             }
         }
@@ -334,6 +347,7 @@ impl<'a> LoweringContext<'a> {
             function_names,
             struct_names,
             enum_names,
+            trait_names,
             enum_variant_payloads: HashMap::new(),
             next_match_temp: Cell::new(0),
             next_for_in_temp: Cell::new(0),
@@ -381,12 +395,17 @@ impl<'a> LoweringContext<'a> {
             ast::ItemKind::Function {
                 name,
                 type_params,
+                type_param_bounds,
                 params,
                 return_type,
                 body,
             } => ItemKind::Function {
                 name: self.canonical_name(name, item.span),
                 type_params: type_params.clone(),
+                type_param_bounds: type_param_bounds
+                    .iter()
+                    .map(|bound| self.lower_type_param_bound(bound))
+                    .collect::<Result<Vec<_>, Diagnostic>>()?,
                 params: params
                     .iter()
                     .map(|param| {
@@ -452,6 +471,7 @@ impl<'a> LoweringContext<'a> {
                             kind: ItemKind::Function {
                                 name: format!("{method_prefix}.{}", method.name),
                                 type_params: Vec::new(),
+                                type_param_bounds: Vec::new(),
                                 params: method
                                     .params
                                     .iter()
@@ -545,6 +565,27 @@ impl<'a> LoweringContext<'a> {
                 ty.span,
             )),
         }
+    }
+
+    fn lower_type_param_bound(
+        &self,
+        bound: &ast::TypeParamBound,
+    ) -> Result<TypeParamBound, Diagnostic> {
+        let Some(trait_name) = bound.trait_ref.direct_name() else {
+            return Err(self.lowering_error(
+                "H0001",
+                "cannot lower invalid trait bound into HIR",
+                bound.span,
+            ));
+        };
+        let trait_name = self
+            .resolve_canonical_name(trait_name, bound.trait_ref.span, &self.trait_names)
+            .unwrap_or_else(|| trait_name.to_string());
+        Ok(TypeParamBound {
+            type_param: bound.type_param.clone(),
+            trait_name,
+            span: bound.span,
+        })
     }
 
     fn lower_block(&self, block: &ast::Block) -> Result<Block, Diagnostic> {

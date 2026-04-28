@@ -3,7 +3,7 @@ use std::fmt::Write;
 use crate::ast::{
     BinaryOp, Block, Expr, ExprKind, ImplMethod, Item, ItemKind, MatchArm, MatchExprArm,
     MatchPattern, MatchPatternKind, Param, Program, Stmt, StmtKind, StructField,
-    StructLiteralField, TraitMethod, TypeRef, UnaryOp,
+    StructLiteralField, TraitMethod, TypeParamBound, TypeRef, UnaryOp,
 };
 use crate::diagnostics::Diagnostic;
 use crate::lexer::tokenize;
@@ -81,10 +81,18 @@ impl Formatter {
             ItemKind::Function {
                 name,
                 type_params,
+                type_param_bounds,
                 params,
                 return_type,
                 body,
-            } => self.format_function_item(name, type_params, params, return_type, body),
+            } => self.format_function_item(
+                name,
+                type_params,
+                type_param_bounds,
+                params,
+                return_type,
+                body,
+            ),
             ItemKind::Struct {
                 name,
                 type_params,
@@ -108,11 +116,16 @@ impl Formatter {
         &mut self,
         name: &str,
         type_params: &[String],
+        type_param_bounds: &[TypeParamBound],
         params: &[Param],
         return_type: &TypeRef,
         body: &Block,
     ) {
-        let _ = write!(self.out, "fn {name}{}(", format_type_params(type_params));
+        let _ = write!(
+            self.out,
+            "fn {name}{}(",
+            format_function_type_params(type_params, type_param_bounds)
+        );
         for (index, param) in params.iter().enumerate() {
             if index > 0 {
                 self.out.push_str(", ");
@@ -575,6 +588,28 @@ fn format_type_params(type_params: &[String]) -> String {
     } else {
         format!("<{}>", type_params.join(", "))
     }
+}
+
+fn format_function_type_params(
+    type_params: &[String],
+    type_param_bounds: &[TypeParamBound],
+) -> String {
+    if type_params.is_empty() {
+        return String::new();
+    }
+
+    let params = type_params
+        .iter()
+        .map(|param| {
+            type_param_bounds
+                .iter()
+                .find(|bound| bound.type_param == *param)
+                .map(|bound| format!("{param}: {}", format_type_ref(&bound.trait_ref)))
+                .unwrap_or_else(|| param.clone())
+        })
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!("<{params}>")
 }
 
 fn expr_precedence(expr: &Expr) -> u8 {

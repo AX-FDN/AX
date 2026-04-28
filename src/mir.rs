@@ -4,7 +4,7 @@ use serde::Serialize;
 
 use crate::hir::{self};
 pub use crate::hir::{
-    BinaryOp, EnumVariant, EnumVariantPayloadPattern, StructField, Type, UnaryOp,
+    BinaryOp, EnumVariant, EnumVariantPayloadPattern, StructField, Type, TypeParamBound, UnaryOp,
 };
 use crate::source::Span;
 
@@ -26,6 +26,8 @@ pub enum ItemKind {
     Function {
         name: String,
         type_params: Vec<String>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        type_param_bounds: Vec<TypeParamBound>,
         params: Vec<Param>,
         return_type: Type,
         locals: Vec<Local>,
@@ -283,6 +285,7 @@ fn lower_item(item: &hir::Item) -> Result<Item, String> {
         hir::ItemKind::Function {
             name,
             type_params,
+            type_param_bounds,
             params,
             return_type,
             body,
@@ -305,6 +308,7 @@ fn lower_item(item: &hir::Item) -> Result<Item, String> {
             ItemKind::Function {
                 name: name.clone(),
                 type_params: type_params.clone(),
+                type_param_bounds: type_param_bounds.clone(),
                 params,
                 return_type: return_type.clone(),
                 locals,

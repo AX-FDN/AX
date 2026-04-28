@@ -2,7 +2,7 @@ use crate::ast::{
     BinaryOp, Block, EnumVariant, EnumVariantPayloadPattern, Expr, ExprKind, ForInBinding,
     ImplMethod, ImportDecl, Item, ItemKind, MatchArm, MatchExprArm, MatchPattern, MatchPatternKind,
     ModuleDecl, Param, Program, SourceUnit, Stmt, StmtKind, StructField, StructLiteralField,
-    TraitMethod, TypeRef, UnaryOp,
+    TraitMethod, TypeParamBound, TypeRef, UnaryOp,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticKind};
 use crate::source::{SourceFile, Span};
@@ -150,7 +150,7 @@ impl<'a> Parser<'a> {
 
     fn parse_function_item(&mut self, start: usize) -> Item {
         let name = self.expect_identifier("expected a function name");
-        let type_params = self.parse_type_params();
+        let (type_params, type_param_bounds) = self.parse_function_type_params();
         self.expect(
             TokenKind::LParen,
             "expected `(` after function name",
@@ -169,12 +169,46 @@ impl<'a> Parser<'a> {
             kind: ItemKind::Function {
                 name: name.lexeme,
                 type_params,
+                type_param_bounds,
                 params,
                 return_type,
                 body: body.clone(),
             },
             span: Span::new(start, body.span.end),
         }
+    }
+
+    fn parse_function_type_params(&mut self) -> (Vec<String>, Vec<TypeParamBound>) {
+        if !self.matches(&[TokenKind::Less]) {
+            return (Vec::new(), Vec::new());
+        }
+
+        let mut params = Vec::new();
+        let mut bounds = Vec::new();
+        loop {
+            let param = self.expect_identifier("expected a generic type parameter name");
+            let param_name = param.lexeme;
+            if self.matches(&[TokenKind::Colon]) {
+                let trait_ref = self.parse_type();
+                bounds.push(TypeParamBound {
+                    type_param: param_name.clone(),
+                    span: Span::new(param.span.start, trait_ref.span.end),
+                    trait_ref,
+                });
+            }
+            params.push(param_name);
+
+            if !self.matches(&[TokenKind::Comma]) {
+                break;
+            }
+        }
+
+        self.expect(
+            TokenKind::Greater,
+            "expected `>` after generic type parameters",
+            &["`>`"],
+        );
+        (params, bounds)
     }
 
     fn parse_struct_item(&mut self, start: usize) -> Item {
