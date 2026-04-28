@@ -3,7 +3,7 @@
 
 # AX
 
-### 面向自回归 Coding AI 的 AI-first 工具语言，向后端语言演进
+### 面向 Coding Agent 的 AI-first 语言
 
 [![License](https://img.shields.io/github/license/AX-FDN/AX)](./LICENSE)
 [![Prototype](https://img.shields.io/badge/status-prototype-0ea5e9)](./PLAN.md)
@@ -11,7 +11,7 @@
 
 </div>
 
-AX 是一门面向自回归 Coding AI 的 AI-first 工具语言，也是一套围绕这门语言持续工程化的编译器、运行时与执行工具链。
+AX 是一门面向自回归 Coding AI 的 AI-first 语言，也是一套围绕这门语言持续工程化的编译器、运行时与执行工具链。
 它把显式语法、规范化源码形态、结构化诊断、修复反馈契约、架构上下文协议与 benchmark 证据链并入同一套语言系统，目标是让 agent 生成、修复、理解和演进项目时更稳定。
 
 AX 当前从 CLI 工具、自动化脚本、批处理任务、构建辅助和后端 worker 外围工具切入。
@@ -37,19 +37,19 @@ AX 关注的不只是“模型能不能写出代码”，更关注三件更硬�
 
 ## 项目导航
 
-| 你想知道什么 | 该看哪里 |
-| --- | --- |
-| 项目是什么、为什么值得关注 | [`README.md`](./README.md) |
+| 你想知道什么                | 该看哪里                                                           |
+| --------------------------- | ------------------------------------------------------------------ |
+| 项目是什么、为什么值得关注  | [`README.md`](./README.md)                                         |
 | AI-first 具体先落在哪些场景 | [`docs/application-scenarios.md`](./docs/application-scenarios.md) |
-| 当前已经做到哪了 | [`PROJECT_FACTS.md`](./PROJECT_FACTS.md) |
-| 当前 benchmark 证据链 | [`docs/benchmark-showcase.md`](./docs/benchmark-showcase.md) |
-| 下一轮修复证据展示层 | [`docs/repair-archaeology.md`](./docs/repair-archaeology.md) |
-| 对外怎么准确介绍 | [`docs/public-claims.md`](./docs/public-claims.md) |
-| 本机和 CI 应该跑什么 | [`docs/validation-matrix.md`](./docs/validation-matrix.md) |
-| 外部 JSON / artifact 契约 | [`docs/interface-contracts.md`](./docs/interface-contracts.md) |
-| 全项目按什么阶段推进 | [`PLAN.md`](./PLAN.md) |
-| 现在具体在做什么 | [`WORKLIST.md`](./WORKLIST.md) |
-| 哪些事情已经做完 | [`ARCHIVE.md`](./ARCHIVE.md) |
+| 当前已经做到哪了            | [`PROJECT_FACTS.md`](./PROJECT_FACTS.md)                           |
+| 当前 benchmark 证据链       | [`docs/benchmark-showcase.md`](./docs/benchmark-showcase.md)       |
+| 下一轮修复证据展示层        | [`docs/repair-archaeology.md`](./docs/repair-archaeology.md)       |
+| 对外怎么准确介绍            | [`docs/public-claims.md`](./docs/public-claims.md)                 |
+| 本机和 CI 应该跑什么        | [`docs/validation-matrix.md`](./docs/validation-matrix.md)         |
+| 外部 JSON / artifact 契约   | [`docs/interface-contracts.md`](./docs/interface-contracts.md)     |
+| 全项目按什么阶段推进        | [`PLAN.md`](./PLAN.md)                                             |
+| 现在具体在做什么            | [`WORKLIST.md`](./WORKLIST.md)                                     |
+| 哪些事情已经做完            | [`ARCHIVE.md`](./ARCHIVE.md)                                       |
 
 当前仓库的主推进区间仍然是 `P0-P3`，其中 `P2` 是语言内核主增长线，`P1` 是编译器护城河硬化线：
 
@@ -62,29 +62,29 @@ AX 关注的不只是“模型能不能写出代码”，更关注三件更硬�
 
 ## 一眼看懂 AX
 
-| 项目维度 | AX 当前提供什么 |
-| --- | --- |
-| 项目定位 | `AI-first Tool Language -> Backend-capable Language` |
-| 核心问题 | 什么样的语言表面、诊断结构、上下文协议和修复反馈，最适合自回归模型稳定生成、稳定修复和稳定理解项目 |
-| 关键收益 | 提高一次通过率、提高修复成功率、提高多文件项目中的架构理解效率，并把这些能力带入真实后端开发 |
-| 当前主要场景 | agent 生成 CLI 工具、可修复自动化脚本、后端 worker 辅助、compiler-guided repair benchmark |
-| 演进方向 | 标准库、包系统、AOT 后端、后端 worker、服务端基础设施、部分自举 |
-| 当前形态 | 语言前端 + 解释执行 + project mode + structured diagnostics + context + repair benchmark + 标准库试点 |
-| 核心价值 | 把语言本体、编译器反馈、AI 消费链路和未来后端生态放进同一个可运行仓库 |
+| 项目维度     | AX 当前提供什么                                                                                       |
+| ------------ | ----------------------------------------------------------------------------------------------------- |
+| 项目定位     | `AI-first Tool Language -> Backend-capable Language`                                                  |
+| 核心问题     | 什么样的语言表面、诊断结构、上下文协议和修复反馈，最适合自回归模型稳定生成、稳定修复和稳定理解项目    |
+| 关键收益     | 提高一次通过率、提高修复成功率、提高多文件项目中的架构理解效率，并把这些能力带入真实后端开发          |
+| 当前主要场景 | agent 生成 CLI 工具、可修复自动化脚本、后端 worker 辅助、compiler-guided repair benchmark             |
+| 演进方向     | 标准库、包系统、AOT 后端、后端 worker、服务端基础设施、部分自举                                       |
+| 当前形态     | 语言前端 + 解释执行 + project mode + structured diagnostics + context + repair benchmark + 标准库试点 |
+| 核心价值     | 把语言本体、编译器反馈、AI 消费链路和未来后端生态放进同一个可运行仓库                                 |
 
 ## AX 的核心优势
 
-| 优势 | 具体体现 | 对真实使用的意义 |
-| --- | --- | --- |
-| 同时拥有源码、诊断、修复、benchmark | AX 同时定义语法、结构化诊断、AI 反馈字段、repair case 和 compare 链路 | 设计价值可以直接通过工程链路验证 |
-| 对自回归模型原生友好 | 显式类型、较少等价写法、较少隐式规则、`fmt` 驱动的规范化输出 | 更容易提高首轮生成的一次通过率 |
-| 编译器反馈可直接给 Agent 消费 | `rule_id`、`repair_goal`、`fixits`、`context_snippets` 等字段已经进入输出层 | 错误反馈可直接进入自动化修复链 |
-| 架构上下文可直接给 Agent 消费 | `overview / topology / boundaries / flow / symbol / impact / evidence` 七个稳定视图承载同一套六层语义协议 | 多文件项目里的结构理解、边界识别和修改落点判断更稳定 |
-| 修复链不是口头承诺，而是协议闭环 | diagnostics、上下文协议、repair contract、benchmark 共用同一条输入输出链；`-IncludeContext` 已能把 context bundle 导入 repair export | 修复成功率、回归率和上下文价值都可以被实际测量 |
-| 真工具样例已经进入仓库主线 | 仓库里已经有 workspace audit、release snapshot、search report、directory index 等样例 | 可以直接观察 AX 在真实工具型任务上的表达能力 |
-| 多文件工程组织开始成型 | `AX.toml + sources` 已经稳定，第一阶段 `import/module` 已接入主线 | foundation 代码与项目私有逻辑开始拥有清晰边界 |
-| benchmark 证据链是一等公民 | repair cases、adapter spec、export、score、compare、smoke、CI 都在仓库里 | 项目价值可以靠数据、回放和对比来建立 |
-| 修复证据将进入可解释展示层 | `Repair Archaeology v0` 已作为下一轮增长点登记，目标是把 replay / score / compare 变成 case 级 JSON 与 Markdown 修复故事 | 外部读者可以按 case 理解“怎么修、哪里失败、context 是否参与” |
+| 优势                                | 具体体现                                                                                                                             | 对真实使用的意义                                             |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| 同时拥有源码、诊断、修复、benchmark | AX 同时定义语法、结构化诊断、AI 反馈字段、repair case 和 compare 链路                                                                | 设计价值可以直接通过工程链路验证                             |
+| 对自回归模型原生友好                | 显式类型、较少等价写法、较少隐式规则、`fmt` 驱动的规范化输出                                                                         | 更容易提高首轮生成的一次通过率                               |
+| 编译器反馈可直接给 Agent 消费       | `rule_id`、`repair_goal`、`fixits`、`context_snippets` 等字段已经进入输出层                                                          | 错误反馈可直接进入自动化修复链                               |
+| 架构上下文可直接给 Agent 消费       | `overview / topology / boundaries / flow / symbol / impact / evidence` 七个稳定视图承载同一套六层语义协议                            | 多文件项目里的结构理解、边界识别和修改落点判断更稳定         |
+| 修复链不是口头承诺，而是协议闭环    | diagnostics、上下文协议、repair contract、benchmark 共用同一条输入输出链；`-IncludeContext` 已能把 context bundle 导入 repair export | 修复成功率、回归率和上下文价值都可以被实际测量               |
+| 真工具样例已经进入仓库主线          | 仓库里已经有 workspace audit、release snapshot、search report、directory index 等样例                                                | 可以直接观察 AX 在真实工具型任务上的表达能力                 |
+| 多文件工程组织开始成型              | `AX.toml + sources` 已经稳定，第一阶段 `import/module` 已接入主线                                                                    | foundation 代码与项目私有逻辑开始拥有清晰边界                |
+| benchmark 证据链是一等公民          | repair cases、adapter spec、export、score、compare、smoke、CI 都在仓库里                                                             | 项目价值可以靠数据、回放和对比来建立                         |
+| 修复证据将进入可解释展示层          | `Repair Archaeology v0` 已作为下一轮增长点登记，目标是把 replay / score / compare 变成 case 级 JSON 与 Markdown 修复故事             | 外部读者可以按 case 理解“怎么修、哪里失败、context 是否参与” |
 
 当前仓库内可复现 benchmark 快照见 [`docs/benchmark-showcase.md`](./docs/benchmark-showcase.md)：full manifest 当前有 `30` 个 repair case，deterministic replay 对比为 `cold 23/30`、`base 25/30`、`ai 30/30`。这证明的是 AX 内部修复证据链已经成立；跨语言、跨模型 live benchmark 仍是下一阶段公开证明。
 
@@ -135,12 +135,12 @@ AX 把这些问题收进六层协议上下文里，让项目结构、主流程�
 
 AX 的应用场景，不是抽象地说“AI 会写代码”，而是先落在几类能被快速验证的真实任务里：
 
-| 场景 | AX 解决什么 | 当前对应资产 |
-| --- | --- | --- |
-| Agent-generated CLI tools | 让 agent 生成的小工具能立刻检查、运行、格式化和回归 | `examples/project_text_normalize/`、`examples/project_directory_index/`、`std/` |
-| Repairable automation scripts | 让自动化脚本的错误进入结构化诊断、修复目标和可回放候选链 | `src/ai.rs`、`benchmarks/`、`docs/repair-benchmark.md` |
-| Backend worker utilities | 先承载发布辅助、批处理、报告生成、文件整理、构建辅助这类后端外围工具 | `examples/project_release_promote/`、`examples/project_command_batch/` |
-| Compiler-guided repair benchmarks | 把错误、修复候选、评分、对比和 context 输入做成可验证证据 | `docs/benchmark-showcase.md`、`docs/repair-archaeology.md` |
+| 场景                              | AX 解决什么                                                          | 当前对应资产                                                                    |
+| --------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| Agent-generated CLI tools         | 让 agent 生成的小工具能立刻检查、运行、格式化和回归                  | `examples/project_text_normalize/`、`examples/project_directory_index/`、`std/` |
+| Repairable automation scripts     | 让自动化脚本的错误进入结构化诊断、修复目标和可回放候选链             | `src/ai.rs`、`benchmarks/`、`docs/repair-benchmark.md`                          |
+| Backend worker utilities          | 先承载发布辅助、批处理、报告生成、文件整理、构建辅助这类后端外围工具 | `examples/project_release_promote/`、`examples/project_command_batch/`          |
+| Compiler-guided repair benchmarks | 把错误、修复候选、评分、对比和 context 输入做成可验证证据            | `docs/benchmark-showcase.md`、`docs/repair-archaeology.md`                      |
 
 更完整的场景边界见 [`docs/application-scenarios.md`](./docs/application-scenarios.md)。
 AX 往后端语言方向走的顺序也固定为：先 CLI / worker tools，再 AOT，再 path packages，再 JSON / config / log，再 backend workers，最后才评估 HTTP client/server、async 和网络生态。
@@ -181,14 +181,14 @@ AX 不只输出编译结果和修复反馈，也输出一套专门给 agent 消�
 
 ### 六层协议，一套视图
 
-| 协议层 | 视图 / 命令 | 解决什么问题 | 对 agent 的意义 |
-| --- | --- | --- | --- |
-| 总览层 | `overview` | 这个项目是什么，入口在哪，规模多大 | 3 秒定向，不再全仓乱读 |
-| 结构层 | `topology` | 模块、导入、导出、基础 symbol 关系是什么 | 快速知道该改哪一层 |
-| 边界层 | `boundaries` | 哪些文件触碰了 `fs / process / env / argv` | 给模型一个真实安全网 |
-| 流程层 | `flow` | 主流程从哪里进入，经过哪些关键调用 | 帮模型沿流程追问题 |
-| 任务切片层 | `symbol / impact` | 围绕当前目标符号的一圈上下文与影响面 | 减少无关上下文，控制改动半径 |
-| 证据层 | `evidence` | 改完要看哪些 tests / examples / benchmarks | 让修复进入验证闭环 |
+| 协议层     | 视图 / 命令       | 解决什么问题                               | 对 agent 的意义              |
+| ---------- | ----------------- | ------------------------------------------ | ---------------------------- |
+| 总览层     | `overview`        | 这个项目是什么，入口在哪，规模多大         | 3 秒定向，不再全仓乱读       |
+| 结构层     | `topology`        | 模块、导入、导出、基础 symbol 关系是什么   | 快速知道该改哪一层           |
+| 边界层     | `boundaries`      | 哪些文件触碰了 `fs / process / env / argv` | 给模型一个真实安全网         |
+| 流程层     | `flow`            | 主流程从哪里进入，经过哪些关键调用         | 帮模型沿流程追问题           |
+| 任务切片层 | `symbol / impact` | 围绕当前目标符号的一圈上下文与影响面       | 减少无关上下文，控制改动半径 |
+| 证据层     | `evidence`        | 改完要看哪些 tests / examples / benchmarks | 让修复进入验证闭环           |
 
 ### 统一协议壳层
 
@@ -259,11 +259,7 @@ axc context overview examples/project_module_smoke --json
   },
   "hints": {
     "entrypoints": ["main"],
-    "core_symbols": [
-      "main",
-      "lib.report.build_summary",
-      "lib.report.Summary"
-    ]
+    "core_symbols": ["main", "lib.report.build_summary", "lib.report.Summary"]
   },
   "validation": {
     "recommended_commands": [
@@ -310,10 +306,7 @@ axc context topology examples/project_module_smoke --json
         "module_path": "lib.report",
         "is_entry": false,
         "imports": [],
-        "exports": [
-          "lib.report.Summary",
-          "lib.report.build_summary"
-        ]
+        "exports": ["lib.report.Summary", "lib.report.build_summary"]
       }
     ],
     "module_edges": [
@@ -377,10 +370,7 @@ axc context boundaries examples/project_workspace_search_report --json
     "path": "examples/project_workspace_search_report"
   },
   "facts": {
-    "host_boundary_classes": [
-      "argv",
-      "filesystem"
-    ],
+    "host_boundary_classes": ["argv", "filesystem"],
     "unit_boundary_usage": [
       {
         "unit": "src/main.ax",
@@ -422,18 +412,12 @@ axc context boundaries examples/project_workspace_search_report --json
         "reason": "entry_argument_and_output_boundary"
       }
     ],
-    "safe_logic_units": [
-      "lib/report.ax",
-      "lib/search_totals.ax"
-    ],
+    "safe_logic_units": ["lib/report.ax", "lib/search_totals.ax"],
     "constraint_candidates": [
       {
         "kind": "keep_host_free",
         "target": "lib/report.ax",
-        "evidence": [
-          "host_builtin_count=0",
-          "used_as_shared_logic=true"
-        ]
+        "evidence": ["host_builtin_count=0", "used_as_shared_logic=true"]
       },
       {
         "kind": "entry_only_write",
@@ -493,9 +477,7 @@ axc context flow examples/project_workspace_search_report --json
       "argument_and_directory_validation",
       "file_or_directory_dispatch"
     ],
-    "recursive_symbols": [
-      "search_path"
-    ]
+    "recursive_symbols": ["search_path"]
   },
   "hints": {
     "primary_workload": "recursive_workspace_search_and_report_write"
@@ -543,10 +525,7 @@ axc context symbol examples/project_module_smoke lib.report.build_summary --json
   "hints": {
     "edit_scope": "local",
     "change_risk": "low",
-    "coupled_symbols": [
-      "lib.report.Summary",
-      "main"
-    ]
+    "coupled_symbols": ["lib.report.Summary", "main"]
   },
   "validation": {
     "recommended_commands": [
@@ -582,10 +561,7 @@ axc context impact examples/project_workspace_search_report search_path --json
   },
   "facts": {
     "declared_in": "lib/file_search.ax",
-    "direct_callers": [
-      "main",
-      "search_path"
-    ],
+    "direct_callers": ["main", "search_path"],
     "direct_callees": [
       "fs_is_file",
       "is_searchable_file",
@@ -601,11 +577,7 @@ axc context impact examples/project_workspace_search_report search_path --json
   },
   "hints": {
     "change_risk": "medium_high",
-    "risk_reasons": [
-      "entry_reachable",
-      "recursive_symbol",
-      "host_boundary"
-    ]
+    "risk_reasons": ["entry_reachable", "recursive_symbol", "host_boundary"]
   },
   "validation": {
     "invariants": [
@@ -650,14 +622,8 @@ axc context evidence examples/project_workspace_search_report search_path --json
       "examples/workspace_search_report.ax",
       "examples/project_directory_index"
     ],
-    "related_docs": [
-      "docs/host-runtime-boundary.md",
-      "架构上下文文档.md"
-    ],
-    "related_benchmarks": [
-      "repair-benchmark",
-      "compare-repair-modes"
-    ]
+    "related_docs": ["docs/host-runtime-boundary.md", "架构上下文文档.md"],
+    "related_benchmarks": ["repair-benchmark", "compare-repair-modes"]
   },
   "hints": {
     "best_reading_order": [
@@ -711,30 +677,30 @@ AX 的六层协议上下文，不只是让模型“更快读懂项目”，更�
 
 ## AX 现在已经具备的成熟度
 
-| 方面 | 当前状态 | 仓库位置 |
-| --- | --- | --- |
-| 编译器前端 | 已打通 `Lexer -> Parser -> AST -> HIR -> MIR -> Semantic Check` 主链 | [`src/`](./src/) |
-| 执行能力 | 已支持解释执行，能够运行真实 tool-style examples | [`src/interpreter.rs`](./src/interpreter.rs) |
-| 诊断输出 | 已支持文本诊断、`--json`、`--json --ai` 三层输出 | [`docs/diagnostics-schema.md`](./docs/diagnostics-schema.md) |
-| AI 修复反馈 | 已沉淀 `rule_id / repair_goal / fixits / context_snippets` | [`src/ai.rs`](./src/ai.rs) |
-| 项目组织 | 已支持 `AX.toml + sources` 的 project-backed 多文件项目 | [`src/project.rs`](./src/project.rs) |
-| 模块模式 | 第一阶段 `import/module` 已接入 parser、project、semantic check，并有 smoke 项目验证 | [`examples/project_module_smoke/`](./examples/project_module_smoke/) |
-| AX 侧共享库 | 已沉淀 `foundation/cli / report / text / search / file_kind / workspace`，并启动 `std.cli / std.env / std.fs / std.path / std.process / std.report / std.text / std.workspace` 试点；Std-1 冻结候选已收口 | [`foundation/`](./foundation/) [`std/`](./std/) [`docs/stdlib-minimal-boundary.md`](./docs/stdlib-minimal-boundary.md) |
-| 构建产物 | `build` 已稳定导出 `source.ax`、HIR、MIR、manifest、project-sources 快照 | [`src/build.rs`](./src/build.rs) |
-| benchmark 证据链 | repair cases、adapter、export、score、compare、smoke、CI 均已进入仓库主线 | [`docs/repair-benchmark.md`](./docs/repair-benchmark.md) |
-| 平台支持 | Windows 工作流最完整；Linux 已打通核心 compiler/runtime 命令 | [`docs/platform-support.md`](./docs/platform-support.md) |
+| 方面             | 当前状态                                                                                                                                                                                                  | 仓库位置                                                                                                               |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| 编译器前端       | 已打通 `Lexer -> Parser -> AST -> HIR -> MIR -> Semantic Check` 主链                                                                                                                                      | [`src/`](./src/)                                                                                                       |
+| 执行能力         | 已支持解释执行，能够运行真实 tool-style examples                                                                                                                                                          | [`src/interpreter.rs`](./src/interpreter.rs)                                                                           |
+| 诊断输出         | 已支持文本诊断、`--json`、`--json --ai` 三层输出                                                                                                                                                          | [`docs/diagnostics-schema.md`](./docs/diagnostics-schema.md)                                                           |
+| AI 修复反馈      | 已沉淀 `rule_id / repair_goal / fixits / context_snippets`                                                                                                                                                | [`src/ai.rs`](./src/ai.rs)                                                                                             |
+| 项目组织         | 已支持 `AX.toml + sources` 的 project-backed 多文件项目                                                                                                                                                   | [`src/project.rs`](./src/project.rs)                                                                                   |
+| 模块模式         | 第一阶段 `import/module` 已接入 parser、project、semantic check，并有 smoke 项目验证                                                                                                                      | [`examples/project_module_smoke/`](./examples/project_module_smoke/)                                                   |
+| AX 侧共享库      | 已沉淀 `foundation/cli / report / text / search / file_kind / workspace`，并启动 `std.cli / std.env / std.fs / std.path / std.process / std.report / std.text / std.workspace` 试点；Std-1 冻结候选已收口 | [`foundation/`](./foundation/) [`std/`](./std/) [`docs/stdlib-minimal-boundary.md`](./docs/stdlib-minimal-boundary.md) |
+| 构建产物         | `build` 已稳定导出 `source.ax`、HIR、MIR、manifest、project-sources 快照                                                                                                                                  | [`src/build.rs`](./src/build.rs)                                                                                       |
+| benchmark 证据链 | repair cases、adapter、export、score、compare、smoke、CI 均已进入仓库主线                                                                                                                                 | [`docs/repair-benchmark.md`](./docs/repair-benchmark.md)                                                               |
+| 平台支持         | Windows 工作流最完整；Linux 已打通核心 compiler/runtime 命令                                                                                                                                              | [`docs/platform-support.md`](./docs/platform-support.md)                                                               |
 
 ## 我们现在在做什么
 
 当前主线聚焦把下面几件事做硬：
 
-| 当前主线 | 目的 | 结果会体现在哪里 |
-| --- | --- | --- |
-| 推进语言内核与最小可写工具能力 | 继续补最值钱的表达能力、宿主能力和 project-backed 工程组织 | `foundation/`、`examples/project_*`、`SYNTAX.md` |
-| 推进显式、确定的模块组织 | 让 shared foundation 和 project-private logic 有清晰边界 | `AX.toml + sources`、`module`、`import`、全限定名 |
-| 为第一版最小标准库做冻结试点 | 用 `project_text_normalize`、`project_directory_index`、`project_release_promote`、`project_command_capture`、`project_command_batch` 验证 `std.*` 命名空间、全限定调用、递归工具逻辑、发布型文件操作、命令捕获、命令执行、环境变量检查和项目私有 `lib.*` 的组合成本 | `std/`、`examples/project_text_normalize/`、`examples/project_directory_index/`、`examples/project_release_promote/`、`examples/project_command_capture/`、`examples/project_command_batch/`、`PLAN.md`、`WORKLIST.md` |
-| 做硬 diagnostics / context / repair / benchmark | 让语言主线自带可消费的编译器反馈和可回放证据链 | `src/ai.rs`、`benchmarks/`、`scripts/`、`docs/benchmark-showcase.md` |
-| 用代表性样例反向驱动语言设计 | 每补一项能力，都要求它能支撑一个更真实的工具样例 | `examples/`、`tests/interface_snapshots.rs` |
+| 当前主线                                        | 目的                                                                                                                                                                                                                                                                 | 结果会体现在哪里                                                                                                                                                                                                       |
+| ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 推进语言内核与最小可写工具能力                  | 继续补最值钱的表达能力、宿主能力和 project-backed 工程组织                                                                                                                                                                                                           | `foundation/`、`examples/project_*`、`SYNTAX.md`                                                                                                                                                                       |
+| 推进显式、确定的模块组织                        | 让 shared foundation 和 project-private logic 有清晰边界                                                                                                                                                                                                             | `AX.toml + sources`、`module`、`import`、全限定名                                                                                                                                                                      |
+| 为第一版最小标准库做冻结试点                    | 用 `project_text_normalize`、`project_directory_index`、`project_release_promote`、`project_command_capture`、`project_command_batch` 验证 `std.*` 命名空间、全限定调用、递归工具逻辑、发布型文件操作、命令捕获、命令执行、环境变量检查和项目私有 `lib.*` 的组合成本 | `std/`、`examples/project_text_normalize/`、`examples/project_directory_index/`、`examples/project_release_promote/`、`examples/project_command_capture/`、`examples/project_command_batch/`、`PLAN.md`、`WORKLIST.md` |
+| 做硬 diagnostics / context / repair / benchmark | 让语言主线自带可消费的编译器反馈和可回放证据链                                                                                                                                                                                                                       | `src/ai.rs`、`benchmarks/`、`scripts/`、`docs/benchmark-showcase.md`                                                                                                                                                   |
+| 用代表性样例反向驱动语言设计                    | 每补一项能力，都要求它能支撑一个更真实的工具样例                                                                                                                                                                                                                     | `examples/`、`tests/interface_snapshots.rs`                                                                                                                                                                            |
 
 这条主线的判断标准很直接：
 新能力需要同时提升可写性、可测性、可修复性，才能进入更高优先级；其中可写性和工程组织能力优先决定语言主线是否继续前进。
@@ -819,17 +785,17 @@ Set-ExecutionPolicy -Scope Process Bypass
 AX 当前靠代表性样例证明自己。
 P2 阶段固定样例集合与回归职责见 [`docs/representative-samples.md`](./docs/representative-samples.md)。
 
-| 样例 | 说明 | 它证明什么 |
-| --- | --- | --- |
-| [`examples/workspace_audit.ax`](./examples/workspace_audit.ax) | 工作区扫描与摘要报告 | AX 能写真实文本/目录审计工具 |
-| [`examples/docs_release_snapshot.ax`](./examples/docs_release_snapshot.ax) | 文档快照、复制、收据与汇总 | AX 能写发布辅助与文件处理逻辑 |
-| [`examples/workspace_search_report.ax`](./examples/workspace_search_report.ax) | 关键字搜索与匹配报告 | AX 能承载递归扫描和报告生成 |
-| [`examples/project_directory_index/`](./examples/project_directory_index/) | project-backed 目录索引工具 | 第二批 `std.workspace / std.path / std.report / std.fs` 试点样例 |
-| [`examples/project_release_promote/`](./examples/project_release_promote/) | 构建产物整理与提升 | 第三批 `std.fs / std.path / std.report / std.cli` 试点样例 |
-| [`examples/project_command_capture/`](./examples/project_command_capture/) | 在指定工作目录执行命令并捕获输出报告 | 第四批 `std.process / std.env / std.report / std.text` 宿主边界试点样例 |
-| [`examples/project_command_batch/`](./examples/project_command_batch/) | 批量执行命令、写入标记文件并生成报告 | 第五批 `std.process / std.env / std.fs / std.path` 宿主边界试点样例 |
-| [`examples/project_text_normalize/`](./examples/project_text_normalize/) | 文本读取、重写、输出报告 | 第一批 `std.cli / std.fs / std.path / std.report / std.text` 试点样例 |
-| [`examples/project_module_smoke/`](./examples/project_module_smoke/) | 第一阶段模块模式 smoke 工程 | `import/module` 已经进入主线验证链 |
+| 样例                                                                           | 说明                                 | 它证明什么                                                              |
+| ------------------------------------------------------------------------------ | ------------------------------------ | ----------------------------------------------------------------------- |
+| [`examples/workspace_audit.ax`](./examples/workspace_audit.ax)                 | 工作区扫描与摘要报告                 | AX 能写真实文本/目录审计工具                                            |
+| [`examples/docs_release_snapshot.ax`](./examples/docs_release_snapshot.ax)     | 文档快照、复制、收据与汇总           | AX 能写发布辅助与文件处理逻辑                                           |
+| [`examples/workspace_search_report.ax`](./examples/workspace_search_report.ax) | 关键字搜索与匹配报告                 | AX 能承载递归扫描和报告生成                                             |
+| [`examples/project_directory_index/`](./examples/project_directory_index/)     | project-backed 目录索引工具          | 第二批 `std.workspace / std.path / std.report / std.fs` 试点样例        |
+| [`examples/project_release_promote/`](./examples/project_release_promote/)     | 构建产物整理与提升                   | 第三批 `std.fs / std.path / std.report / std.cli` 试点样例              |
+| [`examples/project_command_capture/`](./examples/project_command_capture/)     | 在指定工作目录执行命令并捕获输出报告 | 第四批 `std.process / std.env / std.report / std.text` 宿主边界试点样例 |
+| [`examples/project_command_batch/`](./examples/project_command_batch/)         | 批量执行命令、写入标记文件并生成报告 | 第五批 `std.process / std.env / std.fs / std.path` 宿主边界试点样例     |
+| [`examples/project_text_normalize/`](./examples/project_text_normalize/)       | 文本读取、重写、输出报告             | 第一批 `std.cli / std.fs / std.path / std.report / std.text` 试点样例   |
+| [`examples/project_module_smoke/`](./examples/project_module_smoke/)           | 第一阶段模块模式 smoke 工程          | `import/module` 已经进入主线验证链                                      |
 
 ## 当前已经落地的语法面
 
@@ -837,50 +803,50 @@ P2 阶段固定样例集合与回归职责见 [`docs/representative-samples.md`]
 
 ### 顶层与项目组织
 
-| 语法面 | 当前状态 | 说明 |
-| --- | --- | --- |
-| `fn` | 已支持 | 显式参数类型、显式返回类型 |
-| `struct` | 已支持 | 结构体声明、字面量、字段访问 |
-| `enum` | 已支持 | 枚举声明、unit variant、单 payload variant 与泛型 enum |
-| `module ...;` | 已支持 | support source 显式声明模块路径 |
-| `import ...;` | 已支持 | entry / support source 显式导入模块 |
-| `AX.toml + sources` | 已支持 | project-backed 多文件组织主路径 |
+| 语法面              | 当前状态 | 说明                                                   |
+| ------------------- | -------- | ------------------------------------------------------ |
+| `fn`                | 已支持   | 显式参数类型、显式返回类型                             |
+| `struct`            | 已支持   | 结构体声明、字面量、字段访问                           |
+| `enum`              | 已支持   | 枚举声明、unit variant、单 payload variant 与泛型 enum |
+| `module ...;`       | 已支持   | support source 显式声明模块路径                        |
+| `import ...;`       | 已支持   | entry / support source 显式导入模块                    |
+| `AX.toml + sources` | 已支持   | project-backed 多文件组织主路径                        |
 
 ### 语句能力
 
-| 语法面 | 当前状态 | 说明 |
-| --- | --- | --- |
-| `let` / `let mut` | 已支持 | 局部变量必须显式类型 |
-| 赋值 | 已支持 | 支持变量、结构体字段路径、数组元素路径 |
-| `return` | 已支持 | 函数路径会做缺失返回检查 |
-| `if / else` | 已支持 | 条件必须为 `bool` |
-| `while` | 已支持 | 可与 `break;` / `continue;` 配合 |
-| `for (init; cond; step)` | 已支持 | 当前主循环表头形态 |
-| `break;` | 已支持 | 只能出现在 `while` / `for` 中 |
-| `continue;` | 已支持 | 已打通 `for -> while` lowering 下的 step 语义 |
-| `match (...) { ... }` | 已支持 | 语句形态、表达式形态、绑定 catch-all、字符串 pattern 与 payload enum pattern 都已进入 parser / semantic / interpreter / AI feedback 主链 |
+| 语法面                   | 当前状态 | 说明                                                                                                                                     |
+| ------------------------ | -------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `let` / `let mut`        | 已支持   | 局部变量必须显式类型                                                                                                                     |
+| 赋值                     | 已支持   | 支持变量、结构体字段路径、数组元素路径                                                                                                   |
+| `return`                 | 已支持   | 函数路径会做缺失返回检查                                                                                                                 |
+| `if / else`              | 已支持   | 条件必须为 `bool`                                                                                                                        |
+| `while`                  | 已支持   | 可与 `break;` / `continue;` 配合                                                                                                         |
+| `for (init; cond; step)` | 已支持   | 当前主循环表头形态                                                                                                                       |
+| `break;`                 | 已支持   | 只能出现在 `while` / `for` 中                                                                                                            |
+| `continue;`              | 已支持   | 已打通 `for -> while` lowering 下的 step 语义                                                                                            |
+| `match (...) { ... }`    | 已支持   | 语句形态、表达式形态、绑定 catch-all、字符串 pattern 与 payload enum pattern 都已进入 parser / semantic / interpreter / AI feedback 主链 |
 
 ### 表达式与类型能力
 
-| 语法面 | 当前状态 | 说明 |
-| --- | --- | --- |
-| 基础类型 | 已支持 | `bool` `i32` `f32` `string` `string_list` |
-| 结构体值 | 已支持 | `Point { x: 1, y: 2 }`、`point.x` |
-| 枚举值 | 已支持 | `Flag.On`、`Result.Ok(7)`、`Result<i32, string>`、枚举值比较 |
-| 固定长度数组 | 已支持 | `[Type; N]`、数组字面量、索引读取 |
-| 只读 slice | 已支持 | `[Type]`、`values[start:end]` |
-| 泛型结构体 | 已支持 | `struct Box<T> { value: T }`、`Box<i32>`、字段读取与可变字段写入 |
-| 泛型函数 | 已支持 | `fn identity<T>(value: T) -> T`，由实参推断类型参数 |
-| 泛型 enum | 已支持 | `enum Result<T, E> { Ok(T), Err(E) }`、`Result<i32, string>`、payload 构造与 match 绑定 |
-| traits / interfaces | 已支持 | `trait Label { fn label(self: Self) -> string; }` 与 `impl Label for Command { ... }` |
-| `for in` 遍历 | 已支持 | 当前支持 `for (let value: T in values) { ... }`，目标为数组 / slice |
-| 表达式 `match` | 已支持 | 支持单表达式 arm、最终绑定 catch-all、字符串 pattern，以及 `Result.Ok(value)` / `Result.Err(_)` 这类 payload enum pattern；所有 arm 必须返回同类型 |
-| 嵌套可写路径 | 已支持 | `outer.inner.value = ...`、`items[index].field = ...` |
-| 逻辑运算 | 已支持 | `&&`、`||`，并按短路语义执行 |
-| 余数运算 | 已支持 | `%`，当前按 `i32` 运算处理 |
-| 字符串拼接 | 已支持 | `string + string` |
-| 常用 helpers | 已支持 | `len(value)`、`string_len(text)`、`to_string(value)` |
-| `string_list` helpers | 已支持 | `string_list_new / push / join` |
+| 语法面                | 当前状态 | 说明                                                                                                                                               |
+| --------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | --- | ------------------- |
+| 基础类型              | 已支持   | `bool` `i32` `f32` `string` `string_list`                                                                                                          |
+| 结构体值              | 已支持   | `Point { x: 1, y: 2 }`、`point.x`                                                                                                                  |
+| 枚举值                | 已支持   | `Flag.On`、`Result.Ok(7)`、`Result<i32, string>`、枚举值比较                                                                                       |
+| 固定长度数组          | 已支持   | `[Type; N]`、数组字面量、索引读取                                                                                                                  |
+| 只读 slice            | 已支持   | `[Type]`、`values[start:end]`                                                                                                                      |
+| 泛型结构体            | 已支持   | `struct Box<T> { value: T }`、`Box<i32>`、字段读取与可变字段写入                                                                                   |
+| 泛型函数              | 已支持   | `fn identity<T>(value: T) -> T`，由实参推断类型参数                                                                                                |
+| 泛型 enum             | 已支持   | `enum Result<T, E> { Ok(T), Err(E) }`、`Result<i32, string>`、payload 构造与 match 绑定                                                            |
+| traits / interfaces   | 已支持   | `trait Label { fn label(self: Self) -> string; }` 与 `impl Label for Command { ... }`                                                              |
+| `for in` 遍历         | 已支持   | 当前支持 `for (let value: T in values) { ... }`，目标为数组 / slice                                                                                |
+| 表达式 `match`        | 已支持   | 支持单表达式 arm、最终绑定 catch-all、字符串 pattern，以及 `Result.Ok(value)` / `Result.Err(_)` 这类 payload enum pattern；所有 arm 必须返回同类型 |
+| 嵌套可写路径          | 已支持   | `outer.inner.value = ...`、`items[index].field = ...`                                                                                              |
+| 逻辑运算              | 已支持   | `&&`、`                                                                                                                                            |     | `，并按短路语义执行 |
+| 余数运算              | 已支持   | `%`，当前按 `i32` 运算处理                                                                                                                         |
+| 字符串拼接            | 已支持   | `string + string`                                                                                                                                  |
+| 常用 helpers          | 已支持   | `len(value)`、`string_len(text)`、`to_string(value)`                                                                                               |
+| `string_list` helpers | 已支持   | `string_list_new / push / join`                                                                                                                    |
 
 ### 已进入主链的关键语法点
 
@@ -894,10 +860,10 @@ P2 阶段固定样例集合与回归职责见 [`docs/representative-samples.md`]
   - pattern 目前支持 `true` / `false`、整数、字符串、枚举值、最终 `_`、最终裸标识符（如 `other`），以及 `Enum.Variant(name)` / `Enum.Variant(_)`
   - 裸标识符 pattern 是 catch-all 绑定，只在当前 arm 内引入一个不可变局部名
   - 会做穷尽检查：
-     - `bool` 要覆盖 `true / false` 或最终 catch-all
-     - enum 要覆盖全部 variant 或最终 catch-all
-     - `i32` 当前需要最终 `_` 或最终绑定
-     - `string` 当前需要最终 `_` 或最终绑定
+    - `bool` 要覆盖 `true / false` 或最终 catch-all
+    - enum 要覆盖全部 variant 或最终 catch-all
+    - `i32` 当前需要最终 `_` 或最终绑定
+    - `string` 当前需要最终 `_` 或最终绑定
   - 表达式形态当前收敛为 `match (value) { pattern => expr, ... }`，所有 arm 必须返回同类型
 - payload enum
 - 当前支持 unit variant 与单 payload variant：`Flag.On`、`Result.Ok(7)`、`Result.Err("bad")`
@@ -981,15 +947,15 @@ fn classify(flag: Flag, values: [i32]) -> Summary {
 
 AX 当前采用“manifest 控制文件集合，module/import 控制命名边界”的方式组织工程。
 
-| 层级 | 当前做法 |
-| --- | --- |
-| 文件发现 | 继续由 `AX.toml` 的 `[package].sources` 控制 |
-| 入口文件 | 继续由 `entry` 指定，并保持 manifest-owned root unit |
-| 支撑文件 | support source 可以是单个 `.ax` 文件，也可以是目录 |
-| 模块声明 | 支撑文件在模块模式下使用显式 `module ...;` |
-| 导入方式 | 入口或支撑文件通过显式 `import ...;` 引入模块 |
-| 跨模块引用 | 采用全限定名，如 `lib.report.build_summary()` |
-| 设计风格 | 第一阶段追求显式、确定、可检查、可映射 |
+| 层级       | 当前做法                                             |
+| ---------- | ---------------------------------------------------- |
+| 文件发现   | 继续由 `AX.toml` 的 `[package].sources` 控制         |
+| 入口文件   | 继续由 `entry` 指定，并保持 manifest-owned root unit |
+| 支撑文件   | support source 可以是单个 `.ax` 文件，也可以是目录   |
+| 模块声明   | 支撑文件在模块模式下使用显式 `module ...;`           |
+| 导入方式   | 入口或支撑文件通过显式 `import ...;` 引入模块        |
+| 跨模块引用 | 采用全限定名，如 `lib.report.build_summary()`        |
+| 设计风格   | 第一阶段追求显式、确定、可检查、可映射               |
 
 这个设计的关键点是：
 
@@ -1101,9 +1067,9 @@ AX 的 benchmark 是主线能力的一部分。
 
 AX 希望最终回答的是：
 
-1. 同一个坏例子上，模型在 AX 上是否更容易单轮修好  
-2. 同一个任务上，结构化诊断是否更容易被模型消费  
-3. 同一种语义下，AX 的源码形式是否更利于稳定生成  
+1. 同一个坏例子上，模型在 AX 上是否更容易单轮修好
+2. 同一个任务上，结构化诊断是否更容易被模型消费
+3. 同一种语义下，AX 的源码形式是否更利于稳定生成
 4. 同一批 case 上，结果能否被稳定回放、评分和比较
 
 下一轮 P1 增长点是 [`Repair Archaeology v0`](./docs/repair-archaeology.md)。
