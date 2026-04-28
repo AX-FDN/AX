@@ -17,6 +17,8 @@ pub struct Program {
 pub struct Item {
     #[serde(flatten)]
     pub kind: ItemKind,
+    #[serde(default, skip_serializing_if = "crate::ast::Visibility::is_private")]
+    pub visibility: crate::ast::Visibility,
     pub span: Span,
 }
 
@@ -349,6 +351,7 @@ fn lower_item(item: &hir::Item) -> Result<Item, String> {
 
     Ok(Item {
         kind,
+        visibility: item.visibility,
         span: item.span,
     })
 }

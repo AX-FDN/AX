@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 
-use crate::ast::{Block, Expr, ExprKind, ItemKind, Program, Stmt, StmtKind};
+use crate::ast::{Block, Expr, ExprKind, ItemKind, Program, Stmt, StmtKind, Visibility};
 use crate::diagnostics::Diagnostic;
 use crate::project::{Project, ResolvedInput};
 use crate::source::SourceFile;
@@ -473,6 +473,8 @@ struct SymbolFacts {
     requested_symbol: String,
     resolved_symbol: String,
     kind: &'static str,
+    #[serde(default, skip_serializing_if = "Visibility::is_private")]
+    visibility: Visibility,
     source_unit: SymbolSourceUnit,
     signature: SymbolSignature,
     callers: Vec<String>,
@@ -575,6 +577,7 @@ struct SymbolCatalog {
 struct DefinedSymbol {
     qualified_name: String,
     kind: DefinedSymbolKind,
+    visibility: Visibility,
     source_path: String,
     module_path: Option<String>,
     is_entry: bool,
@@ -1145,6 +1148,7 @@ fn build_symbol_facts(
         requested_symbol: requested_symbol.to_string(),
         resolved_symbol: symbol.qualified_name.clone(),
         kind: symbol.kind.as_str(),
+        visibility: symbol.visibility,
         source_unit: SymbolSourceUnit {
             path: symbol.source_path.clone(),
             module_path: symbol.module_path.clone(),
@@ -1953,6 +1957,7 @@ fn build_symbol_catalog(
                 let definition = DefinedSymbol {
                     qualified_name: qualified_name.clone(),
                     kind: DefinedSymbolKind::Function,
+                    visibility: item.visibility,
                     source_path: source_path.clone(),
                     module_path: unit.module_path.clone(),
                     is_entry: unit.is_entry,
@@ -1989,6 +1994,7 @@ fn build_symbol_catalog(
                     DefinedSymbol {
                         qualified_name: qualified_name.clone(),
                         kind: DefinedSymbolKind::Const,
+                        visibility: item.visibility,
                         source_path: source_path.clone(),
                         module_path: unit.module_path.clone(),
                         is_entry: unit.is_entry,
@@ -2020,6 +2026,7 @@ fn build_symbol_catalog(
                     DefinedSymbol {
                         qualified_name: qualified_name.clone(),
                         kind: DefinedSymbolKind::Struct,
+                        visibility: item.visibility,
                         source_path: source_path.clone(),
                         module_path: unit.module_path.clone(),
                         is_entry: unit.is_entry,
@@ -2053,6 +2060,7 @@ fn build_symbol_catalog(
                     DefinedSymbol {
                         qualified_name: qualified_name.clone(),
                         kind: DefinedSymbolKind::Enum,
+                        visibility: item.visibility,
                         source_path: source_path.clone(),
                         module_path: unit.module_path.clone(),
                         is_entry: unit.is_entry,
@@ -2087,6 +2095,7 @@ fn build_symbol_catalog(
                     DefinedSymbol {
                         qualified_name: qualified_name.clone(),
                         kind: DefinedSymbolKind::Trait,
+                        visibility: item.visibility,
                         source_path: source_path.clone(),
                         module_path: unit.module_path.clone(),
                         is_entry: unit.is_entry,
@@ -2140,6 +2149,7 @@ fn build_symbol_catalog(
                         DefinedSymbol {
                             qualified_name: qualified_name.clone(),
                             kind: DefinedSymbolKind::Function,
+                            visibility: item.visibility,
                             source_path: source_path.clone(),
                             module_path: unit.module_path.clone(),
                             is_entry: unit.is_entry,

@@ -1,0 +1,10 @@
+pub const STATUS_OK: i32 = 0;
+
+pub fn render_status(value: i32) -> string {
+    return "status=" + to_string(value);
+}
+
+fn main() -> i32 {
+    println(render_status(STATUS_OK));
+    return STATUS_OK;
+}

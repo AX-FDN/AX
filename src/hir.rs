@@ -17,6 +17,8 @@ pub struct Program {
 pub struct Item {
     #[serde(flatten)]
     pub kind: ItemKind,
+    #[serde(default, skip_serializing_if = "crate::ast::Visibility::is_private")]
+    pub visibility: crate::ast::Visibility,
     pub span: Span,
 }
 
@@ -497,6 +499,7 @@ impl<'a> LoweringContext<'a> {
                                 return_type: self.lower_type_ref(&method.return_type)?,
                                 body: self.lower_block(&method.body)?,
                             },
+                            visibility: crate::ast::Visibility::Private,
                             span: method.span,
                         })
                     })
@@ -506,6 +509,7 @@ impl<'a> LoweringContext<'a> {
 
         Ok(vec![Item {
             kind,
+            visibility: item.visibility,
             span: item.span,
         }])
     }

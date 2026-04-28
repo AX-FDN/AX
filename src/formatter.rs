@@ -3,7 +3,7 @@ use std::fmt::Write;
 use crate::ast::{
     BinaryOp, Block, Expr, ExprKind, ImplMethod, Item, ItemKind, MatchArm, MatchExprArm,
     MatchPattern, MatchPatternKind, Param, Program, Stmt, StmtKind, StructField,
-    StructLiteralField, TraitMethod, TypeParamBound, TypeRef, UnaryOp,
+    StructLiteralField, TraitMethod, TypeParamBound, TypeRef, UnaryOp, Visibility,
 };
 use crate::diagnostics::Diagnostic;
 use crate::lexer::tokenize;
@@ -77,6 +77,9 @@ impl Formatter {
     }
 
     fn format_item(&mut self, item: &Item) {
+        if item.visibility == Visibility::Public {
+            self.out.push_str("pub ");
+        }
         match &item.kind {
             ItemKind::Function {
                 name,
@@ -763,6 +766,13 @@ mod tests {
             formatted,
             "const EXIT_OK: i32 = 7;\n\nfn main() -> i32 {\n    return EXIT_OK;\n}\n"
         );
+    }
+
+    #[test]
+    fn formats_public_items() {
+        let source = SourceFile::anonymous("pub fn helper()->i32{return 1;}");
+        let formatted = format_source(&source).expect("source should format");
+        assert_eq!(formatted, "pub fn helper() -> i32 {\n    return 1;\n}\n");
     }
 
     #[test]

@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::ast::{
     Block, Expr, ExprKind, Item, ItemKind, MatchPattern, MatchPatternKind, Program, Stmt, StmtKind,
-    TypeRef,
+    TypeRef, Visibility,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticKind};
 use crate::source::{SourceFile, Span};
@@ -34,6 +34,8 @@ pub struct AiDiagnostic {
 pub struct AiFocusItem {
     pub kind: String,
     pub name: String,
+    #[serde(default, skip_serializing_if = "Visibility::is_private")]
+    pub visibility: Visibility,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub signature: Option<String>,
     pub span: Span,
@@ -1371,6 +1373,7 @@ fn find_focus_item(program: &Program, span: Span) -> Option<&Item> {
 }
 
 fn item_descriptor(item: &Item) -> AiFocusItem {
+    let prefix = visibility_prefix(item.visibility);
     match &item.kind {
         ItemKind::Function {
             name,
@@ -1380,8 +1383,9 @@ fn item_descriptor(item: &Item) -> AiFocusItem {
         } => AiFocusItem {
             kind: "function".to_string(),
             name: name.clone(),
+            visibility: item.visibility,
             signature: Some(format!(
-                "fn {name}({}) -> {}",
+                "{prefix}fn {name}({}) -> {}",
                 params
                     .iter()
                     .map(|param| format!("{}: {}", param.name, param.ty.describe()))
@@ -1394,14 +1398,16 @@ fn item_descriptor(item: &Item) -> AiFocusItem {
         ItemKind::Const { name, ty, .. } => AiFocusItem {
             kind: "const".to_string(),
             name: name.clone(),
-            signature: Some(format!("const {name}: {}", ty.describe())),
+            visibility: item.visibility,
+            signature: Some(format!("{prefix}const {name}: {}", ty.describe())),
             span: item.span,
         },
         ItemKind::Struct { name, fields, .. } => AiFocusItem {
             kind: "struct".to_string(),
             name: name.clone(),
+            visibility: item.visibility,
             signature: Some(format!(
-                "struct {name} {{ {} }}",
+                "{prefix}struct {name} {{ {} }}",
                 fields
                     .iter()
                     .map(|field| format!("{}: {}", field.name, field.ty.describe()))
@@ -1417,8 +1423,9 @@ fn item_descriptor(item: &Item) -> AiFocusItem {
         } => AiFocusItem {
             kind: "enum".to_string(),
             name: name.clone(),
+            visibility: item.visibility,
             signature: Some(format!(
-                "enum {name}{} {{ {} }}",
+                "{prefix}enum {name}{} {{ {} }}",
                 format_type_params(type_params),
                 variants
                     .iter()
@@ -1434,8 +1441,9 @@ fn item_descriptor(item: &Item) -> AiFocusItem {
         ItemKind::Trait { name, methods } => AiFocusItem {
             kind: "trait".to_string(),
             name: name.clone(),
+            visibility: item.visibility,
             signature: Some(format!(
-                "trait {name} {{ {} }}",
+                "{prefix}trait {name} {{ {} }}",
                 methods
                     .iter()
                     .map(|method| format!("fn {}(...)", method.name))
@@ -1449,14 +1457,26 @@ fn item_descriptor(item: &Item) -> AiFocusItem {
         } => AiFocusItem {
             kind: "impl".to_string(),
             name: target.describe(),
+            visibility: item.visibility,
             signature: Some(match trait_ref {
                 Some(trait_ref) => {
-                    format!("impl {} for {}", trait_ref.describe(), target.describe())
+                    format!(
+                        "{prefix}impl {} for {}",
+                        trait_ref.describe(),
+                        target.describe()
+                    )
                 }
-                None => format!("impl {}", target.describe()),
+                None => format!("{prefix}impl {}", target.describe()),
             }),
             span: item.span,
         },
+    }
+}
+
+fn visibility_prefix(visibility: Visibility) -> &'static str {
+    match visibility {
+        Visibility::Private => "",
+        Visibility::Public => "pub ",
     }
 }
 

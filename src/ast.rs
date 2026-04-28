@@ -40,7 +40,23 @@ impl Program {
 pub struct Item {
     #[serde(flatten)]
     pub kind: ItemKind,
+    #[serde(default, skip_serializing_if = "Visibility::is_private")]
+    pub visibility: Visibility,
     pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Visibility {
+    #[default]
+    Private,
+    Public,
+}
+
+impl Visibility {
+    pub fn is_private(visibility: &Self) -> bool {
+        *visibility == Self::Private
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]

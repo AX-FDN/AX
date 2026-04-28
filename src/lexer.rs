@@ -153,6 +153,7 @@ impl<'a> Lexer<'a> {
             "trait" => TokenKind::TraitKw,
             "impl" => TokenKind::ImplKw,
             "const" => TokenKind::ConstKw,
+            "pub" => TokenKind::PubKw,
             "module" => TokenKind::ModuleKw,
             "import" => TokenKind::ImportKw,
             "match" => TokenKind::MatchKw,
@@ -313,7 +314,7 @@ mod tests {
     #[test]
     fn tokenizes_basic_items() {
         let source = SourceFile::anonymous(
-            "const EXIT_OK: i32 = 0; fn main() -> i32 { let mut value: i32 = 1; }",
+            "pub const EXIT_OK: i32 = 0; fn main() -> i32 { let mut value: i32 = 1; }",
         );
         let output = tokenize(&source);
         let kinds = output
@@ -322,6 +323,7 @@ mod tests {
             .map(|token| token.kind)
             .collect::<Vec<_>>();
         assert!(output.diagnostics.is_empty());
+        assert!(kinds.contains(&TokenKind::PubKw));
         assert!(kinds.contains(&TokenKind::ConstKw));
         assert!(kinds.contains(&TokenKind::FnKw));
         assert!(kinds.contains(&TokenKind::LetKw));

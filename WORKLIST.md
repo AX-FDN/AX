@@ -572,9 +572,12 @@
 
 ## P3 前置语法与接口项：为包接口和标准库做准备
 
-- [ ] `W-P3-S01` 登记 `pub / 模块边界` 为 `P5` 前置语法
-  - 目标：虽然现在不启动实现，但要明确这是包接口前的硬前置，而不是临时想到再补。
-  - 当前状态：已登记，未激活。
+- [x] `W-P3-S01` 实现 `pub / 模块边界` 的语法标记层
+  - 目标：先让标准库和后续包接口拥有显式导出标记，而不是继续只有“import 后全可见”的语义口径。
+  - 状态：已支持 `pub fn`、`pub const`、`pub struct`、`pub enum`、`pub trait`、`pub impl` 的解析与格式化。
+  - 已覆盖：lexer / parser / AST / formatter / HIR / MIR / context symbol metadata / AI focus signature / example / interface smoke / README / SYNTAX。
+  - 代表样例：`examples/public_api.ax`
+  - 当前边界：本轮不改变跨模块访问规则；跨模块引用仍由显式 `import module.path;` 控制。后续 P5 包接口阶段再收紧“public export vs private implementation”的语义检查。
 
 - [ ] `W-P3-S02` 登记 `import` 人体工学第二刀为 `P5` 前置语法
   - 目标：先明确它属于包接口前的组织性补丁，而不是当前 `P2` 表达性补丁。
@@ -584,7 +587,7 @@
   - 状态：已支持顶层 `const NAME: Type = expr;`，函数体内可作为只读值读取
   - 已覆盖：lexer / parser / AST / formatter / semantic / HIR / MIR / interpreter / example / interface smoke / README / SYNTAX
   - 代表样例：`examples/consts.ax`
-  - 当前边界：不做跨模块常量导入人体工学、`pub const`、常量泛型或完整 const-eval
+  - 当前边界：不做跨模块常量导入人体工学、常量泛型或完整 const-eval
 
 ## P3 施工项：官方最小标准库准备
 

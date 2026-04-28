@@ -9,7 +9,7 @@
 
 - 块语法固定为大括号：`{ ... }`
 - 注释当前只支持 `//` 单行注释
-- 顶层声明当前支持 `module`、`import`、`fn`、`const`、`struct`、`enum`、`trait`、`impl`
+- 顶层声明当前支持 `module`、`import`、`pub`、`fn`、`const`、`struct`、`enum`、`trait`、`impl`
 - 所有函数参数、返回类型、局部变量都必须显式写出类型
 - `main` 必须是 `fn main() -> i32`
 - `let`、赋值、表达式语句、`return` 必须带分号
@@ -43,6 +43,16 @@ fn add(left: i32, right: i32) -> i32 {
 ```ax
 const EXIT_OK: i32 = 0;
 const TOOL_NAME: string = "ax";
+```
+
+公开顶层声明：
+
+```ax
+pub const STATUS_OK: i32 = 0;
+
+pub fn render_status(value: i32) -> string {
+    return "status=" + to_string(value);
+}
 ```
 
 泛型函数：
@@ -458,7 +468,8 @@ program           := source_unit+
 source_unit       := module_decl? import_decl* item*
 module_decl       := "module" qualified_name ";"
 import_decl       := "import" qualified_name ";"
-item              := function | const_decl | struct_decl | enum_decl | trait_decl | impl_decl
+item              := visibility? (function | const_decl | struct_decl | enum_decl | trait_decl | impl_decl)
+visibility        := "pub"
 
 function          := "fn" IDENT function_generic_params? "(" param_list? ")" "->" type_ref block
 param_list        := param ("," param)*
@@ -635,7 +646,7 @@ array_type        := "[" type_ref ";" INT "]"
 - 当前只支持带显式零长度数组上下文的写法：`let values: [i32; 0] = [];`
 - 如果上下文不是零长度数组，例如 `let values: [i32; 1] = [];`，会报 `S0032`。
 - `match` 当前已支持表达式形态、最终绑定模式、字符串字面量 pattern 与 payload enum pattern，但仍不支持解构、guard、多模式合并，表达式形态也还不支持 block-valued arm。
-- `module / import` 当前支持显式模块声明与显式导入；不支持 alias、wildcard import、`pub`、包管理与远程依赖。
+- `module / import` 当前支持显式模块声明与显式导入；`pub` 当前已作为顶层导出标记进入语法、formatter、AST/HIR/MIR、context 与 AI focus 元数据；暂不支持 alias、wildcard import、包管理与远程依赖。
 - `impl / methods` 当前支持值方法与显式 `self: Type` 参数；暂不支持泛型 impl、静态方法、可变接收者或方法重载。
 - `trait / interface` 当前支持 trait 方法签名、`impl Trait for Type`、缺失方法检查、签名匹配检查、trait impl 方法作为普通方法调用，以及泛型函数上的单 trait bound；暂不支持动态派发、关联类型、默认方法、泛型 trait 或泛型 impl。
 - `generic struct` 当前支持 `struct Box<T>`、`Box<i32>` 类型引用、字段推断、字段读取与可变字段写入；暂不支持 trait bounds 或 where 约束。
@@ -648,12 +659,13 @@ array_type        := "[" type_ref ";" INT "]"
 Generate code in the current AX prototype syntax only.
 Rules:
 - Use braces for all blocks.
-- Use only module, import, fn, struct, enum, trait, impl, let, let mut, return, if/else, while, for, and the current minimal match forms.
+- Use only module, import, pub, fn, const, struct, enum, trait, impl, let, let mut, return, if/else, while, for, and the current match forms.
 - `break;` may be used to exit the nearest `while` or `for` loop early.
 - `continue;` may be used to skip to the next iteration of the nearest `while` or `for` loop.
 - `match` supports statement form `match (value) { pattern => { ... } ... }` and expression form `match (value) { pattern => expr, ... }`.
 - `match` patterns currently support `true`, `false`, integer literals, string literals, enum variants, payload enum patterns like `Result.Ok(value)` / `Result.Err(_)`, final `_`, and final bare binding names like `other`.
 - Top-level constants may be declared as `const NAME: Type = expr;` and used as read-only values.
+- Public top-level declarations may use `pub`, such as `pub fn helper() -> i32 { ... }` or `pub const STATUS_OK: i32 = 0;`.
 - A bare binding pattern is a final catch-all and introduces an immutable arm-local name.
 - Expression-form `match` arms must stay single expressions and all arms must produce the same type.
 - `&&` and `||` are supported and both sides must produce `bool`.

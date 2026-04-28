@@ -806,6 +806,7 @@ P2 阶段固定样例集合与回归职责见 [`docs/representative-samples.md`]
 | 语法面              | 当前状态 | 说明                                                   |
 | ------------------- | -------- | ------------------------------------------------------ |
 | `fn`                | 已支持   | 显式参数类型、显式返回类型                             |
+| `pub`               | 已支持   | 顶层导出标记，可写作 `pub fn` / `pub const` / `pub struct` / `pub enum` / `pub trait` |
 | `const`             | 已支持   | 顶层只读常量，写作 `const NAME: Type = expr;`          |
 | `struct`            | 已支持   | 结构体声明、字面量、字段访问                           |
 | `enum`              | 已支持   | 枚举声明、unit variant、单 payload variant 与泛型 enum |
@@ -888,6 +889,9 @@ P2 阶段固定样例集合与回归职责见 [`docs/representative-samples.md`]
   - support source 使用 `module ...;`
   - entry 与 support source 都可写显式 `import ...;`
   - 当前采用全限定名跨模块调用，如 `lib.report.build_summary()`
+- `pub` 顶层导出标记
+  - 已支持 `pub fn`、`pub const`、`pub struct`、`pub enum`、`pub trait`
+  - 当前先进入语法、formatter、AST/HIR/MIR、context 与 AI focus 元数据；跨模块访问仍由显式 `import` 控制
 - 逻辑与 / 或 `&&` / `||`
   - 已支持
   - 语义层要求两边都为 `bool`

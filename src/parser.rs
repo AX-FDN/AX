@@ -2,7 +2,7 @@ use crate::ast::{
     BinaryOp, Block, EnumVariant, EnumVariantPayloadPattern, Expr, ExprKind, ForInBinding,
     ImplMethod, ImportDecl, Item, ItemKind, MatchArm, MatchExprArm, MatchPattern, MatchPatternKind,
     ModuleDecl, Param, Program, SourceUnit, Stmt, StmtKind, StructField, StructLiteralField,
-    TraitMethod, TypeParamBound, TypeRef, UnaryOp,
+    TraitMethod, TypeParamBound, TypeRef, UnaryOp, Visibility,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticKind};
 use crate::source::{SourceFile, Span};
@@ -115,44 +115,56 @@ impl<'a> Parser<'a> {
 
     fn parse_item(&mut self) -> Option<Item> {
         let start = self.peek().span.start;
+        let visibility = if self.matches(&[TokenKind::PubKw]) {
+            Visibility::Public
+        } else {
+            Visibility::Private
+        };
+        let start = if visibility == Visibility::Public {
+            start
+        } else {
+            self.peek().span.start
+        };
         match self.peek().kind {
             TokenKind::FnKw => {
                 self.advance();
-                Some(self.parse_function_item(start))
+                Some(self.parse_function_item(start, visibility))
             }
             TokenKind::ConstKw => {
                 self.advance();
-                Some(self.parse_const_item(start))
+                Some(self.parse_const_item(start, visibility))
             }
             TokenKind::StructKw => {
                 self.advance();
-                Some(self.parse_struct_item(start))
+                Some(self.parse_struct_item(start, visibility))
             }
             TokenKind::EnumKw => {
                 self.advance();
-                Some(self.parse_enum_item(start))
+                Some(self.parse_enum_item(start, visibility))
             }
             TokenKind::TraitKw => {
                 self.advance();
-                Some(self.parse_trait_item(start))
+                Some(self.parse_trait_item(start, visibility))
             }
             TokenKind::ImplKw => {
                 self.advance();
-                Some(self.parse_impl_item(start))
+                Some(self.parse_impl_item(start, visibility))
             }
             TokenKind::Eof => None,
             _ => {
                 self.error_at_current(
                     "P0001",
                     "expected a top-level declaration",
-                    &["`fn`", "`const`", "`struct`", "`enum`", "`trait`", "`impl`"],
+                    &[
+                        "`pub`", "`fn`", "`const`", "`struct`", "`enum`", "`trait`", "`impl`",
+                    ],
                 );
                 None
             }
         }
     }
 
-    fn parse_const_item(&mut self, start: usize) -> Item {
+    fn parse_const_item(&mut self, start: usize, visibility: Visibility) -> Item {
         let name = self.expect_identifier("expected a constant name");
         self.expect(
             TokenKind::Colon,
@@ -177,11 +189,12 @@ impl<'a> Parser<'a> {
                 ty,
                 value,
             },
+            visibility,
             span: Span::new(start, end.span.end),
         }
     }
 
-    fn parse_function_item(&mut self, start: usize) -> Item {
+    fn parse_function_item(&mut self, start: usize, visibility: Visibility) -> Item {
         let name = self.expect_identifier("expected a function name");
         let (type_params, type_param_bounds) = self.parse_function_type_params();
         self.expect(
@@ -207,6 +220,7 @@ impl<'a> Parser<'a> {
                 return_type,
                 body: body.clone(),
             },
+            visibility,
             span: Span::new(start, body.span.end),
         }
     }
@@ -244,7 +258,7 @@ impl<'a> Parser<'a> {
         (params, bounds)
     }
 
-    fn parse_struct_item(&mut self, start: usize) -> Item {
+    fn parse_struct_item(&mut self, start: usize, visibility: Visibility) -> Item {
         let name = self.expect_identifier("expected a struct name");
         let type_params = self.parse_type_params();
         self.expect(
@@ -279,6 +293,7 @@ impl<'a> Parser<'a> {
                 type_params,
                 fields,
             },
+            visibility,
             span: Span::new(start, end.span.end),
         }
     }
@@ -306,7 +321,7 @@ impl<'a> Parser<'a> {
         params
     }
 
-    fn parse_enum_item(&mut self, start: usize) -> Item {
+    fn parse_enum_item(&mut self, start: usize, visibility: Visibility) -> Item {
         let name = self.expect_identifier("expected an enum name");
         let type_params = self.parse_type_params();
         self.expect(TokenKind::LBrace, "expected `{` after enum name", &["`{`"]);
@@ -340,11 +355,12 @@ impl<'a> Parser<'a> {
                 type_params,
                 variants,
             },
+            visibility,
             span: Span::new(start, end.span.end),
         }
     }
 
-    fn parse_impl_item(&mut self, start: usize) -> Item {
+    fn parse_impl_item(&mut self, start: usize, visibility: Visibility) -> Item {
         let first_type = self.parse_type();
         let (trait_ref, target) = if self.matches(&[TokenKind::ForKw]) {
             (Some(first_type), self.parse_type())
@@ -373,11 +389,12 @@ impl<'a> Parser<'a> {
                 target,
                 methods,
             },
+            visibility,
             span: Span::new(start, end.span.end),
         }
     }
 
-    fn parse_trait_item(&mut self, start: usize) -> Item {
+    fn parse_trait_item(&mut self, start: usize, visibility: Visibility) -> Item {
         let name = self.expect_identifier("expected a trait name");
         self.expect(TokenKind::LBrace, "expected `{` after trait name", &["`{`"]);
         let mut methods = Vec::new();
@@ -396,6 +413,7 @@ impl<'a> Parser<'a> {
                 name: name.lexeme,
                 methods,
             },
+            visibility,
             span: Span::new(start, end.span.end),
         }
     }
@@ -1615,8 +1633,9 @@ fn enrich_parse_error(mut diagnostic: Diagnostic, token: &Token, message: &str) 
                     .with_suggestion("insert `}` to close the current block or literal");
             }
             DiagnosticKind::TopLevelDeclarationRequired => {
-                return diagnostic
-                    .with_suggestion("start a top-level item with `fn`, `struct`, or `enum`");
+                return diagnostic.with_suggestion(
+                    "start a top-level item with `pub`, `fn`, `const`, `struct`, `enum`, `trait`, or `impl`",
+                );
             }
             DiagnosticKind::TypeNameRequired => {
                 return diagnostic.with_suggestion(
@@ -1659,7 +1678,9 @@ fn enrich_parse_error(mut diagnostic: Diagnostic, token: &Token, message: &str) 
     }
 
     if message == "expected a top-level declaration" {
-        return diagnostic.with_suggestion("start a top-level item with `fn`, `struct`, or `enum`");
+        return diagnostic.with_suggestion(
+            "start a top-level item with `pub`, `fn`, `const`, `struct`, `enum`, `trait`, or `impl`",
+        );
     }
 
     if message == "expected a type name" {
@@ -1699,7 +1720,9 @@ fn describe_token(token: &Token) -> String {
 #[cfg(test)]
 mod tests {
     use super::{enrich_parse_error, parse};
-    use crate::ast::{EnumVariantPayloadPattern, ExprKind, ItemKind, MatchPatternKind, StmtKind};
+    use crate::ast::{
+        EnumVariantPayloadPattern, ExprKind, ItemKind, MatchPatternKind, StmtKind, Visibility,
+    };
     use crate::diagnostics::{Diagnostic, DiagnosticKind};
     use crate::lexer::tokenize;
     use crate::source::{SourceFile, Span};
@@ -1737,6 +1760,19 @@ mod tests {
         assert_eq!(name, "EXIT_OK");
         assert_eq!(ty.describe(), "i32");
         assert!(matches!(value.kind, ExprKind::Int { value: 7 }));
+    }
+
+    #[test]
+    fn parses_public_top_level_items() {
+        let source = SourceFile::anonymous("pub fn helper() -> i32 { return 1; }");
+        let tokens = tokenize(&source).tokens;
+        let output = parse(&source, tokens);
+        assert!(output.diagnostics.is_empty(), "{:?}", output.diagnostics);
+        assert_eq!(output.program.items[0].visibility, Visibility::Public);
+        assert!(matches!(
+            output.program.items[0].kind,
+            ItemKind::Function { .. }
+        ));
     }
 
     #[test]
@@ -2392,7 +2428,9 @@ fn main() -> i32 {
         );
         assert_eq!(
             diagnostic.suggestion.as_deref(),
-            Some("start a top-level item with `fn`, `struct`, or `enum`")
+            Some(
+                "start a top-level item with `pub`, `fn`, `const`, `struct`, `enum`, `trait`, or `impl`"
+            )
         );
     }
 

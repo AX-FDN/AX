@@ -4325,6 +4325,14 @@ fn consts_example_runs() {
 }
 
 #[test]
+fn public_api_example_runs() {
+    let output = run_axc([OsStr::new("run"), OsStr::new("examples/public_api.ax")]);
+    assert_eq!(output.status.code(), Some(0));
+    assert_clean_stderr(&output);
+    assert_eq!(normalize_text(&string_output(&output.stdout)), "status=0\n");
+}
+
+#[test]
 fn logical_ops_example_runs() {
     let output = run_axc([OsStr::new("run"), OsStr::new("examples/logical_ops.ax")]);
     assert_eq!(output.status.code(), Some(7));
