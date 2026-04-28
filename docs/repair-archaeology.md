@@ -93,52 +93,16 @@ axc repair-log stream --case non_bool_condition --json-stream
 
 ## v0 输出结构
 
-Markdown 报告至少包含：
+v0 的具体 artifact 契约见 [`repair-archaeology-schema.md`](./repair-archaeology-schema.md)。
 
-- case id
-- 输入文件 / project path
-- 初始 diagnostic code
-- 初始 `rule_id`
-- 初始 `repair_goal`
-- 是否包含 context bundle
-- `cold / base / ai` 的结果摘要
-- 每个模式的候选文件、验证命令、通过状态
-- 失败原因或退化说明
-- 可复现命令
+最小输出固定为：
 
-JSON artifact 至少包含：
+- `index.json`
+- `cases/<case-id>.json`
+- `cases/<case-id>.md`
 
-```json
-{
-  "schema_version": 1,
-  "case_id": "non_bool_condition",
-  "subject": {
-    "kind": "file",
-    "path": "examples/non_bool_condition.ax"
-  },
-  "initial_diagnostic": {
-    "code": "S0022",
-    "rule_id": "condition_must_be_bool",
-    "repair_goal": "make the condition evaluate to bool"
-  },
-  "context": {
-    "included": false,
-    "views": []
-  },
-  "modes": [
-    {
-      "name": "ai",
-      "status": "accepted",
-      "attempts": 1,
-      "candidate_path": "benchmarks/repair-candidates/ai/non_bool_condition.ax",
-      "validation": {
-        "check": "passed",
-        "run": "not_applicable"
-      }
-    }
-  ]
-}
-```
+JSON artifact 是机器可消费的事实源；Markdown 报告只是展示层。
+所有 pass/fail、remaining diagnostics、candidate status 都必须从现有 run / score / compare artifact 抽取，不能从 Markdown 文案反推。
 
 ## 与 Live Repair Stream 的关系
 
@@ -183,4 +147,3 @@ Repair Archaeology 是 `P1` 编译器护城河的展示与解释层。
 2. 再启动 Repair Archaeology v0 的 artifact schema
 3. 再做 Markdown export
 4. 最后再评估 `json-stream` 展示层
-

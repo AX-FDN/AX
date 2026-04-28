@@ -251,9 +251,14 @@
   - 完成标准：
     - 规划入口存在，边界不与 Live Repair Stream / LLM / UI 混淆，下一步实现任务已经明确拆出
 
-- [ ] `W-P1-08` 定义 `Repair Archaeology v0` artifact schema
+- [x] `W-P1-08` 定义 `Repair Archaeology v0` artifact schema
   - 目标：把 `W-P1-07` 的方向从文档登记推进到可实现的 artifact 契约。
   - 依赖：`W-P3-15`
+  - 当前结果：
+    - 新增 `docs/repair-archaeology-schema.md`
+    - 写清 case 级 JSON artifact、Markdown 报告模板、index 结构、字段来源和 status 枚举
+    - 明确 replay fact、compiler fact、runner fact、validation fact、derived fact 与 interpretation 的边界
+    - `docs/repair-archaeology.md`、`docs/interface-contracts.md`、`docs/validation-matrix.md`、README 与 docs README 已接入 schema 入口
   - 当前范围：
     - case 级 JSON schema 草案
     - Markdown 报告字段草案
@@ -266,6 +271,23 @@
   - 完成标准：
     - 能从现有 repair benchmark 资产映射出一个 case 报告对象
     - 能明确哪些字段是 replay 事实，哪些字段只是解释性 summary
+
+- [ ] `W-P1-09` 实现 `Repair Archaeology v0` 最小导出脚本
+  - 目标：按 `W-P1-08` schema 从现有 export / run / score / compare artifact 生成 case JSON 与 Markdown 报告。
+  - 依赖：`W-P1-08`
+  - 当前范围：
+    - `scripts/export-repair-archaeology.ps1`
+    - 支持 `base -> ai` comparison
+    - 输出 `index.json` 与 `cases/<case-id>.json/.md`
+    - 至少能处理 improved、both_pass、failed/regressed 三类 case
+  - 当前不做：
+    - 不新增 `axc` 命令
+    - 不调用真实 LLM
+    - 不做 Live Repair Stream
+    - 不做 UI
+  - 完成标准：
+    - smoke 能从 deterministic replay 产物生成至少 `3` 个 case 报告
+    - JSON artifact 与 Markdown 报告都能说明 replay 事实和解释性 summary 的边界
 
 ## P2 施工项：语言内核与最小可写工具
 

@@ -24,6 +24,8 @@
   汇总当前已经验证过的 benchmark 结果，包括 `30` 个 full repair case、`cold / base / ai` deterministic replay、context-enabled export，并区分“仓库内可复现事实”和“尚未完成的外部对照”。
 - [`repair-archaeology.md`](./repair-archaeology.md)
   定义下一轮 `Repair Archaeology v0`：把 repair replay、score、compare 和 context-enabled export 资产整理成 case 级 JSON / Markdown 修复证据对象。
+- [`repair-archaeology-schema.md`](./repair-archaeology-schema.md)
+  定义 Repair Archaeology v0 的 case 级 JSON artifact、Markdown 报告模板、字段来源和事实/解释边界。
 - [`public-claims.md`](./public-claims.md)
   定义 AX 当前对外表述边界，避免把仓库内可复现事实说成尚未完成的跨语言或 live-model 结论。
 - [`application-scenarios.md`](./application-scenarios.md)

@@ -1103,6 +1103,8 @@ AX 希望最终回答的是：
   benchmark 资产、导出链路、评分与 compare 方式
 - [`docs/repair-archaeology.md`](./docs/repair-archaeology.md)
   Repair Archaeology v0 的定位、边界、输出结构和实施顺序
+- [`docs/repair-archaeology-schema.md`](./docs/repair-archaeology-schema.md)
+  Repair Archaeology v0 的 case 级 JSON artifact 与 Markdown 报告契约
 - [`docs/application-scenarios.md`](./docs/application-scenarios.md)
   AI-first 的具体应用场景、后端路线和当前非目标
 - [`docs/repair-adapter-spec.md`](./docs/repair-adapter-spec.md)

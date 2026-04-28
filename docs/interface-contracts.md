@@ -32,6 +32,7 @@ AX 现在的外部契约不是只有 CLI 命令本身。对 agent 和工具链�
 | repair export artifacts | `export-repair-benchmark.ps1` | repair adapters, score/compare scripts | `repair_benchmark_export_keeps_cold_base_ai_artifact_contracts` |
 | project-backed repair export | `export-repair-benchmark.ps1` | multi-file repair adapters | `repair_benchmark_export_supports_project_context_cases` |
 | context-enabled repair export | `export-repair-benchmark.ps1 -IncludeContext` | context-consuming repair adapters | `repair_benchmark_export_can_include_context_bundle` |
+| repair archaeology artifact | future `export-repair-archaeology.ps1` | docs, demos, benchmark readers | planned after `docs/repair-archaeology-schema.md`; no producer yet |
 | Std-1 candidate source tree | `axc build examples/project_*` | future AOT/package/std consumers | `project_text_normalize_build_copies_real_example_source_tree`, `project_directory_index_build_copies_real_example_source_tree`, `project_release_promote_build_copies_real_example_source_tree`, `project_command_capture_build_copies_real_example_source_tree`, `project_command_batch_build_copies_real_example_source_tree` |
 | Std-1 candidate runtime behavior | `axc run examples/project_*` | stdlib users, host-boundary examples | `project_text_normalize_runs_on_controlled_fixture`, `project_directory_index_runs_on_controlled_fixture`, `project_release_promote_runs_on_controlled_fixture`, `project_command_capture_runs_on_controlled_fixture`, `project_command_batch_runs_on_controlled_fixture` |
 
@@ -133,6 +134,29 @@ Not allowed without explicit contract update:
 - making context mandatory for old adapters
 - removing `BundlePath` or `PromptPath` from adapter workflows
 - changing the full-source repair output contract into a patch-only contract
+
+### Repair Archaeology Artifact
+
+Current status:
+
+- schema documented in [`repair-archaeology-schema.md`](./repair-archaeology-schema.md)
+- no producer script is committed yet
+- not part of `axc` CLI yet
+
+Stable for v0 design:
+
+- case JSON artifact has `schema_version`
+- case JSON separates `case / subject / initial_diagnostic / repair_contract / context / modes / comparison / archaeology_summary / reproducibility / provenance`
+- Markdown report is presentation only
+- deterministic replay must be marked as `source_kind = deterministic_replay`
+- live-model claims must remain `false` until a separate live benchmark exists
+
+Not allowed without explicit contract update:
+
+- using Markdown as source of truth
+- generating pass/fail from interpretation text
+- treating Repair Archaeology as evidence of live-model performance
+- adding an `axc repair-log` command before script/artifact schema is stable
 
 ### Std-1 Candidate Interfaces
 

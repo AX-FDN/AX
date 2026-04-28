@@ -96,6 +96,22 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke-compare-repa
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke-benchmark-diagnostics.ps1
 ```
 
+### Repair Archaeology Schema Change
+
+只改 Repair Archaeology schema / docs 时，至少跑：
+
+```powershell
+git diff --check
+```
+
+如果开始新增 `export-repair-archaeology.ps1` 或修改 run / score / compare artifact 读取方式，必须补一条 smoke，至少覆盖：
+
+- 一个 `improved` case
+- 一个 `both_pass` case
+- 一个 `failed` 或 `regressed` case
+
+该 smoke 在 v0 阶段应继续读取 deterministic replay artifact，不调用真实 LLM。
+
 ### Context-Enabled Repair Export
 
 改到 `axc context` 或 `export-repair-benchmark.ps1 -IncludeContext` 时，至少跑：

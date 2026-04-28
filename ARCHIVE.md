@@ -34,6 +34,15 @@
     - `docs/interface-contracts.md` 已把 Std-1 candidate source tree 与 runtime behavior 纳入契约地图
     - `WORKLIST.md` 已把 `W-P3-15` 标记完成，并把下一步推进到 `W-P1-08` Repair Archaeology artifact schema
 
+- `A-2026-04-28-02` `[P1]` Repair Archaeology v0 artifact schema 定义完成
+  - 结果：
+    - 新增 `docs/repair-archaeology-schema.md`
+    - 明确 case 级 JSON artifact、Markdown 报告模板、index 结构、字段来源和 status 枚举
+    - 明确 replay fact、compiler fact、runner fact、validation fact、derived fact 与 interpretation 的边界
+    - `docs/repair-archaeology.md` 已改为引用 schema 专文，避免在定位文档里维护重复结构
+    - `docs/interface-contracts.md` 与 `docs/validation-matrix.md` 已登记 Repair Archaeology artifact 的契约边界和后续 smoke 要求
+    - `WORKLIST.md` 已把 `W-P1-08` 标记完成，并新增 `W-P1-09` 最小导出脚本
+
 ### 2026-04-27
 
 - `A-2026-04-27-22` `[P1]` `Repair Archaeology v0` 增长点进入规划
