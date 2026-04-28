@@ -3,7 +3,7 @@
 
 # AX
 
-### 面向自回归 Coding AI 的 AI-first 工具语言与编译器原型
+### 面向自回归 Coding AI 的 AI-first 工具语言，向后端语言演进
 
 [![License](https://img.shields.io/github/license/AX-FDN/AX)](./LICENSE)
 [![Prototype](https://img.shields.io/badge/status-prototype-0ea5e9)](./PLAN.md)
@@ -11,8 +11,19 @@
 
 </div>
 
-AX 是一门面向自回归 Coding AI 的 AI-first 工具语言，也是一套围绕这门语言持续工程化的编译器与执行工具链。
-它把显式语法、规范化源码形态、结构化诊断、修复反馈契约、架构上下文协议与 benchmark 证据链并入同一套语言系统，目标是成为对 agent 生成、修复和理解项目都更稳定的语言之一。
+AX 是一门面向自回归 Coding AI 的 AI-first 工具语言，也是一套围绕这门语言持续工程化的编译器、运行时与执行工具链。
+它把显式语法、规范化源码形态、结构化诊断、修复反馈契约、架构上下文协议与 benchmark 证据链并入同一套语言系统，目标是让 agent 生成、修复、理解和演进项目时更稳定。
+
+AX 当前从 CLI 工具、自动化脚本、批处理任务、构建辅助和后端 worker 外围工具切入。
+这不是终点，而是起点：项目会在保持 AI-first 约束的前提下，逐步补齐标准库、包系统、AOT 后端、后端 worker 能力、配置 / JSON / 日志等服务端基础设施，并最终成长为一门可以承担后端程序开发的语言。
+
+AX 的长期愿景是：
+
+- 让 Coding AI 更容易生成能通过检查、能运行、能维护的源码
+- 让编译器诊断天然变成 agent 可消费的修复协议
+- 让项目结构、调用流、宿主边界和验证证据可以被稳定输出给模型
+- 让语言从工具程序逐步扩展到后端 worker、服务端组件和可发布程序
+- 让标准库、包接口、AOT 后端和部分自举形成完整生态闭环
 
 AX 关注的不只是“模型能不能写出代码”，更关注三件更硬的事：
 
@@ -21,6 +32,8 @@ AX 关注的不只是“模型能不能写出代码”，更关注三件更硬�
 - 能不能让 agent 在多文件项目里更快理解架构、边界和修改落点
 
 仓库已经具备可运行的 `axc check / run / fmt / build`、结构化 `diagnostics`、`--json --ai` 输出、project-backed 多文件组织、第一阶段 `import/module` 模式、AX 侧共享 foundation、第一批 `std.*` 标准库试点模块，以及 repair benchmark 的导出、评分、对比、smoke 与 CI 资产。
+
+当前 `build` 仍处在稳定产物和后端接口骨架阶段；后续会按 `AOT -> 包接口 -> 后端 worker 能力 -> 更完整服务端生态` 的顺序推进，而不是停留在研究原型或一次性脚本语言。
 
 ## 项目导航
 
@@ -51,12 +64,13 @@ AX 关注的不只是“模型能不能写出代码”，更关注三件更硬�
 
 | 项目维度 | AX 当前提供什么 |
 | --- | --- |
-| 项目定位 | `AI-first Tool Language + Compiler/Runtime Prototype` |
+| 项目定位 | `AI-first Tool Language -> Backend-capable Language` |
 | 核心问题 | 什么样的语言表面、诊断结构、上下文协议和修复反馈，最适合自回归模型稳定生成、稳定修复和稳定理解项目 |
-| 关键收益 | 提高一次通过率、提高修复成功率、提高多文件项目中的架构理解效率 |
-| 主要场景 | agent 生成 CLI 工具、可修复自动化脚本、后端 worker 辅助、compiler-guided repair benchmark ，更多应用场景正在开发中|
-| 当前形态 | 语言前端 + 解释执行 + project mode + structured diagnostics + context + repair benchmark |
-| 核心价值 | 把语言本体、编译器反馈和 AI 消费链路放进同一个可运行仓库 |
+| 关键收益 | 提高一次通过率、提高修复成功率、提高多文件项目中的架构理解效率，并把这些能力带入真实后端开发 |
+| 当前主要场景 | agent 生成 CLI 工具、可修复自动化脚本、后端 worker 辅助、compiler-guided repair benchmark |
+| 演进方向 | 标准库、包系统、AOT 后端、后端 worker、服务端基础设施、部分自举 |
+| 当前形态 | 语言前端 + 解释执行 + project mode + structured diagnostics + context + repair benchmark + 标准库试点 |
+| 核心价值 | 把语言本体、编译器反馈、AI 消费链路和未来后端生态放进同一个可运行仓库 |
 
 ## AX 的核心优势
 
