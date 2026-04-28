@@ -41,6 +41,8 @@ pub enum DiagnosticKind {
     ForInBindingTypeMismatch,
     EnumVariantPayloadShapeMismatch,
     EnumVariantPayloadTypeMismatch,
+    TraitReferenceMustResolve,
+    TraitBoundNotSatisfied,
     ArgvIndexNegative,
     ArgvIndexOutOfBounds,
     EnvironmentVariableUnavailable,

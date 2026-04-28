@@ -1,0 +1,11 @@
+trait Label {
+    fn label(self: Self) -> string;
+}
+
+fn render<T: Label>(value: T) -> string {
+    return value.label();
+}
+
+fn main() -> i32 {
+    return string_len(render(1));
+}

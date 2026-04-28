@@ -277,6 +277,8 @@ fn match_rule_by_kind(kind: DiagnosticKind) -> Option<RuleTemplate> {
         DiagnosticKind::EnumVariantPayloadTypeMismatch => {
             Some(RULE_ENUM_VARIANT_PAYLOAD_TYPE_MUST_MATCH_DECLARATION)
         }
+        DiagnosticKind::TraitReferenceMustResolve => Some(RULE_TRAIT_REFERENCE_MUST_RESOLVE),
+        DiagnosticKind::TraitBoundNotSatisfied => Some(RULE_TRAIT_BOUND_MUST_BE_SATISFIED),
         DiagnosticKind::ArgvIndexNegative => Some(RULE_ARGV_INDEX_NON_NEGATIVE),
         DiagnosticKind::ArgvIndexOutOfBounds => Some(RULE_ARGV_INDEX_IN_BOUNDS),
         DiagnosticKind::EnvironmentVariableUnavailable => {
@@ -799,6 +801,28 @@ const RULE_ENUM_VARIANT_PAYLOAD_TYPE_MUST_MATCH_DECLARATION: RuleTemplate = Rule
     minimal_example: "let result: Result = Result.Ok(1);",
     anti_pattern: Some("let result: Result = Result.Ok(true);"),
     default_fixit: "rewrite the payload expression so it produces the variant's declared payload type",
+};
+
+const RULE_TRAIT_REFERENCE_MUST_RESOLVE: RuleTemplate = RuleTemplate {
+    rule_id: "trait_reference_must_resolve",
+    normalized_pattern: "trait_reference_must_resolve",
+    repair_goal: "Reference a trait that is declared and visible before using it in an impl or generic bound.",
+    summary: "AX trait references must point at a declared trait; generic bounds like `T: Label` and `impl Label for Type` cannot invent traits implicitly.",
+    pattern: "trait Label { fn label(self: Self) -> string; }\nfn render<T: Label>(value: T) -> string { return value.label(); }",
+    minimal_example: "trait Named { fn name(self: Self) -> string; }",
+    anti_pattern: Some("fn render<T: MissingTrait>(value: T) -> T { return value; }"),
+    default_fixit: "declare the missing trait, import the module that owns it, or change the reference to an existing trait",
+};
+
+const RULE_TRAIT_BOUND_MUST_BE_SATISFIED: RuleTemplate = RuleTemplate {
+    rule_id: "trait_bound_must_be_satisfied",
+    normalized_pattern: "trait_bound_must_be_satisfied",
+    repair_goal: "Pass a value whose type implements the required trait, or add the missing `impl Trait for Type` block.",
+    summary: "AX generic function bounds are checked at the call site, so `fn render<T: Label>(value: T)` only accepts types with `impl Label for ThatType`.",
+    pattern: "impl Label for Command { fn label(self: Command) -> string { return self.name; } }",
+    minimal_example: "fn render<T: Label>(value: T) -> string { return value.label(); }",
+    anti_pattern: Some("render(1)"),
+    default_fixit: "add the required trait impl for the concrete type or call the generic function with an implementing value",
 };
 
 const RULE_NON_EMPTY_ARRAY_LITERAL_REQUIRED: RuleTemplate = RuleTemplate {
@@ -1959,6 +1983,18 @@ mod tests {
                 expected_rule_id: "for_in_binding_must_match_element_type",
             },
             KindCase {
+                code: "S0059",
+                message: "trait reference placeholder",
+                kind: DiagnosticKind::TraitReferenceMustResolve,
+                expected_rule_id: "trait_reference_must_resolve",
+            },
+            KindCase {
+                code: "S0059",
+                message: "trait bound placeholder",
+                kind: DiagnosticKind::TraitBoundNotSatisfied,
+                expected_rule_id: "trait_bound_must_be_satisfied",
+            },
+            KindCase {
                 code: "R0048",
                 message: "argv negative placeholder",
                 kind: DiagnosticKind::ArgvIndexNegative,
@@ -2182,6 +2218,66 @@ mod tests {
         let ai = diagnostic.ai.as_ref().expect("ai payload should exist");
         assert_eq!(ai.rule_id, "len_builtin_requires_countable_value");
         assert_eq!(ai.teaching_level, TeachingLevel::L1);
+    }
+
+    #[test]
+    fn enhances_trait_bound_mismatch_with_specific_rule_card() {
+        let source = SourceFile::anonymous(
+            "\
+trait Label {
+    fn label(self: Self) -> string;
+}
+
+fn render<T: Label>(value: T) -> string {
+    return value.label();
+}
+
+fn main() -> i32 {
+    return string_len(render(1));
+}
+",
+        );
+        let mut analysis = analyze(&source);
+        enhance_diagnostics(&source, &analysis.program, &mut analysis.diagnostics, None)
+            .expect("ai enhancement should succeed");
+
+        let diagnostic = analysis
+            .diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.message.contains("does not satisfy trait bound"))
+            .expect("trait bound diagnostic should exist");
+        let ai = diagnostic.ai.as_ref().expect("ai payload should exist");
+        assert_eq!(ai.rule_id, "trait_bound_must_be_satisfied");
+        assert_eq!(
+            ai.repair_goal,
+            "Pass a value whose type implements the required trait, or add the missing `impl Trait for Type` block."
+        );
+    }
+
+    #[test]
+    fn enhances_unknown_trait_bound_with_specific_rule_card() {
+        let source = SourceFile::anonymous(
+            "\
+fn render<T: MissingTrait>(value: T) -> T {
+    return value;
+}
+
+fn main() -> i32 {
+    return render(1);
+}
+",
+        );
+        let mut analysis = analyze(&source);
+        enhance_diagnostics(&source, &analysis.program, &mut analysis.diagnostics, None)
+            .expect("ai enhancement should succeed");
+
+        let diagnostic = analysis
+            .diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.message.contains("unknown trait"))
+            .expect("unknown trait diagnostic should exist");
+        let ai = diagnostic.ai.as_ref().expect("ai payload should exist");
+        assert_eq!(ai.rule_id, "trait_reference_must_resolve");
     }
 
     #[test]

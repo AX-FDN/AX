@@ -130,6 +130,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                                 self.info.source,
                                 expr.span,
                             )
+                            .with_kind(DiagnosticKind::TraitBoundNotSatisfied)
                             .with_suggestion(format!(
                                 "add `impl {} for {} {{ ... }}` or pass a value that implements the trait",
                                 bound.trait_name,

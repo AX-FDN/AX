@@ -836,10 +836,10 @@
   - 后续补强：`Q-P6-03c` std 接口抽象迁移试点；`Q-P6-03d` trait diagnostics / AI repair case
 - [x] `Q-P6-03b` trait bounds 第一刀
   - 状态：已支持泛型函数参数上的单 trait bound，例如 `fn render<T: Label>(value: T) -> string`
-  - 已覆盖：parser / AST / formatter / semantic signature collection / generic call checking / trait-bound method call / example / README / SYNTAX
+  - 已覆盖：parser / AST / formatter / semantic signature collection / generic call checking / trait-bound method call / AI rule cards / example / README / SYNTAX
   - 代表样例：`examples/trait_bounds.ax`
   - 当前边界：不支持 `where`、多 trait bound、泛型 trait、泛型 impl、动态派发或关联类型
-  - 后续补强：把 trait bound 相关错误纳入 AI repair case，并在 `std.*` 抽象试点中验证接口复用价值
+  - 后续补强：把 trait bound 相关错误纳入 repair benchmark case，并在 `std.*` 抽象试点中验证接口复用价值
 - [x] `Q-P6-04a` richer pattern matching：字符串字面量 pattern
   - 状态：已支持 `match (command) { "check" => ..., _ => ... }`
   - 已覆盖：parser / semantic / HIR / MIR / interpreter / formatter / example / interface snapshot

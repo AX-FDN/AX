@@ -909,6 +909,7 @@ impl<'a> ProgramInfo<'a> {
                     self.source,
                     trait_ref.span,
                 )
+                .with_kind(DiagnosticKind::TraitReferenceMustResolve)
                 .with_suggestion("write `impl TraitName for TypeName { ... }`"),
             );
             return None;
@@ -930,6 +931,7 @@ impl<'a> ProgramInfo<'a> {
                         self.source,
                         trait_ref.span,
                     )
+                    .with_kind(DiagnosticKind::TraitReferenceMustResolve)
                     .with_suggestion("declare the trait before implementing it"),
                 );
             }
