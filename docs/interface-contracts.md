@@ -32,7 +32,7 @@ AX 现在的外部契约不是只有 CLI 命令本身。对 agent 和工具链�
 | repair export artifacts | `export-repair-benchmark.ps1` | repair adapters, score/compare scripts | `repair_benchmark_export_keeps_cold_base_ai_artifact_contracts` |
 | project-backed repair export | `export-repair-benchmark.ps1` | multi-file repair adapters | `repair_benchmark_export_supports_project_context_cases` |
 | context-enabled repair export | `export-repair-benchmark.ps1 -IncludeContext` | context-consuming repair adapters | `repair_benchmark_export_can_include_context_bundle` |
-| repair archaeology artifact | `export-repair-archaeology.ps1` | docs, demos, benchmark readers | local smoke exports `index.json` and `cases/<case-id>.json/.md` from deterministic replay artifacts |
+| repair archaeology artifact | `export-repair-archaeology.ps1` | docs, demos, benchmark readers | `smoke-repair-archaeology.ps1` exports `index.json` and `cases/<case-id>.json/.md` from fresh deterministic replay artifacts |
 | Std-1 candidate source tree | `axc build examples/project_*` | future AOT/package/std consumers | `project_text_normalize_build_copies_real_example_source_tree`, `project_directory_index_build_copies_real_example_source_tree`, `project_release_promote_build_copies_real_example_source_tree`, `project_command_capture_build_copies_real_example_source_tree`, `project_command_batch_build_copies_real_example_source_tree` |
 | Std-1 candidate runtime behavior | `axc run examples/project_*` | stdlib users, host-boundary examples | `project_text_normalize_runs_on_controlled_fixture`, `project_directory_index_runs_on_controlled_fixture`, `project_release_promote_runs_on_controlled_fixture`, `project_command_capture_runs_on_controlled_fixture`, `project_command_batch_runs_on_controlled_fixture` |
 
@@ -158,13 +158,10 @@ Not allowed without explicit contract update:
 - treating Repair Archaeology as evidence of live-model performance
 - adding an `axc repair-log` command before script/artifact schema is stable
 
-Current local smoke:
+Current smoke:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\export-repair-archaeology.ps1 `
-  -ComparisonPath .ax-ai\repair-comparisons\showcase-20260424\comparison.json `
-  -OutputDir .ax-ai\repair-archaeology\local-smoke `
-  -CaseIds missing_semicolon_basic,missing_paren_condition,slice_assignment_read_only
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke-repair-archaeology.ps1 -SkipBuild
 ```
 
 ### Std-1 Candidate Interfaces

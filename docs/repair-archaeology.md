@@ -138,6 +138,12 @@ v0 完成时必须交付：
 - README / benchmark showcase / docs README 的入口链接
 - 对应 smoke 或 interface regression，避免报告格式漂移
 
+当前固定 smoke：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke-repair-archaeology.ps1 -SkipBuild
+```
+
 ## 当前优先级
 
 Repair Archaeology 是 `P1` 编译器护城河的展示与解释层。

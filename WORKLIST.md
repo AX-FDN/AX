@@ -296,9 +296,15 @@
     - smoke 能从 deterministic replay 产物生成至少 `3` 个 case 报告
     - JSON artifact 与 Markdown 报告都能说明 replay 事实和解释性 summary 的边界
 
-- [ ] `W-P1-10` 给 Repair Archaeology v0 补固定 smoke
+- [x] `W-P1-10` 给 Repair Archaeology v0 补固定 smoke
   - 目标：不要只靠本地 `.ax-ai` 历史产物验证脚本，要把最小导出路径变成可复跑 smoke。
   - 依赖：`W-P1-09`
+  - 当前结果：
+    - 新增 `scripts/smoke-repair-archaeology.ps1`
+    - smoke 会重新导出 `repair-cases-smoke.json`、重新跑 deterministic `base -> ai` compare、再导出 `3` 个 Repair Archaeology case 报告
+    - smoke 覆盖 `missing_semicolon_basic`、`type_mismatch_bool_from_int`、`slice_assignment_read_only`
+    - smoke 验证 `index.json`、case JSON、case Markdown 存在并可解析
+    - 本地已通过 `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke-repair-archaeology.ps1 -SkipBuild`
   - 当前范围：
     - 新增或复用 smoke 脚本
     - 固定 deterministic replay 输入
@@ -309,6 +315,19 @@
   - 完成标准：
     - smoke 不依赖旧本地产物
     - CI 或本机验证矩阵能明确引用该 smoke
+
+- [ ] `W-P1-11` 评估是否把 Repair Archaeology smoke 接入 CI
+  - 目标：判断 `smoke-repair-archaeology.ps1` 是否进入 Windows CI full workflow，还是先留在本机验证矩阵。
+  - 依赖：`W-P1-10`
+  - 当前需要评估：
+    - CI 时间成本
+    - 与现有 repair smoke / compare smoke 的重复度
+    - 是否需要先把 smoke 输出目录和 case 选择继续收紧
+  - 当前不做：
+    - 不直接把它塞进 Linux core support
+    - 不要求 Linux 跑 PowerShell benchmark/orchestration
+  - 完成标准：
+    - 明确进入 CI、延后进入 CI，或改成 nightly/manual 的理由
 
 ## P2 施工项：语言内核与最小可写工具
 

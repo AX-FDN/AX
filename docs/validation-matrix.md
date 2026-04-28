@@ -112,14 +112,13 @@ git diff --check
 
 该 smoke 在 v0 阶段应继续读取 deterministic replay artifact，不调用真实 LLM。
 
-当前本地 smoke 入口：
+当前 smoke 入口：
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\export-repair-archaeology.ps1 `
-  -ComparisonPath .ax-ai\repair-comparisons\showcase-20260424\comparison.json `
-  -OutputDir .ax-ai\repair-archaeology\local-smoke `
-  -CaseIds missing_semicolon_basic,missing_paren_condition,slice_assignment_read_only
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke-repair-archaeology.ps1 -SkipBuild
 ```
+
+这个 smoke 会重新导出 smoke benchmark、重新跑 deterministic `base -> ai` compare，再导出 `3` 个 Repair Archaeology case 报告，因此不依赖旧 `.ax-ai` 历史产物。
 
 ### Context-Enabled Repair Export
 

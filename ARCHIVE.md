@@ -52,6 +52,15 @@
     - 本地 smoke 已用 `showcase-20260424` 产物导出 `missing_semicolon_basic`、`missing_paren_condition`、`slice_assignment_read_only` 三个 case
     - `WORKLIST.md` 已把下一步推进到 `W-P1-10` 固定 smoke，避免长期依赖本地历史 `.ax-ai` 产物
 
+- `A-2026-04-28-04` `[P1]` Repair Archaeology v0 固定 smoke 落地
+  - 结果：
+    - 新增 `scripts/smoke-repair-archaeology.ps1`
+    - smoke 会重新导出 smoke benchmark、重新跑 deterministic `base -> ai` compare、再导出 Repair Archaeology case JSON / Markdown
+    - smoke 当前覆盖 `missing_semicolon_basic`、`type_mismatch_bool_from_int`、`slice_assignment_read_only`
+    - smoke 验证 `index.json`、case JSON 和 case Markdown 均存在且 JSON 可解析
+    - `docs/interface-contracts.md`、`docs/validation-matrix.md`、`docs/repair-archaeology.md` 已改为引用固定 smoke
+    - `WORKLIST.md` 已新增 `W-P1-11`，下一步评估是否把该 smoke 接入 Windows CI
+
 ### 2026-04-27
 
 - `A-2026-04-27-22` `[P1]` `Repair Archaeology v0` 增长点进入规划
