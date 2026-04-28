@@ -894,12 +894,7 @@ impl<'a> Parser<'a> {
                 span: token.span,
                 kind: MatchPatternKind::Bool { value: false },
             },
-            TokenKind::IntLiteral => MatchPattern {
-                span: token.span,
-                kind: MatchPatternKind::Int {
-                    value: token.lexeme.parse().unwrap_or(0),
-                },
-            },
+            TokenKind::IntLiteral => self.parse_int_match_pattern(token, false),
             TokenKind::StringLiteral => MatchPattern {
                 span: token.span,
                 kind: MatchPatternKind::String {
@@ -912,12 +907,7 @@ impl<'a> Parser<'a> {
                     "expected an integer literal after `-` in match pattern",
                     &["integer literal"],
                 );
-                MatchPattern {
-                    span: Span::new(token.span.start, literal.span.end),
-                    kind: MatchPatternKind::Int {
-                        value: -literal.lexeme.parse::<i64>().unwrap_or(0),
-                    },
-                }
+                self.parse_int_match_pattern(literal, true)
             }
             TokenKind::Identifier => {
                 if token.lexeme == "_" && !self.check(TokenKind::Dot) {
@@ -961,6 +951,44 @@ impl<'a> Parser<'a> {
                     kind: MatchPatternKind::Error,
                 }
             }
+        }
+    }
+
+    fn parse_int_match_pattern(&mut self, token: Token, negative: bool) -> MatchPattern {
+        let start_value = parse_signed_i64_literal(&token.lexeme, negative);
+        let start_span = if negative {
+            Span::new(token.span.start.saturating_sub(1), token.span.end)
+        } else {
+            token.span
+        };
+
+        if self.matches(&[TokenKind::DotDotEqual]) {
+            let end = self.parse_match_range_bound();
+            return MatchPattern {
+                span: Span::new(start_span.start, end.span.end),
+                kind: MatchPatternKind::IntRange {
+                    start: start_value,
+                    end: end.value,
+                },
+            };
+        }
+
+        MatchPattern {
+            span: start_span,
+            kind: MatchPatternKind::Int { value: start_value },
+        }
+    }
+
+    fn parse_match_range_bound(&mut self) -> ParsedIntLiteral {
+        let negative = self.matches(&[TokenKind::Minus]);
+        let value = self.expect(
+            TokenKind::IntLiteral,
+            "expected an integer literal after `..=` in match range pattern",
+            &["integer literal"],
+        );
+        ParsedIntLiteral {
+            value: parse_signed_i64_literal(&value.lexeme, negative),
+            span: value.span,
         }
     }
 
@@ -1609,6 +1637,16 @@ impl<'a> Parser<'a> {
 
         saw_dot && self.tokens.get(index).map(|token| token.kind) == Some(terminator)
     }
+}
+
+struct ParsedIntLiteral {
+    value: i64,
+    span: Span,
+}
+
+fn parse_signed_i64_literal(lexeme: &str, negative: bool) -> i64 {
+    let value = lexeme.parse::<i64>().unwrap_or(0);
+    if negative { -value } else { value }
 }
 
 fn parse_error_kind(code: &str, message: &str, expected: &[&str]) -> Option<DiagnosticKind> {
@@ -2284,6 +2322,38 @@ fn main() -> i32 {
             panic!("expected match expression");
         };
         assert!(arms[0].guard.is_some());
+    }
+
+    #[test]
+    fn parses_match_range_patterns() {
+        let source = SourceFile::anonymous(
+            "\
+fn main() -> i32 {
+    let value: i32 = match (404) { 400..=499 => 4, _ => 0 };
+    return value;
+}
+",
+        );
+        let tokens = tokenize(&source).tokens;
+        let output = parse(&source, tokens);
+        assert!(output.diagnostics.is_empty(), "{:?}", output.diagnostics);
+
+        let ItemKind::Function { body, .. } = &output.program.items[0].kind else {
+            panic!("expected function");
+        };
+        let StmtKind::Let { initializer, .. } = &body.statements[0].kind else {
+            panic!("expected let statement");
+        };
+        let ExprKind::Match { arms, .. } = &initializer.kind else {
+            panic!("expected match expression");
+        };
+        assert!(matches!(
+            arms[0].pattern.kind,
+            MatchPatternKind::IntRange {
+                start: 400,
+                end: 499
+            }
+        ));
     }
 
     #[test]

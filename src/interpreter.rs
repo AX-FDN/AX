@@ -2570,6 +2570,17 @@ impl<'a> Interpreter<'a> {
                     span,
                 )),
             },
+            MatchPatternKind::IntRange { start, end } => match scrutinee {
+                Value::I32(actual) => Ok(actual >= start && actual <= end),
+                other => Err(self.runtime_error(
+                    "R0037",
+                    format!(
+                        "match pattern `i32` range cannot be applied to runtime value `{}`",
+                        other.display()
+                    ),
+                    span,
+                )),
+            },
             MatchPatternKind::String { value } => match scrutinee {
                 Value::String(actual) => Ok(actual == value),
                 other => Err(self.runtime_error(
@@ -2715,6 +2726,7 @@ impl<'a> Interpreter<'a> {
             MatchPatternKind::Binding { name } => name.clone(),
             MatchPatternKind::Bool { value } => value.to_string(),
             MatchPatternKind::Int { value } => value.to_string(),
+            MatchPatternKind::IntRange { start, end } => format!("{start}..={end}"),
             MatchPatternKind::String { value } => format!("{value:?}"),
             MatchPatternKind::EnumVariant {
                 enum_name,

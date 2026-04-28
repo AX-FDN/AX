@@ -46,6 +46,12 @@ impl<'a> Lexer<'a> {
                 '{' => self.simple_token(TokenKind::LBrace, start),
                 '}' => self.simple_token(TokenKind::RBrace, start),
                 ',' => self.simple_token(TokenKind::Comma, start),
+                '.' if self.peek_next_char() == Some('.') && self.peek_char_at(2) == Some('=') => {
+                    self.advance_char();
+                    self.advance_char();
+                    self.advance_char();
+                    self.push_token(TokenKind::DotDotEqual, Span::new(start, self.cursor));
+                }
                 '.' => self.simple_token(TokenKind::Dot, start),
                 ':' => self.simple_token(TokenKind::Colon, start),
                 ';' => self.simple_token(TokenKind::Semicolon, start),
@@ -291,6 +297,10 @@ impl<'a> Lexer<'a> {
         chars.next()
     }
 
+    fn peek_char_at(&self, offset: usize) -> Option<char> {
+        self.source.text()[self.cursor..].chars().nth(offset)
+    }
+
     fn advance_char(&mut self) -> Option<char> {
         let ch = self.peek_char()?;
         self.cursor += ch.len_utf8();
@@ -477,6 +487,21 @@ mod tests {
             .collect::<Vec<_>>();
         assert!(output.diagnostics.is_empty());
         assert!(kinds.contains(&TokenKind::Pipe));
+    }
+
+    #[test]
+    fn tokenizes_match_range_pattern() {
+        let source = SourceFile::anonymous(
+            "fn main() -> i32 { return match (404) { 400..=499 => 4, _ => 0 }; }",
+        );
+        let output = tokenize(&source);
+        let kinds = output
+            .tokens
+            .iter()
+            .map(|token| token.kind)
+            .collect::<Vec<_>>();
+        assert!(output.diagnostics.is_empty());
+        assert!(kinds.contains(&TokenKind::DotDotEqual));
     }
 
     #[test]

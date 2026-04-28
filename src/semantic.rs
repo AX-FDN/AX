@@ -817,6 +817,23 @@ fn main() -> i32 {
     }
 
     #[test]
+    fn accepts_match_range_patterns() {
+        let codes = check(
+            "\
+fn main() -> i32 {
+    let code: i32 = match (404) {
+        100..=199 => 1,
+        400..=499 => 4,
+        _ => 0,
+    };
+    return code;
+}
+",
+        );
+        assert!(codes.is_empty(), "unexpected diagnostics: {codes:?}");
+    }
+
+    #[test]
     fn accepts_payload_enum_construction_and_match_patterns() {
         let codes = check(
             "\

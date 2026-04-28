@@ -1,0 +1,15 @@
+fn http_group(status: i32) -> i32 {
+    return match (status) {
+        200..=299 => 2,
+        400..=499 => 4,
+        500..=599 => 5,
+        _ => 0,
+    };
+}
+
+fn main() -> i32 {
+    println(http_group(204));
+    println(http_group(404));
+    println(http_group(503));
+    return http_group(123);
+}

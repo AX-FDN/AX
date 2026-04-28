@@ -471,6 +471,7 @@ fn format_match_pattern(pattern: &MatchPattern) -> String {
         MatchPatternKind::Binding { name } => name.clone(),
         MatchPatternKind::Bool { value } => value.to_string(),
         MatchPatternKind::Int { value } => value.to_string(),
+        MatchPatternKind::IntRange { start, end } => format!("{start}..={end}"),
         MatchPatternKind::String { value } => escape_string_literal(value),
         MatchPatternKind::EnumVariant { path, payload } => match payload {
             Some(crate::ast::EnumVariantPayloadPattern::Wildcard) => format!("{path}(_)"),
@@ -935,6 +936,24 @@ mod tests {
             concat!(
                 "fn main() -> i32 {\n",
                 "    let value: i32 = match (2) { 2 if true => 10, _ => 0 };\n",
+                "    return value;\n",
+                "}\n"
+            )
+        );
+    }
+
+    #[test]
+    fn formats_match_range_patterns() {
+        let source = SourceFile::anonymous(
+            "fn main()->i32{let value:i32=match(404){400..=499=>4,_=>0};return value;}",
+        );
+
+        let formatted = format_source(&source).expect("source should format");
+        assert_eq!(
+            formatted,
+            concat!(
+                "fn main() -> i32 {\n",
+                "    let value: i32 = match (404) { 400..=499 => 4, _ => 0 };\n",
                 "    return value;\n",
                 "}\n"
             )

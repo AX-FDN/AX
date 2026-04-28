@@ -477,6 +477,7 @@
       - `Enum.Variant(_)`
       - 字符串字面量 pattern
       - `A | B` 多 pattern arm（仅字面量或 unit enum variant，不在同一 arm 内引入 binding）
+      - `i32` range pattern：`start..=end`
       - `pattern if bool_expr => ...` bool guard（guard 不参与穷尽性证明，可读取当前 arm 引入的 pattern binding）
       - 最终 `_`
       - 最终裸标识符 catch-all
@@ -488,7 +489,6 @@
     - tuple / array / struct destructuring
     - 多 payload 或命名 payload fields
     - 嵌套 payload destructuring
-    - range pattern
     - block-valued match expression arm
   - 冻结依据：
     - `project_directory_index / project_text_normalize / project_release_promote` 的主压力不在新增表面 pattern，而在工程组织、宿主能力和共享 helper

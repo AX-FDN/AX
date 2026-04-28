@@ -287,6 +287,10 @@ pub enum MatchPatternKind {
     Int {
         value: i64,
     },
+    IntRange {
+        start: i64,
+        end: i64,
+    },
     String {
         value: String,
     },

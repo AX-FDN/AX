@@ -643,6 +643,39 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 }
                 Some(ResolvedMatchPattern::Int(value))
             }
+            MatchPatternKind::IntRange { start, end } => {
+                if i32::try_from(*start).is_err() || i32::try_from(*end).is_err() {
+                    self.diagnostics.push(
+                        Diagnostic::new(
+                            "S0009",
+                            "integer range pattern bound is out of range for `i32`",
+                            self.info.source,
+                            pattern.span,
+                        )
+                        .with_suggestion("use range bounds that fit in the AX `i32` range"),
+                    );
+                    return None;
+                }
+                if start > end {
+                    self.diagnostics.push(
+                        Diagnostic::new(
+                            "S0056",
+                            format!("empty match range pattern `{start}..={end}`"),
+                            self.info.source,
+                            pattern.span,
+                        )
+                        .with_kind(DiagnosticKind::MatchPatternTypeMismatch)
+                        .with_suggestion(
+                            "make the start bound less than or equal to the end bound",
+                        ),
+                    );
+                    return None;
+                }
+                if !matches!(scrutinee_type, Type::I32 | Type::Error) {
+                    self.report_match_pattern_type_mismatch(pattern, scrutinee_type);
+                }
+                None
+            }
             MatchPatternKind::String { value } => {
                 if !matches!(scrutinee_type, Type::String | Type::Error) {
                     self.report_match_pattern_type_mismatch(pattern, scrutinee_type);
@@ -954,6 +987,7 @@ fn pattern_label(pattern: &MatchPattern) -> String {
         MatchPatternKind::Binding { name } => name.clone(),
         MatchPatternKind::Bool { value } => value.to_string(),
         MatchPatternKind::Int { value } => value.to_string(),
+        MatchPatternKind::IntRange { start, end } => format!("{start}..={end}"),
         MatchPatternKind::String { value } => format!("{value:?}"),
         MatchPatternKind::EnumVariant { path, payload } => match payload {
             Some(EnumVariantPayloadPattern::Wildcard) => format!("{path}(_)"),

@@ -146,6 +146,10 @@ pub enum MatchPatternKind {
     Int {
         value: i32,
     },
+    IntRange {
+        start: i32,
+        end: i32,
+    },
     String {
         value: String,
     },
@@ -1101,6 +1105,22 @@ impl<'a> LoweringContext<'a> {
                     )
                 })?,
             },
+            ast::MatchPatternKind::IntRange { start, end } => MatchPatternKind::IntRange {
+                start: i32::try_from(*start).map_err(|_| {
+                    self.lowering_error(
+                        "H0017",
+                        "match range pattern start must fit in i32",
+                        pattern.span,
+                    )
+                })?,
+                end: i32::try_from(*end).map_err(|_| {
+                    self.lowering_error(
+                        "H0018",
+                        "match range pattern end must fit in i32",
+                        pattern.span,
+                    )
+                })?,
+            },
             ast::MatchPatternKind::String { value } => MatchPatternKind::String {
                 value: value.clone(),
             },
@@ -1153,6 +1173,7 @@ impl<'a> LoweringContext<'a> {
             match &arm.pattern.kind {
                 ast::MatchPatternKind::Bool { .. } => return Ok(Type::Bool),
                 ast::MatchPatternKind::Int { .. } => return Ok(Type::I32),
+                ast::MatchPatternKind::IntRange { .. } => return Ok(Type::I32),
                 ast::MatchPatternKind::String { .. } => return Ok(Type::String),
                 ast::MatchPatternKind::EnumVariant { path, .. } => {
                     let Some((enum_path, _)) = path.rsplit_once('.') else {
@@ -1172,6 +1193,7 @@ impl<'a> LoweringContext<'a> {
                         match &alternative.kind {
                             ast::MatchPatternKind::Bool { .. } => return Ok(Type::Bool),
                             ast::MatchPatternKind::Int { .. } => return Ok(Type::I32),
+                            ast::MatchPatternKind::IntRange { .. } => return Ok(Type::I32),
                             ast::MatchPatternKind::String { .. } => return Ok(Type::String),
                             ast::MatchPatternKind::EnumVariant { path, .. } => {
                                 let Some((enum_path, _)) = path.rsplit_once('.') else {

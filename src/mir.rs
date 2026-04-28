@@ -186,6 +186,10 @@ pub enum MatchPatternKind {
     Int {
         value: i32,
     },
+    IntRange {
+        start: i32,
+        end: i32,
+    },
     String {
         value: String,
     },
@@ -756,6 +760,10 @@ impl FunctionLowerer {
             }
             hir::MatchPatternKind::Bool { value } => MatchPatternKind::Bool { value: *value },
             hir::MatchPatternKind::Int { value } => MatchPatternKind::Int { value: *value },
+            hir::MatchPatternKind::IntRange { start, end } => MatchPatternKind::IntRange {
+                start: *start,
+                end: *end,
+            },
             hir::MatchPatternKind::String { value } => MatchPatternKind::String {
                 value: value.clone(),
             },
@@ -794,6 +802,7 @@ impl FunctionLowerer {
             match &arm.pattern.kind {
                 hir::MatchPatternKind::Bool { .. } => return Ok(Type::Bool),
                 hir::MatchPatternKind::Int { .. } => return Ok(Type::I32),
+                hir::MatchPatternKind::IntRange { .. } => return Ok(Type::I32),
                 hir::MatchPatternKind::String { .. } => return Ok(Type::String),
                 hir::MatchPatternKind::EnumVariant { enum_name, .. } => {
                     return Ok(Type::Enum {
@@ -805,6 +814,7 @@ impl FunctionLowerer {
                         match &alternative.kind {
                             hir::MatchPatternKind::Bool { .. } => return Ok(Type::Bool),
                             hir::MatchPatternKind::Int { .. } => return Ok(Type::I32),
+                            hir::MatchPatternKind::IntRange { .. } => return Ok(Type::I32),
                             hir::MatchPatternKind::String { .. } => return Ok(Type::String),
                             hir::MatchPatternKind::EnumVariant { enum_name, .. } => {
                                 return Ok(Type::Enum {
