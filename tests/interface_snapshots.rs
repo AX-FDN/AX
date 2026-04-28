@@ -4238,6 +4238,20 @@ fn payload_enum_example_runs() {
 }
 
 #[test]
+fn match_repair_triage_example_runs() {
+    let output = run_axc([
+        OsStr::new("run"),
+        OsStr::new("examples/match_repair_triage.ax"),
+    ]);
+    assert_eq!(output.status.code(), Some(7));
+    assert_clean_stderr(&output);
+    assert_eq!(
+        normalize_text(&string_output(&output.stdout)),
+        "parser\n107\nsemantic\n222\nruntime\n900\nclean\n0\n"
+    );
+}
+
+#[test]
 fn logical_ops_example_runs() {
     let output = run_axc([OsStr::new("run"), OsStr::new("examples/logical_ops.ax")]);
     assert_eq!(output.status.code(), Some(7));

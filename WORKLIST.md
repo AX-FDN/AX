@@ -353,7 +353,7 @@
     - unit variant arm 写成 `Result.Empty(_)` 时，同样保持单一 payload-shape 修复目标
     - 新增 `examples/match_payload_shape.ax` 与 full repair manifest case，确保这类错误进入 AI 修复证据链
 
-- [ ] `W-P2-S07` 继续补 `match` 第二刀的运行侧代表样例
+- [x] `W-P2-S07` 继续补 `match` 第二刀的运行侧代表样例
   - 目标：在不新增 pattern 家族的前提下，让 enum-first `match` 出现在更像工具程序的状态机/分类器里，而不是只停留在单文件演示。
   - 依赖：`W-P2-S06`
   - 当前范围：
@@ -364,6 +364,24 @@
     - 不做 guard、多模式、range、嵌套解构、block-valued match expression arm
   - 完成标准：
     - 至少一个工具味更强的样例稳定消费 enum-first `match`
+  - 本轮落点：
+    - 新增 `examples/match_repair_triage.ax`
+    - 用 payload enum 表示 repair/diagnostic 事件
+    - 同时消费 statement `match` 和 expression `match`
+    - interface snapshot 固定输出与退出码
+
+- [ ] `W-P2-S08` 评估 payload enum 深化是否正式启动
+  - 目标：在 `match` 第二刀第一轮闭环后，判断是否进入第二优先级 payload enum 深化，还是继续补 `match` 的诊断/样例密度。
+  - 依赖：`W-P2-S06`、`W-P2-S07`
+  - 当前候选：
+    - 增强 payload enum 构造与 pattern 的 AI rule 测试覆盖
+    - 补一个 project-backed payload enum 工具样例
+    - 继续保持 unit variant + 单 payload variant，不扩多 payload 或命名字段
+  - 当前不做：
+    - 不启动完整 ADT
+    - 不启动泛型、trait、async
+  - 完成标准：
+    - 给出下一刀明确落点，并且能立即回写样例、语义检查、AI 反馈或 repair case
 
 ## P2 施工项：语言内核与最小可写工具
 

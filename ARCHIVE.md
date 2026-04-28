@@ -77,6 +77,14 @@
     - full repair manifest 新增 `match_payload_shape` case，并提供 shared replay 修复候选
     - `WORKLIST.md` 已把 `W-P2-S06` 标记完成，并新增 `W-P2-S07` 作为下一轮 enum-first `match` 运行侧样例任务
 
+- `A-2026-04-28-07` `[P2]` enum-first `match` 运行侧工具样例落地
+  - 结果：
+    - 新增 `examples/match_repair_triage.ax`
+    - 用 payload enum 表达 repair/diagnostic 事件分派
+    - 同一例子同时覆盖 statement `match` 和 expression `match`
+    - `tests/interface_snapshots.rs` 已固定运行输出和退出码
+    - `WORKLIST.md` 已把下一步推进到 `W-P2-S08`，评估 payload enum 深化是否正式启动
+
 ### 2026-04-27
 
 - `A-2026-04-27-22` `[P1]` `Repair Archaeology v0` 增长点进入规划

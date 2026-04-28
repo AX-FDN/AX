@@ -1,0 +1,42 @@
+enum RepairEvent {
+    Parser(i32),
+    Semantic(i32),
+    Runtime(i32),
+    Clean,
+}
+
+fn route_score(event: RepairEvent) -> i32 {
+    return match (event) {
+        RepairEvent.Parser(code) => code + 100,
+        RepairEvent.Semantic(code) => code + 200,
+        RepairEvent.Runtime(_) => 900,
+        RepairEvent.Clean => 0,
+    };
+}
+
+fn print_route(event: RepairEvent) -> i32 {
+    match (event) {
+        RepairEvent.Parser(_) => {
+            println("parser");
+        }
+        RepairEvent.Semantic(_) => {
+            println("semantic");
+        }
+        RepairEvent.Runtime(_) => {
+            println("runtime");
+        }
+        RepairEvent.Clean => {
+            println("clean");
+        }
+    }
+
+    return route_score(event);
+}
+
+fn main() -> i32 {
+    println(print_route(RepairEvent.Parser(7)));
+    println(print_route(RepairEvent.Semantic(22)));
+    println(print_route(RepairEvent.Runtime(31)));
+    println(print_route(RepairEvent.Clean));
+    return 7;
+}
