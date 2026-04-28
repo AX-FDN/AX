@@ -1391,6 +1391,12 @@ fn item_descriptor(item: &Item) -> AiFocusItem {
             )),
             span: item.span,
         },
+        ItemKind::Const { name, ty, .. } => AiFocusItem {
+            kind: "const".to_string(),
+            name: name.clone(),
+            signature: Some(format!("const {name}: {}", ty.describe())),
+            span: item.span,
+        },
         ItemKind::Struct { name, fields, .. } => AiFocusItem {
             kind: "struct".to_string(),
             name: name.clone(),
@@ -1459,6 +1465,7 @@ fn related_symbols_for_item(program: &Program, focus_item: &Item) -> Vec<AiRelat
     for item in &program.items {
         let name = match &item.kind {
             ItemKind::Function { name, .. }
+            | ItemKind::Const { name, .. }
             | ItemKind::Struct { name, .. }
             | ItemKind::Enum { name, .. }
             | ItemKind::Trait { name, .. } => name.clone(),
@@ -1469,6 +1476,7 @@ fn related_symbols_for_item(program: &Program, focus_item: &Item) -> Vec<AiRelat
 
     let focus_name = match &focus_item.kind {
         ItemKind::Function { name, .. }
+        | ItemKind::Const { name, .. }
         | ItemKind::Struct { name, .. }
         | ItemKind::Enum { name, .. }
         | ItemKind::Trait { name, .. } => name.clone(),
@@ -1493,6 +1501,10 @@ fn related_symbols_for_item(program: &Program, focus_item: &Item) -> Vec<AiRelat
             for field in fields {
                 collect_type_ref_names(&field.ty, &mut referenced);
             }
+        }
+        ItemKind::Const { ty, value, .. } => {
+            collect_type_ref_names(ty, &mut referenced);
+            collect_expr_names(value, &mut referenced);
         }
         ItemKind::Enum { .. } => {}
         ItemKind::Trait { methods, .. } => {

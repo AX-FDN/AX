@@ -806,6 +806,7 @@ P2 阶段固定样例集合与回归职责见 [`docs/representative-samples.md`]
 | 语法面              | 当前状态 | 说明                                                   |
 | ------------------- | -------- | ------------------------------------------------------ |
 | `fn`                | 已支持   | 显式参数类型、显式返回类型                             |
+| `const`             | 已支持   | 顶层只读常量，写作 `const NAME: Type = expr;`          |
 | `struct`            | 已支持   | 结构体声明、字面量、字段访问                           |
 | `enum`              | 已支持   | 枚举声明、unit variant、单 payload variant 与泛型 enum |
 | `module ...;`       | 已支持   | support source 显式声明模块路径                        |

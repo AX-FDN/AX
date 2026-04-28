@@ -1,0 +1,7 @@
+const EXIT_OK: i32 = 7;
+const LABEL: string = "const-ready";
+
+fn main() -> i32 {
+    println(LABEL);
+    return EXIT_OK;
+}

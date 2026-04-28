@@ -34,6 +34,10 @@ pub enum ItemKind {
         entry_block: u32,
         blocks: Vec<BasicBlock>,
     },
+    Const {
+        name: String,
+        ty: Type,
+    },
     Struct {
         name: String,
         type_params: Vec<String>,
@@ -211,6 +215,9 @@ pub enum ExprKind {
         local: u32,
         name: String,
     },
+    Const {
+        name: String,
+    },
     Unary {
         op: UnaryOp,
         expr: Box<Expr>,
@@ -316,6 +323,10 @@ fn lower_item(item: &hir::Item) -> Result<Item, String> {
                 blocks,
             }
         }
+        hir::ItemKind::Const { name, ty, .. } => ItemKind::Const {
+            name: name.clone(),
+            ty: ty.clone(),
+        },
         hir::ItemKind::Struct {
             name,
             type_params,
@@ -587,9 +598,14 @@ impl FunctionLowerer {
             hir::ExprKind::String { value } => ExprKind::String {
                 value: value.clone(),
             },
-            hir::ExprKind::Name { value } => ExprKind::Local {
-                local: self.lookup(value)?,
-                name: value.clone(),
+            hir::ExprKind::Name { value } => match self.lookup(value) {
+                Ok(local) => ExprKind::Local {
+                    local,
+                    name: value.clone(),
+                },
+                Err(_) => ExprKind::Const {
+                    name: value.clone(),
+                },
             },
             hir::ExprKind::Unary { op, expr } => ExprKind::Unary {
                 op: *op,

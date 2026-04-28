@@ -9,7 +9,7 @@
 
 - 块语法固定为大括号：`{ ... }`
 - 注释当前只支持 `//` 单行注释
-- 顶层声明当前支持 `module`、`import`、`fn`、`struct`、`enum`、`trait`、`impl`
+- 顶层声明当前支持 `module`、`import`、`fn`、`const`、`struct`、`enum`、`trait`、`impl`
 - 所有函数参数、返回类型、局部变量都必须显式写出类型
 - `main` 必须是 `fn main() -> i32`
 - `let`、赋值、表达式语句、`return` 必须带分号
@@ -36,6 +36,13 @@
 fn add(left: i32, right: i32) -> i32 {
     return left + right;
 }
+```
+
+顶层常量：
+
+```ax
+const EXIT_OK: i32 = 0;
+const TOOL_NAME: string = "ax";
 ```
 
 泛型函数：
@@ -451,11 +458,13 @@ program           := source_unit+
 source_unit       := module_decl? import_decl* item*
 module_decl       := "module" qualified_name ";"
 import_decl       := "import" qualified_name ";"
-item              := function | struct_decl | enum_decl | trait_decl | impl_decl
+item              := function | const_decl | struct_decl | enum_decl | trait_decl | impl_decl
 
 function          := "fn" IDENT function_generic_params? "(" param_list? ")" "->" type_ref block
 param_list        := param ("," param)*
 param             := IDENT ":" type_ref
+
+const_decl        := "const" IDENT ":" type_ref "=" expr ";"
 
 struct_decl       := "struct" IDENT plain_generic_params? "{" struct_field_list? "}"
 function_generic_params := "<" function_generic_param ("," function_generic_param)* ">"
@@ -644,6 +653,7 @@ Rules:
 - `continue;` may be used to skip to the next iteration of the nearest `while` or `for` loop.
 - `match` supports statement form `match (value) { pattern => { ... } ... }` and expression form `match (value) { pattern => expr, ... }`.
 - `match` patterns currently support `true`, `false`, integer literals, string literals, enum variants, payload enum patterns like `Result.Ok(value)` / `Result.Err(_)`, final `_`, and final bare binding names like `other`.
+- Top-level constants may be declared as `const NAME: Type = expr;` and used as read-only values.
 - A bare binding pattern is a final catch-all and introduces an immutable arm-local name.
 - Expression-form `match` arms must stay single expressions and all arms must produce the same type.
 - `&&` and `||` are supported and both sides must produce `bool`.

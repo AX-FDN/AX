@@ -4,7 +4,7 @@ use crate::source::Span;
 use super::{Type, TypeChecker, type_mismatch_suggestion};
 
 impl<'a, 'b> TypeChecker<'a, 'b> {
-    pub(super) fn expect_type_match(
+    pub(crate) fn expect_type_match(
         &mut self,
         expected: &Type,
         actual: &Type,

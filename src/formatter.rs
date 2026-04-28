@@ -93,6 +93,7 @@ impl Formatter {
                 return_type,
                 body,
             ),
+            ItemKind::Const { name, ty, value } => self.format_const_item(name, ty, value),
             ItemKind::Struct {
                 name,
                 type_params,
@@ -110,6 +111,15 @@ impl Formatter {
                 methods,
             } => self.format_impl_item(trait_ref.as_ref(), target, methods),
         }
+    }
+
+    fn format_const_item(&mut self, name: &str, ty: &TypeRef, value: &Expr) {
+        let _ = write!(
+            self.out,
+            "const {name}: {} = {};",
+            format_type_ref(ty),
+            format_expr(value)
+        );
     }
 
     fn format_function_item(
@@ -742,6 +752,16 @@ mod tests {
                 "    return values[0];\n",
                 "}\n"
             )
+        );
+    }
+
+    #[test]
+    fn formats_const_items() {
+        let source = SourceFile::anonymous("const EXIT_OK:i32=7;fn main()->i32{return EXIT_OK;}");
+        let formatted = format_source(&source).expect("source should format");
+        assert_eq!(
+            formatted,
+            "const EXIT_OK: i32 = 7;\n\nfn main() -> i32 {\n    return EXIT_OK;\n}\n"
         );
     }
 

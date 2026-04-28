@@ -55,6 +55,11 @@ pub enum ItemKind {
         return_type: TypeRef,
         body: Block,
     },
+    Const {
+        name: String,
+        ty: TypeRef,
+        value: Expr,
+    },
     Struct {
         name: String,
         type_params: Vec<String>,

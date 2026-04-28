@@ -4,7 +4,7 @@ use crate::diagnostics::Diagnostic;
 use super::{Type, TypeChecker, binary_op_name, type_name_as_value_diagnostic};
 
 impl<'a, 'b> TypeChecker<'a, 'b> {
-    pub(super) fn check_expr(&mut self, expr: &Expr) -> Type {
+    pub(crate) fn check_expr(&mut self, expr: &Expr) -> Type {
         match &expr.kind {
             ExprKind::Int { value } => {
                 if i32::try_from(*value).is_err() {
@@ -47,6 +47,13 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 }
 
                 let current_unit_path = self.current_unit_path().to_string();
+                if let Some(constant) = self.lookup_constant(value, expr.span) {
+                    return constant.ty;
+                }
+                let constant_candidate_exists = self
+                    .info
+                    .constant_candidate_exists(value, &current_unit_path);
+
                 let resolved_function = self.info.resolve_function_key(
                     value,
                     &current_unit_path,
@@ -92,6 +99,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     return Type::Error;
                 }
                 if function_candidate_exists
+                    || constant_candidate_exists
                     || self
                         .info
                         .named_type_candidate_exists(value, &current_unit_path)

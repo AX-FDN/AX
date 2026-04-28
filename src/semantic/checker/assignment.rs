@@ -57,6 +57,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             ExprKind::Name { value } => {
                 let binding = match self.lookup(value) {
                     Some(binding) => binding,
+                    None if let Some(binding) = self.lookup_constant(value, target.span) => binding,
                     None => {
                         self.diagnostics.push(self.undefined_variable_diagnostic(
                             value,

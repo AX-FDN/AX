@@ -111,6 +111,7 @@ pub(super) fn binary_op_name(op: BinaryOp) -> &'static str {
 pub(super) fn item_name(kind: &ItemKind) -> &str {
     match kind {
         ItemKind::Function { name, .. }
+        | ItemKind::Const { name, .. }
         | ItemKind::Struct { name, .. }
         | ItemKind::Enum { name, .. }
         | ItemKind::Trait { name, .. } => name.as_str(),

@@ -580,9 +580,11 @@
   - 目标：先明确它属于包接口前的组织性补丁，而不是当前 `P2` 表达性补丁。
   - 当前状态：已登记，未激活。
 
-- [ ] `W-P3-S03` 登记 `const / 常量定义` 为标准库前置语法
-  - 目标：先明确它服务的是标准库和包接口稳定性，不抢当前 `P2` 主优先级。
-  - 当前状态：已登记，未激活。
+- [x] `W-P3-S03` 登记并实现 `const / 常量定义` 为标准库前置语法
+  - 状态：已支持顶层 `const NAME: Type = expr;`，函数体内可作为只读值读取
+  - 已覆盖：lexer / parser / AST / formatter / semantic / HIR / MIR / interpreter / example / interface smoke / README / SYNTAX
+  - 代表样例：`examples/consts.ax`
+  - 当前边界：不做跨模块常量导入人体工学、`pub const`、常量泛型或完整 const-eval
 
 ## P3 施工项：官方最小标准库准备
 

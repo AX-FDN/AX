@@ -71,6 +71,20 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
         &self.current_unit_path
     }
 
+    fn lookup_constant(&mut self, name: &str, span: crate::source::Span) -> Option<Binding> {
+        let resolved = self.info.resolve_constant_key(
+            name,
+            &self.current_unit_path,
+            span,
+            self.diagnostics,
+        )?;
+        self.info.constants.get(&resolved).map(|constant| Binding {
+            mutable: false,
+            ty: constant.ty.clone(),
+            start: constant.start,
+        })
+    }
+
     pub(super) fn check_block(&mut self, block: &Block) {
         self.scopes.push(HashMap::new());
         for statement in &block.statements {

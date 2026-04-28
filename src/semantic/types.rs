@@ -132,6 +132,12 @@ pub(super) struct ParamInfo {
 }
 
 #[derive(Debug, Clone)]
+pub(super) struct ConstInfo {
+    pub(super) ty: Type,
+    pub(super) start: usize,
+}
+
+#[derive(Debug, Clone)]
 pub(super) struct StructInfo {
     pub(super) type_params: Vec<String>,
     pub(super) fields: HashMap<String, StructFieldInfo>,

@@ -8,8 +8,8 @@ use crate::source::SourceFile;
 
 use super::helpers::{builtin_types, item_name};
 use super::types::{
-    EnumInfo, EnumVariantInfo, FunctionSignature, MethodSignature, ParamInfo, StructFieldInfo,
-    StructInfo, TraitInfo, Type, TypeParamBoundInfo,
+    ConstInfo, EnumInfo, EnumVariantInfo, FunctionSignature, MethodSignature, ParamInfo,
+    StructFieldInfo, StructInfo, TraitInfo, Type, TypeParamBoundInfo,
 };
 
 #[derive(Debug, Clone, Default)]
@@ -23,6 +23,7 @@ pub(super) struct ProgramInfo<'a> {
     pub(super) source: &'a SourceFile,
     pub(super) named_types: HashMap<String, Type>,
     pub(super) functions: HashMap<String, FunctionSignature>,
+    pub(super) constants: HashMap<String, ConstInfo>,
     pub(super) methods: HashMap<String, MethodSignature>,
     pub(super) traits: HashMap<String, TraitInfo>,
     trait_impls: HashSet<(String, String)>,
@@ -234,6 +235,7 @@ impl<'a> ProgramInfo<'a> {
             source,
             named_types,
             functions: HashMap::new(),
+            constants: HashMap::new(),
             methods: HashMap::new(),
             traits: HashMap::new(),
             trait_impls: HashSet::new(),
@@ -405,6 +407,16 @@ impl<'a> ProgramInfo<'a> {
                         canonical_name,
                         TraitInfo {
                             methods: method_map,
+                        },
+                    );
+                }
+                ItemKind::Const { ty, .. } => {
+                    let resolved_type = info.resolve_type_ref(ty, &unit_path, diagnostics);
+                    info.constants.insert(
+                        canonical_name,
+                        ConstInfo {
+                            ty: resolved_type,
+                            start: item.span.start,
                         },
                     );
                 }
@@ -859,6 +871,27 @@ impl<'a> ProgramInfo<'a> {
 
     pub(super) fn function_candidate_exists(&self, name: &str, current_unit_path: &str) -> bool {
         self.named_key_candidate_exists(name, current_unit_path, &self.functions)
+    }
+
+    pub(super) fn resolve_constant_key(
+        &self,
+        name: &str,
+        current_unit_path: &str,
+        span: crate::source::Span,
+        diagnostics: &mut Vec<Diagnostic>,
+    ) -> Option<String> {
+        self.resolve_named_key(
+            name,
+            current_unit_path,
+            span,
+            diagnostics,
+            &self.constants,
+            "constant",
+        )
+    }
+
+    pub(super) fn constant_candidate_exists(&self, name: &str, current_unit_path: &str) -> bool {
+        self.named_key_candidate_exists(name, current_unit_path, &self.constants)
     }
 
     pub(super) fn function_signature_for_definition(

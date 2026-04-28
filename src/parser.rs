@@ -120,6 +120,10 @@ impl<'a> Parser<'a> {
                 self.advance();
                 Some(self.parse_function_item(start))
             }
+            TokenKind::ConstKw => {
+                self.advance();
+                Some(self.parse_const_item(start))
+            }
             TokenKind::StructKw => {
                 self.advance();
                 Some(self.parse_struct_item(start))
@@ -141,10 +145,39 @@ impl<'a> Parser<'a> {
                 self.error_at_current(
                     "P0001",
                     "expected a top-level declaration",
-                    &["`fn`", "`struct`", "`enum`", "`trait`", "`impl`"],
+                    &["`fn`", "`const`", "`struct`", "`enum`", "`trait`", "`impl`"],
                 );
                 None
             }
+        }
+    }
+
+    fn parse_const_item(&mut self, start: usize) -> Item {
+        let name = self.expect_identifier("expected a constant name");
+        self.expect(
+            TokenKind::Colon,
+            "expected `:` after constant name",
+            &["`:`"],
+        );
+        let ty = self.parse_type();
+        self.expect(
+            TokenKind::Equal,
+            "expected `=` before constant value",
+            &["`=`"],
+        );
+        let value = self.parse_expression();
+        let end = self.expect(
+            TokenKind::Semicolon,
+            "expected `;` after constant declaration",
+            &["`;`"],
+        );
+        Item {
+            kind: ItemKind::Const {
+                name: name.lexeme,
+                ty,
+                value,
+            },
+            span: Span::new(start, end.span.end),
         }
     }
 
@@ -1688,6 +1721,22 @@ mod tests {
             }
             _ => panic!("expected function"),
         }
+    }
+
+    #[test]
+    fn parses_top_level_const_items() {
+        let source =
+            SourceFile::anonymous("const EXIT_OK: i32 = 7; fn main() -> i32 { return EXIT_OK; }");
+        let tokens = tokenize(&source).tokens;
+        let output = parse(&source, tokens);
+        assert!(output.diagnostics.is_empty(), "{:?}", output.diagnostics);
+
+        let ItemKind::Const { name, ty, value } = &output.program.items[0].kind else {
+            panic!("expected const item");
+        };
+        assert_eq!(name, "EXIT_OK");
+        assert_eq!(ty.describe(), "i32");
+        assert!(matches!(value.kind, ExprKind::Int { value: 7 }));
     }
 
     #[test]

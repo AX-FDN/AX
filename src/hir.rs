@@ -32,6 +32,11 @@ pub enum ItemKind {
         return_type: Type,
         body: Block,
     },
+    Const {
+        name: String,
+        ty: Type,
+        value: Expr,
+    },
     Struct {
         name: String,
         type_params: Vec<String>,
@@ -328,6 +333,7 @@ impl<'a> LoweringContext<'a> {
                 ast::ItemKind::Function { .. } => {
                     function_names.insert(canonical_name);
                 }
+                ast::ItemKind::Const { .. } => {}
                 ast::ItemKind::Struct { .. } => {
                     struct_names.insert(canonical_name);
                 }
@@ -418,6 +424,11 @@ impl<'a> LoweringContext<'a> {
                     .collect::<Result<Vec<_>, Diagnostic>>()?,
                 return_type: self.lower_type_ref(return_type)?,
                 body: self.lower_block(body)?,
+            },
+            ast::ItemKind::Const { name, ty, value } => ItemKind::Const {
+                name: self.canonical_name(name, item.span),
+                ty: self.lower_type_ref(ty)?,
+                value: self.lower_expr(value)?,
             },
             ast::ItemKind::Struct {
                 name,
@@ -1538,6 +1549,7 @@ fn canonical_item_name(
     let unit_path = source.display_path_for_offset(item.span.start);
     match &item.kind {
         ast::ItemKind::Function { name, .. }
+        | ast::ItemKind::Const { name, .. }
         | ast::ItemKind::Struct { name, .. }
         | ast::ItemKind::Enum { name, .. }
         | ast::ItemKind::Trait { name, .. } => unit_modules

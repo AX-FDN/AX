@@ -82,6 +82,7 @@ pub fn run_program_with_context(
 struct Interpreter<'a> {
     source: &'a SourceFile,
     functions: HashMap<String, FunctionDef<'a>>,
+    constants: HashMap<String, Value>,
     stdout: Vec<String>,
     host: RunContext,
 }
@@ -193,6 +194,7 @@ impl<'a> Interpreter<'a> {
         host: RunContext,
     ) -> Result<Self, Diagnostic> {
         let mut functions = HashMap::new();
+        let mut const_items = Vec::new();
 
         for item in &program.items {
             match &item.kind {
@@ -209,6 +211,9 @@ impl<'a> Interpreter<'a> {
                         },
                     );
                 }
+                ItemKind::Const { name, value, .. } => {
+                    const_items.push((name.clone(), value, item.span));
+                }
                 ItemKind::Struct { .. } | ItemKind::Enum { .. } => {}
             }
         }
@@ -222,12 +227,34 @@ impl<'a> Interpreter<'a> {
             ));
         }
 
-        Ok(Self {
+        let mut interpreter = Self {
             source,
             functions,
+            constants: HashMap::new(),
             stdout: Vec::new(),
             host,
-        })
+        };
+
+        for (name, value, span) in const_items {
+            let mut frame = Frame {
+                scopes: vec![HashMap::new()],
+            };
+            let value = interpreter
+                .eval_expr(value, &mut frame)
+                .map_err(|diagnostic| {
+                    Diagnostic::new(
+                        diagnostic.code,
+                        format!("failed to evaluate constant `{name}`"),
+                        source,
+                        span,
+                    )
+                    .with_note(diagnostic.message)
+                    .with_suggestion("keep top-level constants as deterministic values")
+                })?;
+            interpreter.constants.insert(name, value);
+        }
+
+        Ok(interpreter)
     }
 
     fn run_main(mut self) -> Result<RunOutput, Diagnostic> {
@@ -2280,6 +2307,7 @@ impl<'a> Interpreter<'a> {
             ExprKind::String { value } => Ok(Value::String(value.clone())),
             ExprKind::Name { value } => lookup_slot(frame, value)
                 .map(|slot| slot.value.clone())
+                .or_else(|| self.constants.get(value).cloned())
                 .ok_or_else(|| {
                     self.runtime_error(
                         "R0011",

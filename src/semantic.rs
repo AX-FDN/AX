@@ -1,4 +1,4 @@
-use crate::ast::{Block, ItemKind, Param, Program, TypeRef};
+use crate::ast::{Block, Expr, ItemKind, Param, Program, TypeRef};
 use crate::diagnostics::Diagnostic;
 use crate::project::Project;
 use crate::source::{SourceFile, Span};
@@ -44,6 +44,20 @@ pub fn check_program_with_project(
     }
 
     for item in &program.items {
+        if let ItemKind::Const { name, ty, value } = &item.kind {
+            check_const_item(
+                source,
+                name,
+                ty,
+                value,
+                &program_info,
+                item.span.start,
+                &mut diagnostics,
+            );
+        }
+    }
+
+    for item in &program.items {
         if let ItemKind::Function {
             name,
             type_params,
@@ -82,6 +96,39 @@ pub fn check_program_with_project(
     }
 
     diagnostics
+}
+
+fn check_const_item(
+    source: &SourceFile,
+    name: &str,
+    ty: &TypeRef,
+    value: &Expr,
+    program_info: &ProgramInfo<'_>,
+    span_start: usize,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let current_unit_path = source.display_path_for_offset(span_start).to_string();
+    let declared_type = program_info.resolve_type_ref(ty, &current_unit_path, diagnostics);
+    let mut checker = TypeChecker::new(
+        program_info,
+        declared_type.clone(),
+        current_unit_path,
+        Vec::new(),
+        diagnostics,
+    );
+    let actual_type = checker.check_expr(value);
+    if !actual_type.is_error() && !actual_type.is_assignable_to(&declared_type) {
+        checker.expect_type_match(
+            &declared_type,
+            &actual_type,
+            value.span,
+            format!(
+                "constant `{name}` is declared as `{}`, but value is `{}`",
+                declared_type.describe(),
+                actual_type.describe()
+            ),
+        );
+    }
 }
 
 fn check_function_body(
@@ -829,6 +876,51 @@ fn main() -> i32 {
 ",
         );
         assert!(codes.is_empty(), "unexpected diagnostics: {codes:?}");
+    }
+
+    #[test]
+    fn accepts_top_level_consts() {
+        let codes = check(
+            "\
+const EXIT_OK: i32 = 7;
+const LABEL: string = \"const-ready\";
+
+fn main() -> i32 {
+    println(LABEL);
+    return EXIT_OK;
+}
+",
+        );
+        assert!(codes.is_empty(), "unexpected diagnostics: {codes:?}");
+    }
+
+    #[test]
+    fn reports_const_initializer_type_mismatch() {
+        let codes = check(
+            "\
+const EXIT_OK: i32 = \"bad\";
+
+fn main() -> i32 {
+    return 0;
+}
+",
+        );
+        assert!(codes.iter().any(|code| code == "S0022"));
+    }
+
+    #[test]
+    fn reports_assignment_to_const_as_immutable() {
+        let codes = check(
+            "\
+const EXIT_OK: i32 = 7;
+
+fn main() -> i32 {
+    EXIT_OK = 8;
+    return EXIT_OK;
+}
+",
+        );
+        assert!(codes.iter().any(|code| code == "S0003"));
     }
 
     #[test]
