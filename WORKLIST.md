@@ -69,13 +69,13 @@
    - `project_release_promote` 已验证 `std.fs` 的 exists/remove/rename 与 `std.path.extension`
    - `project_command_capture` 已验证 `std.process.capture_in` 与 `std.env.has`
    - `project_command_batch` 已验证 `std.process.run / std.process.run_in / std.env.get`
-   - `std.*` 第一版接口冻结候选已收口，下一步只做冻结候选的验证入口与文档入口补强
+   - `std.*` 第一版接口冻结候选已收口，冻结候选验证入口与文档入口已补强
    - 继续保持 `foundation/` 作为未迁移样例的 Std-0 孵化层
 2. 暂不启动 P4 AOT、P5 包接口、JIT、自举或三方库桥接
-3. `Repair Archaeology v0` 已登记为 P1 后续证据链展示层，但排在 `W-P3-15` 之后，不抢当前 Std-1 验证入口收口
+3. 下一步回到 `Repair Archaeology v0`，先做 artifact schema 与最小 Markdown 报告入口，不启动 Live Repair Stream、真实 LLM 或 UI
 4. 任何下一轮实现都必须继续回写 examples、diagnostics、context、repair/benchmark 或 interface snapshots
 
-当前判断：P1 这一轮已经完成，不再和新增语言能力抢资源。当前主线已经选定为 `P3 std.*`，但不继续全仓改名；五组迁移试点已经足够暴露第一版工具标准库边界，冻结候选已经收口，下一步应把这些候选接进更明确的验证入口和对外文档入口。
+当前判断：P1 这一轮的基础链路已经完成，P3 的五组 Std-1 迁移试点、冻结候选和验证入口也已经收口。下一步可以回到 P1 的 `Repair Archaeology v0`，把已有 replay / score / compare 事实做成 case 级可解释产物。
 
 ## 阶段承接图
 
@@ -230,7 +230,7 @@
   - 完成标准：
     - 不再出现“已经胜过某语言子集”式过界表述
 
-- [ ] `W-P1-07` 登记 `Repair Archaeology v0` 为下一轮证据链展示层
+- [x] `W-P1-07` 登记 `Repair Archaeology v0` 为下一轮证据链展示层
   - 目标：把已有 repair cases、score、compare、context-enabled export 资产整理成按 case 可查询、可导出、可解释的修复证据对象。
   - 定位：
     - 它是 P1 编译器护城河的展示与解释层
@@ -238,12 +238,10 @@
     - 它不是 `axc generate`
     - 它不调用真实 LLM
     - 它不抢 P3 Std-1 验证入口
-  - v0 候选产物：
-    - `docs/repair-archaeology.md`
-    - case 级 JSON artifact schema
-    - 至少 `3` 个 Markdown archaeology 报告
-    - 至少 `1` 个失败或退化 case 的解释报告
-    - 可复跑导出入口
+  - 当前已完成：
+    - `docs/repair-archaeology.md` 已建立 v0 定位、边界和实施顺序
+    - README / PROJECT_FACTS / docs README / public claims 已加入 Repair Archaeology 入口或边界说明
+    - 后续 artifact schema、Markdown 报告和导出入口已拆到 `W-P1-08` 继续施工
   - 当前不做：
     - 不启动 Live Repair Stream 实时模型协商
     - 不做 UI
@@ -251,7 +249,23 @@
   - 启动顺序：
     - 排在 `W-P3-15` 之后
   - 完成标准：
-    - 能清楚回答某个 repair case 的初始错误、修复模式、候选结果、失败原因、context 是否参与和复现命令
+    - 规划入口存在，边界不与 Live Repair Stream / LLM / UI 混淆，下一步实现任务已经明确拆出
+
+- [ ] `W-P1-08` 定义 `Repair Archaeology v0` artifact schema
+  - 目标：把 `W-P1-07` 的方向从文档登记推进到可实现的 artifact 契约。
+  - 依赖：`W-P3-15`
+  - 当前范围：
+    - case 级 JSON schema 草案
+    - Markdown 报告字段草案
+    - replay fact、candidate result、context bundle、validation command 的字段边界
+  - 当前不做：
+    - 不调用真实 LLM
+    - 不新增 `axc` 命令面
+    - 不做 Live Repair Stream
+    - 不做 UI
+  - 完成标准：
+    - 能从现有 repair benchmark 资产映射出一个 case 报告对象
+    - 能明确哪些字段是 replay 事实，哪些字段只是解释性 summary
 
 ## P2 施工项：语言内核与最小可写工具
 
@@ -632,9 +646,13 @@
     - 写清 `foundation/search.ax` 与未迁移 helper 继续孵化的理由
     - 写清下一轮若要补标准库，必须由哪个真实 workload 或 repair case 触发
 
-- [ ] `W-P3-15` 给 Std-1 冻结候选补验证入口
+- [x] `W-P3-15` 给 Std-1 冻结候选补验证入口
   - 目标：把“Std-1 候选接口必须继续保持可检查、可运行、可构建”的验证入口写成稳定命令，而不是只靠五组样例自然覆盖。
   - 依赖：`W-P3-14`
+  - 当前结果：
+    - `docs/stdlib-minimal-boundary.md` 已写清 Std-1 候选接口由哪些 interface snapshots 覆盖
+    - `docs/validation-matrix.md` 已新增 Std-1 candidate change 的本地验证入口
+    - `docs/interface-contracts.md` 已把 Std-1 candidate source tree 与 runtime behavior 纳入契约地图
   - 当前不做：
     - 不新增标准库 API
     - 不迁移更多样例

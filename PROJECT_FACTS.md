@@ -8,6 +8,19 @@
 AX 是一门面向自回归 Coding AI 的 AI-first 工具语言，目前处在从可运行原型向成熟工具语言推进的阶段。
 它把 canonical syntax、structured diagnostics、repair contract、context protocol 和 benchmark evidence 放进同一套语言与编译器工具链里，目标是让模型在生成、修复和项目理解三个环节都更稳定。
 
+## 当前应用场景
+
+AX 当前优先服务四类能被仓库直接验证的场景：
+
+| 场景 | 当前事实 |
+| --- | --- |
+| Agent-generated CLI tools | 已有多组 project-backed CLI / workspace 工具样例和第一批 `std.*` 试点模块 |
+| Repairable automation scripts | `--json --ai`、repair cases、export、score、compare、smoke 已进入主线 |
+| Backend worker utilities | 发布提升、命令批处理、文本处理、目录索引等后端外围工具样例已存在 |
+| Compiler-guided repair benchmarks | deterministic replay 和 context-enabled export 已建立，Repair Archaeology v0 已登记为下一层展示 |
+
+更完整的应用场景边界见 [`docs/application-scenarios.md`](./docs/application-scenarios.md)。
+
 ## 当前基线快照
 
 | 维度 | 当前状态 |

@@ -12,6 +12,28 @@
 
 > AX 是一门面向 Coding AI 的 AI-first 工具语言与编译器/运行时原型，把显式语法、结构化诊断、修复协议、架构上下文和 benchmark 证据链放进同一套语言系统。
 
+## 应用场景口径
+
+推荐把 AX 的 AI-first 场景说具体：
+
+> AX first targets agent-generated CLI tools, repairable automation scripts, backend worker utilities, and compiler-guided repair benchmarks.
+
+中文：
+
+> AX 当前优先服务 agent 生成 CLI 工具、可修复自动化脚本、后端 worker 辅助工具，以及由编译器事实驱动的修复 benchmark。
+
+可以说：
+
+- AX 正在先把 CLI / worker tools 做成稳定语言内核。
+- AX 的后端路线会先经过 AOT、path package、JSON/config/log 和 worker workload，再评估 HTTP client/server 与 async。
+- AX 的 AI-first 指的是生成、修复、项目理解和验证链路对 Coding AI 更友好。
+
+不建议说：
+
+- “AX 已经是完整后端语言。”
+- “AX 已经能替代现有 Web 框架。”
+- “AX 的 AI-first 等于只给 AI 看，不需要人类审阅。”
+
 ## 已经可以说的事实
 
 这些是当前仓库内已经成立、可以对外引用的事实：

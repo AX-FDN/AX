@@ -74,6 +74,42 @@ P3 的目标不是一次性做完整标准库，而是先把第一版官方标�
 当前 `std.collections` 只作为命名空间方向保留，不进入 Std-1 冻结候选。
 原因是仓库目前依赖的是宿主 `string_list_*` builtin，而不是 `std/collections.ax` 源码模块；它需要等更多集合 workload 或泛型路线明确后再启动。
 
+## Std-1 候选验证入口
+
+Std-1 当前不是靠“文档声明”冻结，而是靠五组 project-backed 样例和 interface snapshots 共同保护。
+验证入口固定为下面三层：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test --test interface_snapshots representative_project_examples_check_cleanly
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test --test interface_snapshots project_text_normalize
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test --test interface_snapshots
+```
+
+三层含义分别是：
+
+- `representative_project_examples_check_cleanly`
+  快速确认五组 Std-1 试点项目都还能 `check`。
+- 单个 `project_*` filter
+  局部确认某个试点的 `run` 夹具和 `build` source tree 快照。
+- 完整 `interface_snapshots`
+  提交前或接口变更时的全量契约回归。
+
+当前覆盖关系如下：
+
+| Std-1 候选模块 | 主要覆盖样例 | interface snapshots 覆盖点 |
+| --- | --- | --- |
+| `std.cli` | text normalize、directory index、release promote、command capture、command batch | 五组样例的 `check`，对应运行夹具，以及五组 `*_build_copies_real_example_source_tree` |
+| `std.env` | command capture、command batch | `project_command_capture_runs_on_controlled_fixture`、`project_command_batch_runs_on_controlled_fixture`、两组 build source tree |
+| `std.fs` | 五组迁移试点 | 五组运行夹具覆盖读写、目录创建、目录枚举、文件大小、存在性、删除和重命名；五组 build source tree 确认 `std/fs.ax` 被复制 |
+| `std.path` | text normalize、directory index、release promote、command batch | 对应运行夹具覆盖 join、parent、file name、extension、resolve 与轻量分类；build source tree 确认 `std/path.ax` 被复制 |
+| `std.process` | command capture、command batch | 两组命令类运行夹具覆盖 `capture_in / run / run_in`；build source tree 确认 `std/process.ax` 被复制 |
+| `std.report` | 五组迁移试点 | 五组运行夹具覆盖 deterministic 文本报告构造；build source tree 确认 `std/report.ax` 被复制 |
+| `std.text` | text normalize、command capture、command batch | 文本归一化、命令输出统计、batch 报告运行夹具覆盖 `trim / analyze / normalize_content` |
+| `std.workspace` | directory index、command batch | 目录索引和 batch 报告运行夹具覆盖 workspace 行输出与深度展示；build source tree 确认 `std/workspace.ax` 被复制 |
+
+`tests/interface_snapshots.rs` 里的 `SHARED_STD_PROJECT_SOURCES` 是当前 Std-1 build source tree 的最小契约集合。
+新增或移除 `std/` 源码模块时，必须同步更新该集合、本文、[`validation-matrix.md`](./validation-matrix.md) 和 [`interface-contracts.md`](./interface-contracts.md)。
+
 ## 继续孵化清单
 
 下面这些接口或 helper 仍然保留在 `foundation/` 或样例私有 `lib/`，不进入 Std-1：

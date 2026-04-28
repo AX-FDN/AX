@@ -26,6 +26,8 @@
   定义下一轮 `Repair Archaeology v0`：把 repair replay、score、compare 和 context-enabled export 资产整理成 case 级 JSON / Markdown 修复证据对象。
 - [`public-claims.md`](./public-claims.md)
   定义 AX 当前对外表述边界，避免把仓库内可复现事实说成尚未完成的跨语言或 live-model 结论。
+- [`application-scenarios.md`](./application-scenarios.md)
+  定义 AX 的 AI-first 先落在哪些真实场景，以及后端语言方向的实际推进顺序。
 - [`killer-demo.md`](./killer-demo.md)
   给对外演示用的短 demo 脚本。
 - [`representative-samples.md`](./representative-samples.md)

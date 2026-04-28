@@ -27,6 +27,7 @@ AX 关注的不只是“模型能不能写出代码”，更关注三件更硬�
 | 你想知道什么 | 该看哪里 |
 | --- | --- |
 | 项目是什么、为什么值得关注 | [`README.md`](./README.md) |
+| AI-first 具体先落在哪些场景 | [`docs/application-scenarios.md`](./docs/application-scenarios.md) |
 | 当前已经做到哪了 | [`PROJECT_FACTS.md`](./PROJECT_FACTS.md) |
 | 当前 benchmark 证据链 | [`docs/benchmark-showcase.md`](./docs/benchmark-showcase.md) |
 | 下一轮修复证据展示层 | [`docs/repair-archaeology.md`](./docs/repair-archaeology.md) |
@@ -53,7 +54,7 @@ AX 关注的不只是“模型能不能写出代码”，更关注三件更硬�
 | 项目定位 | `AI-first Tool Language + Compiler/Runtime Prototype` |
 | 核心问题 | 什么样的语言表面、诊断结构、上下文协议和修复反馈，最适合自回归模型稳定生成、稳定修复和稳定理解项目 |
 | 关键收益 | 提高一次通过率、提高修复成功率、提高多文件项目中的架构理解效率 |
-| 主要场景 | AI 代码生成、agent 修复闭环、项目结构理解、工作区自动化、构建辅助、文本与目录处理 |
+| 主要场景 | agent 生成 CLI 工具、可修复自动化脚本、后端 worker 辅助、compiler-guided repair benchmark |
 | 当前形态 | 语言前端 + 解释执行 + project mode + structured diagnostics + context + repair benchmark |
 | 核心价值 | 把语言本体、编译器反馈和 AI 消费链路放进同一个可运行仓库 |
 
@@ -118,13 +119,17 @@ AX 把这些问题收进六层协议上下文里，让项目结构、主流程�
 
 ### 4. 更适合 agent 闭环工作的真实场景
 
-AX 的应用场景，不只是“写脚本”，而是所有需要让 agent 更稳定生成、修复、理解结构和验证改动的场景，尤其包括：
+AX 的应用场景，不是抽象地说“AI 会写代码”，而是先落在几类能被快速验证的真实任务里：
 
-- AI 原生代码生成与自动补全
-- 自动化修复与 repair benchmark 对比
-- 多文件项目中的结构理解与局部修改
-- CLI、构建辅助、工作区扫描、文本处理、发布与整理工具
-- 需要把“生成 -> 检查 -> 修复 -> 验证”做成闭环的 agent 工作流
+| 场景 | AX 解决什么 | 当前对应资产 |
+| --- | --- | --- |
+| Agent-generated CLI tools | 让 agent 生成的小工具能立刻检查、运行、格式化和回归 | `examples/project_text_normalize/`、`examples/project_directory_index/`、`std/` |
+| Repairable automation scripts | 让自动化脚本的错误进入结构化诊断、修复目标和可回放候选链 | `src/ai.rs`、`benchmarks/`、`docs/repair-benchmark.md` |
+| Backend worker utilities | 先承载发布辅助、批处理、报告生成、文件整理、构建辅助这类后端外围工具 | `examples/project_release_promote/`、`examples/project_command_batch/` |
+| Compiler-guided repair benchmarks | 把错误、修复候选、评分、对比和 context 输入做成可验证证据 | `docs/benchmark-showcase.md`、`docs/repair-archaeology.md` |
+
+更完整的场景边界见 [`docs/application-scenarios.md`](./docs/application-scenarios.md)。
+AX 往后端语言方向走的顺序也固定为：先 CLI / worker tools，再 AOT，再 path packages，再 JSON / config / log，再 backend workers，最后才评估 HTTP client/server、async 和网络生态。
 
 ## AX 的工作原理
 
@@ -1098,6 +1103,8 @@ AX 希望最终回答的是：
   benchmark 资产、导出链路、评分与 compare 方式
 - [`docs/repair-archaeology.md`](./docs/repair-archaeology.md)
   Repair Archaeology v0 的定位、边界、输出结构和实施顺序
+- [`docs/application-scenarios.md`](./docs/application-scenarios.md)
+  AI-first 的具体应用场景、后端路线和当前非目标
 - [`docs/repair-adapter-spec.md`](./docs/repair-adapter-spec.md)
   外部 repair adapter 的输入输出契约
 - [`docs/host-runtime-boundary.md`](./docs/host-runtime-boundary.md)

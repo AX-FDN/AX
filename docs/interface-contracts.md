@@ -32,6 +32,8 @@ AX 现在的外部契约不是只有 CLI 命令本身。对 agent 和工具链�
 | repair export artifacts | `export-repair-benchmark.ps1` | repair adapters, score/compare scripts | `repair_benchmark_export_keeps_cold_base_ai_artifact_contracts` |
 | project-backed repair export | `export-repair-benchmark.ps1` | multi-file repair adapters | `repair_benchmark_export_supports_project_context_cases` |
 | context-enabled repair export | `export-repair-benchmark.ps1 -IncludeContext` | context-consuming repair adapters | `repair_benchmark_export_can_include_context_bundle` |
+| Std-1 candidate source tree | `axc build examples/project_*` | future AOT/package/std consumers | `project_text_normalize_build_copies_real_example_source_tree`, `project_directory_index_build_copies_real_example_source_tree`, `project_release_promote_build_copies_real_example_source_tree`, `project_command_capture_build_copies_real_example_source_tree`, `project_command_batch_build_copies_real_example_source_tree` |
+| Std-1 candidate runtime behavior | `axc run examples/project_*` | stdlib users, host-boundary examples | `project_text_normalize_runs_on_controlled_fixture`, `project_directory_index_runs_on_controlled_fixture`, `project_release_promote_runs_on_controlled_fixture`, `project_command_capture_runs_on_controlled_fixture`, `project_command_batch_runs_on_controlled_fixture` |
 
 ## Stability Rules
 
@@ -131,6 +133,31 @@ Not allowed without explicit contract update:
 - making context mandatory for old adapters
 - removing `BundlePath` or `PromptPath` from adapter workflows
 - changing the full-source repair output contract into a patch-only contract
+
+### Std-1 Candidate Interfaces
+
+Stable for the current P3 freeze candidate:
+
+- project-backed examples can import `std.*` through `AX.toml sources = ["../../std", ...]`
+- build source snapshots include `external/std/cli.ax`
+- build source snapshots include `external/std/env.ax`
+- build source snapshots include `external/std/fs.ax`
+- build source snapshots include `external/std/path.ax`
+- build source snapshots include `external/std/process.ax`
+- build source snapshots include `external/std/report.ax`
+- build source snapshots include `external/std/text.ax`
+- build source snapshots include `external/std/workspace.ax`
+
+Allowed to evolve carefully:
+
+- adding a new `std/` module after it has a real workload and interface snapshot coverage
+- moving a helper from `foundation/` to `std/` after it satisfies docs、examples、regression and diagnostics/runtime boundary requirements
+
+Not allowed without explicit contract update:
+
+- removing a `std/` source from project build snapshots
+- exposing Rust crate names as AX user-facing imports
+- declaring `std.collections` frozen before a real `std/collections.ax` module and workload coverage exist
 
 ## Current Verification Commands
 

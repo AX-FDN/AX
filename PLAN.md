@@ -49,6 +49,30 @@ AX 的路线不是“先做协议，再决定要不要做语言”，而是：
 - 再把标准库、后端、包接口和生态逐层补齐
 - 同时把 diagnostics / context / repair / benchmark 做成语言主线的编译器护城河
 
+### AI-first 的应用场景边界
+
+AX 的 AI-first 必须落到具体工作负载，而不是停留在口号。
+当前第一批应用场景固定为：
+
+| 场景 | 当前阶段目标 | 后续承接 |
+| --- | --- | --- |
+| Agent-generated CLI tools | 让 agent 生成的命令行工具可以稳定 `check / run / fmt / build` | 承接 P2 语言内核和 P3 Std-1 |
+| Repairable automation scripts | 让自动化脚本错误进入结构化诊断、修复协议和可回放 benchmark | 承接 P1 diagnostics / repair / Repair Archaeology |
+| Backend worker utilities | 先承载发布辅助、批处理、报告生成、文件整理、构建辅助等后端外围工具 | 承接 P4 AOT 和 P5 package |
+| Compiler-guided repair benchmarks | 用编译器事实驱动 repair case、候选结果、score、compare 和 context 输入 | 承接 P1 证据链与 P7 public benchmark |
+
+因此 AX 往后端语言方向发展的顺序固定为：
+
+1. 先把 CLI / worker tools 做稳。
+2. 再让 AOT 成为真实可交付路径。
+3. 再补 path package、lockfile 和本地复用。
+4. 再补 JSON / config / log 这类 worker 常用能力。
+5. 再进入 backend worker 的实际 workload。
+6. 最后才评估 HTTP client/server、async、network 和完整服务端框架。
+
+这条线的意义是：AX 仍然朝成熟语言发展，但每一步都必须服务“AI 生成、AI 修复、AI 理解项目、人类可审阅”的主约束。
+具体场景说明见 [`docs/application-scenarios.md`](./docs/application-scenarios.md)。
+
 项目完成态定义为 `R3 Ecosystem Stable`：
 
 - `axc check / run / fmt / build / context` 全部稳定

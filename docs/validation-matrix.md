@@ -50,6 +50,30 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test
 
 如果改动影响 examples，还要至少跑对应 example 的 `check / run / build` 回归，或确保它已经在 `interface_snapshots` 覆盖。
 
+### Std-1 Candidate Change
+
+改到 `std/`、五组 Std-1 试点样例、`AX.toml sources` 或标准库边界文档时，至少跑：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test --test interface_snapshots representative_project_examples_check_cleanly
+```
+
+如果只改某一组试点，可以追加对应 filter：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test --test interface_snapshots project_text_normalize
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test --test interface_snapshots project_directory_index
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test --test interface_snapshots project_release_promote
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test --test interface_snapshots project_command_capture
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test --test interface_snapshots project_command_batch
+```
+
+如果改动会影响 `std/` source tree、build artifacts 或多个试点，跑完整 interface snapshots：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test --test interface_snapshots
+```
+
 ### Repair / Benchmark / Diagnostics Change
 
 改到 `scripts/`、`benchmarks/`、`src/ai.rs`、`src/diagnostics.rs` 或 repair/context 文档时，优先跑：

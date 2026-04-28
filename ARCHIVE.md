@@ -4,7 +4,7 @@
 > 它不是路线图，也不是当前待做清单。  
 > 未来完成的新事项，一律从 [`WORKLIST.md`](./WORKLIST.md) 移到这里归档。
 
-最后更新：2026-04-27
+最后更新：2026-04-28
 
 ## 文档职责
 
@@ -22,6 +22,17 @@
 3. 这里记录的是里程碑，不是逐提交 changelog；更细的改动以 Git 历史为准。
 
 ## 已完成里程碑
+
+### 2026-04-28
+
+- `A-2026-04-28-01` `[Docs/P3]` AI-first 应用场景与 Std-1 验证入口收口
+  - 结果：
+    - 新增 `docs/application-scenarios.md`，把 AX 的 AI-first 场景固定为 agent 生成 CLI 工具、可修复自动化脚本、后端 worker 辅助工具和 compiler-guided repair benchmark
+    - `README.md`、`PLAN.md`、`PROJECT_FACTS.md`、`docs/public-claims.md` 和 `docs/README.md` 已接入应用场景入口
+    - `docs/stdlib-minimal-boundary.md` 已写清 Std-1 候选接口当前由哪些 interface snapshots 覆盖
+    - `docs/validation-matrix.md` 已新增 Std-1 candidate change 的推荐验证命令
+    - `docs/interface-contracts.md` 已把 Std-1 candidate source tree 与 runtime behavior 纳入契约地图
+    - `WORKLIST.md` 已把 `W-P3-15` 标记完成，并把下一步推进到 `W-P1-08` Repair Archaeology artifact schema
 
 ### 2026-04-27
 
