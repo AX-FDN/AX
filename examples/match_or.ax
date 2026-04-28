@@ -1,0 +1,20 @@
+enum Mode {
+    Check,
+    Run,
+    Build,
+    Other,
+}
+
+fn score(mode: Mode) -> i32 {
+    return match (mode) {
+        Mode.Check | Mode.Run => 1,
+        Mode.Build => 2,
+        Mode.Other => 0,
+    };
+}
+
+fn main() -> i32 {
+    println(score(Mode.Check));
+    println(score(Mode.Run));
+    return score(Mode.Build);
+}

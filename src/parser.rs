@@ -848,6 +848,30 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_match_pattern(&mut self) -> MatchPattern {
+        let first = self.parse_single_match_pattern();
+        if !self.matches(&[TokenKind::Pipe]) {
+            return first;
+        }
+
+        let start = first.span.start;
+        let mut alternatives = vec![first];
+        loop {
+            alternatives.push(self.parse_single_match_pattern());
+            if !self.matches(&[TokenKind::Pipe]) {
+                break;
+            }
+        }
+        let end = alternatives
+            .last()
+            .map(|pattern| pattern.span.end)
+            .unwrap_or(start);
+        MatchPattern {
+            span: Span::new(start, end),
+            kind: MatchPatternKind::Or { alternatives },
+        }
+    }
+
+    fn parse_single_match_pattern(&mut self) -> MatchPattern {
         let token = self.advance();
         match token.kind {
             TokenKind::TrueKw => MatchPattern {
@@ -2192,6 +2216,35 @@ fn main() -> i32 {
         assert!(matches!(
             arms[1].pattern.kind,
             MatchPatternKind::Binding { ref name } if name == "other"
+        ));
+    }
+
+    #[test]
+    fn parses_match_or_patterns() {
+        let source = SourceFile::anonymous(
+            "\
+fn main() -> i32 {
+    let value: i32 = match (1) { 0 | 1 => 10, _ => 0 };
+    return value;
+}
+",
+        );
+        let tokens = tokenize(&source).tokens;
+        let output = parse(&source, tokens);
+        assert!(output.diagnostics.is_empty(), "{:?}", output.diagnostics);
+
+        let ItemKind::Function { body, .. } = &output.program.items[0].kind else {
+            panic!("expected function");
+        };
+        let StmtKind::Let { initializer, .. } = &body.statements[0].kind else {
+            panic!("expected let statement");
+        };
+        let ExprKind::Match { arms, .. } = &initializer.kind else {
+            panic!("expected match expression");
+        };
+        assert!(matches!(
+            arms[0].pattern.kind,
+            MatchPatternKind::Or { ref alternatives } if alternatives.len() == 2
         ));
     }
 

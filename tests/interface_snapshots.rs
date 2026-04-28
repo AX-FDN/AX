@@ -4230,6 +4230,14 @@ fn match_binding_example_runs() {
 }
 
 #[test]
+fn match_or_example_runs() {
+    let output = run_axc([OsStr::new("run"), OsStr::new("examples/match_or.ax")]);
+    assert_eq!(output.status.code(), Some(2));
+    assert_clean_stderr(&output);
+    assert_eq!(normalize_text(&string_output(&output.stdout)), "1\n1\n");
+}
+
+#[test]
 fn payload_enum_example_runs() {
     let output = run_axc([OsStr::new("run"), OsStr::new("examples/payload_enum.ax")]);
     assert_eq!(output.status.code(), Some(7));

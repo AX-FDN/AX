@@ -155,6 +155,9 @@ pub enum MatchPatternKind {
         #[serde(skip_serializing_if = "Option::is_none")]
         payload_type: Option<Type>,
     },
+    Or {
+        alternatives: Vec<MatchPattern>,
+    },
     Error,
 }
 
@@ -1113,6 +1116,12 @@ impl<'a> LoweringContext<'a> {
                     payload_type: self.resolve_enum_variant_payload_type(path, pattern.span)?,
                 }
             }
+            ast::MatchPatternKind::Or { alternatives } => MatchPatternKind::Or {
+                alternatives: alternatives
+                    .iter()
+                    .map(|pattern| self.lower_match_pattern(pattern))
+                    .collect::<Result<Vec<_>, Diagnostic>>()?,
+            },
             ast::MatchPatternKind::Error => MatchPatternKind::Error,
         };
 
@@ -1144,6 +1153,33 @@ impl<'a> LoweringContext<'a> {
                         .resolve_canonical_name(enum_path, arm.pattern.span, &self.enum_names)
                         .unwrap_or_else(|| enum_path.to_string());
                     return Ok(Type::Enum { name: enum_name });
+                }
+                ast::MatchPatternKind::Or { alternatives } => {
+                    for alternative in alternatives {
+                        match &alternative.kind {
+                            ast::MatchPatternKind::Bool { .. } => return Ok(Type::Bool),
+                            ast::MatchPatternKind::Int { .. } => return Ok(Type::I32),
+                            ast::MatchPatternKind::String { .. } => return Ok(Type::String),
+                            ast::MatchPatternKind::EnumVariant { path, .. } => {
+                                let Some((enum_path, _)) = path.rsplit_once('.') else {
+                                    return Err(self.lowering_error(
+                                        "H0012",
+                                        "match enum pattern must use `EnumName.Variant`",
+                                        alternative.span,
+                                    ));
+                                };
+                                let enum_name = self
+                                    .resolve_canonical_name(
+                                        enum_path,
+                                        alternative.span,
+                                        &self.enum_names,
+                                    )
+                                    .unwrap_or_else(|| enum_path.to_string());
+                                return Ok(Type::Enum { name: enum_name });
+                            }
+                            _ => {}
+                        }
+                    }
                 }
                 ast::MatchPatternKind::Wildcard
                 | ast::MatchPatternKind::Binding { .. }

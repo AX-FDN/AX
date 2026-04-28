@@ -474,6 +474,11 @@ fn format_match_pattern(pattern: &MatchPattern) -> String {
             }
             None => path.clone(),
         },
+        MatchPatternKind::Or { alternatives } => alternatives
+            .iter()
+            .map(format_match_pattern)
+            .collect::<Vec<_>>()
+            .join(" | "),
         MatchPatternKind::Error => "<invalid-pattern>".to_string(),
     }
 }
@@ -882,6 +887,24 @@ mod tests {
             concat!(
                 "fn main() -> i32 {\n",
                 "    let value: i32 = match (4) { 0 => 1, other => other };\n",
+                "    return value;\n",
+                "}\n"
+            )
+        );
+    }
+
+    #[test]
+    fn formats_match_or_patterns() {
+        let source = SourceFile::anonymous(
+            "fn main()->i32{let value:i32=match(1){0|1=>10,_=>0};return value;}",
+        );
+
+        let formatted = format_source(&source).expect("source should format");
+        assert_eq!(
+            formatted,
+            concat!(
+                "fn main() -> i32 {\n",
+                "    let value: i32 = match (1) { 0 | 1 => 10, _ => 0 };\n",
                 "    return value;\n",
                 "}\n"
             )

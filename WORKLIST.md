@@ -849,8 +849,13 @@
 - [x] `Q-P6-04a` richer pattern matching：字符串字面量 pattern
   - 状态：已支持 `match (command) { "check" => ..., _ => ... }`
   - 已覆盖：parser / semantic / HIR / MIR / interpreter / formatter / example / interface snapshot
-  - 当前边界：`string` match 与 `i32` 一样必须有最终 catch-all；不支持 guard、多 pattern arm、解构或 block-valued expression arm
-  - 后续补强：`Q-P6-04b` 多 pattern arm；`Q-P6-04c` guard；`Q-P6-04d` 更深 enum/struct 解构
+  - 当前边界：`string` match 与 `i32` 一样必须有最终 catch-all；不支持 guard、解构或 block-valued expression arm
+- [x] `Q-P6-04b` richer pattern matching：多 pattern arm
+  - 状态：已支持 `A | B => ...`，例如 `Mode.Check | Mode.Run => 1`
+  - 已覆盖：lexer / parser / AST / formatter / semantic coverage / return analysis / HIR / MIR / interpreter / example / interface snapshot / README / SYNTAX
+  - 代表样例：`examples/match_or.ax`
+  - 当前边界：多 pattern arm 当前用于字面量或 unit enum variant；不在同一个 `|` arm 内引入绑定，不支持 guard 或解构
+  - 后续补强：`Q-P6-04c` guard；`Q-P6-04d` 更深 enum/struct 解构
 - [ ] `Q-P7-01` 闭包 / lambda
 - [ ] `Q-P7-02` async / await
 

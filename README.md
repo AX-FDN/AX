@@ -826,7 +826,7 @@ P2 阶段固定样例集合与回归职责见 [`docs/representative-samples.md`]
 | `for (init; cond; step)` | 已支持   | 当前主循环表头形态                                                                                                                       |
 | `break;`                 | 已支持   | 只能出现在 `while` / `for` 中                                                                                                            |
 | `continue;`              | 已支持   | 已打通 `for -> while` lowering 下的 step 语义                                                                                            |
-| `match (...) { ... }`    | 已支持   | 语句形态、表达式形态、绑定 catch-all、字符串 pattern 与 payload enum pattern 都已进入 parser / semantic / interpreter / AI feedback 主链 |
+| `match (...) { ... }`    | 已支持   | 语句形态、表达式形态、绑定 catch-all、字符串 pattern、payload enum pattern 与 `A | B` 多 pattern arm 都已进入 parser / semantic / interpreter 主链 |
 
 ### 表达式与类型能力
 
@@ -859,8 +859,9 @@ P2 阶段固定样例集合与回归职责见 [`docs/representative-samples.md`]
   - 已支持在 `while` / `for` 中使用
   - `for` 场景下会先执行 step，再进入下一轮
 - `match`
-  - 支持语句形态、表达式形态、最终裸标识符绑定模式、字符串 pattern，以及 payload enum pattern
+  - 支持语句形态、表达式形态、最终裸标识符绑定模式、字符串 pattern、payload enum pattern，以及 `A | B` 多 pattern arm
   - pattern 目前支持 `true` / `false`、整数、字符串、枚举值、最终 `_`、最终裸标识符（如 `other`），以及 `Enum.Variant(name)` / `Enum.Variant(_)`
+  - `A | B` arm 当前只建议用于字面量或 unit enum variant，不在同一个多 pattern arm 内引入绑定
   - 裸标识符 pattern 是 catch-all 绑定，只在当前 arm 内引入一个不可变局部名
   - 会做穷尽检查：
     - `bool` 要覆盖 `true / false` 或最终 catch-all

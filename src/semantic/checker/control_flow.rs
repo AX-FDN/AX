@@ -375,46 +375,83 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     }
                     coverage.wildcard_seen = true;
                 }
+                MatchPatternKind::Or { alternatives } => {
+                    if alternatives.iter().any(is_catch_all_pattern) {
+                        self.diagnostics.push(
+                            Diagnostic::new(
+                                "S0048",
+                                "catch-all patterns cannot be mixed into a `|` match arm",
+                                self.info.source,
+                                case.pattern.span,
+                            )
+                            .with_kind(DiagnosticKind::MatchWildcardMustBeLast)
+                            .with_suggestion(
+                                "move `_` or a bare binding into its own final match arm",
+                            ),
+                        );
+                    }
+                    if alternatives.iter().any(pattern_contains_binding) {
+                        self.diagnostics.push(
+                            Diagnostic::new(
+                                "S0046",
+                                "`|` match arms cannot introduce bindings in the current AX slice",
+                                self.info.source,
+                                case.pattern.span,
+                            )
+                            .with_kind(DiagnosticKind::MatchPatternTypeMismatch)
+                            .with_suggestion(
+                                "use only literal or unit enum variant alternatives, or split binding patterns into separate arms",
+                            ),
+                        );
+                    }
+                    coverage.concrete_pattern_seen |= alternatives
+                        .iter()
+                        .any(|pattern| !matches!(pattern.kind, MatchPatternKind::Error));
+                }
                 MatchPatternKind::Error => {}
                 _ => {
                     coverage.concrete_pattern_seen = true;
                 }
             }
 
-            if coverage.scrutinee_supported
-                && let Some(resolved) =
-                    self.resolve_match_pattern(case.pattern, &coverage.scrutinee_type)
-            {
+            for pattern in match_pattern_alternatives(case.pattern) {
+                if !coverage.scrutinee_supported {
+                    continue;
+                }
+                let Some(resolved) = self.resolve_match_pattern(pattern, &coverage.scrutinee_type)
+                else {
+                    continue;
+                };
                 match resolved {
                     ResolvedMatchPattern::Bool(value) => {
                         if !coverage.seen_bools.insert(value) {
                             self.report_duplicate_match_pattern(
-                                case.pattern.span,
-                                pattern_label(case.pattern),
+                                pattern.span,
+                                pattern_label(pattern),
                             );
                         }
                     }
                     ResolvedMatchPattern::Int(value) => {
                         if !coverage.seen_ints.insert(value) {
                             self.report_duplicate_match_pattern(
-                                case.pattern.span,
-                                pattern_label(case.pattern),
+                                pattern.span,
+                                pattern_label(pattern),
                             );
                         }
                     }
                     ResolvedMatchPattern::String(value) => {
                         if !coverage.seen_strings.insert(value.clone()) {
                             self.report_duplicate_match_pattern(
-                                case.pattern.span,
-                                pattern_label(case.pattern),
+                                pattern.span,
+                                pattern_label(pattern),
                             );
                         }
                     }
                     ResolvedMatchPattern::EnumVariant { variant } => {
                         if !coverage.seen_variants.insert(variant.clone()) {
                             self.report_duplicate_match_pattern(
-                                case.pattern.span,
-                                pattern_label(case.pattern),
+                                pattern.span,
+                                pattern_label(pattern),
                             );
                         }
                     }
@@ -568,6 +605,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
         match &pattern.kind {
             MatchPatternKind::Wildcard
             | MatchPatternKind::Binding { .. }
+            | MatchPatternKind::Or { .. }
             | MatchPatternKind::Error => None,
             MatchPatternKind::Bool { value } => {
                 if !matches!(scrutinee_type, Type::Bool | Type::Error) {
@@ -792,6 +830,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     self.declare(name, payload_type, false, pattern.span.start);
                 }
             }
+            MatchPatternKind::Or { .. } => {}
             _ => {}
         }
     }
@@ -885,6 +924,37 @@ fn pattern_label(pattern: &MatchPattern) -> String {
             Some(EnumVariantPayloadPattern::Binding { name }) => format!("{path}({name})"),
             None => path.clone(),
         },
+        MatchPatternKind::Or { alternatives } => alternatives
+            .iter()
+            .map(pattern_label)
+            .collect::<Vec<_>>()
+            .join(" | "),
         MatchPatternKind::Error => "<invalid-pattern>".to_string(),
+    }
+}
+
+fn match_pattern_alternatives(pattern: &MatchPattern) -> Vec<&MatchPattern> {
+    match &pattern.kind {
+        MatchPatternKind::Or { alternatives } => alternatives.iter().collect(),
+        _ => vec![pattern],
+    }
+}
+
+fn is_catch_all_pattern(pattern: &MatchPattern) -> bool {
+    matches!(
+        pattern.kind,
+        MatchPatternKind::Wildcard | MatchPatternKind::Binding { .. }
+    )
+}
+
+fn pattern_contains_binding(pattern: &MatchPattern) -> bool {
+    match &pattern.kind {
+        MatchPatternKind::Binding { .. } => true,
+        MatchPatternKind::EnumVariant {
+            payload: Some(EnumVariantPayloadPattern::Binding { .. }),
+            ..
+        } => true,
+        MatchPatternKind::Or { alternatives } => alternatives.iter().any(pattern_contains_binding),
+        _ => false,
     }
 }

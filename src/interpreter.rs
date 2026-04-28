@@ -2616,6 +2616,14 @@ impl<'a> Interpreter<'a> {
                     span,
                 )),
             },
+            MatchPatternKind::Or { alternatives } => {
+                for alternative in alternatives {
+                    if self.match_pattern_matches_value(alternative, scrutinee, span)? {
+                        return Ok(true);
+                    }
+                }
+                Ok(false)
+            }
             MatchPatternKind::Error => {
                 Err(self.runtime_error("R0038", "invalid match pattern reached the runtime", span))
             }
@@ -2705,6 +2713,11 @@ impl<'a> Interpreter<'a> {
             MatchPatternKind::EnumVariant {
                 enum_name, variant, ..
             } => format!("{enum_name}.{variant}"),
+            MatchPatternKind::Or { alternatives } => alternatives
+                .iter()
+                .map(Self::match_pattern_label)
+                .collect::<Vec<_>>()
+                .join(" | "),
             MatchPatternKind::Error => "<invalid-pattern>".to_string(),
         }
     }

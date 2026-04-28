@@ -62,6 +62,7 @@ impl<'a> Lexer<'a> {
                     self.advance_char();
                     self.push_token(TokenKind::PipePipe, Span::new(start, self.cursor));
                 }
+                '|' => self.simple_token(TokenKind::Pipe, start),
                 '-' if self.peek_next_char() == Some('>') => {
                     self.advance_char();
                     self.advance_char();
@@ -462,6 +463,20 @@ mod tests {
         assert!(output.diagnostics.is_empty());
         assert!(kinds.contains(&TokenKind::AmpAmp));
         assert!(kinds.contains(&TokenKind::PipePipe));
+    }
+
+    #[test]
+    fn tokenizes_match_pattern_pipe() {
+        let source =
+            SourceFile::anonymous("fn main() -> i32 { return match (1) { 0 | 1 => 1, _ => 0 }; }");
+        let output = tokenize(&source);
+        let kinds = output
+            .tokens
+            .iter()
+            .map(|token| token.kind)
+            .collect::<Vec<_>>();
+        assert!(output.diagnostics.is_empty());
+        assert!(kinds.contains(&TokenKind::Pipe));
     }
 
     #[test]

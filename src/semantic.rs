@@ -760,6 +760,28 @@ fn main() -> i32 {
     }
 
     #[test]
+    fn accepts_match_or_patterns() {
+        let codes = check(
+            "\
+enum Mode { Check, Run, Build, Other }
+
+fn score(mode: Mode) -> i32 {
+    return match (mode) {
+        Mode.Check | Mode.Run => 1,
+        Mode.Build => 2,
+        Mode.Other => 0,
+    };
+}
+
+fn main() -> i32 {
+    return score(Mode.Run);
+}
+",
+        );
+        assert!(codes.is_empty(), "unexpected diagnostics: {codes:?}");
+    }
+
+    #[test]
     fn accepts_payload_enum_construction_and_match_patterns() {
         let codes = check(
             "\

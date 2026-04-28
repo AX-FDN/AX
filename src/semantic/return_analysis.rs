@@ -77,18 +77,26 @@ fn match_is_exhaustive(arms: &[MatchArm], info: &ProgramInfo<'_>, current_unit_p
     }
 
     if arms.iter().any(|arm| {
-        matches!(
-            arm.pattern.kind,
-            MatchPatternKind::Wildcard | MatchPatternKind::Binding { .. }
-        )
+        match_pattern_alternatives(&arm.pattern.kind)
+            .iter()
+            .any(|pattern| {
+                matches!(
+                    pattern,
+                    MatchPatternKind::Wildcard | MatchPatternKind::Binding { .. }
+                )
+            })
     }) {
         return arms.iter().any(|arm| {
-            !matches!(
-                arm.pattern.kind,
-                MatchPatternKind::Wildcard
-                    | MatchPatternKind::Binding { .. }
-                    | MatchPatternKind::Error
-            )
+            match_pattern_alternatives(&arm.pattern.kind)
+                .iter()
+                .any(|pattern| {
+                    !matches!(
+                        pattern,
+                        MatchPatternKind::Wildcard
+                            | MatchPatternKind::Binding { .. }
+                            | MatchPatternKind::Error
+                    )
+                })
         });
     }
 
@@ -99,43 +107,46 @@ fn match_is_exhaustive(arms: &[MatchArm], info: &ProgramInfo<'_>, current_unit_p
     let mut only_enums = true;
 
     for arm in arms {
-        match &arm.pattern.kind {
-            MatchPatternKind::Bool { value } => {
-                bools.insert(*value);
-                only_enums = false;
-            }
-            MatchPatternKind::EnumVariant { path, .. } => {
-                only_bools = false;
-                let Some((enum_path, variant)) = path.rsplit_once('.') else {
-                    return false;
-                };
-                let mut diagnostics = Vec::new();
-                let Some(resolved_key) = info.resolve_named_type_key(
-                    enum_path,
-                    current_unit_path,
-                    arm.pattern.span,
-                    &mut diagnostics,
-                ) else {
-                    return false;
-                };
-                let Some(Type::Enum(resolved_enum_name)) = info.named_types.get(&resolved_key)
-                else {
-                    return false;
-                };
-                if let Some(existing) = &enum_name {
-                    if existing != resolved_enum_name {
-                        return false;
-                    }
-                } else {
-                    enum_name = Some(resolved_enum_name.clone());
+        for pattern in match_pattern_alternatives(&arm.pattern.kind) {
+            match pattern {
+                MatchPatternKind::Bool { value } => {
+                    bools.insert(*value);
+                    only_enums = false;
                 }
-                enum_variants.insert(variant.to_string());
+                MatchPatternKind::EnumVariant { path, .. } => {
+                    only_bools = false;
+                    let Some((enum_path, variant)) = path.rsplit_once('.') else {
+                        return false;
+                    };
+                    let mut diagnostics = Vec::new();
+                    let Some(resolved_key) = info.resolve_named_type_key(
+                        enum_path,
+                        current_unit_path,
+                        arm.pattern.span,
+                        &mut diagnostics,
+                    ) else {
+                        return false;
+                    };
+                    let Some(Type::Enum(resolved_enum_name)) = info.named_types.get(&resolved_key)
+                    else {
+                        return false;
+                    };
+                    if let Some(existing) = &enum_name {
+                        if existing != resolved_enum_name {
+                            return false;
+                        }
+                    } else {
+                        enum_name = Some(resolved_enum_name.clone());
+                    }
+                    enum_variants.insert(variant.to_string());
+                }
+                MatchPatternKind::Int { .. }
+                | MatchPatternKind::String { .. }
+                | MatchPatternKind::Wildcard
+                | MatchPatternKind::Binding { .. }
+                | MatchPatternKind::Or { .. }
+                | MatchPatternKind::Error => return false,
             }
-            MatchPatternKind::Int { .. }
-            | MatchPatternKind::String { .. }
-            | MatchPatternKind::Wildcard
-            | MatchPatternKind::Binding { .. }
-            | MatchPatternKind::Error => return false,
         }
     }
 
@@ -157,6 +168,15 @@ fn match_is_exhaustive(arms: &[MatchArm], info: &ProgramInfo<'_>, current_unit_p
     }
 
     false
+}
+
+fn match_pattern_alternatives(pattern: &MatchPatternKind) -> Vec<&MatchPatternKind> {
+    match pattern {
+        MatchPatternKind::Or { alternatives } => {
+            alternatives.iter().map(|pattern| &pattern.kind).collect()
+        }
+        _ => vec![pattern],
+    }
 }
 
 fn missing_return_note(body: &Block, info: &ProgramInfo<'_>, current_unit_path: &str) -> String {

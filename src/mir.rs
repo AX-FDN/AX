@@ -195,6 +195,9 @@ pub enum MatchPatternKind {
         #[serde(skip_serializing_if = "Option::is_none")]
         payload_type: Option<Type>,
     },
+    Or {
+        alternatives: Vec<MatchPattern>,
+    },
     Error,
 }
 
@@ -759,6 +762,12 @@ impl FunctionLowerer {
                 payload: payload.clone(),
                 payload_type: payload_type.clone(),
             },
+            hir::MatchPatternKind::Or { alternatives } => MatchPatternKind::Or {
+                alternatives: alternatives
+                    .iter()
+                    .map(|pattern| self.lower_match_pattern(pattern))
+                    .collect(),
+            },
             hir::MatchPatternKind::Error => MatchPatternKind::Error,
         };
 
@@ -782,6 +791,21 @@ impl FunctionLowerer {
                     return Ok(Type::Enum {
                         name: enum_name.clone(),
                     });
+                }
+                hir::MatchPatternKind::Or { alternatives } => {
+                    for alternative in alternatives {
+                        match &alternative.kind {
+                            hir::MatchPatternKind::Bool { .. } => return Ok(Type::Bool),
+                            hir::MatchPatternKind::Int { .. } => return Ok(Type::I32),
+                            hir::MatchPatternKind::String { .. } => return Ok(Type::String),
+                            hir::MatchPatternKind::EnumVariant { enum_name, .. } => {
+                                return Ok(Type::Enum {
+                                    name: enum_name.clone(),
+                                });
+                            }
+                            _ => {}
+                        }
+                    }
                 }
                 hir::MatchPatternKind::Wildcard
                 | hir::MatchPatternKind::Binding { .. }
