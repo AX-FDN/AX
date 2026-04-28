@@ -76,7 +76,7 @@ fn match_is_exhaustive(arms: &[MatchArm], info: &ProgramInfo<'_>, current_unit_p
         return false;
     }
 
-    if arms.iter().any(|arm| {
+    if arms.iter().filter(|arm| arm.guard.is_none()).any(|arm| {
         match_pattern_alternatives(&arm.pattern.kind)
             .iter()
             .any(|pattern| {
@@ -86,7 +86,7 @@ fn match_is_exhaustive(arms: &[MatchArm], info: &ProgramInfo<'_>, current_unit_p
                 )
             })
     }) {
-        return arms.iter().any(|arm| {
+        return arms.iter().filter(|arm| arm.guard.is_none()).any(|arm| {
             match_pattern_alternatives(&arm.pattern.kind)
                 .iter()
                 .any(|pattern| {
@@ -106,7 +106,7 @@ fn match_is_exhaustive(arms: &[MatchArm], info: &ProgramInfo<'_>, current_unit_p
     let mut only_bools = true;
     let mut only_enums = true;
 
-    for arm in arms {
+    for arm in arms.iter().filter(|arm| arm.guard.is_none()) {
         for pattern in match_pattern_alternatives(&arm.pattern.kind) {
             match pattern {
                 MatchPatternKind::Bool { value } => {

@@ -160,6 +160,8 @@ pub struct Expr {
 #[derive(Debug, Clone, Serialize)]
 pub struct MatchExprArm {
     pub pattern: MatchPattern,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub guard: Option<Expr>,
     pub value: Expr,
     pub span: Span,
 }
@@ -687,11 +689,17 @@ impl FunctionLowerer {
                                 );
                                 self.declare(binding_name, local);
                             }
+                            let guard = arm
+                                .guard
+                                .as_ref()
+                                .map(|guard| self.lower_expr(guard))
+                                .transpose()?;
                             let value = self.lower_expr(&arm.value);
                             self.pop_scope();
 
                             Ok(MatchExprArm {
                                 pattern,
+                                guard,
                                 value: value?,
                                 span: arm.span,
                             })

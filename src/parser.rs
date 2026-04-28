@@ -819,6 +819,7 @@ impl<'a> Parser<'a> {
 
     fn parse_match_arm(&mut self) -> MatchArm {
         let pattern = self.parse_match_pattern();
+        let guard = self.parse_match_guard();
         self.expect(
             TokenKind::FatArrow,
             "expected `=>` after match pattern",
@@ -828,12 +829,14 @@ impl<'a> Parser<'a> {
         MatchArm {
             span: Span::new(pattern.span.start, body.span.end),
             pattern,
+            guard,
             body,
         }
     }
 
     fn parse_match_expression_arm(&mut self) -> MatchExprArm {
         let pattern = self.parse_match_pattern();
+        let guard = self.parse_match_guard();
         self.expect(
             TokenKind::FatArrow,
             "expected `=>` after match pattern",
@@ -843,8 +846,17 @@ impl<'a> Parser<'a> {
         MatchExprArm {
             span: Span::new(pattern.span.start, value.span.end),
             pattern,
+            guard,
             value,
         }
+    }
+
+    fn parse_match_guard(&mut self) -> Option<Expr> {
+        if !self.matches(&[TokenKind::IfKw]) {
+            return None;
+        }
+
+        Some(self.parse_expression())
     }
 
     fn parse_match_pattern(&mut self) -> MatchPattern {
@@ -2246,6 +2258,32 @@ fn main() -> i32 {
             arms[0].pattern.kind,
             MatchPatternKind::Or { ref alternatives } if alternatives.len() == 2
         ));
+    }
+
+    #[test]
+    fn parses_match_guards() {
+        let source = SourceFile::anonymous(
+            "\
+fn main() -> i32 {
+    let value: i32 = match (2) { 2 if true => 10, _ => 0 };
+    return value;
+}
+",
+        );
+        let tokens = tokenize(&source).tokens;
+        let output = parse(&source, tokens);
+        assert!(output.diagnostics.is_empty(), "{:?}", output.diagnostics);
+
+        let ItemKind::Function { body, .. } = &output.program.items[0].kind else {
+            panic!("expected function");
+        };
+        let StmtKind::Let { initializer, .. } = &body.statements[0].kind else {
+            panic!("expected let statement");
+        };
+        let ExprKind::Match { arms, .. } = &initializer.kind else {
+            panic!("expected match expression");
+        };
+        assert!(arms[0].guard.is_some());
     }
 
     #[test]

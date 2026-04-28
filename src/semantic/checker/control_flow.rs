@@ -18,6 +18,7 @@ enum ResolvedMatchPattern {
 
 struct MatchCase<'a> {
     pattern: &'a MatchPattern,
+    guarded: bool,
 }
 
 struct MatchCoverage {
@@ -82,10 +83,12 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             .iter()
             .map(|arm| MatchCase {
                 pattern: &arm.pattern,
+                guarded: arm.guard.is_some(),
             })
             .collect::<Vec<_>>();
         let coverage = self.analyze_match_cases(statement.span, scrutinee, &cases);
         for arm in arms {
+            self.check_match_arm_guard(&coverage.scrutinee_type, &arm.pattern, arm.guard.as_ref());
             self.check_match_arm_block(&coverage.scrutinee_type, &arm.pattern, &arm.body);
         }
         self.report_match_exhaustiveness(statement.span, &coverage);
@@ -101,12 +104,14 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             .iter()
             .map(|arm| MatchCase {
                 pattern: &arm.pattern,
+                guarded: arm.guard.is_some(),
             })
             .collect::<Vec<_>>();
         let coverage = self.analyze_match_cases(expr.span, scrutinee, &cases);
 
         let mut result_type = None::<Type>;
         for arm in arms {
+            self.check_match_arm_guard(&coverage.scrutinee_type, &arm.pattern, arm.guard.as_ref());
             let arm_type =
                 self.check_match_expression_arm(&coverage.scrutinee_type, &arm.pattern, &arm.value);
             if arm_type.is_error() {
@@ -359,7 +364,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
         for (index, case) in cases.iter().enumerate() {
             match &case.pattern.kind {
                 MatchPatternKind::Wildcard | MatchPatternKind::Binding { .. } => {
-                    if coverage.wildcard_seen || index + 1 < cases.len() {
+                    if !case.guarded && (coverage.wildcard_seen || index + 1 < cases.len()) {
                         self.diagnostics.push(
                             Diagnostic::new(
                                 "S0048",
@@ -373,7 +378,9 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                             ),
                         );
                     }
-                    coverage.wildcard_seen = true;
+                    if !case.guarded {
+                        coverage.wildcard_seen = true;
+                    }
                 }
                 MatchPatternKind::Or { alternatives } => {
                     if alternatives.iter().any(is_catch_all_pattern) {
@@ -422,6 +429,9 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 else {
                     continue;
                 };
+                if case.guarded {
+                    continue;
+                }
                 match resolved {
                     ResolvedMatchPattern::Bool(value) => {
                         if !coverage.seen_bools.insert(value) {
@@ -799,6 +809,50 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
         self.scopes.push(HashMap::new());
         self.declare_match_binding(scrutinee_type, pattern);
         self.check_block(body);
+        self.scopes.pop();
+    }
+
+    fn check_match_arm_guard(
+        &mut self,
+        scrutinee_type: &Type,
+        pattern: &MatchPattern,
+        guard: Option<&Expr>,
+    ) {
+        let Some(guard) = guard else {
+            return;
+        };
+
+        if pattern_contains_binding(pattern) {
+            self.diagnostics.push(
+                Diagnostic::new(
+                    "S0053",
+                    "match guards cannot reference pattern bindings in the current AX slice",
+                    self.info.source,
+                    pattern.span,
+                )
+                .with_kind(DiagnosticKind::MatchPatternTypeMismatch)
+                .with_note(
+                    "guarded binding arms need a scoped binding model before they can be lowered safely",
+                )
+                .with_suggestion(
+                    "split the branch into an unguarded binding arm and use `if` inside the arm body",
+                ),
+            );
+        }
+
+        self.scopes.push(HashMap::new());
+        self.declare_match_binding(scrutinee_type, pattern);
+        let guard_type = self.check_expr(guard);
+        self.expect_type_match_with_kind(
+            &Type::Bool,
+            &guard_type,
+            guard.span,
+            format!(
+                "match guard must be `bool`, found `{}`",
+                guard_type.describe()
+            ),
+            DiagnosticKind::ConditionTypeMismatch,
+        );
         self.scopes.pop();
     }
 

@@ -408,7 +408,12 @@ impl Formatter {
         self.indent += 1;
         for arm in arms {
             self.write_indent();
-            let _ = write!(self.out, "{} => ", format_match_pattern(&arm.pattern));
+            let _ = write!(
+                self.out,
+                "{}{} => ",
+                format_match_pattern(&arm.pattern),
+                format_match_guard(arm.guard.as_ref())
+            );
             self.format_block(&arm.body);
             self.out.push('\n');
         }
@@ -487,13 +492,20 @@ fn format_match_expression_arms(arms: &[MatchExprArm]) -> String {
     arms.iter()
         .map(|arm| {
             format!(
-                "{} => {}",
+                "{}{} => {}",
                 format_match_pattern(&arm.pattern),
+                format_match_guard(arm.guard.as_ref()),
                 format_expr(&arm.value)
             )
         })
         .collect::<Vec<_>>()
         .join(", ")
+}
+
+fn format_match_guard(guard: Option<&Expr>) -> String {
+    guard
+        .map(|guard| format!(" if {}", format_expr(guard)))
+        .unwrap_or_default()
 }
 
 fn format_expr(expr: &Expr) -> String {
@@ -905,6 +917,24 @@ mod tests {
             concat!(
                 "fn main() -> i32 {\n",
                 "    let value: i32 = match (1) { 0 | 1 => 10, _ => 0 };\n",
+                "    return value;\n",
+                "}\n"
+            )
+        );
+    }
+
+    #[test]
+    fn formats_match_guards() {
+        let source = SourceFile::anonymous(
+            "fn main()->i32{let value:i32=match(2){2 if true=>10,_=>0};return value;}",
+        );
+
+        let formatted = format_source(&source).expect("source should format");
+        assert_eq!(
+            formatted,
+            concat!(
+                "fn main() -> i32 {\n",
+                "    let value: i32 = match (2) { 2 if true => 10, _ => 0 };\n",
                 "    return value;\n",
                 "}\n"
             )

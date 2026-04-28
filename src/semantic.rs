@@ -782,6 +782,38 @@ fn main() -> i32 {
     }
 
     #[test]
+    fn accepts_match_guards() {
+        let codes = check(
+            "\
+fn main() -> i32 {
+    let code: i32 = match (2) {
+        2 if true => 10,
+        _ => 0,
+    };
+    return code;
+}
+",
+        );
+        assert!(codes.is_empty(), "unexpected diagnostics: {codes:?}");
+    }
+
+    #[test]
+    fn rejects_non_bool_match_guards() {
+        let codes = check(
+            "\
+fn main() -> i32 {
+    let code: i32 = match (2) {
+        2 if 1 => 10,
+        _ => 0,
+    };
+    return code;
+}
+",
+        );
+        assert!(codes.contains(&"S0022".to_string()), "{codes:?}");
+    }
+
+    #[test]
     fn accepts_payload_enum_construction_and_match_patterns() {
         let codes = check(
             "\

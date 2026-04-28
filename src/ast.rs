@@ -237,6 +237,8 @@ pub struct Block {
 #[derive(Debug, Clone, Serialize)]
 pub struct MatchArm {
     pub pattern: MatchPattern,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub guard: Option<Expr>,
     pub body: Block,
     pub span: Span,
 }
@@ -244,6 +246,8 @@ pub struct MatchArm {
 #[derive(Debug, Clone, Serialize)]
 pub struct MatchExprArm {
     pub pattern: MatchPattern,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub guard: Option<Expr>,
     pub value: Expr,
     pub span: Span,
 }

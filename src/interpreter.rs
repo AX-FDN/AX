@@ -2520,12 +2520,15 @@ impl<'a> Interpreter<'a> {
     ) -> Result<Value, Diagnostic> {
         for arm in arms {
             if self.match_pattern_matches_value(&arm.pattern, &scrutinee, span)? {
-                return self.eval_match_expression_arm_value(
+                if let Some(value) = self.eval_match_expression_arm_value(
                     &arm.pattern,
+                    arm.guard.as_ref(),
                     &scrutinee,
                     &arm.value,
                     frame,
-                );
+                )? {
+                    return Ok(value);
+                }
             }
         }
 
@@ -2633,16 +2636,31 @@ impl<'a> Interpreter<'a> {
     fn eval_match_expression_arm_value(
         &mut self,
         pattern: &MatchPattern,
+        guard: Option<&Expr>,
         scrutinee: &Value,
         value: &Expr,
         frame: &mut Frame,
-    ) -> Result<Value, Diagnostic> {
+    ) -> Result<Option<Value>, Diagnostic> {
         frame.scopes.push(HashMap::new());
         if let Err(error) = self.bind_match_pattern_locals(pattern, scrutinee, frame) {
             frame.scopes.pop();
             return Err(error);
         }
-        let result = self.eval_expr(value, frame);
+        if let Some(guard) = guard {
+            let guard_matches = self.eval_condition(guard, frame);
+            match guard_matches {
+                Ok(true) => {}
+                Ok(false) => {
+                    frame.scopes.pop();
+                    return Ok(None);
+                }
+                Err(error) => {
+                    frame.scopes.pop();
+                    return Err(error);
+                }
+            }
+        }
+        let result = self.eval_expr(value, frame).map(Some);
         frame.scopes.pop();
         result
     }

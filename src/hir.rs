@@ -113,6 +113,8 @@ pub struct Block {
 #[derive(Debug, Clone, Serialize)]
 pub struct MatchExprArm {
     pub pattern: MatchPattern,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub guard: Option<Expr>,
     pub value: Expr,
     pub span: Span,
 }
@@ -1010,10 +1012,12 @@ impl<'a> LoweringContext<'a> {
             });
         };
 
-        if matches!(
-            first.pattern.kind,
-            ast::MatchPatternKind::Wildcard | ast::MatchPatternKind::Binding { .. }
-        ) {
+        if first.guard.is_none()
+            && matches!(
+                first.pattern.kind,
+                ast::MatchPatternKind::Wildcard | ast::MatchPatternKind::Binding { .. }
+            )
+        {
             return Ok(Stmt {
                 kind: StmtKind::Block {
                     block: self.lower_match_arm_block(
@@ -1027,7 +1031,8 @@ impl<'a> LoweringContext<'a> {
             });
         }
 
-        let condition = self.lower_match_pattern_condition(temp_name, &first.pattern)?;
+        let condition =
+            self.lower_match_arm_condition(temp_name, &first.pattern, first.guard.as_ref())?;
         let then_branch =
             self.lower_match_arm_block(temp_name, temp_type, &first.pattern, &first.body)?;
         let else_branch = if rest.is_empty() {
@@ -1050,6 +1055,28 @@ impl<'a> LoweringContext<'a> {
                 else_branch,
             },
             span: first.span,
+        })
+    }
+
+    fn lower_match_arm_condition(
+        &self,
+        temp_name: &str,
+        pattern: &ast::MatchPattern,
+        guard: Option<&ast::Expr>,
+    ) -> Result<Expr, Diagnostic> {
+        let pattern_condition = self.lower_match_pattern_condition(temp_name, pattern)?;
+        let Some(guard) = guard else {
+            return Ok(pattern_condition);
+        };
+
+        let guard = self.lower_expr(guard)?;
+        Ok(Expr {
+            span: Span::new(pattern_condition.span.start, guard.span.end),
+            kind: ExprKind::Binary {
+                op: BinaryOp::LogicalAnd,
+                left: Box::new(pattern_condition),
+                right: Box::new(guard),
+            },
         })
     }
 
@@ -1439,6 +1466,11 @@ impl<'a> LoweringContext<'a> {
                     .map(|arm| {
                         Ok(MatchExprArm {
                             pattern: self.lower_match_pattern(&arm.pattern)?,
+                            guard: arm
+                                .guard
+                                .as_ref()
+                                .map(|guard| self.lower_expr(guard))
+                                .transpose()?,
                             value: self.lower_expr(&arm.value)?,
                             span: arm.span,
                         })

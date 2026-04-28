@@ -1,0 +1,14 @@
+fn classify(value: i32) -> i32 {
+    return match (value) {
+        0 => 0,
+        1 | 2 if true => 12,
+        _ => -1,
+    };
+}
+
+fn main() -> i32 {
+    println(classify(0));
+    println(classify(1));
+    println(classify(2));
+    return classify(9);
+}

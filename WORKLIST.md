@@ -475,6 +475,9 @@
       - `Enum.Variant`
       - `Enum.Variant(name)`
       - `Enum.Variant(_)`
+      - 字符串字面量 pattern
+      - `A | B` 多 pattern arm（仅字面量或 unit enum variant，不在同一 arm 内引入 binding）
+      - `pattern if bool_expr => ...` bool guard（guard 不参与穷尽性证明，当前不引用 pattern binding）
       - 最终 `_`
       - 最终裸标识符 catch-all
   - 本轮必须直接服务的场景：
@@ -482,12 +485,10 @@
     - 让 `match` 在 statement form 和 expression form 上都能稳定消费单 payload enum
     - 在不新增大语法面的前提下，把现有 pattern 集合的 duplicate / final catch-all / non-exhaustive / payload-shape 诊断继续打硬
   - 本轮明确不补：
-    - 字符串字面量 pattern
     - tuple / array / struct destructuring
     - 多 payload 或命名 payload fields
     - 嵌套 payload destructuring
-    - match guards
-    - 多 pattern arm（如 `A | B`）
+    - binding-aware match guards
     - range pattern
     - block-valued match expression arm
   - 冻结依据：
