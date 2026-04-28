@@ -54,7 +54,7 @@ AX 关注的不只是“模型能不能写出代码”，更关注三件更硬�
 | 项目定位 | `AI-first Tool Language + Compiler/Runtime Prototype` |
 | 核心问题 | 什么样的语言表面、诊断结构、上下文协议和修复反馈，最适合自回归模型稳定生成、稳定修复和稳定理解项目 |
 | 关键收益 | 提高一次通过率、提高修复成功率、提高多文件项目中的架构理解效率 |
-| 主要场景 | agent 生成 CLI 工具、可修复自动化脚本、后端 worker 辅助、compiler-guided repair benchmark |
+| 主要场景 | agent 生成 CLI 工具、可修复自动化脚本、后端 worker 辅助、compiler-guided repair benchmark ，更多应用场景正在开发中|
 | 当前形态 | 语言前端 + 解释执行 + project mode + structured diagnostics + context + repair benchmark |
 | 核心价值 | 把语言本体、编译器反馈和 AI 消费链路放进同一个可运行仓库 |
 
