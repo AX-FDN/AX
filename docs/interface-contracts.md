@@ -158,7 +158,7 @@ Not allowed without explicit contract update:
 - treating Repair Archaeology as evidence of live-model performance
 - adding an `axc repair-log` command before script/artifact schema is stable
 
-Current smoke:
+Current smoke, included in Windows CI full workflow:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke-repair-archaeology.ps1 -SkipBuild

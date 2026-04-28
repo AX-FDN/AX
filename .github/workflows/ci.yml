@@ -44,6 +44,9 @@ jobs:
       - name: Run repair mode comparison smoke
         run: .\scripts\smoke-compare-repair-modes.ps1
 
+      - name: Run repair archaeology smoke
+        run: .\scripts\smoke-repair-archaeology.ps1 -SkipBuild
+
   ubuntu-core:
     runs-on: ubuntu-latest
 

@@ -316,9 +316,14 @@
     - smoke 不依赖旧本地产物
     - CI 或本机验证矩阵能明确引用该 smoke
 
-- [ ] `W-P1-11` 评估是否把 Repair Archaeology smoke 接入 CI
+- [x] `W-P1-11` 评估是否把 Repair Archaeology smoke 接入 CI
   - 目标：判断 `smoke-repair-archaeology.ps1` 是否进入 Windows CI full workflow，还是先留在本机验证矩阵。
   - 依赖：`W-P1-10`
+  - 当前结论：
+    - 接入 Windows CI full workflow
+    - 不接入 Ubuntu core support
+    - CI 使用 `-SkipBuild`，复用前面的 Rust test/build 产物，避免重复构建
+    - 选择理由：Repair Archaeology smoke 属于 Windows-only PowerShell benchmark/orchestration 层，和 repair smoke / compare smoke / mode smoke 同层
   - 当前需要评估：
     - CI 时间成本
     - 与现有 repair smoke / compare smoke 的重复度
@@ -328,6 +333,21 @@
     - 不要求 Linux 跑 PowerShell benchmark/orchestration
   - 完成标准：
     - 明确进入 CI、延后进入 CI，或改成 nightly/manual 的理由
+
+- [ ] `W-P2-S06` 启动 `match` 第二刀实现闭环
+  - 目标：P1 Repair Archaeology 这一轮完成后，回到 P2 语法线，按冻结顺序先推进 `match` 第二刀。
+  - 依赖：`W-P1-11`
+  - 当前范围：
+    - 先读 parser / semantic / interpreter / formatter / AI feedback / snapshots 的现有 `match` 实现
+    - 优先补 enum-first 与 payload enum 消费闭环
+    - 以现有 bootstrap 样例和 repair case 为驱动，不引入完整 pattern matching 系统
+  - 当前不做：
+    - 不做泛型
+    - 不做 trait/interface
+    - 不做 async
+    - 不做 range / guard / destructuring pattern
+  - 完成标准：
+    - `match` 第二刀的第一组实现能回写样例、语义检查、解释执行、AI 反馈或 interface snapshots
 
 ## P2 施工项：语言内核与最小可写工具
 

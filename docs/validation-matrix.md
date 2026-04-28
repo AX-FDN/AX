@@ -21,6 +21,7 @@ AX 当前不是所有平台跑完全相同的验证链。仓库采用分层验�
 | Windows CI | Repair benchmark smoke | `.\scripts\smoke-repair-benchmark.ps1` | 无 |
 | Windows CI | Repair compare smoke | `.\scripts\smoke-compare-repair-feedback.ps1` | 无 |
 | Windows CI | Repair mode compare smoke | `.\scripts\smoke-compare-repair-modes.ps1` | 无 |
+| Windows CI | Repair archaeology smoke | `.\scripts\smoke-repair-archaeology.ps1 -SkipBuild` | 无 |
 | Ubuntu CI | Linux core support | `cargo +stable fmt --check` | 不跑 PowerShell benchmark/orchestration |
 | Ubuntu CI | Build | `cargo build --locked` | 不发布 Linux binary |
 | Ubuntu CI | Rust unit tests | `cargo test --locked --lib` | 不跑 Windows-only script smoke |
@@ -112,7 +113,7 @@ git diff --check
 
 该 smoke 在 v0 阶段应继续读取 deterministic replay artifact，不调用真实 LLM。
 
-当前 smoke 入口：
+当前 smoke 入口，已接入 Windows CI full workflow：
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke-repair-archaeology.ps1 -SkipBuild
@@ -151,7 +152,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\export-repair-benc
 
 - Windows CI 失败通常说明主工作流不能交付。
 - Ubuntu CI 失败通常说明 core compiler/runtime 不再跨平台。
-- Linux 不跑 `.ps1` benchmark 链不是缺口，而是当前阶段边界。
+- Linux 不跑 `.ps1` benchmark / Repair Archaeology 链不是缺口，而是当前阶段边界。
 
 ## When To Expand This Matrix
 

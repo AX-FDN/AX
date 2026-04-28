@@ -61,6 +61,14 @@
     - `docs/interface-contracts.md`、`docs/validation-matrix.md`、`docs/repair-archaeology.md` 已改为引用固定 smoke
     - `WORKLIST.md` 已新增 `W-P1-11`，下一步评估是否把该 smoke 接入 Windows CI
 
+- `A-2026-04-28-05` `[P1]` Repair Archaeology smoke 接入 Windows CI
+  - 结果：
+    - `.github/workflows/ci.yml` 已新增 `Run repair archaeology smoke`
+    - Windows CI 运行 `.\scripts\smoke-repair-archaeology.ps1 -SkipBuild`
+    - Ubuntu core support 继续不跑 PowerShell benchmark / Repair Archaeology 链
+    - `docs/validation-matrix.md` 和 `docs/interface-contracts.md` 已同步 CI 口径
+    - `WORKLIST.md` 已把下一步切回 `W-P2-S06`，开始 `match` 第二刀实现闭环
+
 ### 2026-04-27
 
 - `A-2026-04-27-22` `[P1]` `Repair Archaeology v0` 增长点进入规划
