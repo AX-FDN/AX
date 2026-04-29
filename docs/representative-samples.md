@@ -44,8 +44,8 @@ P2 阶段的样例分两类：
 
 当前 `tests/interface_snapshots.rs` 已覆盖：
 
-- 五组 project-backed 样例的 `axc check`
-- 五组 project-backed 样例的 `axc run`
-- 五组 project-backed 样例的 `axc build`
+- 固定 project-backed 样例的 `axc check`
+- 固定 project-backed 样例的 `axc run`
+- 固定 project-backed 样例的 `axc build`
 
 这意味着 P2 的代表样例不再只是文档名词，而是进入了固定回归链。

@@ -1,0 +1,6 @@
+manifest_version = 1
+
+[package]
+name = "project_file_result"
+entry = "src/main.ax"
+sources = ["../../std"]

@@ -1,0 +1,25 @@
+import std.cli;
+import std.fs;
+import std.path;
+import std.result;
+
+fn main() -> i32 {
+    let args_status: i32 = std.cli.require_min_args(argv_len(), 1, "examples/project_file_result", "<input>");
+    if (args_status != 0) {
+        return args_status;
+    }
+
+    let input_path: string = argv_get(0);
+    let contents: std.result.Result<string, string> = std.fs.try_read_to_string(input_path);
+    let size: std.result.Result<i32, string> = std.fs.try_file_size(input_path);
+    let parent: string = std.path.parent(input_path);
+    let entries: std.result.Result<[string], string> = std.fs.try_read_dir(parent);
+    let missing: std.result.Result<string, string> = std.fs.try_read_to_string(std.path.join(parent, "missing-file-result-input.txt"));
+    let parent_count: i32 = match (entries) { std.result.Result.Ok(found) => len(found), std.result.Result.Err(_) => 0 };
+
+    println("read_ok=" + to_string(std.result.is_ok(contents)));
+    println("size=" + to_string(std.result.unwrap_or(size, 0)));
+    println("parent_entries=" + to_string(parent_count));
+    println(std.result.error_or(missing, "unexpected"));
+    return 0;
+}

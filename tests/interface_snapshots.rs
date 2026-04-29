@@ -3495,6 +3495,7 @@ fn representative_project_examples_check_cleanly() {
         "examples/project_command_batch",
         "examples/project_option_result",
         "examples/project_env_result",
+        "examples/project_file_result",
     ] {
         assert_project_example_checks(example_path);
     }
@@ -3984,6 +3985,25 @@ fn project_env_result_runs() {
     assert_eq!(
         normalize_text(&string_output(&output.stdout)),
         "path_ok=true\nmissing environment variable: AX_THIS_VARIABLE_SHOULD_NOT_EXIST_7A9F3D0C\n"
+    );
+}
+
+#[test]
+fn project_file_result_runs_on_controlled_fixture() {
+    let temp = TempDir::new("project-file-result");
+    let input_path = temp.write("config.txt", "alpha\nbeta\n");
+
+    let output = run_axc([
+        OsStr::new("run"),
+        OsStr::new("examples/project_file_result"),
+        OsStr::new("--"),
+        input_path.as_os_str(),
+    ]);
+    assert_eq!(output.status.code(), Some(0));
+    assert_clean_stderr(&output);
+    assert_eq!(
+        normalize_temp_output(&string_output(&output.stdout), &temp),
+        "read_ok=true\nsize=11\nparent_entries=1\nreadable file does not exist: <root>/missing-file-result-input.txt\n"
     );
 }
 
@@ -5469,6 +5489,15 @@ fn project_env_result_build_copies_real_example_source_tree() {
     assert_project_example_build_sources(
         "project-env-result-build",
         "examples/project_env_result",
+        &project_sources_with_shared_std(&["src/main.ax"]),
+    );
+}
+
+#[test]
+fn project_file_result_build_copies_real_example_source_tree() {
+    assert_project_example_build_sources(
+        "project-file-result-build",
+        "examples/project_file_result",
         &project_sources_with_shared_std(&["src/main.ax"]),
     );
 }

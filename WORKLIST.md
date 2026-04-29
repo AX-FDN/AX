@@ -41,7 +41,7 @@
 - `P0` 是地基修复层，当前只剩入口口径收口
 - `P1` 是编译器护城河同步硬化层，当前 context / benchmark / public claims 已完成，下一轮增长点登记为 `Repair Archaeology v0`
 - `P2` 是语言内核主施工层，当前代表样例、宿主边界和语法优先级已完成冻结
-- `P3` 是第一版标准库冻结试点层，当前已完成 `project_text_normalize`、`project_directory_index`、`project_release_promote`、`project_command_capture`、`project_command_batch`、`project_option_result`、`project_env_result` 七组 `std.*` 迁移试点
+- `P3` 是第一版标准库冻结试点层，当前已完成 `project_text_normalize`、`project_directory_index`、`project_release_promote`、`project_command_capture`、`project_command_batch`、`project_option_result`、`project_env_result`、`project_file_result` 八组 `std.*` 迁移试点
 
 ## 状态说明
 
@@ -59,7 +59,7 @@
 - `P1` 的 context-enabled repair export、benchmark 展示页和公开口径边界已经成立
 - `P2` 当前出口已经完成，语言内核主代表样例、宿主边界样例和第一项 `match` 语法线已经进入回归
 - `P3` 前置边界已经完成，`project_text_normalize` 已作为第一组 `foundation -> std.*` 迁移试点完成第一轮闭环
-- 当前 `P0 / P1 / P2` 本轮出口均已完成，`P3` 已完成七组样例迁移试点，`std.process / std.env` 已通过两组宿主边界样例验证，`std.env.try_get` 已启动 Result 风格宿主边界试点，`std.option / std.result` 已通过跨模块泛型 enum smoke 验证，第一版 `std.*` 冻结候选清单已收口
+- 当前 `P0 / P1 / P2` 本轮出口均已完成，`P3` 已完成八组样例迁移试点，`std.process / std.env` 已通过两组宿主边界样例验证，`std.env.try_get` 与读侧 `std.fs.try_*` 已启动 Result 风格宿主边界试点，`std.option / std.result` 已通过跨模块泛型 enum smoke 验证，第一版 `std.*` 冻结候选清单已收口
 
 当前优先级顺序固定为：
 
@@ -71,13 +71,14 @@
    - `project_command_batch` 已验证 `std.process.run / std.process.run_in / std.env.get`
    - `project_option_result` 已验证 `std.option.Option<T>` 与 `std.result.Result<T,E>` 的官方约定
    - `project_env_result` 已验证 `std.env.try_get` 与 `std.result.Result<string,string>` 的宿主边界组合
+   - `project_file_result` 已验证 `std.fs.try_read_to_string / try_read_dir / try_file_size` 与 `std.result` 的读侧文件系统边界组合
    - `std.*` 第一版接口冻结候选已收口，冻结候选验证入口与文档入口已补强
    - 继续保持 `foundation/` 作为未迁移样例的 Std-0 孵化层
 2. 暂不启动 P4 AOT、P5 包接口、JIT、自举或三方库桥接
 3. 下一步回到 `Repair Archaeology v0`，先做 artifact schema 与最小 Markdown 报告入口，不启动 Live Repair Stream、真实 LLM 或 UI
 4. 任何下一轮实现都必须继续回写 examples、diagnostics、context、repair/benchmark 或 interface snapshots
 
-当前判断：P1 这一轮的基础链路已经完成，P3 的七组 Std-1 迁移试点、冻结候选和验证入口也已经收口。下一步可以回到 P1 的 `Repair Archaeology v0`，把已有 replay / score / compare 事实做成 case 级可解释产物。
+当前判断：P1 这一轮的基础链路已经完成，P3 的八组 Std-1 迁移试点、冻结候选和验证入口也已经收口。下一步可以回到 P1 的 `Repair Archaeology v0`，把已有 replay / score / compare 事实做成 case 级可解释产物。
 
 ## 阶段承接图
 
@@ -130,6 +131,7 @@
 - [x] `project_command_batch` 已消费 `std.process / std.env` 并通过回归
 - [x] `project_option_result` 已消费 `std.option / std.result` 并通过回归
 - [x] `project_env_result` 已消费 `std.env / std.result` 并通过回归
+- [x] `project_file_result` 已消费 `std.fs / std.result` 并通过回归
 
 ## 近期已解除阻塞
 
@@ -774,7 +776,7 @@
     - 写清下一轮若要补标准库，必须由哪个真实 workload 或 repair case 触发
 
 - [x] `W-P3-15` 给 Std-1 冻结候选补验证入口
-  - 目标：把“Std-1 候选接口必须继续保持可检查、可运行、可构建”的验证入口写成稳定命令，而不是只靠五组样例自然覆盖。
+  - 目标：把“Std-1 候选接口必须继续保持可检查、可运行、可构建”的验证入口写成稳定命令，而不是只靠若干试点样例自然覆盖。
   - 依赖：`W-P3-14`
   - 当前结果：
     - `docs/stdlib-minimal-boundary.md` 已写清 Std-1 候选接口由哪些 interface snapshots 覆盖
@@ -801,6 +803,21 @@
     - 不引入默认值参数
     - 不引入异常系统或结构化错误类型
     - 不把 `std.fs / std.process` 一次性改成全 Result 接口
+
+- [x] `W-P3-17` 启动读侧 `std.fs.try_*` Result 风格宿主边界试点
+  - 目标：让文件系统高频失败点先进入显式 `Result` 返回约定，为后续错误传播语法提供真实标准库消费面。
+  - 依赖：`W-P3-16`
+  - 当前结果：
+    - `std.fs` 新增 `try_read_to_string(path) -> std.result.Result<string, string>`
+    - `std.fs` 新增 `try_read_dir(path) -> std.result.Result<[string], string>`
+    - `std.fs` 新增 `try_file_size(path) -> std.result.Result<i32, string>`
+    - 新增 `examples/project_file_result/`，覆盖读取存在文件、读取父目录、读取文件大小和缺失文件错误返回
+    - interface snapshots 覆盖 `check / run / build source tree`
+    - `docs/stdlib-minimal-boundary.md` 已把读侧 `try_*` 写入 Std-1 候选接口和第八迁移试点
+  - 当前不做：
+    - 不引入 `?`
+    - 不引入异常系统或结构化错误类型
+    - 不包装 `write_string / remove_file / rename` 为 `try_*`，因为当前 AX 还不能捕获宿主 IO 异常
 
 ## 当前明确不插队的方向
 
@@ -907,6 +924,10 @@
   - 状态：`std.env.try_get(name) -> std.result.Result<string,string>` 已进入标准库试点
   - 已覆盖：`std/env.ax`、`examples/project_env_result/`、interface snapshot、Std-1 边界文档
   - 当前边界：只验证环境变量读取的显式失败返回，不改变 `std.env.get` 兼容接口，不引入 `?`、异常系统或结构化错误类型
+- [x] `Q-P6-02h` 读侧文件系统 `Result` 接口第一刀
+  - 状态：`std.fs.try_read_to_string / try_read_dir / try_file_size` 已进入标准库试点
+  - 已覆盖：`std/fs.ax`、`examples/project_file_result/`、interface snapshot、Std-1 边界文档
+  - 当前边界：只覆盖可以通过 `is_file / is_dir` 前置判断规避的读侧失败，不对写入、删除、重命名承诺可捕获异常
 - [ ] `Q-P7-01` 闭包 / lambda
 - [ ] `Q-P7-02` async / await
 

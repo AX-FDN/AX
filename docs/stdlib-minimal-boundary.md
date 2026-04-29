@@ -23,7 +23,7 @@ P3 的目标不是一次性做完整标准库，而是先把第一版官方标�
 | --- | --- | --- | --- |
 | `std.text` | 字符串统计、trim、split、contains、starts/ends with、简单 normalize | `std/text.ax`、`foundation/text.ax` 与宿主 string builtin | 只放纯文本处理，不放文件读取 |
 | `std.cli` | 参数数量校验、usage、退出消息、输入路径校验 | `std/cli.ax` 与 `foundation/cli.ax` | 只放 CLI 程序入口常用约束，不放业务流程 |
-| `std.fs` | 文件/目录存在性、读写、复制、移动、删除、重命名、目录创建、目录枚举、文件大小 | `std/fs.ax` 与宿主 `fs_*` builtin | AX 接口稳定，宿主实现细节隐藏 |
+| `std.fs` | 文件/目录存在性、读写、复制、移动、删除、重命名、目录创建、目录枚举、文件大小、读侧 Result 安全接口 | `std/fs.ax` 与宿主 `fs_*` builtin | AX 接口稳定，宿主实现细节隐藏 |
 | `std.option` | 显式可能缺失值：`Option<T>`、`Some(T)`、`None`、基础查询与 fallback | `std/option.ax` | 只定义低熵返回值约定，不引入隐式空值或异常 |
 | `std.path` | join、parent、file name、stem、extension、resolve、文件类型辅助 | `std/path.ax`、宿主 `path_*` builtin 与 `foundation/file_kind.ax` | 路径操作和轻量分类放这里，工作区递归逻辑不放这里 |
 | `std.env` | 环境变量存在性、读取与 Result 风格安全读取 | `std/env.ax` 与宿主 `env_*` builtin | 只暴露 AX 函数，不暴露宿主环境实现 |
@@ -50,7 +50,7 @@ P3 的目标不是一次性做完整标准库，而是先把第一版官方标�
 | --- | --- | --- | --- |
 | [`../std/cli.ax`](../std/cli.ax) | `std.cli` | CLI 参数校验、usage、错误退出消息、输入文本校验 | 第一、第三、第四、第五试点已用 |
 | [`../std/env.ax`](../std/env.ax) | `std.env` | 环境变量存在性判断、读取与 `try_get` 安全读取 | 第四、第五、第七试点已用 |
-| [`../std/fs.ax`](../std/fs.ax) | `std.fs` | 文件读取、文件写入、目录创建、目录枚举、文件大小、文件/目录存在性判断、删除文件、重命名 | 第一、第二、第三、第四、第五试点已用 |
+| [`../std/fs.ax`](../std/fs.ax) | `std.fs` | 文件读取、文件写入、目录创建、目录枚举、文件大小、文件/目录存在性判断、删除文件、重命名、读侧 `try_*` 安全接口 | 第一、第二、第三、第四、第五、第八试点已用 |
 | [`../std/option.ax`](../std/option.ax) | `std.option` | `Option<T>`、`Some(T)`、`None`、静态构造 `Option.some / Option.none`、`is_some / is_none / unwrap_or` | `project_option_result` 已用 |
 | [`../std/path.ax`](../std/path.ax) | `std.path` | `join / parent / file_name / stem / extension / resolve / classify_file_kind / is_text_file` | 第一、第二、第三、第五试点已用 |
 | [`../std/process.ax`](../std/process.ax) | `std.process` | 命令执行、工作目录内执行与输出捕获 | 第四、第五试点已用 |
@@ -61,19 +61,19 @@ P3 的目标不是一次性做完整标准库，而是先把第一版官方标�
 
 ## Std-1 冻结候选清单
 
-五组迁移试点完成后，第一版 Std-1 不再继续按“看到 helper 就迁移”的方式扩张。
+八组迁移试点完成后，第一版 Std-1 不再继续按“看到 helper 就迁移”的方式扩张。
 当前冻结候选只包括已经被 project-backed workload 消费、并进入 `check / run / build` 或 interface snapshots 回归的接口。
 
 | 模块 | 冻结候选接口 | 已验证 workload | 冻结口径 |
 | --- | --- | --- | --- |
 | `std.cli` | `usage_error / require_min_args / exit_with_message / require_file / require_directory / require_non_empty_text / ensure_output_parent` | text normalize、directory index、release promote、command capture、command batch | 只冻结入口校验与输出父目录准备，不冻结目录重建策略 |
 | `std.env` | `has / get / try_get` | command capture、command batch、env/result smoke | `get` 必须优先配合 `has` 使用；`try_get` 是第一条 Result 风格宿主边界接口；本轮不设计默认值或错误传播语法 |
-| `std.fs` | `read_to_string / write_string / create_dir_all / exists / remove_file / rename / read_dir / file_size / is_file / is_dir` | 五组迁移试点 | 只冻结同步文件系统薄接口，不引入权限模型、流式 IO、watcher 或平台细节 |
+| `std.fs` | `read_to_string / try_read_to_string / write_string / create_dir_all / exists / remove_file / rename / read_dir / try_read_dir / file_size / try_file_size / is_file / is_dir` | file result 与五组迁移试点 | 冻结同步文件系统薄接口与读侧 Result 安全接口；写入、删除和重命名仍不伪装成可捕获异常的 Result 接口 |
 | `std.option` | `Option<T> / Some(T) / None / Option.some / Option.none / is_some / is_none / unwrap_or` | option/result smoke | 冻结显式缺失值约定；不引入隐式 null |
 | `std.path` | `join / parent / file_name / stem / extension / resolve / classify_file_kind / is_text_file` | text normalize、directory index、release promote、command batch | 路径拼接与轻量分类可冻结；分类规则是工具语言默认策略，不等于完整 MIME / 文件类型系统 |
 | `std.process` | `run / run_in / capture_in` | command capture、command batch | 只冻结同步命令执行与输出捕获；不冻结 stdout/stderr/exit-code 结构体、shell contract、async 或 streaming |
 | `std.report` | `append_line / append_string_stat / append_int_stat / append_bool_stat / append_path_stat / begin_section / append_section_details_or_none` | 五组迁移试点 | 只冻结确定性 key/value 与 section 文本报告，不做表格、主题、颜色或富文本 |
-| `std.result` | `Result<T,E> / Ok(T) / Err(E) / Result.ok / Result.err / is_ok / is_err / unwrap_or / error_or` | option/result smoke | 冻结显式失败值约定；错误传播语法与结构化错误类型后置 |
+| `std.result` | `Result<T,E> / Ok(T) / Err(E) / Result.ok / Result.err / is_ok / is_err / unwrap_or / error_or` | option/result、env/result、file/result smoke | 冻结显式失败值约定；错误传播语法与结构化错误类型后置 |
 | `std.text` | `TextStats / zero_text_stats / trim / analyze / normalize_content` | text normalize、command capture、command batch | 只冻结纯字符串处理与基础统计，不放搜索语义或文件读取 |
 | `std.workspace` | `display_label / depth_prefix / append_workspace_line` | directory index、command batch | 只冻结 workspace 展示辅助，不冻结递归扫描、索引策略或搜索策略 |
 
@@ -82,7 +82,7 @@ P3 的目标不是一次性做完整标准库，而是先把第一版官方标�
 
 ## Std-1 候选验证入口
 
-Std-1 当前不是靠“文档声明”冻结，而是靠五组 project-backed 样例和 interface snapshots 共同保护。
+Std-1 当前不是靠“文档声明”冻结，而是靠八组 project-backed 样例和 interface snapshots 共同保护。
 验证入口固定为下面三层：
 
 ```powershell
@@ -94,7 +94,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test
 三层含义分别是：
 
 - `representative_project_examples_check_cleanly`
-  快速确认五组 Std-1 试点项目都还能 `check`。
+  快速确认八组 Std-1 试点项目都还能 `check`。
 - 单个 `project_*` filter
   局部确认某个试点的 `run` 夹具和 `build` source tree 快照。
 - 完整 `interface_snapshots`
@@ -104,14 +104,14 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test
 
 | Std-1 候选模块 | 主要覆盖样例 | interface snapshots 覆盖点 |
 | --- | --- | --- |
-| `std.cli` | text normalize、directory index、release promote、command capture、command batch | 五组样例的 `check`，对应运行夹具，以及五组 `*_build_copies_real_example_source_tree` |
+| `std.cli` | text normalize、directory index、release promote、command capture、command batch、file result | 六组样例的 `check`，对应运行夹具，以及六组 `*_build_copies_real_example_source_tree` |
 | `std.env` | command capture、command batch、env/result smoke | `project_command_capture_runs_on_controlled_fixture`、`project_command_batch_runs_on_controlled_fixture`、`project_env_result_runs`、三组 build source tree |
-| `std.fs` | 五组迁移试点 | 五组运行夹具覆盖读写、目录创建、目录枚举、文件大小、存在性、删除和重命名；五组 build source tree 确认 `std/fs.ax` 被复制 |
+| `std.fs` | file result 与五组迁移试点 | `project_file_result_runs_on_controlled_fixture` 覆盖 `try_read_to_string / try_read_dir / try_file_size`；五组运行夹具覆盖传统读写、目录创建、目录枚举、文件大小、存在性、删除和重命名；build source tree 确认 `std/fs.ax` 被复制 |
 | `std.option` | option/result smoke | `project_option_result_runs` 覆盖 `Option.some / Option.none / is_none / unwrap_or`；build source tree 确认 `std/option.ax` 被复制 |
-| `std.path` | text normalize、directory index、release promote、command batch | 对应运行夹具覆盖 join、parent、file name、extension、resolve 与轻量分类；build source tree 确认 `std/path.ax` 被复制 |
+| `std.path` | text normalize、directory index、release promote、command batch、file result | 对应运行夹具覆盖 join、parent、file name、extension、resolve 与轻量分类；build source tree 确认 `std/path.ax` 被复制 |
 | `std.process` | command capture、command batch | 两组命令类运行夹具覆盖 `capture_in / run / run_in`；build source tree 确认 `std/process.ax` 被复制 |
 | `std.report` | 五组迁移试点 | 五组运行夹具覆盖 deterministic 文本报告构造；build source tree 确认 `std/report.ax` 被复制 |
-| `std.result` | option/result smoke | `project_option_result_runs` 覆盖 `Result.ok / Result.err / is_ok / unwrap_or / error_or`；build source tree 确认 `std/result.ax` 被复制 |
+| `std.result` | option/result smoke、env/result smoke、file/result smoke | `project_option_result_runs` 覆盖 `Result.ok / Result.err / is_ok / unwrap_or / error_or`；`project_env_result_runs` 与 `project_file_result_runs_on_controlled_fixture` 覆盖宿主边界 Result 返回消费；build source tree 确认 `std/result.ax` 被复制 |
 | `std.text` | text normalize、command capture、command batch | 文本归一化、命令输出统计、batch 报告运行夹具覆盖 `trim / analyze / normalize_content` |
 | `std.workspace` | directory index、command batch | 目录索引和 batch 报告运行夹具覆盖 workspace 行输出与深度展示；build source tree 确认 `std/workspace.ax` 被复制 |
 
@@ -260,6 +260,22 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test
 - `src/main.ax` 通过 `std.env.try_get`、`std.result.is_ok` 和 `std.result.error_or` 消费官方失败返回约定。
 - interface snapshots 已覆盖该项目的 `check / run / build source tree`。
 - 本轮仍不引入 `?`、默认值参数、异常系统或结构化错误类型。
+
+第八迁移试点：[`../examples/project_file_result/`](../examples/project_file_result/)
+
+理由：
+
+- 把 `std.result.Result<T,E>` 继续推进到文件系统宿主边界，覆盖读文件、读目录和文件大小三个高频失败点。
+- 先做读侧 `try_*`，因为它们可以通过 `fs_is_file / fs_is_dir` 前置判断规避常见运行时失败。
+- 明确不把写入、删除、重命名包装成 `try_*`，避免在 AX 还不能捕获宿主 IO 异常时给出虚假的安全承诺。
+
+当前迁移结果：
+
+- `std.fs` 新增 `try_read_to_string / try_read_dir / try_file_size`。
+- `AX.toml` 使用 `sources = ["../../std"]`。
+- `src/main.ax` 通过 `std.fs.try_*`、`std.result.is_ok / unwrap_or / error_or` 和显式 `match` 消费读侧失败返回约定。
+- interface snapshots 已覆盖该项目的 `check / run / build source tree`。
+- 本轮仍不引入 `?`、异常系统、权限模型、流式 IO 或写侧 Result 接口。
 
 ## Rust 宿主边界
 

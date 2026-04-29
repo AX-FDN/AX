@@ -1,7 +1,16 @@
 module std.fs;
 
+import std.result;
+
 fn read_to_string(path: string) -> string {
     return fs_read_to_string(path);
+}
+
+fn try_read_to_string(path: string) -> std.result.Result<string, string> {
+    if (fs_is_file(path)) {
+        return std.result.Result.ok(fs_read_to_string(path));
+    }
+    return std.result.Result.err("readable file does not exist: " + path);
 }
 
 fn write_string(path: string, contents: string) -> i32 {
@@ -32,8 +41,22 @@ fn read_dir(path: string) -> [string] {
     return fs_read_dir(path);
 }
 
+fn try_read_dir(path: string) -> std.result.Result<[string], string> {
+    if (fs_is_dir(path)) {
+        return std.result.Result.ok(fs_read_dir(path));
+    }
+    return std.result.Result.err("readable directory does not exist: " + path);
+}
+
 fn file_size(path: string) -> i32 {
     return fs_file_size(path);
+}
+
+fn try_file_size(path: string) -> std.result.Result<i32, string> {
+    if (fs_is_file(path)) {
+        return std.result.Result.ok(fs_file_size(path));
+    }
+    return std.result.Result.err("sized file does not exist: " + path);
 }
 
 fn is_file(path: string) -> bool {
