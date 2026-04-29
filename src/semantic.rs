@@ -940,6 +940,34 @@ fn main() -> i32 {
     }
 
     #[test]
+    fn infers_static_method_generic_params_from_expected_return_type() {
+        let codes = check(
+            "\
+enum Result<T, E> {
+    Ok(T),
+    Err(E),
+}
+
+impl<T, E> Result<T, E> {
+    fn err(error: E) -> Result<T, E> {
+        return Result.Err(error);
+    }
+}
+
+fn parse() -> Result<i32, string> {
+    return Result.err(\"bad\");
+}
+
+fn main() -> i32 {
+    let result: Result<i32, string> = Result.err(\"missing\");
+    return match (result) { Result.Ok(value) => value, Result.Err(_) => 0 };
+}
+",
+        );
+        assert!(codes.is_empty(), "unexpected diagnostics: {codes:?}");
+    }
+
+    #[test]
     fn accepts_generic_impl_methods_and_method_calls() {
         let codes = check(
             "\

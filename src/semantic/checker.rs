@@ -35,6 +35,7 @@ pub(super) struct TypeChecker<'a, 'b> {
     return_type: Type,
     current_unit_path: String,
     active_type_param_bounds: Vec<TypeParamBoundInfo>,
+    expected_type: Option<Type>,
     scopes: Vec<HashMap<String, Binding>>,
     loop_depth: usize,
     diagnostics: &'b mut Vec<Diagnostic>,
@@ -53,6 +54,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             return_type,
             current_unit_path,
             active_type_param_bounds,
+            expected_type: None,
             scopes: vec![HashMap::new()],
             loop_depth: 0,
             diagnostics,
@@ -69,6 +71,21 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
 
     pub(super) fn current_unit_path(&self) -> &str {
         &self.current_unit_path
+    }
+
+    pub(super) fn check_expr_with_expected(
+        &mut self,
+        expr: &crate::ast::Expr,
+        expected: &Type,
+    ) -> Type {
+        let previous_expected = self.expected_type.replace(expected.clone());
+        let ty = self.check_expr(expr);
+        self.expected_type = previous_expected;
+        ty
+    }
+
+    pub(super) fn take_expected_type(&mut self) -> Option<Type> {
+        self.expected_type.take()
     }
 
     fn lookup_constant(&mut self, name: &str, span: crate::source::Span) -> Option<Binding> {

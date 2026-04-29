@@ -13,6 +13,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
         arguments: &[Expr],
     ) -> Type {
         let Some(callee_name) = callee.qualified_name() else {
+            self.take_expected_type();
             self.check_expr(callee);
             for argument in arguments {
                 self.check_expr(argument);
@@ -28,6 +29,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             );
             return Type::Error;
         };
+        let expected_type = self.take_expected_type();
 
         if !callee_name.contains('.')
             && let Some(result) = self.check_builtin_call(expr, &callee_name, arguments)
@@ -83,6 +85,14 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                             DiagnosticKind::FunctionArgumentTypeMismatch,
                         );
                     }
+                }
+
+                if let Some(expected_type) = &expected_type {
+                    let _ = unify_generic_call_type(
+                        &signature.return_type,
+                        expected_type,
+                        &mut generic_args,
+                    );
                 }
 
                 for type_param in &signature.type_params {

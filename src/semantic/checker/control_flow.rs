@@ -143,7 +143,10 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
 
     pub(super) fn check_return_statement(&mut self, statement: &Stmt, value: Option<&Expr>) {
         let actual_type = match value {
-            Some(expr) => self.check_expr(expr),
+            Some(expr) => {
+                let expected = self.return_type.clone();
+                self.check_expr_with_expected(expr, &expected)
+            }
             None => Type::Void,
         };
         self.expect_type_match_with_kind(

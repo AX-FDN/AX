@@ -841,7 +841,7 @@ P2 阶段固定样例集合与回归职责见 [`docs/representative-samples.md`]
 | 泛型结构体 / 泛型 impl | 已支持   | `struct Box<T> { value: T }`、`Box<i32>`、`impl<T> Box<T> { ... }`、`impl<T> Trait for Box<T> { ... }`、静态方法 `Type.method(...)`、泛型方法 `fn replace<U>(...)`、字段读取与可变字段写入 |
 | 泛型函数              | 已支持   | `fn identity<T>(value: T) -> T`，由实参推断类型参数；支持 `fn render<T: Label + ExitCode>(value: T) -> string` 与 `where T: Label + Code` 这类 trait bounds |
 | 泛型 enum             | 已支持   | `enum Result<T, E> { Ok(T), Err(E) }`、`Result<i32, string>`、payload 构造、unit variant 上下文归入与 match 绑定                                |
-| 官方 Option/Result 约定 | 已支持   | `std.option.Option<T>` 与 `std.result.Result<T,E>` 已进入 `std/`，用于显式表达“可能缺失”和“可能失败”的低熵返回值形态                              |
+| 官方 Option/Result 约定 | 已支持   | `std.option.Option<T>` 与 `std.result.Result<T,E>` 已进入 `std/`，支持 `Option.some/none`、`Result.ok/err` 这类构造入口，用于显式表达“可能缺失”和“可能失败”的低熵返回值形态 |
 | 类型别名              | 已支持   | `type UserId = i32;`、`type Scores = [i32; 3];`、`type Boxed<T> = Box<T>;`，用于给标准库/后端 API 提供更稳定的显式类型边界                            |
 | traits / interfaces   | 已支持   | `trait Label { fn label(self: Self) -> string; }` 与 `impl Label for Command { ... }`                                                              |
 | trait bounds          | 已支持   | 当前支持泛型函数参数上的一个或多个 trait bounds，并允许在函数体内调用 bound 提供的方法                                                            |
@@ -881,6 +881,7 @@ P2 阶段固定样例集合与回归职责见 [`docs/representative-samples.md`]
   - 已支持 `impl Type { fn method(self: Type, ...) -> Ret { ... } }`
   - 已支持 `value.method(...)`
   - 已支持不带 `self` 的静态方法，调用写成 `Type.method(...)` 或 `module.Type.method(...)`
+  - 已支持 call 表达式从左侧声明或函数返回类型读取期望类型，用于推断 `Result.err("bad")` 这类静态构造器缺失的泛型参数
   - 当前仍不支持可变接收者、方法重载或 trait 静态方法
 - 泛型
   - 已支持泛型结构体、泛型函数和泛型 enum

@@ -4361,6 +4361,20 @@ fn generic_result_example_runs() {
 }
 
 #[test]
+fn result_static_constructors_example_runs() {
+    let output = run_axc([
+        OsStr::new("run"),
+        OsStr::new("examples/result_static_constructors.ax"),
+    ]);
+    assert_eq!(output.status.code(), Some(0));
+    assert_clean_stderr(&output);
+    assert_eq!(
+        normalize_text(&string_output(&output.stdout)),
+        "5\nmissing\nbad:no\n"
+    );
+}
+
+#[test]
 fn string_match_example_runs() {
     let output = run_axc([OsStr::new("run"), OsStr::new("examples/string_match.ax")]);
     assert_eq!(output.status.code(), Some(3));

@@ -880,9 +880,13 @@
   - 当前边界：暂不支持显式 turbofish、泛型方法 trait bounds、可变接收者或方法重载
 - [x] `Q-P6-01c` 静态方法 / 构造器式方法
   - 状态：已支持 inherent impl 中不带 `self` 的函数，调用写成 `Type.method(...)` 或 `module.Type.method(...)`
-  - 已覆盖：semantic、HIR、interpreter、`examples/static_methods.ax`、`std.option.Option.some`、`project_option_result`、interface snapshot、README、SYNTAX
-  - 当前边界：静态方法只进入 inherent impl；trait static method、重载、显式 turbofish 和返回上下文推断仍不支持
-  - 后续补强：如果 `Result.err()` 这类无参数推断压力变高，再评估“从期望返回类型推断泛型参数”，不要提前把类型推断复杂度铺大
+  - 已覆盖：semantic、HIR、interpreter、`examples/static_methods.ax`、`examples/result_static_constructors.ax`、`std.option.Option.some/none`、`std.result.Result.ok/err`、`project_option_result`、interface snapshot、README、SYNTAX
+  - 当前边界：静态方法只进入 inherent impl；trait static method、重载和显式 turbofish 仍不支持
+  - 后续补强：继续观察返回上下文推断是否足够承载 `Result` 错误链；不要提前扩成全局 Hindley-Milner 式推断
+- [x] `Q-P6-02f` `Result` 静态构造器与返回上下文推断
+  - 状态：已支持 `let value: Result<i32, string> = Result.err("bad");` 与 `fn f() -> Result<i32, string> { return Result.err("bad"); }`
+  - 已覆盖：`std.result.Result.ok/err`、`std.option.Option.none`、semantic test、`examples/result_static_constructors.ax`、`project_option_result`
+  - 当前边界：这是错误传播语法前置，不是 `?`；只在 call 表达式读取直接期望类型，不做复杂跨表达式推断
 - [ ] `Q-P7-01` 闭包 / lambda
 - [ ] `Q-P7-02` async / await
 

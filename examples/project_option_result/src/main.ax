@@ -8,14 +8,14 @@ fn summarize_score(value: std.option.Option<i32>) -> string {
 
 fn parse_demo(text: string) -> std.result.Result<i32, string> {
     if (text == "ok") {
-        return std.result.Result.Ok(7);
+        return std.result.Result.ok(7);
     }
-    return std.result.Result.Err("invalid:" + text);
+    return std.result.Result.err("invalid:" + text);
 }
 
 fn main() -> i32 {
     let present: std.option.Option<i32> = std.option.Option.some(5);
-    let missing: std.option.Option<i32> = std.option.Option.None;
+    let missing: std.option.Option<i32> = std.option.Option.none();
     println(summarize_score(present));
     println(summarize_score(missing));
     println(to_string(std.option.is_none(missing)));

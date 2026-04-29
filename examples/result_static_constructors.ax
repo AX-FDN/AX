@@ -1,0 +1,30 @@
+enum Result<T, E> {
+    Ok(T),
+    Err(E),
+}
+
+impl<T, E> Result<T, E> {
+    fn ok(value: T) -> Result<T, E> {
+        return Result.Ok(value);
+    }
+
+    fn err(error: E) -> Result<T, E> {
+        return Result.Err(error);
+    }
+}
+
+fn parse_demo(text: string) -> Result<i32, string> {
+    if (text == "ok") {
+        return Result.ok(7);
+    }
+    return Result.err("bad:" + text);
+}
+
+fn main() -> i32 {
+    let ok: Result<i32, string> = Result.ok(5);
+    let err: Result<i32, string> = Result.err("missing");
+    println(match (ok) { Result.Ok(value) => to_string(value), Result.Err(message) => message });
+    println(match (err) { Result.Ok(value) => to_string(value), Result.Err(message) => message });
+    println(match (parse_demo("no")) { Result.Ok(value) => to_string(value), Result.Err(message) => message });
+    return 0;
+}

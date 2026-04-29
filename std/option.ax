@@ -9,6 +9,10 @@ impl<T> Option<T> {
     fn some(value: T) -> Option<T> {
         return Option.Some(value);
     }
+
+    fn none() -> Option<T> {
+        return Option.None;
+    }
 }
 
 fn is_some<T>(value: Option<T>) -> bool {

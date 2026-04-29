@@ -15,7 +15,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 let declared_type =
                     self.info
                         .resolve_type_ref(ty, &current_unit_path, self.diagnostics);
-                let initializer_type = self.check_expr(initializer);
+                let initializer_type = self.check_expr_with_expected(initializer, &declared_type);
                 self.expect_type_match(
                     &declared_type,
                     &initializer_type,
