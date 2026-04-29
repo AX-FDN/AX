@@ -859,7 +859,7 @@ P2 阶段固定样例集合与回归职责见 [`docs/representative-samples.md`]
 | 余数运算              | 已支持   | `%`，当前按 `i32` 运算处理                                                                                                                         |
 | 字符串拼接            | 已支持   | `string + string`                                                                                                                                  |
 | 常用 helpers          | 已支持   | `len(value)`、`string_len(text)`、`to_string(value)`                                                                                               |
-| `string_list` helpers | 已支持   | `string_list_new / push / join`；`std.collections.string_list_empty / append / count / join_with` 提供官方源码级包装                                |
+| `string_list` helpers | 已支持   | `string_list_new / push / join / get`；`std.collections.string_list_empty / append / count / join_with / at / contains / index_of` 提供官方源码级包装 |
 
 ### 已进入主链的关键语法点
 

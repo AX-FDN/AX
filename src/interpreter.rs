@@ -685,6 +685,72 @@ impl<'a> Interpreter<'a> {
             };
         }
 
+        if name == "string_list_get" {
+            if arguments.len() != 2 {
+                return Err(self.runtime_error(
+                    "R0141",
+                    format!(
+                        "function `string_list_get` expected 2 argument(s), got {}",
+                        arguments.len()
+                    ),
+                    span,
+                ));
+            }
+
+            let mut arguments = arguments.into_iter();
+            let list = arguments
+                .next()
+                .expect("string_list_get list argument should exist");
+            let index = arguments
+                .next()
+                .expect("string_list_get index argument should exist");
+            return match (list, index) {
+                (Value::StringList(values), Value::I32(index)) => {
+                    if index < 0 {
+                        return Err(self
+                            .runtime_error_with_kind(
+                                "R0142",
+                                format!("string_list index `{index}` must not be negative"),
+                                span,
+                                DiagnosticKind::StringListIndexNegative,
+                            )
+                            .with_suggestion(
+                                "check the index before calling `string_list_get(list, index)`",
+                            ));
+                    }
+                    let Some(value) = values.get(index as usize) else {
+                        return Err(self
+                            .runtime_error_with_kind(
+                                "R0143",
+                                format!(
+                                    "string_list index `{index}` is out of bounds for length {}",
+                                    values.len()
+                                ),
+                                span,
+                                DiagnosticKind::StringListIndexOutOfBounds,
+                            )
+                            .with_suggestion(
+                                "check `index < len(list)` before calling `string_list_get(list, index)`",
+                            ));
+                    };
+                    Ok(Value::String(value.clone()))
+                }
+                (list, index) => Err(self
+                    .runtime_error(
+                        "R0144",
+                        format!(
+                            "function `string_list_get` requires `string_list` and `i32` arguments, got `{}` and `{}`",
+                            list.display(),
+                            index.display()
+                        ),
+                        span,
+                    )
+                    .with_suggestion(
+                        "call `string_list_get` like `string_list_get(items, 0)`",
+                    )),
+            };
+        }
+
         if name == "len" {
             if arguments.len() != 1 {
                 return Err(self.runtime_error(
@@ -3871,6 +3937,7 @@ fn main() -> i32 {
     lines = string_list_push(lines, \"beta\");
     println(len(lines));
     println(string_list_join(lines, \", \"));
+    println(string_list_get(lines, 1));
     return len(lines);
 }
 ",
@@ -3878,7 +3945,7 @@ fn main() -> i32 {
 
         let output = run_program(&source, &hir).expect("program should run");
         assert_eq!(output.exit_code, 2);
-        assert_eq!(output.stdout, vec!["2", "alpha, beta"]);
+        assert_eq!(output.stdout, vec!["2", "alpha, beta", "beta"]);
     }
 
     #[test]

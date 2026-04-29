@@ -49,7 +49,7 @@ P3 的目标不是一次性做完整标准库，而是先把第一版官方标�
 | 文件 | 模块 | 当前职责 | 迁移状态 |
 | --- | --- | --- | --- |
 | [`../std/cli.ax`](../std/cli.ax) | `std.cli` | CLI 参数校验、usage、错误退出消息、输入文本校验 | 第一、第三、第四、第五、第十试点已用 |
-| [`../std/collections.ax`](../std/collections.ax) | `std.collections` | `string_list_empty / string_list_append / string_list_count / string_list_join_with` | 第十二集合试点已用 |
+| [`../std/collections.ax`](../std/collections.ax) | `std.collections` | `string_list_empty / string_list_append / string_list_count / string_list_join_with / string_list_at / string_list_contains / string_list_index_of` | 第十二集合试点已用 |
 | [`../std/env.ax`](../std/env.ax) | `std.env` | 环境变量存在性判断、读取与 `try_get` 安全读取 | 第四、第五、第七、第十试点已用 |
 | [`../std/fs.ax`](../std/fs.ax) | `std.fs` | 文件读取、文件写入、目录创建、目录枚举、文件大小、文件/目录存在性判断、删除文件、重命名、读侧 `try_*` 安全接口 | 第一、第二、第三、第四、第五、第八、第十试点已用 |
 | [`../std/option.ax`](../std/option.ax) | `std.option` | `Option<T>`、`Some(T)`、`None`、静态构造 `Option.some / Option.none`、`is_some / is_none / unwrap_or` | `project_option_result` 已用 |
@@ -68,7 +68,7 @@ P3 的目标不是一次性做完整标准库，而是先把第一版官方标�
 | 模块 | 冻结候选接口 | 已验证 workload | 冻结口径 |
 | --- | --- | --- | --- |
 | `std.cli` | `usage_error / require_min_args / exit_with_message / require_file / require_directory / require_non_empty_text / ensure_output_parent` | text normalize、directory index、release promote、command capture、command batch、result pipeline | 只冻结入口校验与输出父目录准备，不冻结目录重建策略 |
-| `std.collections` | `string_list_empty / string_list_append / string_list_count / string_list_join_with` | collections report smoke | 冻结 `string_list` 的官方包装入口；不冻结泛型 list/map/set、iterator、排序或高阶函数 |
+| `std.collections` | `string_list_empty / string_list_append / string_list_count / string_list_join_with / string_list_at / string_list_contains / string_list_index_of` | collections report smoke | 冻结 `string_list` 的官方包装入口和最小查询能力；不冻结泛型 list/map/set、iterator、排序或高阶函数 |
 | `std.env` | `has / get / try_get` | command capture、command batch、env/result smoke、result pipeline | `get` 必须优先配合 `has` 使用；`try_get` 是第一条 Result 风格宿主边界接口，并可被 `?` 消费；本轮不设计默认值 |
 | `std.fs` | `read_to_string / try_read_to_string / write_string / create_dir_all / exists / remove_file / rename / read_dir / try_read_dir / file_size / try_file_size / is_file / is_dir` | file result、result pipeline 与五组迁移试点 | 冻结同步文件系统薄接口与读侧 Result 安全接口；写入、删除和重命名仍不伪装成可捕获异常的 Result 接口 |
 | `std.option` | `Option<T> / Some(T) / None / Option.some / Option.none / is_some / is_none / unwrap_or` | option/result smoke | 冻结显式缺失值约定；不引入隐式 null |
@@ -107,7 +107,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test
 | Std-1 候选模块 | 主要覆盖样例 | interface snapshots 覆盖点 |
 | --- | --- | --- |
 | `std.cli` | text normalize、directory index、release promote、command capture、command batch、file result、process result、result pipeline | 八组样例的 `check`，对应运行夹具，以及八组 `*_build_copies_real_example_source_tree` |
-| `std.collections` | collections report | `project_collections_report_runs_on_controlled_fixture` 覆盖 `string_list_empty / append / count / join_with`；build source tree 确认 `std/collections.ax` 被复制 |
+| `std.collections` | collections report | `project_collections_report_runs_on_controlled_fixture` 覆盖 `string_list_empty / append / count / join_with / at / contains / index_of`；build source tree 确认 `std/collections.ax` 被复制 |
 | `std.env` | command capture、command batch、env/result smoke、result pipeline | `project_command_capture_runs_on_controlled_fixture`、`project_command_batch_runs_on_controlled_fixture`、`project_env_result_runs`、`project_result_pipeline_runs_on_controlled_fixture`、四组 build source tree |
 | `std.fs` | file result、result pipeline 与五组迁移试点 | `project_file_result_runs_on_controlled_fixture` 覆盖 `try_read_to_string / try_read_dir / try_file_size`；`project_result_pipeline_runs_on_controlled_fixture` 覆盖读侧 `Result` 与报告写入组合；五组运行夹具覆盖传统读写、目录创建、目录枚举、文件大小、存在性、删除和重命名；build source tree 确认 `std/fs.ax` 被复制 |
 | `std.option` | option/result smoke | `project_option_result_runs` 覆盖 `Option.some / Option.none / is_none / unwrap_or`；build source tree 确认 `std/option.ax` 被复制 |
@@ -332,7 +332,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test
 理由：
 
 - 把宿主 `string_list_*` builtin 收口到 `std.collections` 源码模块，避免用户侧继续直接依赖裸 builtin 名称。
-- 用真实报告工具验证 `string_list_empty / string_list_append / string_list_count / string_list_join_with` 的最小集合边界。
+- 用真实报告工具验证 `string_list_empty / string_list_append / string_list_count / string_list_join_with / string_list_at / string_list_contains / string_list_index_of` 的最小集合边界。
 - 同时验证 `std.cli / std.collections / std.fs / std.path / std.report` 可以组合成稳定的 project-backed workload。
 
 当前迁移结果：

@@ -492,6 +492,21 @@ fn main() -> i32 {
     }
 
     #[test]
+    fn accepts_string_list_get_builtin() {
+        let codes = check(
+            "\
+fn main() -> i32 {
+    let mut items: string_list = string_list_new();
+    items = string_list_push(items, \"alpha\");
+    let first: string = string_list_get(items, 0);
+    return string_len(first);
+}
+",
+        );
+        assert!(codes.is_empty(), "unexpected diagnostics: {codes:?}");
+    }
+
+    #[test]
     fn accepts_to_string_for_concrete_runtime_values() {
         let codes = check(
             "\

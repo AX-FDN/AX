@@ -75,14 +75,14 @@
    - `project_process_result` 已验证 `std.process.try_run / try_run_in` 与 `std.result` 的状态型进程边界组合
    - `project_result_pipeline` 已验证 `std.fs / std.env / std.process` 三类宿主边界 `Result` 在同一工具流水线里的显式消费成本
    - `project_config_validate` 已验证项目级 `ConfigError` enum、显式错误转换 helper 和 `?` 可以组合成真实配置校验工具
-   - `project_collections_report` 已验证 `std.collections` 对 `string_list` 的最小源码级包装可以承载真实报告工具
+   - `project_collections_report` 已验证 `std.collections` 对 `string_list` 的最小源码级包装、读取和查询能力可以承载真实报告工具
    - `std.*` 第一版接口冻结候选已收口，冻结候选验证入口与文档入口已补强
    - 继续保持 `foundation/` 作为未迁移样例的 Std-0 孵化层
 2. 暂不启动 P4 AOT、P5 包接口、JIT、自举或三方库桥接
 3. 下一步回到 `Repair Archaeology v0`，先做 artifact schema 与最小 Markdown 报告入口，不启动 Live Repair Stream、真实 LLM 或 UI
 4. 任何下一轮实现都必须继续回写 examples、diagnostics、context、repair/benchmark 或 interface snapshots
 
-当前判断：P1 这一轮的基础链路已经完成，P3 的十二组 Std-1 迁移/压力试点、冻结候选和验证入口也已经收口。下一步可以回到 P1 的 `Repair Archaeology v0`，把已有 replay / score / compare 事实做成 case 级可解释产物；错误传播语法已以 `project_result_pipeline` 暴露出的显式 `Result + match` 成本为输入，落地为最小 `expr?`，并通过 `project_config_validate` 开始验证项目级 error enum；集合能力先以 `std.collections` 包装 `string_list`，不提前承诺泛型 list/map。
+当前判断：P1 这一轮的基础链路已经完成，P3 的十二组 Std-1 迁移/压力试点、冻结候选和验证入口也已经收口。下一步可以回到 P1 的 `Repair Archaeology v0`，把已有 replay / score / compare 事实做成 case 级可解释产物；错误传播语法已以 `project_result_pipeline` 暴露出的显式 `Result + match` 成本为输入，落地为最小 `expr?`，并通过 `project_config_validate` 开始验证项目级 error enum；集合能力先以 `std.collections` 包装 `string_list` 并提供最小读取/查询，不提前承诺泛型 list/map。
 
 ## 阶段承接图
 

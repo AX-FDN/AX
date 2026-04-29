@@ -190,7 +190,7 @@ Not allowed without explicit contract update:
 
 - removing a `std/` source from project build snapshots
 - exposing Rust crate names as AX user-facing imports
-- expanding `std.collections` beyond `string_list` wrappers before generic collection workload coverage exists
+- expanding `std.collections` beyond minimal `string_list` wrappers and queries before generic collection workload coverage exists
 
 ## Current Verification Commands
 

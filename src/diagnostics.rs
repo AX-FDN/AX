@@ -48,6 +48,8 @@ pub enum DiagnosticKind {
     ResultPropagationRequiresResult,
     ArgvIndexNegative,
     ArgvIndexOutOfBounds,
+    StringListIndexNegative,
+    StringListIndexOutOfBounds,
     EnvironmentVariableUnavailable,
     ReadableFilePathRequired,
     ReadableDirectoryPathRequired,

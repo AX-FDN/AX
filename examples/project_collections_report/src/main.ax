@@ -13,6 +13,10 @@ fn build_report(output_dir: string) -> string {
     let mut report: string = "";
     report = std.report.append_int_stat(report, "label_count", std.collections.string_list_count(labels));
     report = std.report.append_string_stat(report, "labels", std.collections.string_list_join_with(labels, ","));
+    report = std.report.append_string_stat(report, "first_label", std.collections.string_list_at(labels, 0));
+    report = std.report.append_bool_stat(report, "has_worker", std.collections.string_list_contains(labels, "worker"));
+    report = std.report.append_int_stat(report, "scheduler_index", std.collections.string_list_index_of(labels, "scheduler"));
+    report = std.report.append_int_stat(report, "missing_index", std.collections.string_list_index_of(labels, "missing"));
     let report_path: string = std.path.join(output_dir, "COLLECTIONS-REPORT.txt");
     std.fs.write_string(report_path, report + "\n");
     return report_path;

@@ -15,3 +15,29 @@ fn string_list_count(items: string_list) -> i32 {
 fn string_list_join_with(items: string_list, separator: string) -> string {
     return string_list_join(items, separator);
 }
+
+fn string_list_at(items: string_list, index: i32) -> string {
+    return string_list_get(items, index);
+}
+
+fn string_list_contains(items: string_list, needle: string) -> bool {
+    let mut index: i32 = 0;
+    while (index < len(items)) {
+        if (string_list_get(items, index) == needle) {
+            return true;
+        }
+        index = index + 1;
+    }
+    return false;
+}
+
+fn string_list_index_of(items: string_list, needle: string) -> i32 {
+    let mut index: i32 = 0;
+    while (index < len(items)) {
+        if (string_list_get(items, index) == needle) {
+            return index;
+        }
+        index = index + 1;
+    }
+    return -1;
+}

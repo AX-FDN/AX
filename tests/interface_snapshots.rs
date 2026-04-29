@@ -4188,7 +4188,7 @@ fn project_collections_report_runs_on_controlled_fixture() {
         .expect("collections report should be written");
     assert_eq!(
         normalize_temp_output(&report, &temp),
-        "label_count=3\nlabels=api,worker,scheduler\n"
+        "label_count=3\nlabels=api,worker,scheduler\nfirst_label=api\nhas_worker=true\nscheduler_index=2\nmissing_index=-1\n"
     );
 }
 
@@ -4416,7 +4416,7 @@ fn string_list_example_runs() {
     assert_clean_stderr(&output);
     assert_eq!(
         normalize_text(&string_output(&output.stdout)),
-        "2\nalpha, beta\n"
+        "2\nalpha, beta\nbeta\n"
     );
 }
 

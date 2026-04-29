@@ -90,7 +90,7 @@
 
 - 当前 `foundation/` 仍是 Std-0 孵化层。
 - 当前 `std/` 已经有第一批 AX 源码模块，并由 `project_text_normalize`、`project_directory_index`、`project_release_promote`、`project_command_capture`、`project_command_batch`、`project_option_result`、`project_env_result`、`project_file_result`、`project_process_result` 与 `project_result_pipeline` 消费。
-- Std-1 冻结候选清单已经收口到 `std.cli / std.env / std.fs / std.option / std.path / std.process / std.report / std.result / std.text / std.workspace`，但这不等于完整标准库已经冻结。
+- Std-1 冻结候选清单已经收口到 `std.cli / std.collections / std.env / std.fs / std.option / std.path / std.process / std.report / std.result / std.text / std.workspace`，但这不等于完整标准库已经冻结。
 - 泛型 `std.collections`、`std.search`、网络、并发和第三方包接口仍然后置；当前 `std.collections` 只冻结 `string_list` 的最小包装。
 
 ### 4. Linux core support 不等于三平台同级成熟

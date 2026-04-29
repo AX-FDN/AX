@@ -288,6 +288,8 @@ fn match_rule_by_kind(kind: DiagnosticKind) -> Option<RuleTemplate> {
         }
         DiagnosticKind::ArgvIndexNegative => Some(RULE_ARGV_INDEX_NON_NEGATIVE),
         DiagnosticKind::ArgvIndexOutOfBounds => Some(RULE_ARGV_INDEX_IN_BOUNDS),
+        DiagnosticKind::StringListIndexNegative => Some(RULE_STRING_LIST_INDEX_NON_NEGATIVE),
+        DiagnosticKind::StringListIndexOutOfBounds => Some(RULE_STRING_LIST_INDEX_IN_BOUNDS),
         DiagnosticKind::EnvironmentVariableUnavailable => {
             Some(RULE_ENVIRONMENT_VARIABLE_MUST_BE_AVAILABLE)
         }
@@ -951,6 +953,28 @@ const RULE_ARGV_INDEX_IN_BOUNDS: RuleTemplate = RuleTemplate {
     minimal_example: "let target: string = argv_get(0);",
     anti_pattern: Some("let missing: string = argv_get(3);"),
     default_fixit: "guard with `argv_len()` or reduce the requested argument index",
+};
+
+const RULE_STRING_LIST_INDEX_NON_NEGATIVE: RuleTemplate = RuleTemplate {
+    rule_id: "string_list_index_must_be_non_negative",
+    normalized_pattern: "string_list_index_must_be_non_negative",
+    repair_goal: "Call `string_list_get(list, index)` only with a zero-based index that stays at `0` or above.",
+    summary: "AX string lists use zero-based `i32` indexing, so negative values are always invalid at runtime.",
+    pattern: "if (index >= 0) { let value: string = string_list_get(items, index); }",
+    minimal_example: "let value: string = string_list_get(items, 0);",
+    anti_pattern: Some("let value: string = string_list_get(items, -1);"),
+    default_fixit: "guard the read with `index >= 0`, or use a known non-negative index",
+};
+
+const RULE_STRING_LIST_INDEX_IN_BOUNDS: RuleTemplate = RuleTemplate {
+    rule_id: "string_list_index_must_stay_in_bounds",
+    normalized_pattern: "string_list_index_must_stay_in_bounds",
+    repair_goal: "Check `len(list)` first and only read positions that exist in the current string list.",
+    summary: "`string_list_get(list, index)` fails at runtime when the selected index is outside the current list length.",
+    pattern: "if (index < len(items)) { let value: string = string_list_get(items, index); }",
+    minimal_example: "let value: string = string_list_get(items, 0);",
+    anti_pattern: Some("let value: string = string_list_get(items, 99);"),
+    default_fixit: "guard the read with `index < len(items)`, or use `std.collections.string_list_index_of` before reading",
 };
 
 const RULE_ENVIRONMENT_VARIABLE_MUST_BE_AVAILABLE: RuleTemplate = RuleTemplate {
@@ -2121,6 +2145,18 @@ mod tests {
                 expected_rule_id: "argv_index_must_stay_in_bounds",
             },
             KindCase {
+                code: "R0142",
+                message: "string list negative placeholder",
+                kind: DiagnosticKind::StringListIndexNegative,
+                expected_rule_id: "string_list_index_must_be_non_negative",
+            },
+            KindCase {
+                code: "R0143",
+                message: "string list bounds placeholder",
+                kind: DiagnosticKind::StringListIndexOutOfBounds,
+                expected_rule_id: "string_list_index_must_stay_in_bounds",
+            },
+            KindCase {
                 code: "R0053",
                 message: "env missing placeholder",
                 kind: DiagnosticKind::EnvironmentVariableUnavailable,
@@ -2909,6 +2945,42 @@ sources = [\"lib\"]
             .expect("runtime diagnostic should have ai payload");
         assert_eq!(diagnostics[0].code, "R0048");
         assert_eq!(ai.rule_id, "argv_index_must_be_non_negative");
+    }
+
+    #[test]
+    fn enhances_runtime_string_list_bounds_failure_with_specific_rule_card() {
+        let source = SourceFile::anonymous(
+            "\
+fn main() -> i32 {
+    let mut items: string_list = string_list_new();
+    items = string_list_push(items, \"alpha\");
+    println(string_list_get(items, 2));
+    return 0;
+}
+",
+        );
+        let analysis = analyze(&source);
+        assert!(
+            analysis.diagnostics.is_empty(),
+            "analysis should succeed before runtime failure"
+        );
+
+        let hir = analysis
+            .hir
+            .as_ref()
+            .expect("HIR should be available after successful analysis");
+        let runtime_error = run_program(&source, hir).expect_err("program should fail at runtime");
+        let mut diagnostics = vec![runtime_error];
+
+        enhance_diagnostics(&source, &analysis.program, &mut diagnostics, None)
+            .expect("ai enhancement should succeed for runtime diagnostics");
+
+        let ai = diagnostics[0]
+            .ai
+            .as_ref()
+            .expect("runtime diagnostic should have ai payload");
+        assert_eq!(diagnostics[0].code, "R0143");
+        assert_eq!(ai.rule_id, "string_list_index_must_stay_in_bounds");
     }
 
     #[test]

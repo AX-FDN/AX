@@ -372,6 +372,45 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 );
                 Some(Type::String)
             }
+            "string_list_get" => {
+                let argument_types = arguments
+                    .iter()
+                    .map(|argument| self.check_expr(argument))
+                    .collect::<Vec<_>>();
+
+                if argument_types.len() != 2 {
+                    self.diagnostics.push(Diagnostic::new(
+                        "S0017",
+                        format!(
+                            "function `string_list_get` expects 2 argument(s), found {}",
+                            argument_types.len()
+                        ),
+                        self.info.source,
+                        expr.span,
+                    ));
+                    return Some(Type::Error);
+                }
+
+                self.expect_type_match(
+                    &Type::StringList,
+                    &argument_types[0],
+                    expr.span,
+                    format!(
+                        "function `string_list_get` expects argument `list` to be `string_list`, found `{}`",
+                        argument_types[0].describe()
+                    ),
+                );
+                self.expect_type_match(
+                    &Type::I32,
+                    &argument_types[1],
+                    expr.span,
+                    format!(
+                        "function `string_list_get` expects argument `index` to be `i32`, found `{}`",
+                        argument_types[1].describe()
+                    ),
+                );
+                Some(Type::String)
+            }
             "len" => {
                 let argument_types = arguments
                     .iter()

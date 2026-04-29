@@ -4,5 +4,6 @@ fn main() -> i32 {
     items = string_list_push(items, "beta");
     println(len(items));
     println(string_list_join(items, ", "));
+    println(string_list_get(items, 1));
     return len(items);
 }
