@@ -1,0 +1,33 @@
+module config_rules.validate;
+
+import std.result;
+
+fn require_field(contents: string, name: string) -> std.result.Result<i32, string> {
+    if (string_contains(contents, name + "=")) {
+        return std.result.Result.ok(0);
+    }
+    return std.result.Result.err("missing field: " + name);
+}
+
+fn reject_empty_value(contents: string, name: string) -> std.result.Result<i32, string> {
+    if (string_contains(contents, name + "=\n")) {
+        return std.result.Result.err("empty field: " + name);
+    }
+    return std.result.Result.ok(0);
+}
+
+fn reject_zero_port(contents: string) -> std.result.Result<i32, string> {
+    if (string_contains(contents, "port=0")) {
+        return std.result.Result.err("invalid field: port must not be zero");
+    }
+    return std.result.Result.ok(0);
+}
+
+fn validate(contents: string) -> std.result.Result<i32, string> {
+    require_field(contents, "host")?;
+    require_field(contents, "port")?;
+    reject_empty_value(contents, "host")?;
+    reject_empty_value(contents, "port")?;
+    reject_zero_port(contents)?;
+    return std.result.Result.ok(0);
+}

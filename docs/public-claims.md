@@ -25,7 +25,7 @@
 可以说：
 
 - AX 正在先把 CLI / worker tools 做成稳定语言内核。
-- AX 的后端路线会先经过 AOT、path package、JSON/config/log 和 worker workload，再评估 HTTP client/server 与 async。
+- AX 的后端路线已经先启动本地 path package v0，后续会经过 AOT、JSON/config/log 和 worker workload，再评估 HTTP client/server 与 async。
 - AX 的 AI-first 指的是生成、修复、项目理解和验证链路对 Coding AI 更友好。
 
 不建议说：
@@ -47,6 +47,7 @@
 - 当前 deterministic replay 可复现 `cold 23/30`、`base 25/30`、`ai 30/30`。
 - `export-repair-benchmark.ps1 -IncludeContext` 已能把 `overview / boundaries / evidence` 写入 repair bundle 与 prompt。
 - `Repair Archaeology v0` 已进入规划，目标是把仓库内 replay / score / compare 事实整理成 case 级 JSON / Markdown 报告。
+- 本地 path package v0 已进入主线，项目可以通过 `[dependencies] alias = { path = ... }` 复用本地 AX 源码包。
 - Windows 是 full workflow 平台，Linux 是 core support 平台，macOS 尚未进入承诺范围。
 
 ## 可以作为目标说，但不能作为结论说的内容

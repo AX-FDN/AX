@@ -76,13 +76,14 @@
    - `project_result_pipeline` 已验证 `std.fs / std.env / std.process` 三类宿主边界 `Result` 在同一工具流水线里的显式消费成本
    - `project_config_validate` 已验证项目级 `ConfigError` enum、显式错误转换 helper 和 `?` 可以组合成真实配置校验工具
    - `project_collections_report` 已验证 `std.collections` 对 `string_list` 的最小源码级包装、读取和查询能力可以承载真实报告工具
+   - `project_package_config` 已验证本地 path package v0 可以把项目私有 AX 包接入 `check / run / build` 链路
    - `std.*` 第一版接口冻结候选已收口，冻结候选验证入口与文档入口已补强
    - 继续保持 `foundation/` 作为未迁移样例的 Std-0 孵化层
-2. 暂不启动 P4 AOT、P5 包接口、JIT、自举或三方库桥接
-3. 下一步回到 `Repair Archaeology v0`，先做 artifact schema 与最小 Markdown 报告入口，不启动 Live Repair Stream、真实 LLM 或 UI
+2. P5 只启动本地 path package v0；暂不启动 P4 AOT、JIT、自举、registry、lockfile 或三方库桥接
+3. 下一步在 `Q-P5-04 package diagnostics / smoke` 与 `Repair Archaeology v0` 之间选择；如果继续后端语言扩张，优先补 package diagnostics，不启动 Live Repair Stream、真实 LLM 或 UI
 4. 任何下一轮实现都必须继续回写 examples、diagnostics、context、repair/benchmark 或 interface snapshots
 
-当前判断：P1 这一轮的基础链路已经完成，P3 的十二组 Std-1 迁移/压力试点、冻结候选和验证入口也已经收口。下一步可以回到 P1 的 `Repair Archaeology v0`，把已有 replay / score / compare 事实做成 case 级可解释产物；错误传播语法已以 `project_result_pipeline` 暴露出的显式 `Result + match` 成本为输入，落地为最小 `expr?`，并通过 `project_config_validate` 开始验证项目级 error enum；集合能力先以 `std.collections` 包装 `string_list` 并提供最小读取/查询，不提前承诺泛型 list/map。
+当前判断：P1 这一轮的基础链路已经完成，P3 的十二组 Std-1 迁移/压力试点、冻结候选和验证入口也已经收口；P5 已先落地本地 path package v0，用 `project_package_config` 证明 AX 包复用边界可以进入 `check / run / build`。下一步如果继续后端语言扩张，优先补 package diagnostics / smoke；如果回到编译器护城河，优先做 `Repair Archaeology v0` 的 case 级可解释产物。错误传播语法已以 `project_result_pipeline` 暴露出的显式 `Result + match` 成本为输入，落地为最小 `expr?`，并通过 `project_config_validate` 开始验证项目级 error enum；集合能力先以 `std.collections` 包装 `string_list` 并提供最小读取/查询，不提前承诺泛型 list/map。
 
 ## 阶段承接图
 
@@ -774,7 +775,7 @@
   - 本轮仍不做：
     - 不继续默认迁移 `project_workspace_search_report`
     - 不启动 `std.search`
-    - 不提前做 package/visibility/registry
+    - 不提前做 registry/lockfile/完整 visibility；本地 path package v0 已转入 P5 任务线
   - 完成标准：
     - 写清 `std.cli / std.env / std.fs / std.path / std.process / std.report / std.text / std.workspace` 的冻结候选接口
     - 写清 `foundation/search.ax` 与未迁移 helper 继续孵化的理由
@@ -881,7 +882,12 @@
 
 ### `P5` 包接口线
 
-- [ ] `Q-P5-01` path package
+- [x] `Q-P5-01` path package v0
+  - 状态：已支持主项目在 `AX.toml` 中声明 `[dependencies] alias = { path = "relative/path" }`，本地 AX 包的 `[package].sources` 会进入同一项目编译输入，依赖别名成为模块根。
+  - 已覆盖：manifest parser、依赖别名校验、依赖 manifest 读取、source loading、expected module path、check/run/build 回归、README、SYNTAX、feature matrix、interface contracts。
+  - 代表样例：`examples/project_package_config/`
+  - 当前边界：只支持本地 path package；不支持 transitive dependencies、registry、lockfile、版本求解、host extension ABI 或 `AX import -> Cargo crate` 直通桥。
+  - 后续补强：`Q-P5-04` 继续补 package diagnostics / smoke，之后再评估 `Q-P5-02` lockfile。
 - [ ] `Q-P5-02` lockfile
 - [ ] `Q-P5-03` registry package
 - [ ] `Q-P5-04` package diagnostics / smoke

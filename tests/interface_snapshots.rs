@@ -3565,6 +3565,7 @@ fn representative_project_examples_check_cleanly() {
         "examples/project_result_pipeline",
         "examples/project_config_validate",
         "examples/project_collections_report",
+        "examples/project_package_config",
     ] {
         assert_project_example_checks(example_path);
     }
@@ -4163,6 +4164,50 @@ fn project_config_validate_runs_on_controlled_fixture() {
     assert_eq!(
         normalize_temp_output(&string_output(&bad_output.stdout), &temp),
         "config_error=missing field: port\n"
+    );
+}
+
+#[test]
+fn project_package_config_runs_on_controlled_fixture() {
+    let temp = TempDir::new("project-package-config");
+    let config_path = temp.write("service.conf", "host=localhost\nport=8080\n");
+    let output_dir = temp.join("out");
+
+    let output = run_axc([
+        OsStr::new("run"),
+        OsStr::new("examples/project_package_config"),
+        OsStr::new("--"),
+        config_path.as_os_str(),
+        output_dir.as_os_str(),
+    ]);
+    assert_eq!(output.status.code(), Some(0));
+    assert_clean_stderr(&output);
+    assert_eq!(
+        normalize_temp_output(&string_output(&output.stdout), &temp),
+        "package_config_report=<root>/out/PACKAGE-CONFIG.txt\n"
+    );
+
+    let report = fs::read_to_string(output_dir.join("PACKAGE-CONFIG.txt"))
+        .expect("package config report should be written");
+    assert_eq!(
+        normalize_temp_output(&report, &temp),
+        "config=<root>/service.conf\npath_package=true\nbytes=25\n"
+    );
+
+    let bad_config_path = temp.write("zero-port.conf", "host=localhost\nport=0\n");
+    let bad_output_dir = temp.join("bad-out");
+    let bad_output = run_axc([
+        OsStr::new("run"),
+        OsStr::new("examples/project_package_config"),
+        OsStr::new("--"),
+        bad_config_path.as_os_str(),
+        bad_output_dir.as_os_str(),
+    ]);
+    assert_eq!(bad_output.status.code(), Some(1));
+    assert_clean_stderr(&bad_output);
+    assert_eq!(
+        normalize_temp_output(&string_output(&bad_output.stdout), &temp),
+        "package_config_error=invalid field: port must not be zero\n"
     );
 }
 
@@ -5725,6 +5770,17 @@ fn project_config_validate_build_copies_real_example_source_tree() {
         "project-config-validate-build",
         "examples/project_config_validate",
         &project_sources_with_shared_std(&["src/main.ax"]),
+    );
+}
+
+#[test]
+fn project_package_config_build_copies_real_example_source_tree() {
+    let mut expected_sources = vec!["packages/config_rules/src/validate.ax".to_string()];
+    expected_sources.extend(project_sources_with_shared_std(&["src/main.ax"]));
+    assert_project_example_build_sources(
+        "project-package-config-build",
+        "examples/project_package_config",
+        &expected_sources,
     );
 }
 

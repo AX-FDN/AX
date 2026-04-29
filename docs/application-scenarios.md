@@ -31,10 +31,10 @@ AX 可以往后端语言方向走，但顺序必须现实：
 
 1. `CLI / worker tools`
    先把命令行工具、文件处理、文本处理、发布辅助、批处理 worker 做稳。
-2. `AOT`
-   在 Std-1 候选稳定后启动真实可执行产物，让 `build` 从 skeleton 进入发布路径。
-3. `path packages`
-   先让本地 AX 包复用成立，再谈 registry。
+2. `path packages v0`
+   本地 AX 包复用先成立，让项目私有库和未来标准库/三方库边界有真实载体。
+3. `AOT`
+   在 Std-1 候选和 path package v0 稳定后启动真实可执行产物，让 `build` 从 skeleton 进入发布路径。
 4. `JSON / config / log`
    补后端 worker 最常见的数据输入输出能力。
 5. `backend workers`
@@ -80,4 +80,3 @@ AX 的长期目标仍然是成熟语言，不是只做 benchmark harness。
 - 再启动 AOT 和包接口
 - 再扩到后端 worker 与生态
 - 最后才进入网络、并发、泛型抽象和更完整语言生态
-

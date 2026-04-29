@@ -753,9 +753,10 @@ Rules:
 - Mutable write paths may target variables, nested struct fields, and fields selected from mutable array elements.
 - Slice values remain read-only, so assignments through values[start:end] are not allowed.
 - In project mode, support sources may declare `module ...;` and files may use explicit `import module.path;`.
+- Project manifests may declare local AX packages as `[dependencies] name = { path = "relative/path" }`; the dependency alias becomes the module root, so a dependency source under `src/validate.ax` should declare `module name.validate;`.
 - Generic structs may be declared as `struct Box<T> { value: T }` and used in type positions like `Box<i32>`; construct them with normal struct literals like `Box { value: 1 }`.
 - Generic functions may be declared as `fn identity<T>(value: T) -> T { return value; }`; type parameters are inferred from arguments.
-- Do not use exceptions, async, explicit turbofish calls, dynamic dispatch, associated types, default trait methods, generic traits, recursive type aliases, destructuring match patterns, named payload fields, or multi-payload enum variants.
+- Do not use exceptions, async, explicit turbofish calls, dynamic dispatch, associated types, default trait methods, generic traits, recursive type aliases, destructuring match patterns, named payload fields, multi-payload enum variants, registry packages, lockfiles, or direct Rust crate imports.
 - Use [] only when the target type is explicitly a zero-length array like [i32; 0].
 - Return 0 from main on success unless a different exit code is explicitly needed.
 ```

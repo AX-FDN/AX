@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 
@@ -163,6 +164,119 @@ fn load_project(manifest_path: &Path) -> Result<Project, String> {
     let mut source_paths = Vec::new();
     let mut source_module_paths = Vec::new();
     let mut source_root_aliases = Vec::<(String, String)>::new();
+    let mut dependency_module_paths = Vec::<(String, String)>::new();
+
+    for (alias, dependency) in &manifest.dependencies {
+        validate_dependency_alias(alias, manifest_path)?;
+        if dependency.path.trim().is_empty() {
+            return Err(format!(
+                "dependency `{alias}` in {} must declare a non-empty `path`",
+                manifest_path.display()
+            ));
+        }
+        let dependency_path = resolve_project_relative_path(
+            root_dir,
+            manifest_path,
+            dependency.path.trim(),
+            &format!("dependency `{alias}` path"),
+        )?;
+        let metadata = fs::metadata(&dependency_path).map_err(|error| {
+            format!(
+                "failed to access dependency `{alias}` path {} declared in {}: {error}",
+                dependency_path.display(),
+                manifest_path.display()
+            )
+        })?;
+        if !metadata.is_dir() {
+            return Err(format!(
+                "dependency `{alias}` path {} declared in {} must be a directory",
+                dependency_path.display(),
+                manifest_path.display()
+            ));
+        }
+
+        if let Some((_, previous_source)) = source_root_aliases
+            .iter()
+            .find(|(claimed_alias, _)| claimed_alias == alias)
+        {
+            return Err(format!(
+                "dependency `{alias}` in {} reuses module root alias `{alias}` already claimed by `{previous_source}`",
+                manifest_path.display()
+            ));
+        }
+        source_root_aliases.push((alias.clone(), format!("dependency `{alias}`")));
+
+        let dependency_manifest_path = dependency_path.join(PROJECT_MANIFEST_FILE);
+        let dependency_manifest =
+            load_path_dependency_manifest(alias, &dependency_manifest_path, manifest_path)?;
+        if dependency_manifest.package.sources.is_empty() {
+            return Err(format!(
+                "dependency `{alias}` in {} must declare at least one `[package].sources` entry",
+                manifest_path.display()
+            ));
+        }
+
+        for source in &dependency_manifest.package.sources {
+            let source = source.trim();
+            if source.is_empty() {
+                return Err(format!(
+                    "dependency `{alias}` in {} must not include an empty `[package].sources` entry",
+                    manifest_path.display()
+                ));
+            }
+
+            let support_spec = resolve_project_support_source_spec(
+                &dependency_path,
+                &dependency_manifest_path,
+                source,
+            )?;
+            let expanded_paths = support_spec.expanded_paths;
+            for source_path in expanded_paths {
+                if source_path == entry_path {
+                    return Err(format!(
+                        "dependency `{alias}` source `{source}` in {} duplicates the configured entry file",
+                        manifest_path.display()
+                    ));
+                }
+                if source_paths.iter().any(|existing| existing == &source_path) {
+                    return Err(format!(
+                        "dependency `{alias}` source `{source}` in {} expands to duplicate file {}",
+                        manifest_path.display(),
+                        source_path.display()
+                    ));
+                }
+                let module_path = expected_module_path_for_support_source(
+                    &support_spec.root_path,
+                    alias,
+                    &source_path,
+                )
+                .map_err(|error| {
+                    format!(
+                        "failed to derive module path for dependency `{alias}` source {} declared in {}: {error}",
+                        source_path.display(),
+                        manifest_path.display()
+                    )
+                })?;
+                if let Some((previous_module_path, previous_source)) = dependency_module_paths
+                    .iter()
+                    .find(|(existing_module_path, _)| existing_module_path == &module_path)
+                {
+                    return Err(format!(
+                        "dependency `{alias}` source `{source}` in {} derives duplicate module path `{previous_module_path}` already claimed by `{previous_source}`",
+                        manifest_path.display()
+                    ));
+                }
+                dependency_module_paths
+                    .push((module_path.clone(), source_path.display().to_string()));
+                source_paths.push(source_path);
+                source_module_paths.push((
+                    source_paths.last().expect("source path must exist").clone(),
+                    module_path,
+                ));
+            }
+        }
+    }
+
     for source in &manifest.package.sources {
         let source = source.trim();
         if source.is_empty() {
@@ -475,11 +589,95 @@ fn is_valid_package_name(name: &str) -> bool {
         .all(|ch| ch.is_ascii_alphanumeric() || ch == '-' || ch == '_')
 }
 
+fn validate_dependency_alias(alias: &str, manifest_path: &Path) -> Result<(), String> {
+    if alias.is_empty() {
+        return Err(format!(
+            "dependency alias in {} must not be empty",
+            manifest_path.display()
+        ));
+    }
+
+    let mut chars = alias.chars();
+    let Some(first) = chars.next() else {
+        return Err(format!(
+            "dependency alias in {} must not be empty",
+            manifest_path.display()
+        ));
+    };
+    if !(first.is_ascii_alphabetic() || first == '_') {
+        return Err(format!(
+            "dependency alias `{alias}` in {} must start with an ASCII letter or `_`",
+            manifest_path.display()
+        ));
+    }
+    if !chars.all(|ch| ch.is_ascii_alphanumeric() || ch == '_') {
+        return Err(format!(
+            "dependency alias `{alias}` in {} may only contain ASCII letters, digits, and `_` because it becomes an AX module root",
+            manifest_path.display()
+        ));
+    }
+
+    Ok(())
+}
+
+fn load_path_dependency_manifest(
+    alias: &str,
+    dependency_manifest_path: &Path,
+    parent_manifest_path: &Path,
+) -> Result<ProjectManifest, String> {
+    let manifest_text = fs::read_to_string(dependency_manifest_path).map_err(|error| {
+        format!(
+            "failed to read dependency `{alias}` manifest {} declared in {}: {error}",
+            dependency_manifest_path.display(),
+            parent_manifest_path.display()
+        )
+    })?;
+    let manifest: ProjectManifest = toml::from_str(&manifest_text).map_err(|error| {
+        format!(
+            "failed to parse dependency `{alias}` manifest {} declared in {}: {error}",
+            dependency_manifest_path.display(),
+            parent_manifest_path.display()
+        )
+    })?;
+
+    if manifest.manifest_version != SUPPORTED_MANIFEST_VERSION {
+        return Err(format!(
+            "unsupported AX dependency `{alias}` manifest version `{}` in {}; expected `{}`",
+            manifest.manifest_version,
+            dependency_manifest_path.display(),
+            SUPPORTED_MANIFEST_VERSION
+        ));
+    }
+    if manifest.package.name.trim().is_empty() {
+        return Err(format!(
+            "dependency `{alias}` manifest {} must declare a non-empty `[package].name`",
+            dependency_manifest_path.display()
+        ));
+    }
+    if !is_valid_package_name(&manifest.package.name) {
+        return Err(format!(
+            "dependency `{alias}` package name `{}` in {} may only contain ASCII letters, digits, `-`, and `_`",
+            manifest.package.name,
+            dependency_manifest_path.display()
+        ));
+    }
+    if !manifest.dependencies.is_empty() {
+        return Err(format!(
+            "dependency `{alias}` in {} declares nested `[dependencies]`; transitive path packages are not supported in v0",
+            dependency_manifest_path.display()
+        ));
+    }
+
+    Ok(manifest)
+}
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct ProjectManifest {
     manifest_version: u32,
     package: PackageManifest,
+    #[serde(default)]
+    dependencies: BTreeMap<String, PathDependencyManifest>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -490,6 +688,12 @@ struct PackageManifest {
     entry: String,
     #[serde(default)]
     sources: Vec<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PathDependencyManifest {
+    path: String,
 }
 
 fn default_entry() -> String {
@@ -802,6 +1006,149 @@ sources = [\"lib\", \"lib.ax\"]
         .expect("main.ax should exist");
 
         let error = resolve_input(&project_root).expect_err("duplicate module roots should fail");
+        assert!(error.contains("reuses module root alias `lib`"));
+
+        let _ = fs::remove_dir_all(&project_root);
+    }
+
+    #[test]
+    fn resolves_local_path_dependency_sources_under_dependency_alias() {
+        let project_root = repo_root()
+            .join("target")
+            .join("project-path-dependency-test");
+        let _ = fs::remove_dir_all(&project_root);
+        fs::create_dir_all(project_root.join("src")).expect("project src directory should exist");
+        fs::create_dir_all(
+            project_root
+                .join("packages")
+                .join("config_rules")
+                .join("src"),
+        )
+        .expect("dependency src directory should exist");
+        fs::write(
+            project_root.join(PROJECT_MANIFEST_FILE),
+            "\
+manifest_version = 1
+
+[package]
+name = \"project_path_dependency\"
+entry = \"src/main.ax\"
+
+[dependencies]
+config_rules = { path = \"packages/config_rules\" }
+",
+        )
+        .expect("project manifest should exist");
+        fs::write(
+            project_root
+                .join("packages")
+                .join("config_rules")
+                .join(PROJECT_MANIFEST_FILE),
+            "\
+manifest_version = 1
+
+[package]
+name = \"config_rules\"
+sources = [\"src\"]
+",
+        )
+        .expect("dependency manifest should exist");
+        let dependency_source = project_root
+            .join("packages")
+            .join("config_rules")
+            .join("src")
+            .join("validate.ax");
+        fs::write(
+            &dependency_source,
+            "module config_rules.validate;\nfn require_field() -> i32 { return 1; }\n",
+        )
+        .expect("dependency source should exist");
+        fs::write(
+            project_root.join("src").join("main.ax"),
+            "import config_rules.validate;\nfn main() -> i32 { return config_rules.validate.require_field(); }\n",
+        )
+        .expect("project entry should exist");
+
+        let resolved =
+            resolve_input(&project_root).expect("project with path dependency should resolve");
+        let project = resolved.project.expect("project metadata should exist");
+        assert_eq!(project.source_paths().len(), 1);
+        assert_eq!(
+            project.expected_module_path(&dependency_source),
+            Some("config_rules.validate")
+        );
+        assert!(
+            resolved
+                .source
+                .text()
+                .contains("module config_rules.validate")
+        );
+        assert!(resolved.source.text().contains("fn main() -> i32"));
+
+        let _ = fs::remove_dir_all(&project_root);
+    }
+
+    #[test]
+    fn rejects_dependency_alias_that_conflicts_with_support_source_root() {
+        let project_root = repo_root()
+            .join("target")
+            .join("project-dependency-alias-conflict-test");
+        let _ = fs::remove_dir_all(&project_root);
+        fs::create_dir_all(project_root.join("src")).expect("project src directory should exist");
+        fs::create_dir_all(project_root.join("lib")).expect("project lib directory should exist");
+        fs::create_dir_all(project_root.join("packages").join("lib").join("src"))
+            .expect("dependency src directory should exist");
+        fs::write(
+            project_root.join(PROJECT_MANIFEST_FILE),
+            "\
+manifest_version = 1
+
+[package]
+name = \"project_dependency_alias_conflict\"
+entry = \"src/main.ax\"
+sources = [\"lib\"]
+
+[dependencies]
+lib = { path = \"packages/lib\" }
+",
+        )
+        .expect("project manifest should exist");
+        fs::write(
+            project_root
+                .join("packages")
+                .join("lib")
+                .join(PROJECT_MANIFEST_FILE),
+            "\
+manifest_version = 1
+
+[package]
+name = \"lib_package\"
+sources = [\"src\"]
+",
+        )
+        .expect("dependency manifest should exist");
+        fs::write(
+            project_root
+                .join("packages")
+                .join("lib")
+                .join("src")
+                .join("rules.ax"),
+            "module lib.rules;\nfn value() -> i32 { return 1; }\n",
+        )
+        .expect("dependency source should exist");
+        fs::write(
+            project_root.join("lib").join("rules.ax"),
+            "module lib.rules;\nfn local_value() -> i32 { return 2; }\n",
+        )
+        .expect("support source should exist");
+        fs::write(
+            project_root.join("src").join("main.ax"),
+            "fn main() -> i32 { return 0; }\n",
+        )
+        .expect("project entry should exist");
+
+        let error =
+            resolve_input(&project_root).expect_err("alias conflict should fail project loading");
         assert!(error.contains("reuses module root alias `lib`"));
 
         let _ = fs::remove_dir_all(&project_root);

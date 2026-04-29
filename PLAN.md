@@ -64,9 +64,9 @@ AX 的 AI-first 必须落到具体工作负载，而不是停留在口号。
 因此 AX 往后端语言方向发展的顺序固定为：
 
 1. 先把 CLI / worker tools 做稳。
-2. 再让 AOT 成为真实可交付路径。
-3. 再补 path package、lockfile 和本地复用。
-4. 再补 JSON / config / log 这类 worker 常用能力。
+2. 先启动本地 path package v0，让 AX 源码包复用边界成立。
+3. 再让 AOT 成为真实可交付路径。
+4. 再补 lockfile、registry、JSON / config / log 这类 worker 常用能力。
 5. 再进入 backend worker 的实际 workload。
 6. 最后才评估 HTTP client/server、async、network 和完整服务端框架。
 
@@ -106,7 +106,7 @@ AX 的 AI-first 必须落到具体工作负载，而不是停留在口号。
 | --- | --- | --- |
 | 最小可写工具内核 | `92%~95%` | 已有显式类型、数组/切片、`for/for in`、`break/continue`、`match` 多个高价值切片、payload enum、泛型 enum、官方 `Option/Result` 约定、模块第一刀、`pub`、methods/impl、静态方法、返回上下文泛型推断、泛型结构体/函数/impl/方法、trait bounds、`where` 输入语法、泛型 `type` 别名、宿主 builtin |
 | 通用语言表面 | `65%~71%` | 已有 methods/impl、静态方法、返回上下文泛型推断、泛型结构体/函数/enum/impl/method、traits/interfaces、trait bounds、`where` 输入语法、`pub`、泛型 `type` 别名和官方 `Option/Result` 约定；仍缺泛型 trait、闭包、async、错误传播语法、完整包系统等 |
-| 生态支撑语法 | `34%~40%` | 已能组织 project-backed 样例并启动 `std.*` 试点，`Option/Result` 已成为标准错误/缺失值约定前置；仍缺稳定包接口、lockfile、host extension ABI、AOT 发布路径和第三方库契约 |
+| 生态支撑语法 | `40%~46%` | 已能组织 project-backed 样例、启动 `std.*` 试点，并落地本地 path package v0；`Option/Result` 已成为标准错误/缺失值约定前置；仍缺 lockfile、registry、host extension ABI、AOT 发布路径和第三方库契约 |
 
 ### 当前阶段判断
 
@@ -117,7 +117,7 @@ AX 当前不是“语法刚起步”的玩具仓库，但也还不是“已经�
 - `P0` 的环境与契约修复仍未完全收口，但 Windows 本地可复跑路径已经固定，剩余问题转向验证矩阵与外部契约收口
 - `P1` 的 diagnostics / context / repair / benchmark 护城河已经有骨架，但还缺更公开、更可复现的消费层和展示层
 - `P2` 的最小可写工具内核已经进入后段，但当前目标不是宣布“工具语言完成”，而是继续补齐通用语言表面中会影响标准库、后端和 AI 生成稳定性的关键语法
-- `P3+` 之后的标准库、AOT、包接口、自举和生态都还不该提前宣传成“已经在做的主线”
+- `P5-core` 的本地 path package v0 已经启动；AOT、lockfile、registry、自举和完整生态仍不该提前宣传成“已经完成”
 
 一句话：
 
@@ -560,7 +560,7 @@ flowchart TD
 #### TP-1：本地 path package
 
 - 启动阶段：P5
-- 前置条件：`pub`、模块边界、标准库 v1、AOT v1
+- 前置条件：`pub`、模块边界、Std-1 候选接口和 project-backed 样例稳定；不要求等待 AOT v1
 - 能力：只支持本地 AX 包依赖
 - 目的：先解决“项目之间如何稳定复用 AX 库”
 
@@ -702,8 +702,8 @@ macOS 启动规则锁定为：
 ### Public Interfaces / Contracts
 
 - `axc` 命令面在 P0-P3 不继续扩张，优先稳现有命令
-- `AX.toml` 在 P5 前只承担项目发现，不承担包生态
-- P5 才开始把 `AX.toml` 扩到 package/dependency contract
+- `AX.toml` 已在 P5-core 中开始承担本地 path package v0；P5 后续再扩到 lockfile、registry 和更完整 package contract
+- 当前 dependency contract 只承诺本地 AX 源码包，不承诺三方 registry、版本求解或 Rust crate 直通
 - context 继续只保留当前 `7` 个视图，不再新增第二套并行协议命令
 - build contract 演进顺序固定为：
   - `skeleton artifacts`
@@ -735,7 +735,7 @@ macOS 启动规则锁定为：
 
 ### Assumptions
 
-- 本计划采用已锁定决策：`AOT 优先`、`部分自举优先`、`Linux 先稳后带 macOS`、`最小工具标准库优先`、`AX 包接口优先`、`终局是完整语言生态`
+- 本计划采用已锁定决策：`P5-core 本地包复用先行`、`AOT 发布路径优先于 JIT`、`部分自举优先`、`Linux 先稳后带 macOS`、`最小工具标准库优先`、`AX 包接口优先`、`终局是完整语言生态`
 - “完整语言生态”不等于放弃 AI-first；AX 终局仍然必须服从自回归模型适配、低歧义表面、稳定 diagnostics、可修复性和 benchmark 可证性
 - 当前本机默认 MSVC `link.exe` 缺失仍然存在，但它已经不再阻断正式本地验证路径；后续重点是继续收口 GNU 本地路径、CI 路径矩阵与外部契约一致性
 

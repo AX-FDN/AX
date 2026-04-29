@@ -1,0 +1,42 @@
+import config_rules.validate;
+import std.cli;
+import std.fs;
+import std.path;
+import std.report;
+import std.result;
+
+fn validate_config(input_path: string, output_dir: string) -> std.result.Result<string, string> {
+    std.fs.create_dir_all(output_dir);
+
+    let contents: string = std.fs.try_read_to_string(input_path)?;
+    config_rules.validate.validate(contents)?;
+
+    let mut report: string = "";
+    report = std.report.append_path_stat(report, "config", input_path);
+    report = std.report.append_bool_stat(report, "path_package", true);
+    report = std.report.append_int_stat(report, "bytes", string_len(contents));
+
+    let report_path: string = std.path.join(output_dir, "PACKAGE-CONFIG.txt");
+    std.fs.write_string(report_path, report + "\n");
+    return std.result.Result.ok(report_path);
+}
+
+fn main() -> i32 {
+    let args_status: i32 = std.cli.require_min_args(argv_len(), 2, "examples/project_package_config", "<config> <output_dir>");
+    if (args_status != 0) {
+        return args_status;
+    }
+
+    let result: std.result.Result<string, string> = validate_config(argv_get(0), argv_get(1));
+    match (result) {
+        std.result.Result.Ok(report_path) => {
+            println("package_config_report=" + report_path);
+            return 0;
+        }
+        std.result.Result.Err(message) => {
+            println("package_config_error=" + message);
+            return 1;
+        }
+    }
+    return 1;
+}

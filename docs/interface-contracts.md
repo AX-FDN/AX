@@ -35,6 +35,7 @@ AX 现在的外部契约不是只有 CLI 命令本身。对 agent 和工具链�
 | repair archaeology artifact | `export-repair-archaeology.ps1` | docs, demos, benchmark readers | `smoke-repair-archaeology.ps1` exports `index.json` and `cases/<case-id>.json/.md` from fresh deterministic replay artifacts |
 | Std-1 candidate source tree | `axc build examples/project_*` | future AOT/package/std consumers | `project_text_normalize_build_copies_real_example_source_tree`, `project_directory_index_build_copies_real_example_source_tree`, `project_release_promote_build_copies_real_example_source_tree`, `project_command_capture_build_copies_real_example_source_tree`, `project_command_batch_build_copies_real_example_source_tree`, `project_option_result_build_copies_real_example_source_tree`, `project_env_result_build_copies_real_example_source_tree`, `project_file_result_build_copies_real_example_source_tree`, `project_process_result_build_copies_real_example_source_tree`, `project_result_pipeline_build_copies_real_example_source_tree` |
 | Std-1 candidate runtime behavior | `axc run examples/project_*` | stdlib users, host-boundary examples | `project_text_normalize_runs_on_controlled_fixture`, `project_directory_index_runs_on_controlled_fixture`, `project_release_promote_runs_on_controlled_fixture`, `project_command_capture_runs_on_controlled_fixture`, `project_command_batch_runs_on_controlled_fixture`, `project_option_result_runs`, `project_env_result_runs`, `project_file_result_runs_on_controlled_fixture`, `project_process_result_runs_on_controlled_fixture`, `project_result_pipeline_runs_on_controlled_fixture` |
+| local path package v0 | `AX.toml [dependencies] alias = { path = ... }` | project organization, future package/AOT consumers | `project_package_config_runs_on_controlled_fixture`, `project_package_config_build_copies_real_example_source_tree`, `project::tests::resolves_local_path_dependency_sources_under_dependency_alias` |
 
 ## Stability Rules
 
@@ -191,6 +192,30 @@ Not allowed without explicit contract update:
 - removing a `std/` source from project build snapshots
 - exposing Rust crate names as AX user-facing imports
 - expanding `std.collections` beyond minimal `string_list` wrappers and queries before generic collection workload coverage exists
+
+### Local Path Package v0
+
+Stable for the current package-interface slice:
+
+- main projects may declare local AX packages as `[dependencies] alias = { path = "relative/path" }`
+- dependency aliases use AX identifier rules because they become module roots
+- dependency package sources are loaded from the dependency manifest's `[package].sources`
+- dependency modules must declare paths under the dependency alias, for example `module config_rules.validate;`
+- `axc build` packages dependency sources under their project-relative paths when they live inside the project tree
+
+Allowed to evolve carefully:
+
+- richer package diagnostics
+- package-aware context facts
+- stricter public/private export checking
+
+Not allowed without explicit contract update:
+
+- direct `AX import -> Cargo crate` mapping
+- registry package resolution
+- lockfile semantics
+- transitive path dependencies
+- version solving
 
 ## Current Verification Commands
 

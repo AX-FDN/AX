@@ -143,7 +143,7 @@ AX 的应用场景，不是抽象地说“AI 会写代码”，而是先落在�
 | Compiler-guided repair benchmarks | 把错误、修复候选、评分、对比和 context 输入做成可验证证据            | `docs/benchmark-showcase.md`、`docs/repair-archaeology.md`                      |
 
 更完整的场景边界见 [`docs/application-scenarios.md`](./docs/application-scenarios.md)。
-AX 往后端语言方向走的顺序也固定为：先 CLI / worker tools，再 AOT，再 path packages，再 JSON / config / log，再 backend workers，最后才评估 HTTP client/server、async 和网络生态。
+AX 往后端语言方向走的顺序也固定为：先 CLI / worker tools 与本地 path package v0，再推进 AOT、JSON / config / log、backend workers，最后才评估 HTTP client/server、async 和网络生态。
 
 ## AX 的工作原理
 
@@ -683,7 +683,7 @@ AX 的六层协议上下文，不只是让模型“更快读懂项目”，更�
 | 执行能力         | 已支持解释执行，能够运行真实 tool-style examples                                                                                                                                                          | [`src/interpreter.rs`](./src/interpreter.rs)                                                                           |
 | 诊断输出         | 已支持文本诊断、`--json`、`--json --ai` 三层输出                                                                                                                                                          | [`docs/diagnostics-schema.md`](./docs/diagnostics-schema.md)                                                           |
 | AI 修复反馈      | 已沉淀 `rule_id / repair_goal / fixits / context_snippets`                                                                                                                                                | [`src/ai.rs`](./src/ai.rs)                                                                                             |
-| 项目组织         | 已支持 `AX.toml + sources` 的 project-backed 多文件项目                                                                                                                                                   | [`src/project.rs`](./src/project.rs)                                                                                   |
+| 项目组织         | 已支持 `AX.toml + sources` 的 project-backed 多文件项目，并启动 `[dependencies] alias = { path = ... }` 本地 AX 包接口 v0                                                                                 | [`src/project.rs`](./src/project.rs)                                                                                   |
 | 模块模式         | 第一阶段 `import/module` 已接入 parser、project、semantic check，并有 smoke 项目验证                                                                                                                      | [`examples/project_module_smoke/`](./examples/project_module_smoke/)                                                   |
 | AX 侧共享库      | 已沉淀 `foundation/cli / report / text / search / file_kind / workspace`，并启动 `std.cli / std.env / std.fs / std.option / std.path / std.process / std.report / std.result / std.text / std.workspace` 试点；Std-1 冻结候选已收口 | [`foundation/`](./foundation/) [`std/`](./std/) [`docs/stdlib-minimal-boundary.md`](./docs/stdlib-minimal-boundary.md) |
 | 构建产物         | `build` 已稳定导出 `source.ax`、HIR、MIR、manifest、project-sources 快照                                                                                                                                  | [`src/build.rs`](./src/build.rs)                                                                                       |
@@ -698,6 +698,7 @@ AX 的六层协议上下文，不只是让模型“更快读懂项目”，更�
 | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 推进语言内核与可写项目能力                      | 继续补最值钱的表达能力、宿主能力和 project-backed 工程组织；短期服务工具/自动化场景，中期面向后端语言能力扩展                                                                                                                                                       | `foundation/`、`examples/project_*`、`SYNTAX.md`                                                                                                                                                                       |
 | 推进显式、确定的模块组织                        | 让 shared foundation 和 project-private logic 有清晰边界                                                                                                                                                                                                             | `AX.toml + sources`、`module`、`import`、全限定名                                                                                                                                                                      |
+| 推进本地 AX 包接口                              | 先让项目可以复用本地 AX 源码包，用户导入的是 AX package/module，而不是 Rust crate 直通桥                                                                                                                                                                             | `AX.toml [dependencies]`、`examples/project_package_config/`、`tests/interface_snapshots.rs`                                                                                                                           |
 | 为第一版最小标准库做冻结试点                    | 用 `project_text_normalize`、`project_directory_index`、`project_release_promote`、`project_command_capture`、`project_command_batch` 验证 `std.*` 命名空间、全限定调用、递归工具逻辑、发布型文件操作、命令捕获、命令执行、环境变量检查和项目私有 `lib.*` 的组合成本 | `std/`、`examples/project_text_normalize/`、`examples/project_directory_index/`、`examples/project_release_promote/`、`examples/project_command_capture/`、`examples/project_command_batch/`、`PLAN.md`、`WORKLIST.md` |
 | 做硬 diagnostics / context / repair / benchmark | 让语言主线自带可消费的编译器反馈和可回放证据链                                                                                                                                                                                                                       | `src/ai.rs`、`benchmarks/`、`scripts/`、`docs/benchmark-showcase.md`                                                                                                                                                   |
 | 用代表性样例反向驱动语言设计                    | 每补一项能力，都要求它能支撑一个更真实的工具样例                                                                                                                                                                                                                     | `examples/`、`tests/interface_snapshots.rs`                                                                                                                                                                            |
@@ -711,7 +712,7 @@ AX 的六层协议上下文，不只是让模型“更快读懂项目”，更�
 - 再以 `P2` 继续推进语言内核与可写项目能力，不把当前阶段误读成“工具语言已经完成”
 - 同步推进 `P1` 的编译器护城河闭环
 - 继续推进 `P3` 的官方最小标准库试点与冻结
-- AOT、包接口、自举和生态扩张统一后置到 [`PLAN.md`](./PLAN.md) 的后续阶段
+- 本地 path package v0 已启动；AOT、lockfile、registry、自举和生态扩张继续按 [`PLAN.md`](./PLAN.md) 的后续阶段推进
 
 ## 快速理解 AX 现在能做什么
 
@@ -767,7 +768,45 @@ fn build_summary() -> Summary {
 }
 ```
 
-### 3. 命令行链路
+### 3. 本地 AX 包接口 v0
+
+AX 已支持本地 path package 的第一版工程组织方式。主项目通过 `AX.toml` 声明依赖，依赖包继续提供 AX 源码模块；导入时使用依赖别名作为根模块。
+
+```toml
+manifest_version = 1
+
+[package]
+name = "project_package_config"
+entry = "src/main.ax"
+sources = ["../../std"]
+
+[dependencies]
+config_rules = { path = "packages/config_rules" }
+```
+
+```ax
+import config_rules.validate;
+import std.result;
+
+fn main() -> i32 {
+    let status: std.result.Result<i32, string> = config_rules.validate.validate("host=localhost\nport=8080\n");
+    return 0;
+}
+```
+
+依赖包的源码声明模块时，模块根使用主项目中的依赖别名：
+
+```ax
+module config_rules.validate;
+
+fn validate(contents: string) -> std.result.Result<i32, string> {
+    return std.result.Result.ok(0);
+}
+```
+
+这一版只做本地 path package：没有 registry、lockfile、版本求解，也不允许 `AX import -> Cargo crate` 直通。它的意义是先把 AX 自己的代码复用边界建立起来，为后续标准库冻结、AOT、包生态和第三方扩展打地基。
+
+### 4. 命令行链路
 
 ```powershell
 rustup toolchain install stable-x86_64-pc-windows-gnu --profile minimal -c rustfmt
@@ -802,6 +841,7 @@ P2 阶段固定样例集合与回归职责见 [`docs/representative-samples.md`]
 | [`examples/project_result_pipeline/`](./examples/project_result_pipeline/)     | 文件、环境变量、进程状态组合流水线   | `std.fs / std.env / std.process` 的 `Result` 接口已能用 `?` 组合消费    |
 | [`examples/project_config_validate/`](./examples/project_config_validate/)     | 配置文件校验与项目级错误 enum        | 把宿主 IO 错误显式转换为 `ConfigError`，再用 `?` 传播到真实 CLI 工具    |
 | [`examples/project_collections_report/`](./examples/project_collections_report/) | 最小集合报告工具                     | `std.collections` 对 `string_list` 的官方源码级包装已进入 project-backed workload |
+| [`examples/project_package_config/`](./examples/project_package_config/)       | 本地 AX 包复用的配置校验工具         | `[dependencies] path` 能把项目私有规则包接入主项目、check/run/build 回归链 |
 | [`examples/project_text_normalize/`](./examples/project_text_normalize/)       | 文本读取、重写、输出报告             | 第一批 `std.cli / std.fs / std.path / std.report / std.text` 试点样例   |
 | [`examples/project_module_smoke/`](./examples/project_module_smoke/)           | 第一阶段模块模式 smoke 工程          | `import/module` 已经进入主线验证链                                      |
 
@@ -821,6 +861,7 @@ P2 阶段固定样例集合与回归职责见 [`docs/representative-samples.md`]
 | `module ...;`       | 已支持   | support source 显式声明模块路径                        |
 | `import ...;`       | 已支持   | entry / support source 显式导入模块                    |
 | `AX.toml + sources` | 已支持   | project-backed 多文件组织主路径                        |
+| `[dependencies] path` | 已支持 | 本地 AX 包接口 v0，依赖别名成为模块根                   |
 
 ### 语句能力
 
