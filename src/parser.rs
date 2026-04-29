@@ -1434,6 +1434,16 @@ impl<'a> Parser<'a> {
                 continue;
             }
 
+            if self.matches(&[TokenKind::Question]) {
+                expr = Expr {
+                    span: Span::new(expr.span.start, self.previous().span.end),
+                    kind: ExprKind::Try {
+                        expr: Box::new(expr),
+                    },
+                };
+                continue;
+            }
+
             break;
         }
         expr

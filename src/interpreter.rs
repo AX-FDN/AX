@@ -133,6 +133,34 @@ enum ControlFlow {
     Return(Value),
 }
 
+enum EvalFlow {
+    Value(Value),
+    Return(Value),
+}
+
+enum ConditionFlow {
+    Value(bool),
+    Return(Value),
+}
+
+fn collect_left_associative_binary_operands<'a>(
+    expr: &'a Expr,
+    op: BinaryOp,
+    operands: &mut Vec<&'a Expr>,
+) {
+    match &expr.kind {
+        ExprKind::Binary {
+            op: current_op,
+            left,
+            right,
+        } if *current_op == op => {
+            collect_left_associative_binary_operands(left, op, operands);
+            operands.push(right);
+        }
+        _ => operands.push(expr),
+    }
+}
+
 impl Value {
     fn display(&self) -> String {
         match self {
@@ -251,6 +279,18 @@ impl<'a> Interpreter<'a> {
                     .with_note(diagnostic.message)
                     .with_suggestion("keep top-level constants as deterministic values")
                 })?;
+            let value = match value {
+                EvalFlow::Value(value) => value,
+                EvalFlow::Return(_) => {
+                    return Err(Diagnostic::new(
+                        "R0134",
+                        format!("constant `{name}` cannot use error propagation"),
+                        source,
+                        span,
+                    )
+                    .with_suggestion("remove `?` from the constant initializer"));
+                }
+            };
             interpreter.constants.insert(name, value);
         }
 
@@ -2116,7 +2156,10 @@ impl<'a> Interpreter<'a> {
                 initializer,
                 ..
             } => {
-                let value = self.eval_expr(initializer, frame)?;
+                let value = match self.eval_expr(initializer, frame)? {
+                    EvalFlow::Value(value) => value,
+                    EvalFlow::Return(value) => return Ok(ControlFlow::Return(value)),
+                };
                 frame.scopes.last_mut().expect("scope should exist").insert(
                     name.clone(),
                     Slot {
@@ -2127,35 +2170,48 @@ impl<'a> Interpreter<'a> {
                 Ok(ControlFlow::Continue)
             }
             StmtKind::Assign { target, value } => {
-                let next_value = self.eval_expr(value, frame)?;
+                let next_value = match self.eval_expr(value, frame)? {
+                    EvalFlow::Value(value) => value,
+                    EvalFlow::Return(value) => return Ok(ControlFlow::Return(value)),
+                };
                 self.assign_target(frame, target, next_value)?;
                 Ok(ControlFlow::Continue)
             }
             StmtKind::Break => Ok(ControlFlow::Break),
             StmtKind::Continue => Ok(ControlFlow::LoopContinue),
-            StmtKind::Expr { expr } => {
-                self.eval_expr(expr, frame)?;
-                Ok(ControlFlow::Continue)
-            }
+            StmtKind::Expr { expr } => match self.eval_expr(expr, frame)? {
+                EvalFlow::Value(_) => Ok(ControlFlow::Continue),
+                EvalFlow::Return(value) => Ok(ControlFlow::Return(value)),
+            },
             StmtKind::Return { value } => {
-                let value = self.eval_expr(value, frame)?;
+                let value = match self.eval_expr(value, frame)? {
+                    EvalFlow::Value(value) => value,
+                    EvalFlow::Return(value) => value,
+                };
                 Ok(ControlFlow::Return(value))
             }
             StmtKind::If {
                 condition,
                 then_branch,
                 else_branch,
-            } => {
-                if self.eval_condition(condition, frame)? {
-                    self.exec_block(then_branch, frame)
-                } else if let Some(block) = else_branch {
-                    self.exec_block(block, frame)
-                } else {
-                    Ok(ControlFlow::Continue)
+            } => match self.eval_condition(condition, frame)? {
+                ConditionFlow::Return(value) => Ok(ControlFlow::Return(value)),
+                ConditionFlow::Value(true) => self.exec_block(then_branch, frame),
+                ConditionFlow::Value(false) => {
+                    if let Some(block) = else_branch {
+                        self.exec_block(block, frame)
+                    } else {
+                        Ok(ControlFlow::Continue)
+                    }
                 }
-            }
+            },
             StmtKind::While { condition, body } => {
-                while self.eval_condition(condition, frame)? {
+                loop {
+                    match self.eval_condition(condition, frame)? {
+                        ConditionFlow::Return(value) => return Ok(ControlFlow::Return(value)),
+                        ConditionFlow::Value(true) => {}
+                        ConditionFlow::Value(false) => break,
+                    }
                     match self.exec_block(body, frame)? {
                         ControlFlow::Continue => {}
                         ControlFlow::Break => break,
@@ -2248,7 +2304,16 @@ impl<'a> Interpreter<'a> {
                 }
             }
             PlaceKind::Index { base, index } => {
-                let index_value = self.eval_expr(index, frame)?;
+                let index_value = match self.eval_expr(index, frame)? {
+                    EvalFlow::Value(value) => value,
+                    EvalFlow::Return(_) => {
+                        return Err(self.runtime_error(
+                            "R0135",
+                            "`?` cannot propagate while resolving an assignment target",
+                            index.span,
+                        ));
+                    }
+                };
                 let base_value = self.resolve_place_value_mut(frame, base)?;
                 match base_value {
                     Value::Array(elements) => {
@@ -2285,10 +2350,15 @@ impl<'a> Interpreter<'a> {
         }
     }
 
-    fn eval_condition(&mut self, expr: &Expr, frame: &mut Frame) -> Result<bool, Diagnostic> {
+    fn eval_condition(
+        &mut self,
+        expr: &Expr,
+        frame: &mut Frame,
+    ) -> Result<ConditionFlow, Diagnostic> {
         match self.eval_expr(expr, frame)? {
-            Value::Bool(value) => Ok(value),
-            other => Err(self.runtime_error(
+            EvalFlow::Return(value) => Ok(ConditionFlow::Return(value)),
+            EvalFlow::Value(Value::Bool(value)) => Ok(ConditionFlow::Value(value)),
+            EvalFlow::Value(other) => Err(self.runtime_error(
                 "R0009",
                 format!(
                     "condition must evaluate to `bool`, got `{}`",
@@ -2299,25 +2369,36 @@ impl<'a> Interpreter<'a> {
         }
     }
 
-    fn eval_expr(&mut self, expr: &Expr, frame: &mut Frame) -> Result<Value, Diagnostic> {
+    fn eval_expr(&mut self, expr: &Expr, frame: &mut Frame) -> Result<EvalFlow, Diagnostic> {
+        macro_rules! eval_value {
+            ($inner:expr) => {
+                match self.eval_expr($inner, frame)? {
+                    EvalFlow::Value(value) => value,
+                    early @ EvalFlow::Return(_) => return Ok(early),
+                }
+            };
+        }
+
         match &expr.kind {
-            ExprKind::Int { value } => Ok(Value::I32(*value)),
-            ExprKind::Float { value } => Ok(Value::F32(*value)),
-            ExprKind::Bool { value } => Ok(Value::Bool(*value)),
-            ExprKind::String { value } => Ok(Value::String(value.clone())),
-            ExprKind::Name { value } => lookup_slot(frame, value)
-                .map(|slot| slot.value.clone())
-                .or_else(|| self.constants.get(value).cloned())
-                .ok_or_else(|| {
-                    self.runtime_error(
-                        "R0011",
-                        format!("use of unknown variable `{value}`"),
-                        expr.span,
-                    )
-                }),
+            ExprKind::Int { value } => Ok(EvalFlow::Value(Value::I32(*value))),
+            ExprKind::Float { value } => Ok(EvalFlow::Value(Value::F32(*value))),
+            ExprKind::Bool { value } => Ok(EvalFlow::Value(Value::Bool(*value))),
+            ExprKind::String { value } => Ok(EvalFlow::Value(Value::String(value.clone()))),
+            ExprKind::Name { value } => Ok(EvalFlow::Value(
+                lookup_slot(frame, value)
+                    .map(|slot| slot.value.clone())
+                    .or_else(|| self.constants.get(value).cloned())
+                    .ok_or_else(|| {
+                        self.runtime_error(
+                            "R0011",
+                            format!("use of unknown variable `{value}`"),
+                            expr.span,
+                        )
+                    })?,
+            )),
             ExprKind::Unary { op, expr: inner } => {
-                let inner = self.eval_expr(inner, frame)?;
-                match (op, inner) {
+                let inner = eval_value!(inner);
+                let value = match (op, inner) {
                     (UnaryOp::Negate, Value::I32(value)) => {
                         value.checked_neg().map(Value::I32).ok_or_else(|| {
                             self.runtime_error("R0012", "integer negation overflowed", expr.span)
@@ -2330,20 +2411,52 @@ impl<'a> Interpreter<'a> {
                         format!("invalid unary operation on `{}`", other.display()),
                         expr.span,
                     )),
+                }?;
+                Ok(EvalFlow::Value(value))
+            }
+            ExprKind::Try { expr: inner } => {
+                let value = eval_value!(inner);
+                match value {
+                    Value::Enum {
+                        variant,
+                        payload: Some(payload),
+                        ..
+                    } if variant == "Ok" => Ok(EvalFlow::Value(*payload)),
+                    Value::Enum {
+                        name,
+                        variant,
+                        payload,
+                    } if variant == "Err" => Ok(EvalFlow::Return(Value::Enum {
+                        name,
+                        variant,
+                        payload,
+                    })),
+                    Value::Enum { variant, .. } => Err(self.runtime_error(
+                        "R0136",
+                        format!(
+                            "`?` expected `Result.Ok` or `Result.Err`, got variant `{variant}`"
+                        ),
+                        expr.span,
+                    )),
+                    other => Err(self.runtime_error(
+                        "R0136",
+                        format!("`?` expected a `Result` value, got `{}`", other.display()),
+                        expr.span,
+                    )),
                 }
             }
             ExprKind::Binary { op, left, right } => {
                 if matches!(*op, BinaryOp::LogicalAnd | BinaryOp::LogicalOr) {
-                    let left_value = self.eval_expr(left, frame)?;
-                    return match (*op, left_value) {
+                    let left_value = eval_value!(left);
+                    let value = match (*op, left_value) {
                         (BinaryOp::LogicalAnd, Value::Bool(false)) => Ok(Value::Bool(false)),
                         (BinaryOp::LogicalAnd, Value::Bool(true)) => {
-                            let right_value = self.eval_expr(right, frame)?;
+                            let right_value = eval_value!(right);
                             self.eval_binary(*op, Value::Bool(true), right_value, expr.span)
                         }
                         (BinaryOp::LogicalOr, Value::Bool(true)) => Ok(Value::Bool(true)),
                         (BinaryOp::LogicalOr, Value::Bool(false)) => {
-                            let right_value = self.eval_expr(right, frame)?;
+                            let right_value = eval_value!(right);
                             self.eval_binary(*op, Value::Bool(false), right_value, expr.span)
                         }
                         (_, other) => Err(self.runtime_error(
@@ -2354,33 +2467,52 @@ impl<'a> Interpreter<'a> {
                             ),
                             expr.span,
                         )),
-                    };
+                    }?;
+                    return Ok(EvalFlow::Value(value));
                 }
 
-                let left = self.eval_expr(left, frame)?;
-                let right = self.eval_expr(right, frame)?;
-                self.eval_binary(*op, left, right, expr.span)
+                let mut operands = Vec::new();
+                collect_left_associative_binary_operands(expr, *op, &mut operands);
+                if operands.len() > 2 {
+                    let mut operands = operands.into_iter();
+                    let first = operands
+                        .next()
+                        .expect("binary chain should contain at least one operand");
+                    let mut value = eval_value!(first);
+                    for operand in operands {
+                        let right = eval_value!(operand);
+                        value = self.eval_binary(*op, value, right, expr.span)?;
+                    }
+                    return Ok(EvalFlow::Value(value));
+                }
+
+                let left = eval_value!(left);
+                let right = eval_value!(right);
+                Ok(EvalFlow::Value(
+                    self.eval_binary(*op, left, right, expr.span)?,
+                ))
             }
             ExprKind::Call {
                 function,
                 arguments,
             } => {
-                let argument_values = arguments
-                    .iter()
-                    .map(|argument| self.eval_expr(argument, frame))
-                    .collect::<Result<Vec<_>, _>>()?;
-                if self.functions.contains_key(function) {
+                let mut argument_values = Vec::with_capacity(arguments.len());
+                for argument in arguments {
+                    argument_values.push(eval_value!(argument));
+                }
+                let value = if self.functions.contains_key(function) {
                     self.call_declared_function(function, argument_values, expr.span)
                 } else {
                     self.call_function(function, argument_values, expr.span)
-                }
+                }?;
+                Ok(EvalFlow::Value(value))
             }
             ExprKind::MethodCall {
                 receiver,
                 method,
                 arguments,
             } => {
-                let receiver_value = self.eval_expr(receiver, frame)?;
+                let receiver_value = eval_value!(receiver);
                 let method_function = match &receiver_value {
                     Value::Struct { name, .. } | Value::Enum { name, .. } => {
                         format!("{name}.{method}")
@@ -2399,55 +2531,58 @@ impl<'a> Interpreter<'a> {
                 let mut argument_values = Vec::with_capacity(arguments.len() + 1);
                 argument_values.push(receiver_value);
                 for argument in arguments {
-                    argument_values.push(self.eval_expr(argument, frame)?);
+                    argument_values.push(eval_value!(argument));
                 }
-                self.call_declared_function(&method_function, argument_values, expr.span)
+                Ok(EvalFlow::Value(self.call_declared_function(
+                    &method_function,
+                    argument_values,
+                    expr.span,
+                )?))
             }
             ExprKind::StructLiteral { name, fields } => {
                 let mut values = BTreeMap::new();
                 for field in fields {
-                    values.insert(field.name.clone(), self.eval_expr(&field.value, frame)?);
+                    values.insert(field.name.clone(), eval_value!(&field.value));
                 }
-                Ok(Value::Struct {
+                Ok(EvalFlow::Value(Value::Struct {
                     name: name.clone(),
                     fields: values,
-                })
+                }))
             }
-            ExprKind::ArrayLiteral { elements } => Ok(Value::Array(
-                elements
-                    .iter()
-                    .map(|element| self.eval_expr(element, frame))
-                    .collect::<Result<Vec<_>, _>>()?,
-            )),
+            ExprKind::ArrayLiteral { elements } => {
+                let mut values = Vec::with_capacity(elements.len());
+                for element in elements {
+                    values.push(eval_value!(element));
+                }
+                Ok(EvalFlow::Value(Value::Array(values)))
+            }
             ExprKind::Match { scrutinee, arms } => {
-                let scrutinee_value = self.eval_expr(scrutinee, frame)?;
+                let scrutinee_value = eval_value!(scrutinee);
                 self.eval_match_expression(scrutinee_value, arms, expr.span, frame)
             }
             ExprKind::EnumVariant {
                 enum_name,
                 variant,
                 payload,
-            } => Ok(Value::Enum {
+            } => Ok(EvalFlow::Value(Value::Enum {
                 name: enum_name.clone(),
                 variant: variant.clone(),
                 payload: match payload {
-                    Some(payload) => Some(Box::new(self.eval_expr(payload, frame)?)),
+                    Some(payload) => Some(Box::new(eval_value!(payload))),
                     None => None,
                 },
-            }),
+            })),
             ExprKind::MatchTest { scrutinee, pattern } => {
-                let scrutinee_value = self.eval_expr(scrutinee, frame)?;
-                Ok(Value::Bool(self.match_pattern_matches_value(
-                    pattern,
-                    &scrutinee_value,
-                    expr.span,
-                )?))
+                let scrutinee_value = eval_value!(scrutinee);
+                Ok(EvalFlow::Value(Value::Bool(
+                    self.match_pattern_matches_value(pattern, &scrutinee_value, expr.span)?,
+                )))
             }
-            ExprKind::EnumPayload { value } => match self.eval_expr(value, frame)? {
+            ExprKind::EnumPayload { value } => match eval_value!(value) {
                 Value::Enum {
                     payload: Some(payload),
                     ..
-                } => Ok(*payload),
+                } => Ok(EvalFlow::Value(*payload)),
                 other => Err(self.runtime_error(
                     "R0042",
                     format!(
@@ -2457,14 +2592,16 @@ impl<'a> Interpreter<'a> {
                     expr.span,
                 )),
             },
-            ExprKind::Field { base, field } => match self.eval_expr(base, frame)? {
-                Value::Struct { fields, .. } => fields.get(field).cloned().ok_or_else(|| {
-                    self.runtime_error(
-                        "R0015",
-                        format!("struct value does not contain field `{field}`"),
-                        expr.span,
-                    )
-                }),
+            ExprKind::Field { base, field } => match eval_value!(base) {
+                Value::Struct { fields, .. } => Ok(EvalFlow::Value(
+                    fields.get(field).cloned().ok_or_else(|| {
+                        self.runtime_error(
+                            "R0015",
+                            format!("struct value does not contain field `{field}`"),
+                            expr.span,
+                        )
+                    })?,
+                )),
                 other => Err(self.runtime_error(
                     "R0016",
                     format!(
@@ -2475,19 +2612,19 @@ impl<'a> Interpreter<'a> {
                 )),
             },
             ExprKind::Index { base, index } => {
-                let base_value = self.eval_expr(base, frame)?;
+                let base_value = eval_value!(base);
                 let elements = self.indexable_elements(base_value, expr.span)?;
 
-                let index_value = self.eval_expr(index, frame)?;
+                let index_value = eval_value!(index);
                 let resolved =
                     self.resolve_array_index(index_value, index.span, elements.len(), expr.span)?;
-                Ok(elements[resolved].clone())
+                Ok(EvalFlow::Value(elements[resolved].clone()))
             }
             ExprKind::Slice { base, start, end } => {
-                let base_value = self.eval_expr(base, frame)?;
+                let base_value = eval_value!(base);
                 let elements = self.indexable_elements(base_value, expr.span)?;
-                let start_value = self.eval_expr(start, frame)?;
-                let end_value = self.eval_expr(end, frame)?;
+                let start_value = eval_value!(start);
+                let end_value = eval_value!(end);
                 let start_index =
                     self.resolve_slice_bound(start_value, start.span, elements.len(), "start")?;
                 let end_index =
@@ -2506,7 +2643,9 @@ impl<'a> Interpreter<'a> {
                         .with_suggestion("ensure the start bound is less than or equal to the end bound"));
                 }
 
-                Ok(Value::Slice(elements[start_index..end_index].to_vec()))
+                Ok(EvalFlow::Value(Value::Slice(
+                    elements[start_index..end_index].to_vec(),
+                )))
             }
         }
     }
@@ -2517,7 +2656,7 @@ impl<'a> Interpreter<'a> {
         arms: &[MatchExprArm],
         span: Span,
         frame: &mut Frame,
-    ) -> Result<Value, Diagnostic> {
+    ) -> Result<EvalFlow, Diagnostic> {
         for arm in arms {
             if self.match_pattern_matches_value(&arm.pattern, &scrutinee, span)? {
                 if let Some(value) = self.eval_match_expression_arm_value(
@@ -2651,7 +2790,7 @@ impl<'a> Interpreter<'a> {
         scrutinee: &Value,
         value: &Expr,
         frame: &mut Frame,
-    ) -> Result<Option<Value>, Diagnostic> {
+    ) -> Result<Option<EvalFlow>, Diagnostic> {
         frame.scopes.push(HashMap::new());
         if let Err(error) = self.bind_match_pattern_locals(pattern, scrutinee, frame) {
             frame.scopes.pop();
@@ -2660,10 +2799,14 @@ impl<'a> Interpreter<'a> {
         if let Some(guard) = guard {
             let guard_matches = self.eval_condition(guard, frame);
             match guard_matches {
-                Ok(true) => {}
-                Ok(false) => {
+                Ok(ConditionFlow::Value(true)) => {}
+                Ok(ConditionFlow::Value(false)) => {
                     frame.scopes.pop();
                     return Ok(None);
+                }
+                Ok(ConditionFlow::Return(value)) => {
+                    frame.scopes.pop();
+                    return Ok(Some(EvalFlow::Return(value)));
                 }
                 Err(error) => {
                     frame.scopes.pop();
@@ -3670,6 +3813,23 @@ fn main() -> i32 {
         let output = run_program(&source, &hir).expect("program should run");
         assert_eq!(output.exit_code, 3);
         assert_eq!(output.stdout, vec!["AX tools", "8"]);
+    }
+
+    #[test]
+    fn runs_long_left_associative_string_concat_chain() {
+        let (source, hir) = analyzed_hir(
+            "\
+fn main() -> i32 {
+    let message: string = \"a\" + \"b\" + \"c\" + \"d\" + \"e\" + \"f\" + \"g\" + \"h\" + \"i\" + \"j\" + \"k\" + \"l\" + \"m\" + \"n\" + \"o\" + \"p\" + \"q\" + \"r\" + \"s\" + \"t\" + \"u\" + \"v\" + \"w\" + \"x\" + \"y\" + \"z\";
+    println(message);
+    return string_len(message);
+}
+",
+        );
+
+        let output = run_program(&source, &hir).expect("program should run");
+        assert_eq!(output.exit_code, 26);
+        assert_eq!(output.stdout, vec!["abcdefghijklmnopqrstuvwxyz"]);
     }
 
     #[test]

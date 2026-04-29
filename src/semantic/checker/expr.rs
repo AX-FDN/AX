@@ -1,5 +1,7 @@
+use std::collections::HashMap;
+
 use crate::ast::{BinaryOp, Expr, ExprKind, UnaryOp};
-use crate::diagnostics::Diagnostic;
+use crate::diagnostics::{Diagnostic, DiagnosticKind};
 
 use super::{Type, TypeChecker, binary_op_name, type_name_as_value_diagnostic};
 
@@ -148,6 +150,73 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                         Type::Error
                     }
                 }
+            }
+            ExprKind::Try { expr: inner } => {
+                let value_type = self.check_expr(inner);
+                if value_type.is_error() {
+                    return Type::Error;
+                }
+
+                let Some((success_type, error_type)) = self.result_success_error_types(&value_type)
+                else {
+                    self.diagnostics.push(
+                        Diagnostic::new(
+                            "S0053",
+                            format!(
+                                "`?` expects `Result<T, E>`, found `{}`",
+                                value_type.describe()
+                            ),
+                            self.info.source,
+                            expr.span,
+                        )
+                        .with_kind(DiagnosticKind::ResultPropagationRequiresResult)
+                        .with_note(
+                            "`?` unwraps `Result.Ok(value)` and returns `Result.Err(error)` from the current function",
+                        )
+                        .with_suggestion(
+                            "use `?` only on a `std.result.Result<T, E>` value, or handle the value explicitly with `match`",
+                        ),
+                    );
+                    return Type::Error;
+                };
+
+                let Some((_, return_error_type)) =
+                    self.result_success_error_types(&self.return_type)
+                else {
+                    self.diagnostics.push(
+                        Diagnostic::new(
+                            "S0054",
+                            format!(
+                                "`?` requires the current function to return `Result<_, {}>`",
+                                error_type.describe()
+                            ),
+                            self.info.source,
+                            expr.span,
+                        )
+                        .with_kind(DiagnosticKind::ResultPropagationRequiresResult)
+                        .with_note(
+                            "AX keeps error propagation explicit: a propagated error must be returned as `Result.Err(error)`",
+                        )
+                        .with_suggestion(
+                            "change the function return type to `std.result.Result<..., ...>` or handle the error with `match`",
+                        ),
+                    );
+                    return Type::Error;
+                };
+
+                self.expect_type_match_with_kind(
+                    &return_error_type,
+                    &error_type,
+                    expr.span,
+                    format!(
+                        "`?` propagates error type `{}`, but the current function returns error type `{}`",
+                        error_type.describe(),
+                        return_error_type.describe()
+                    ),
+                    DiagnosticKind::ResultPropagationRequiresResult,
+                );
+
+                success_type
             }
             ExprKind::Binary { op, left, right } => {
                 let left_type = self.check_expr(left);
@@ -326,5 +395,59 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 .unwrap_or(false),
             _ => false,
         }
+    }
+
+    fn result_success_error_types(&self, ty: &Type) -> Option<(Type, Type)> {
+        let Type::EnumInstance { name, args } = ty else {
+            return None;
+        };
+        let enum_info = self.info.enums.get(name)?;
+        if enum_info.type_params.len() != args.len() {
+            return None;
+        }
+
+        let ok_payload = enum_info.variants.get("Ok")?.payload.as_ref()?;
+        let err_payload = enum_info.variants.get("Err")?.payload.as_ref()?;
+        let substitutions = enum_info
+            .type_params
+            .iter()
+            .cloned()
+            .zip(args.iter().cloned())
+            .collect::<HashMap<_, _>>();
+        Some((
+            substitute_type_params(ok_payload, &substitutions),
+            substitute_type_params(err_payload, &substitutions),
+        ))
+    }
+}
+
+fn substitute_type_params(ty: &Type, substitutions: &HashMap<String, Type>) -> Type {
+    match ty {
+        Type::TypeParam(name) => substitutions
+            .get(name)
+            .cloned()
+            .unwrap_or_else(|| Type::TypeParam(name.clone())),
+        Type::Slice { element } => Type::Slice {
+            element: Box::new(substitute_type_params(element, substitutions)),
+        },
+        Type::Array { element, length } => Type::Array {
+            element: Box::new(substitute_type_params(element, substitutions)),
+            length: *length,
+        },
+        Type::StructInstance { name, args } => Type::StructInstance {
+            name: name.clone(),
+            args: args
+                .iter()
+                .map(|arg| substitute_type_params(arg, substitutions))
+                .collect(),
+        },
+        Type::EnumInstance { name, args } => Type::EnumInstance {
+            name: name.clone(),
+            args: args
+                .iter()
+                .map(|arg| substitute_type_params(arg, substitutions))
+                .collect(),
+        },
+        other => other.clone(),
     }
 }

@@ -16,7 +16,7 @@
 | `P0` 环境与契约修复 | `[~]` 文档治理与契约治理已基本收口，Windows GNU 本地验证路径已固定，剩余工作在验证矩阵与快照契约 |
 | `P1` 编译器护城河 | `[x]` repair/context/benchmark 已进入主线，context-enabled export、benchmark showcase 与公开口径边界已成立 |
 | `P2` 语言内核 / 可写项目能力 | `[~]` 已进入后段，但不等于“工具语言完成”；当前仍在继续补齐支撑标准库、后端与 AI 生成稳定性的通用语言表面 |
-| `P3` 官方最小标准库 | `[~]` 已启动第一组 `std.*` AX 源码模块，已完成五组迁移试点，并已收口 Std-1 冻结候选清单；尚未全仓冻结 |
+| `P3` 官方最小标准库 | `[~]` 已启动第一批 `std.*` AX 源码模块，已完成十组 project-backed 迁移/压力试点，并已收口 Std-1 冻结候选清单；尚未全仓冻结 |
 | `P4+` AOT / 包接口 / 自举 / 生态 | `[ ]` 已在 `PLAN.md` 定义，但不属于当前已完成能力 |
 
 ## 总览
@@ -69,10 +69,10 @@
 
 | 语法组 | 状态 | 当前已支持 | 当前未支持 / 未冻结 |
 | --- | --- | --- | --- |
-| 顶层声明 | `[x]` | `fn`、`struct`、`enum`、`module`、`import` | `const`、`pub`、`impl`、traits/interfaces |
+| 顶层声明 | `[~]` | `fn`、`struct`、`enum`、`module`、`import`、`pub`、`impl`、`trait`、`type` 别名 | `const`、包依赖声明、registry/lockfile 契约 |
 | 语句 | `[x]` | `let`、`let mut`、赋值、`return`、`if/else`、`while`、`for`、`for in`、`break`、`continue`、语句 `match` | `defer`、异常传播、`switch` 类语法 |
 | 表达式 | `[~]` | 调用、字段访问、索引、slice、结构体字面量、枚举值、表达式 `match`、逻辑运算、余数、字符串拼接、值方法调用、静态方法调用 | 闭包、复杂 pattern matching、block-valued match arm |
-| 类型系统 | `[~]` | `bool / i32 / f32 / string / string_list`、固定长度数组、只读 slice、payload enum、泛型结构体/函数/enum、trait/interface、trait bounds、where 约束、泛型方法、官方 `Option/Result` 约定 | 泛型 trait、关联类型、完整错误传播语法 |
+| 类型系统 | `[~]` | `bool / i32 / f32 / string / string_list`、固定长度数组、只读 slice、payload enum、泛型结构体/函数/enum、trait/interface、trait bounds、where 约束、泛型方法、官方 `Option/Result` 约定、`Result` 错误传播 `?` 第一刀 | 泛型 trait、关联类型、结构化错误层级 |
 | 工程组织 | `[x]` | `AX.toml + sources`、最小模块模式、全限定跨模块引用 | 包依赖、registry、lockfile、可见性体系 |
 
 ## 现在最容易被误读的五件事
@@ -89,7 +89,7 @@
 ### 3. `std/` 已经开始试点，但还不是完整标准库
 
 - 当前 `foundation/` 仍是 Std-0 孵化层。
-- 当前 `std/` 已经有第一批 AX 源码模块，并由 `project_text_normalize`、`project_directory_index`、`project_release_promote`、`project_command_capture`、`project_command_batch`、`project_option_result`、`project_env_result`、`project_file_result` 与 `project_process_result` 消费。
+- 当前 `std/` 已经有第一批 AX 源码模块，并由 `project_text_normalize`、`project_directory_index`、`project_release_promote`、`project_command_capture`、`project_command_batch`、`project_option_result`、`project_env_result`、`project_file_result`、`project_process_result` 与 `project_result_pipeline` 消费。
 - Std-1 冻结候选清单已经收口到 `std.cli / std.env / std.fs / std.option / std.path / std.process / std.report / std.result / std.text / std.workspace`，但这不等于完整标准库已经冻结。
 - `std.collections`、`std.search`、网络、并发和第三方包接口仍然后置。
 

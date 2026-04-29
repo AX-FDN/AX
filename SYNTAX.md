@@ -216,7 +216,7 @@ import lib.report;
 当前没有：
 
 - 泛型 trait
-- 错误传播语法，例如 `?`
+- 结构化错误层级、错误类型转换和 `try/catch` 式异常系统
 
 补充说明：
 
@@ -238,7 +238,18 @@ let parsed: std.result.Result<i32, string> = std.result.Result.ok(7);
 let failed: std.result.Result<i32, string> = std.result.Result.err("bad");
 ```
 
-这两个类型目前是 `std/` 中的 AX 源码模块，不是宿主语言直通接口。它们的目标是给 AI 和人类都提供稳定、显式、低歧义的“可能缺失/可能失败”返回值形态；后续错误传播语法必须建立在这套约定之上。`Result.err("bad")` 这类调用会从左侧声明或函数返回类型读取期望类型来补齐没有出现在参数里的泛型参数。
+这两个类型目前是 `std/` 中的 AX 源码模块，不是宿主语言直通接口。它们的目标是给 AI 和人类都提供稳定、显式、低歧义的“可能缺失/可能失败”返回值形态。`Result.err("bad")` 这类调用会从左侧声明或函数返回类型读取期望类型来补齐没有出现在参数里的泛型参数。
+
+错误传播 `?`：
+
+```ax
+fn load(path: string) -> std.result.Result<string, string> {
+    let text: string = std.fs.try_read_to_string(path)?;
+    return std.result.Result.ok(text);
+}
+```
+
+`expr?` 只能作用在 `Result<T, E>` 上。成功时它把 `Result.Ok(value)` 解包成 `T`；失败时它把 `Result.Err(error)` 作为当前函数的返回值提前返回。当前函数也必须返回兼容的 `Result<_, E>`。如果函数不返回 `Result`，或者错误类型不兼容，编译器会给出 `result_propagation_requires_result` AI rule。`?` 不等于异常系统，也不做隐式错误类型转换；需要不同错误类型时，先显式转换或继续用 `match`。
 
 ## 4. 语句
 
@@ -702,7 +713,7 @@ array_type        := "[" type_ref ";" INT "]"
 - `trait / interface` 当前支持 trait 方法签名、`impl Trait for Type`、缺失方法检查、签名匹配检查、trait impl 方法作为普通方法调用，以及泛型函数上的一个或多个 trait bounds；暂不支持动态派发、关联类型、默认方法或泛型 trait。
 - `generic struct` 当前支持 `struct Box<T>`、`Box<i32>` 类型引用、字段推断、字段读取与可变字段写入；暂不支持 struct 级 trait bounds。
 - `generic function` 当前支持 `fn identity<T>(value: T) -> T` 并由调用实参推断 `T`；也支持 `fn render<T: Label + ExitCode>(value: T) -> string` 与 `fn render<T>(value: T) -> string where T: Label + ExitCode` 这类 trait bounds；暂不支持显式 turbofish。
-- `generic enum` 当前支持 `enum Result<T, E> { Ok(T), Err(E) }`、`Result<i32, string>`、payload 构造、unit variant 上下文归入与 `match` payload 绑定；`std.option.Option<T>` 与 `std.result.Result<T, E>` 已作为官方约定进入 `std/`；暂不支持 enum 级 trait bounds、多 payload tuple variant、命名 payload 字段或错误传播语法。
+- `generic enum` 当前支持 `enum Result<T, E> { Ok(T), Err(E) }`、`Result<i32, string>`、payload 构造、unit variant 上下文归入、`match` payload 绑定与 `Result` 错误传播 `?`；`std.option.Option<T>` 与 `std.result.Result<T, E>` 已作为官方约定进入 `std/`；暂不支持 enum 级 trait bounds、多 payload tuple variant、命名 payload 字段或隐式错误类型转换。
 - `type alias` 当前支持非泛型与泛型类型别名，例如 `type UserId = i32;`、`type Scores = [i32; 3];` 与 `type Boxed<T> = Box<T>;`；暂不支持递归别名。
 
 ## 9. 给 AI 的直接提示词

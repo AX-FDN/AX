@@ -81,6 +81,7 @@ impl<'a> Lexer<'a> {
                     self.push_token(TokenKind::BangEqual, Span::new(start, self.cursor));
                 }
                 '!' => self.simple_token(TokenKind::Bang, start),
+                '?' => self.simple_token(TokenKind::Question, start),
                 '=' if self.peek_next_char() == Some('>') => {
                     self.advance_char();
                     self.advance_char();

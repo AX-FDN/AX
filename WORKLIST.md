@@ -5,7 +5,7 @@
 > 所有条目都必须挂靠到 [`PLAN.md`](./PLAN.md) 的 `P0-P7` 阶段编号。
 > `PLAN.md` 负责讲闭环路线，本文件负责把当前阶段拆成可执行施工单。
 
-最后更新：2026-04-27
+最后更新：2026-04-29
 
 ## 文档职责
 
@@ -41,7 +41,7 @@
 - `P0` 是地基修复层，当前只剩入口口径收口
 - `P1` 是编译器护城河同步硬化层，当前 context / benchmark / public claims 已完成，下一轮增长点登记为 `Repair Archaeology v0`
 - `P2` 是语言内核主施工层，当前代表样例、宿主边界和语法优先级已完成冻结
-- `P3` 是第一版标准库冻结试点层，当前已完成 `project_text_normalize`、`project_directory_index`、`project_release_promote`、`project_command_capture`、`project_command_batch`、`project_option_result`、`project_env_result`、`project_file_result`、`project_process_result` 九组 `std.*` 迁移试点
+- `P3` 是第一版标准库冻结试点层，当前已完成 `project_text_normalize`、`project_directory_index`、`project_release_promote`、`project_command_capture`、`project_command_batch`、`project_option_result`、`project_env_result`、`project_file_result`、`project_process_result`、`project_result_pipeline` 十组 `std.*` 迁移/压力试点
 
 ## 状态说明
 
@@ -57,9 +57,9 @@
 
 - `P0` 的验证矩阵与外部契约已经写清，当前只剩根目录与 docs 入口口径收尾
 - `P1` 的 context-enabled repair export、benchmark 展示页和公开口径边界已经成立
-- `P2` 当前出口已经完成，语言内核主代表样例、宿主边界样例和第一项 `match` 语法线已经进入回归
+- `P2` 当前出口已经完成，语言内核主代表样例、宿主边界样例、第一项 `match` 语法线和 `Result` 错误传播 `?` 第一版已经进入回归
 - `P3` 前置边界已经完成，`project_text_normalize` 已作为第一组 `foundation -> std.*` 迁移试点完成第一轮闭环
-- 当前 `P0 / P1 / P2` 本轮出口均已完成，`P3` 已完成九组样例迁移试点，`std.process / std.env` 已通过两组宿主边界样例验证，`std.env.try_get`、读侧 `std.fs.try_*` 与状态型 `std.process.try_*` 已启动 Result 风格宿主边界试点，`std.option / std.result` 已通过跨模块泛型 enum smoke 验证，第一版 `std.*` 冻结候选清单已收口
+- 当前 `P0 / P1 / P2` 本轮出口均已完成，`P3` 已完成十组样例迁移/压力试点，`std.process / std.env` 已通过宿主边界样例验证，`std.env.try_get`、读侧 `std.fs.try_*` 与状态型 `std.process.try_*` 已启动 Result 风格宿主边界试点，`project_result_pipeline` 已把这些接口组合成 `Result` 错误传播 `?` 的真实压力样例，`std.option / std.result` 已通过跨模块泛型 enum smoke 验证，第一版 `std.*` 冻结候选清单已收口
 
 当前优先级顺序固定为：
 
@@ -73,13 +73,14 @@
    - `project_env_result` 已验证 `std.env.try_get` 与 `std.result.Result<string,string>` 的宿主边界组合
    - `project_file_result` 已验证 `std.fs.try_read_to_string / try_read_dir / try_file_size` 与 `std.result` 的读侧文件系统边界组合
    - `project_process_result` 已验证 `std.process.try_run / try_run_in` 与 `std.result` 的状态型进程边界组合
+   - `project_result_pipeline` 已验证 `std.fs / std.env / std.process` 三类宿主边界 `Result` 在同一工具流水线里的显式消费成本
    - `std.*` 第一版接口冻结候选已收口，冻结候选验证入口与文档入口已补强
    - 继续保持 `foundation/` 作为未迁移样例的 Std-0 孵化层
 2. 暂不启动 P4 AOT、P5 包接口、JIT、自举或三方库桥接
 3. 下一步回到 `Repair Archaeology v0`，先做 artifact schema 与最小 Markdown 报告入口，不启动 Live Repair Stream、真实 LLM 或 UI
 4. 任何下一轮实现都必须继续回写 examples、diagnostics、context、repair/benchmark 或 interface snapshots
 
-当前判断：P1 这一轮的基础链路已经完成，P3 的九组 Std-1 迁移试点、冻结候选和验证入口也已经收口。下一步可以回到 P1 的 `Repair Archaeology v0`，把已有 replay / score / compare 事实做成 case 级可解释产物。
+当前判断：P1 这一轮的基础链路已经完成，P3 的十组 Std-1 迁移/压力试点、冻结候选和验证入口也已经收口。下一步可以回到 P1 的 `Repair Archaeology v0`，把已有 replay / score / compare 事实做成 case 级可解释产物；错误传播语法已以 `project_result_pipeline` 暴露出的显式 `Result + match` 成本为输入，落地为最小 `expr?`，后续只围绕真实样例继续补强，不直接照搬异常或隐式转换模型。
 
 ## 阶段承接图
 
@@ -761,7 +762,7 @@
     - `project_command_batch` 的 `check / run / build` 和对应 interface snapshots 通过
 
 - [x] `W-P3-14` 收口第一版 `std.*` 冻结候选清单
-  - 目标：五组迁移试点完成后，判断哪些接口可以进入 Std-1 冻结候选，哪些仍留在 `foundation/` 继续孵化。
+  - 目标：前五组迁移试点完成后，先判断哪些接口可以进入 Std-1 冻结候选，哪些仍留在 `foundation/` 继续孵化；后续第六到第十组试点继续验证 `Option / Result` 与宿主边界组合，不扩大 Std-1 命名空间。
   - 依赖：`W-P3-07` 到 `W-P3-13`
   - 当前结果：
     - `docs/stdlib-minimal-boundary.md` 已写清 `std.cli / std.env / std.fs / std.path / std.process / std.report / std.text / std.workspace` 的 Std-1 冻结候选接口
@@ -801,13 +802,13 @@
     - interface snapshots 覆盖 `check / run / build source tree`
     - `docs/stdlib-minimal-boundary.md` 已把 `try_get` 写入 Std-1 候选接口和第七迁移试点
   - 当前不做：
-    - 不引入 `?`
-    - 不引入默认值参数
+    - 不在 `std.env.try_get` 单点里设计默认值参数
     - 不引入异常系统或结构化错误类型
     - 不把 `std.fs / std.process` 一次性改成全 Result 接口
+    - `?` 已由 `Q-P6-02k` 作为跨 `Result` 调用链的独立语法落地
 
 - [x] `W-P3-17` 启动读侧 `std.fs.try_*` Result 风格宿主边界试点
-  - 目标：让文件系统高频失败点先进入显式 `Result` 返回约定，为后续错误传播语法提供真实标准库消费面。
+  - 目标：让文件系统高频失败点先进入显式 `Result` 返回约定，为 `?` 错误传播提供真实标准库消费面。
   - 依赖：`W-P3-16`
   - 当前结果：
     - `std.fs` 新增 `try_read_to_string(path) -> std.result.Result<string, string>`
@@ -817,9 +818,9 @@
     - interface snapshots 覆盖 `check / run / build source tree`
     - `docs/stdlib-minimal-boundary.md` 已把读侧 `try_*` 写入 Std-1 候选接口和第八迁移试点
   - 当前不做：
-    - 不引入 `?`
     - 不引入异常系统或结构化错误类型
     - 不包装 `write_string / remove_file / rename` 为 `try_*`，因为当前 AX 还不能捕获宿主 IO 异常
+    - `?` 已由 `Q-P6-02k` 作为通用 `Result` 消费语法落地
 
 - [x] `W-P3-18` 启动状态型 `std.process.try_*` Result 风格宿主边界试点
   - 目标：让进程状态执行进入显式 `Result` 返回约定，同时不伪装 `capture_in` 的非零退出可以被 AX 函数层捕获。
@@ -839,6 +840,20 @@
     - 不引入 async 或 streaming process
     - 不引入 stdout/stderr/exit-code 结构体
     - 不承诺捕获宿主 shell 自身不可启动这种底层异常
+
+- [x] `W-P3-19` 增加 `Result` 组合流水线压力样例
+  - 目标：用真实 project-backed 小工具观察 `Result` 组合错误流的成本，并验证最小 `?` 语法是否能降低样板代码，同时避免异常风格语法。
+  - 依赖：`W-P3-16`、`W-P3-17`、`W-P3-18`
+  - 当前结果：
+    - 新增 `examples/project_result_pipeline/`
+    - 样例组合消费 `std.fs.try_read_to_string`、`std.env.try_get`、`std.process.try_status_in`、`std.result`、`std.report`、`std.path` 和 `std.cli`
+    - 输出稳定 `RESULT-PIPELINE.txt`，记录输入长度、环境变量可用性、进程状态和缺失文件错误
+    - interface snapshots 覆盖 `check / run / build source tree`
+    - `docs/stdlib-minimal-boundary.md`、`docs/validation-matrix.md`、`docs/interface-contracts.md`、`PROJECT_FACTS.md` 与 `SYNTAX.md` 已同步十组样例口径
+  - 当前不做：
+    - 不引入异常系统或结构化错误类型
+    - 不引入 `try_capture_in`
+    - 不把这个样例包装成新标准库 API
 
 ## 当前明确不插队的方向
 
@@ -896,8 +911,8 @@
   - 状态：已新增 `std.option.Option<T>` 与 `std.result.Result<T, E>`，并补齐跨模块泛型 enum 的 unit variant 上下文归入
   - 已覆盖：`std/option.ax`、`std/result.ax`、`examples/project_option_result/`、semantic test、interface snapshot、README、SYNTAX、Std-1 边界文档
   - 代表样例：`examples/project_option_result/`
-  - 当前边界：这是官方显式返回值约定，不是错误传播语法；`?`、泛型 trait、Result 专用方法和完整错误模型仍后置
-  - 后续补强：`Q-P6-02f` 设计错误传播语法前，必须先让更多 `std.process / std.fs / std.env` 接口按 `Result` 风格试点
+  - 当前边界：这是官方显式返回值约定；`?` 已由 `Q-P6-02k` 作为最小错误传播语法落地，泛型 trait、Result 专用方法和完整错误模型仍后置
+  - 后续补强：继续让更多 `std.process / std.fs / std.env` 接口按 `Result` 风格试点，验证 `?` 在真实工具链中的重复样板削减效果
 - [x] `Q-P6-03a` traits / interfaces 第一刀
   - 状态：已支持 `trait Label { fn label(self: Self) -> string; }` 与 `impl Label for Command { ... }`
   - 已覆盖：lexer / parser / semantic conformance / HIR lowering / formatter / context / AI focus / example / interface snapshot
@@ -940,11 +955,11 @@
 - [x] `Q-P6-02f` `Result` 静态构造器与返回上下文推断
   - 状态：已支持 `let value: Result<i32, string> = Result.err("bad");` 与 `fn f() -> Result<i32, string> { return Result.err("bad"); }`
   - 已覆盖：`std.result.Result.ok/err`、`std.option.Option.none`、semantic test、`examples/result_static_constructors.ax`、`project_option_result`
-  - 当前边界：这是错误传播语法前置，不是 `?`；只在 call 表达式读取直接期望类型，不做复杂跨表达式推断
+  - 当前边界：这是 `?` 错误传播的类型推断前置；只在 call 表达式读取直接期望类型，不做复杂跨表达式推断
 - [x] `Q-P6-02g` `Result` 风格宿主边界第一刀
   - 状态：`std.env.try_get(name) -> std.result.Result<string,string>` 已进入标准库试点
   - 已覆盖：`std/env.ax`、`examples/project_env_result/`、interface snapshot、Std-1 边界文档
-  - 当前边界：只验证环境变量读取的显式失败返回，不改变 `std.env.get` 兼容接口，不引入 `?`、异常系统或结构化错误类型
+  - 当前边界：只验证环境变量读取的显式失败返回，不改变 `std.env.get` 兼容接口；`?` 已可消费该返回值，但仍不引入异常系统或结构化错误类型
 - [x] `Q-P6-02h` 读侧文件系统 `Result` 接口第一刀
   - 状态：`std.fs.try_read_to_string / try_read_dir / try_file_size` 已进入标准库试点
   - 已覆盖：`std/fs.ax`、`examples/project_file_result/`、interface snapshot、Std-1 边界文档
@@ -953,6 +968,16 @@
   - 状态：`std.process.ProcessStatus` 与 `try_run / try_run_in / try_status / try_status_in` 已进入标准库试点
   - 已覆盖：`std/process.ax`、`examples/project_process_result/`、interface snapshot、Std-1 边界文档
   - 当前边界：只覆盖空命令、缺失工作目录、退出码和基础 success 状态；`try_capture_in`、stdout/stderr 结构体、async/streaming 仍后置
+- [x] `Q-P6-02j` `Result` 组合流水线压力样例
+  - 状态：`examples/project_result_pipeline/` 已把文件读取、环境变量读取、进程状态和缺失文件错误组合到同一条 `Result` 流水线中，并用 `?` 消费成功路径
+  - 已覆盖：`std.fs / std.env / std.process / std.result / std.report / std.path / std.cli`、interface snapshot、Std-1 边界文档、SYNTAX 错误传播说明
+  - 当前边界：该样例只验证 `Result<T,E>` 同错误类型的最小传播；仍不支持异常系统、隐式错误类型转换、try/catch、隐式 return 或结构化错误层级
+  - 后续补强：基于该样例继续统计重复样板，把 `?` 的误用诊断纳入 AI repair contract 与 benchmark case
+- [x] `Q-P6-02k` `Result` 错误传播 `?` 第一版
+  - 状态：已支持 postfix `expr?`，对 `Result.Ok(value)` 解包为成功值，并在 `Result.Err(error)` 时把原 `Err` 作为当前函数返回值提前返回
+  - 已覆盖：lexer / parser / AST / HIR / MIR / formatter / semantic / interpreter / context / AI rule / examples / interface snapshot / SYNTAX / README
+  - 代表样例：`examples/result_propagation.ax` 与 `examples/project_result_pipeline/`
+  - 当前边界：只支持 `Result` 形状的 `Ok(T) / Err(E)`，当前函数必须返回兼容 `Result<_, E>`；不做隐式错误转换、异常系统、try/catch、结构化错误层级或 AOT 执行语义承诺
 - [ ] `Q-P7-01` 闭包 / lambda
 - [ ] `Q-P7-02` async / await
 

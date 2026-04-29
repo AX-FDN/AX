@@ -43,7 +43,7 @@ AX 当前优先服务四类能被仓库直接验证的场景：
 | 层级 | 完成度 | 说明 |
 | --- | --- | --- |
 | 最小可写工具内核 | `92%~95%` | 已具备显式类型、数组/切片、`for/for in`、`break/continue`、`match` 多个高价值切片、字符串 pattern、payload enum、泛型 enum、官方 `Option/Result` 约定、模块第一刀、`pub`、methods/impl、静态方法、返回上下文泛型推断、泛型结构体/函数/impl/方法、trait bounds、`where` 输入语法、泛型 `type` 别名、宿主 builtin |
-| 通用语言表面 | `65%~71%` | 已补 methods/impl、静态方法、返回上下文泛型推断、泛型结构体/函数/enum/impl/method、traits/interfaces、trait bounds、`where` 输入语法、`pub`、泛型 `type` 别名与官方 `Option/Result` 约定；还缺泛型 trait、闭包、async、错误传播语法、完整包系统等 |
+| 通用语言表面 | `68%~74%` | 已补 methods/impl、静态方法、返回上下文泛型推断、泛型结构体/函数/enum/impl/method、traits/interfaces、trait bounds、`where` 输入语法、`pub`、泛型 `type` 别名、官方 `Option/Result` 约定与 `Result` 错误传播 `?` 第一刀；还缺泛型 trait、闭包、async、结构化错误层级、完整包系统等 |
 | 生态支撑语法 | `34%~40%` | 已能组织 project-backed 样例并启动 `std.*` 试点，`Option/Result` 已成为标准错误/缺失值约定前置；仍缺稳定包接口、lockfile、host extension ABI、AOT 发布路径和第三方库契约 |
 
 ## AX 现在已经成立的事实
@@ -91,7 +91,7 @@ AX 当前优先服务四类能被仓库直接验证的场景：
 - host runtime boundary：已开始收紧，但仍是当前最重要的持续硬化方向之一
 - `src/ai.rs` 的规则触发：正在从文案匹配继续迁移到更稳定的内部语义标签
 - `build`：当前仍是 backend 前的构建骨架，不应被表述成成熟 native compiler
-- `std/`：当前已启动第一批标准库试点模块，并已由 `project_text_normalize`、`project_directory_index`、`project_release_promote`、`project_command_capture`、`project_command_batch`、`project_option_result`、`project_env_result`、`project_file_result`、`project_process_result` 九组真实样例消费；Std-1 冻结候选清单已在 [`docs/stdlib-minimal-boundary.md`](./docs/stdlib-minimal-boundary.md) 收口，但还不是完整官方标准库
+- `std/`：当前已启动第一批标准库试点模块，并已由 `project_text_normalize`、`project_directory_index`、`project_release_promote`、`project_command_capture`、`project_command_batch`、`project_option_result`、`project_env_result`、`project_file_result`、`project_process_result`、`project_result_pipeline` 十组真实样例消费；Std-1 冻结候选清单已在 [`docs/stdlib-minimal-boundary.md`](./docs/stdlib-minimal-boundary.md) 收口，但还不是完整官方标准库
 - `foundation/`：当前仍是 Std-0 孵化层，负责承载尚未迁移的样例和未充分验证的 helper，尤其是搜索、markdown/searchable 文件分类和目录重建策略
 - `Repair Archaeology v0`：当前是规划中的证据链展示层，还没有实现导出脚本或 `axc` 命令；它不代表 live-model benchmark 已经完成
 

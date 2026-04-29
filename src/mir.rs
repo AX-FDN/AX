@@ -236,6 +236,9 @@ pub enum ExprKind {
         op: UnaryOp,
         expr: Box<Expr>,
     },
+    Try {
+        expr: Box<Expr>,
+    },
     Binary {
         op: BinaryOp,
         left: Box<Expr>,
@@ -624,6 +627,9 @@ impl FunctionLowerer {
             },
             hir::ExprKind::Unary { op, expr } => ExprKind::Unary {
                 op: *op,
+                expr: Box::new(self.lower_expr(expr)?),
+            },
+            hir::ExprKind::Try { expr } => ExprKind::Try {
                 expr: Box::new(self.lower_expr(expr)?),
             },
             hir::ExprKind::Binary { op, left, right } => ExprKind::Binary {

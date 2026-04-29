@@ -3497,6 +3497,7 @@ fn representative_project_examples_check_cleanly() {
         "examples/project_env_result",
         "examples/project_file_result",
         "examples/project_process_result",
+        "examples/project_result_pipeline",
     ] {
         assert_project_example_checks(example_path);
     }
@@ -4027,6 +4028,34 @@ fn project_process_result_runs_on_controlled_fixture() {
 }
 
 #[test]
+fn project_result_pipeline_runs_on_controlled_fixture() {
+    let temp = TempDir::new("project-result-pipeline");
+    let input_path = temp.write("input.txt", "alpha\nbeta\n");
+    let output_dir = temp.join("out");
+
+    let output = run_axc([
+        OsStr::new("run"),
+        OsStr::new("examples/project_result_pipeline"),
+        OsStr::new("--"),
+        input_path.as_os_str(),
+        output_dir.as_os_str(),
+    ]);
+    assert_eq!(output.status.code(), Some(0));
+    assert_clean_stderr(&output);
+    assert_eq!(
+        normalize_temp_output(&string_output(&output.stdout), &temp),
+        "pipeline_report=<root>/out/RESULT-PIPELINE.txt\n"
+    );
+
+    let report = fs::read_to_string(output_dir.join("RESULT-PIPELINE.txt"))
+        .expect("pipeline report should be written");
+    assert_eq!(
+        normalize_temp_output(&report, &temp),
+        "input=<root>/input.txt\ninput_len=11\nenv_path_ok=true\nprocess_success=true\nprocess_code=0\nmissing_error=readable file does not exist: <root>/missing-result-pipeline.txt\n"
+    );
+}
+
+#[test]
 fn project_text_normalize_runs_on_controlled_fixture() {
     let temp = TempDir::new("project-text-normalize");
     let input_text = "\t# Title  \n\n\n  TODO fix  \n\tBody line\t\n";
@@ -4422,6 +4451,20 @@ fn result_static_constructors_example_runs() {
     assert_eq!(
         normalize_text(&string_output(&output.stdout)),
         "5\nmissing\nbad:no\n"
+    );
+}
+
+#[test]
+fn result_propagation_example_runs() {
+    let output = run_axc([
+        OsStr::new("run"),
+        OsStr::new("examples/result_propagation.ax"),
+    ]);
+    assert_eq!(output.status.code(), Some(0));
+    assert_clean_stderr(&output);
+    assert_eq!(
+        normalize_text(&string_output(&output.stdout)),
+        "8\nbad:no\n"
     );
 }
 
@@ -5526,6 +5569,15 @@ fn project_process_result_build_copies_real_example_source_tree() {
     assert_project_example_build_sources(
         "project-process-result-build",
         "examples/project_process_result",
+        &project_sources_with_shared_std(&["src/main.ax"]),
+    );
+}
+
+#[test]
+fn project_result_pipeline_build_copies_real_example_source_tree() {
+    assert_project_example_build_sources(
+        "project-result-pipeline-build",
+        "examples/project_result_pipeline",
         &project_sources_with_shared_std(&["src/main.ax"]),
     );
 }

@@ -798,6 +798,8 @@ P2 阶段固定样例集合与回归职责见 [`docs/representative-samples.md`]
 | [`examples/project_env_result/`](./examples/project_env_result/)               | 环境变量安全读取与显式失败返回       | `std.env.try_get` 与 `std.result.Result<string,string>` 宿主边界试点     |
 | [`examples/project_file_result/`](./examples/project_file_result/)             | 文件读取、目录读取和文件大小的安全接口 | `std.fs.try_*` 与 `std.result` 的读侧文件系统边界试点                  |
 | [`examples/project_process_result/`](./examples/project_process_result/)       | 进程状态运行的显式失败返回           | `std.process.ProcessStatus`、`try_run / try_status_in` 与 `std.result` 的状态型进程边界试点 |
+| [`examples/result_propagation.ax`](./examples/result_propagation.ax)           | `Result` 错误传播最小样例            | `expr?` 能解包 `Ok` 并在 `Err` 时提前返回                              |
+| [`examples/project_result_pipeline/`](./examples/project_result_pipeline/)     | 文件、环境变量、进程状态组合流水线   | `std.fs / std.env / std.process` 的 `Result` 接口已能用 `?` 组合消费    |
 | [`examples/project_text_normalize/`](./examples/project_text_normalize/)       | 文本读取、重写、输出报告             | 第一批 `std.cli / std.fs / std.path / std.report / std.text` 试点样例   |
 | [`examples/project_module_smoke/`](./examples/project_module_smoke/)           | 第一阶段模块模式 smoke 工程          | `import/module` 已经进入主线验证链                                      |
 

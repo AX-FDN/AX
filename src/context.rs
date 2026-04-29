@@ -2346,7 +2346,9 @@ fn collect_symbol_walk_for_stmt(statement: &Stmt, walk: &mut SymbolWalk) {
 
 fn collect_symbol_walk_for_expr(expression: &Expr, walk: &mut SymbolWalk) {
     match &expression.kind {
-        ExprKind::Unary { expr, .. } => collect_symbol_walk_for_expr(expr, walk),
+        ExprKind::Unary { expr, .. } | ExprKind::Try { expr } => {
+            collect_symbol_walk_for_expr(expr, walk)
+        }
         ExprKind::Binary { left, right, .. } => {
             collect_symbol_walk_for_expr(left, walk);
             collect_symbol_walk_for_expr(right, walk);
@@ -2842,7 +2844,7 @@ fn visit_stmt(statement: &Stmt, stats: &mut UnitStats) {
 
 fn visit_expr(expression: &Expr, stats: &mut UnitStats) {
     match &expression.kind {
-        ExprKind::Unary { expr, .. } => visit_expr(expr, stats),
+        ExprKind::Unary { expr, .. } | ExprKind::Try { expr } => visit_expr(expr, stats),
         ExprKind::Binary { left, right, .. } => {
             visit_expr(left, stats);
             visit_expr(right, stats);

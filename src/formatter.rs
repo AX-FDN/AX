@@ -548,6 +548,10 @@ fn format_expr_with_min_precedence(expr: &Expr, min_precedence: u8) -> String {
             let operand = format_expr_with_min_precedence(expr, PREC_UNARY + 1);
             format!("{}{}", unary_op_text(*op), operand)
         }
+        ExprKind::Try { expr } => {
+            let operand = format_expr_with_min_precedence(expr, PREC_POSTFIX);
+            format!("{operand}?")
+        }
         ExprKind::Binary { op, left, right } => {
             let precedence = binary_precedence(*op);
             let left_text = format_expr_with_min_precedence(left, precedence);
@@ -676,6 +680,7 @@ fn expr_precedence(expr: &Expr) -> u8 {
         ExprKind::Binary { op, .. } => binary_precedence(*op),
         ExprKind::Unary { .. } => PREC_UNARY,
         ExprKind::Call { .. }
+        | ExprKind::Try { .. }
         | ExprKind::Field { .. }
         | ExprKind::Index { .. }
         | ExprKind::Slice { .. } => PREC_POSTFIX,
@@ -1085,6 +1090,24 @@ mod tests {
                 "    let result: Result = Result.Ok(7);\n",
                 "    let value: i32 = match (result) { Result.Ok(found) => found, Result.Err(_) => 0, Result.Empty => -1 };\n",
                 "    return value;\n",
+                "}\n"
+            )
+        );
+    }
+
+    #[test]
+    fn formats_result_error_propagation() {
+        let source = SourceFile::anonymous(
+            "fn load()->Result<i32,string>{let value:i32=parse()?;return Result.ok(value);}",
+        );
+
+        let formatted = format_source(&source).expect("source should format");
+        assert_eq!(
+            formatted,
+            concat!(
+                "fn load() -> Result<i32, string> {\n",
+                "    let value: i32 = parse()?;\n",
+                "    return Result.ok(value);\n",
                 "}\n"
             )
         );

@@ -419,6 +419,9 @@ pub enum ExprKind {
         op: UnaryOp,
         expr: Box<Expr>,
     },
+    Try {
+        expr: Box<Expr>,
+    },
     Binary {
         op: BinaryOp,
         left: Box<Expr>,
@@ -462,7 +465,7 @@ pub enum UnaryOp {
     Not,
 }
 
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum BinaryOp {
     LogicalOr,

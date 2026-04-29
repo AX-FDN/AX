@@ -283,6 +283,9 @@ fn match_rule_by_kind(kind: DiagnosticKind) -> Option<RuleTemplate> {
         }
         DiagnosticKind::TraitReferenceMustResolve => Some(RULE_TRAIT_REFERENCE_MUST_RESOLVE),
         DiagnosticKind::TraitBoundNotSatisfied => Some(RULE_TRAIT_BOUND_MUST_BE_SATISFIED),
+        DiagnosticKind::ResultPropagationRequiresResult => {
+            Some(RULE_RESULT_PROPAGATION_REQUIRES_RESULT)
+        }
         DiagnosticKind::ArgvIndexNegative => Some(RULE_ARGV_INDEX_NON_NEGATIVE),
         DiagnosticKind::ArgvIndexOutOfBounds => Some(RULE_ARGV_INDEX_IN_BOUNDS),
         DiagnosticKind::EnvironmentVariableUnavailable => {
@@ -849,6 +852,17 @@ const RULE_TRAIT_BOUND_MUST_BE_SATISFIED: RuleTemplate = RuleTemplate {
     minimal_example: "fn render<T: Label>(value: T) -> string { return value.label(); }",
     anti_pattern: Some("render(1)"),
     default_fixit: "add the required trait impl for the concrete type or call the generic function with an implementing value",
+};
+
+const RULE_RESULT_PROPAGATION_REQUIRES_RESULT: RuleTemplate = RuleTemplate {
+    rule_id: "result_propagation_requires_result",
+    normalized_pattern: "result_propagation_requires_result",
+    repair_goal: "Use `?` only when the expression and current function both use compatible `Result<T, E>` types.",
+    summary: "`expr?` unwraps `Result.Ok(value)` and returns `Result.Err(error)` from the current function, so both sides need compatible `Result` error types.",
+    pattern: "fn load() -> std.result.Result<string, string> { let text: string = std.fs.try_read_to_string(\"input.txt\")?; return std.result.Result.ok(text); }",
+    minimal_example: "let text: string = read_text()?;",
+    anti_pattern: Some("fn main() -> i32 { let text: string = read_text()?; return 0; }"),
+    default_fixit: "return a compatible `Result<_, E>` from the function or replace `?` with an explicit `match`",
 };
 
 const RULE_NON_EMPTY_ARRAY_LITERAL_REQUIRED: RuleTemplate = RuleTemplate {
@@ -1715,7 +1729,7 @@ fn collect_expr_names(expr: &Expr, names: &mut BTreeSet<String>) {
         ExprKind::Name { value } => {
             names.insert(value.clone());
         }
-        ExprKind::Unary { expr, .. } => collect_expr_names(expr, names),
+        ExprKind::Unary { expr, .. } | ExprKind::Try { expr } => collect_expr_names(expr, names),
         ExprKind::Binary { left, right, .. } => {
             collect_expr_names(left, names);
             collect_expr_names(right, names);
