@@ -825,9 +825,13 @@
   - 目标：让进程状态执行进入显式 `Result` 返回约定，同时不伪装 `capture_in` 的非零退出可以被 AX 函数层捕获。
   - 依赖：`W-P3-16`、`W-P3-17`
   - 当前结果：
+    - `std.process` 新增 `ProcessStatus { code, success }`
+    - `std.process` 新增 `status_from_code(code) -> ProcessStatus`
     - `std.process` 新增 `try_run(command) -> std.result.Result<i32, string>`
     - `std.process` 新增 `try_run_in(working_dir, command) -> std.result.Result<i32, string>`
-    - 新增 `examples/project_process_result/`，覆盖正常退出、缺失工作目录和空命令错误返回
+    - `std.process` 新增 `try_status(command) -> std.result.Result<ProcessStatus, string>`
+    - `std.process` 新增 `try_status_in(working_dir, command) -> std.result.Result<ProcessStatus, string>`
+    - 新增 `examples/project_process_result/`，覆盖正常退出、结构化状态、缺失工作目录和空命令错误返回
     - interface snapshots 覆盖 `check / run / build source tree`
     - `docs/stdlib-minimal-boundary.md` 已把状态型 `try_*` 写入 Std-1 候选接口和第九迁移试点
   - 当前不做：
@@ -946,9 +950,9 @@
   - 已覆盖：`std/fs.ax`、`examples/project_file_result/`、interface snapshot、Std-1 边界文档
   - 当前边界：只覆盖可以通过 `is_file / is_dir` 前置判断规避的读侧失败，不对写入、删除、重命名承诺可捕获异常
 - [x] `Q-P6-02i` 状态型进程 `Result` 接口第一刀
-  - 状态：`std.process.try_run / try_run_in` 已进入标准库试点
+  - 状态：`std.process.ProcessStatus` 与 `try_run / try_run_in / try_status / try_status_in` 已进入标准库试点
   - 已覆盖：`std/process.ax`、`examples/project_process_result/`、interface snapshot、Std-1 边界文档
-  - 当前边界：只覆盖空命令、缺失工作目录和进程退出码返回；`try_capture_in`、结构化进程结果、async/streaming 仍后置
+  - 当前边界：只覆盖空命令、缺失工作目录、退出码和基础 success 状态；`try_capture_in`、stdout/stderr 结构体、async/streaming 仍后置
 - [ ] `Q-P7-01` 闭包 / lambda
 - [ ] `Q-P7-02` async / await
 

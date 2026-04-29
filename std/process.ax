@@ -2,6 +2,15 @@ module std.process;
 
 import std.result;
 
+struct ProcessStatus {
+    code: i32,
+    success: bool,
+}
+
+fn status_from_code(code: i32) -> ProcessStatus {
+    return ProcessStatus { code: code, success: code == 0 };
+}
+
 fn run(command: string) -> i32 {
     return process_run(command);
 }
@@ -11,6 +20,13 @@ fn try_run(command: string) -> std.result.Result<i32, string> {
         return std.result.Result.err("command must not be empty");
     }
     return std.result.Result.ok(process_run(command));
+}
+
+fn try_status(command: string) -> std.result.Result<ProcessStatus, string> {
+    if (string_len(command) == 0) {
+        return std.result.Result.err("command must not be empty");
+    }
+    return std.result.Result.ok(status_from_code(process_run(command)));
 }
 
 fn run_in(working_dir: string, command: string) -> i32 {
@@ -25,6 +41,16 @@ fn try_run_in(working_dir: string, command: string) -> std.result.Result<i32, st
         return std.result.Result.err("command must not be empty");
     }
     return std.result.Result.ok(process_run_in(working_dir, command));
+}
+
+fn try_status_in(working_dir: string, command: string) -> std.result.Result<ProcessStatus, string> {
+    if (!fs_is_dir(working_dir)) {
+        return std.result.Result.err("working directory does not exist: " + working_dir);
+    }
+    if (string_len(command) == 0) {
+        return std.result.Result.err("command must not be empty");
+    }
+    return std.result.Result.ok(status_from_code(process_run_in(working_dir, command)));
 }
 
 fn capture_in(working_dir: string, command: string) -> string {

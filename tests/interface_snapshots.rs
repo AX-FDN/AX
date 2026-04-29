@@ -4022,7 +4022,7 @@ fn project_process_result_runs_on_controlled_fixture() {
     assert_clean_stderr(&output);
     assert_eq!(
         normalize_temp_output(&string_output(&output.stdout), &temp),
-        "run_status=0\nworking directory does not exist: <root>/missing-process-result-dir\ncommand must not be empty\n"
+        "run_status=0\nstatus_success=true\nworking directory does not exist: <root>/missing-process-result-dir\ncommand must not be empty\n"
     );
 }
 

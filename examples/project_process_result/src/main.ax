@@ -11,11 +11,14 @@ fn main() -> i32 {
 
     let work_dir: string = argv_get(0);
     let ok: std.result.Result<i32, string> = std.process.try_run_in(work_dir, "exit 0");
+    let status: std.result.Result<std.process.ProcessStatus, string> = std.process.try_status_in(work_dir, "exit 0");
     let missing_dir: string = std.path.join(work_dir, "missing-process-result-dir");
     let missing: std.result.Result<i32, string> = std.process.try_run_in(missing_dir, "exit 0");
     let empty: std.result.Result<i32, string> = std.process.try_run("");
+    let status_value: std.process.ProcessStatus = std.result.unwrap_or(status, std.process.status_from_code(-1));
 
     println("run_status=" + to_string(std.result.unwrap_or(ok, -1)));
+    println("status_success=" + to_string(status_value.success));
     println(std.result.error_or(missing, "unexpected"));
     println(std.result.error_or(empty, "unexpected"));
     return std.result.unwrap_or(ok, 99);

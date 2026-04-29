@@ -27,7 +27,7 @@ P3 的目标不是一次性做完整标准库，而是先把第一版官方标�
 | `std.option` | 显式可能缺失值：`Option<T>`、`Some(T)`、`None`、基础查询与 fallback | `std/option.ax` | 只定义低熵返回值约定，不引入隐式空值或异常 |
 | `std.path` | join、parent、file name、stem、extension、resolve、文件类型辅助 | `std/path.ax`、宿主 `path_*` builtin 与 `foundation/file_kind.ax` | 路径操作和轻量分类放这里，工作区递归逻辑不放这里 |
 | `std.env` | 环境变量存在性、读取与 Result 风格安全读取 | `std/env.ax` 与宿主 `env_*` builtin | 只暴露 AX 函数，不暴露宿主环境实现 |
-| `std.process` | 命令执行、工作目录内执行、输出捕获、状态型 Result 安全接口 | `std/process.ax` 与宿主 `process_*` builtin | 保持小而明确，不引入 async 或流式进程 API |
+| `std.process` | 命令执行、工作目录内执行、输出捕获、状态型 Result 安全接口和 `ProcessStatus` | `std/process.ax` 与宿主 `process_*` builtin | 保持小而明确，不引入 async 或流式进程 API |
 | `std.report` | key/value 行、section、path stat、bool/int/string stat | `std/report.ax` 与 `foundation/report.ax` | 只放确定性文本报告构造，不放展示主题系统 |
 | `std.result` | 显式可能失败值：`Result<T,E>`、`Ok(T)`、`Err(E)`、基础查询与 fallback | `std/result.ax` | 先作为官方返回值约定，不引入 `?` 或异常系统 |
 | `std.workspace` | 工作区条目显示、深度前缀、递归扫描辅助 | `std/workspace.ax`、`foundation/workspace.ax` 与部分样例私有逻辑 | 只承接小型工具常用 workspace 输出，不做完整项目索引器 |
@@ -53,7 +53,7 @@ P3 的目标不是一次性做完整标准库，而是先把第一版官方标�
 | [`../std/fs.ax`](../std/fs.ax) | `std.fs` | 文件读取、文件写入、目录创建、目录枚举、文件大小、文件/目录存在性判断、删除文件、重命名、读侧 `try_*` 安全接口 | 第一、第二、第三、第四、第五、第八试点已用 |
 | [`../std/option.ax`](../std/option.ax) | `std.option` | `Option<T>`、`Some(T)`、`None`、静态构造 `Option.some / Option.none`、`is_some / is_none / unwrap_or` | `project_option_result` 已用 |
 | [`../std/path.ax`](../std/path.ax) | `std.path` | `join / parent / file_name / stem / extension / resolve / classify_file_kind / is_text_file` | 第一、第二、第三、第五试点已用 |
-| [`../std/process.ax`](../std/process.ax) | `std.process` | 命令执行、工作目录内执行、输出捕获与状态型 `try_run / try_run_in` | 第四、第五、第九试点已用 |
+| [`../std/process.ax`](../std/process.ax) | `std.process` | 命令执行、工作目录内执行、输出捕获、`ProcessStatus` 与状态型 `try_run / try_run_in / try_status / try_status_in` | 第四、第五、第九试点已用 |
 | [`../std/report.ax`](../std/report.ax) | `std.report` | key/value 报告、路径报告、section 片段 | 第一、第二、第三、第四、第五试点已用 |
 | [`../std/result.ax`](../std/result.ax) | `std.result` | `Result<T,E>`、`Ok(T)`、`Err(E)`、静态构造 `Result.ok / Result.err`、`is_ok / is_err / unwrap_or / error_or` | `project_option_result` 已用 |
 | [`../std/text.ax`](../std/text.ax) | `std.text` | trim、文本统计、基础 normalize | 第一、第四、第五试点已用 |
@@ -71,7 +71,7 @@ P3 的目标不是一次性做完整标准库，而是先把第一版官方标�
 | `std.fs` | `read_to_string / try_read_to_string / write_string / create_dir_all / exists / remove_file / rename / read_dir / try_read_dir / file_size / try_file_size / is_file / is_dir` | file result 与五组迁移试点 | 冻结同步文件系统薄接口与读侧 Result 安全接口；写入、删除和重命名仍不伪装成可捕获异常的 Result 接口 |
 | `std.option` | `Option<T> / Some(T) / None / Option.some / Option.none / is_some / is_none / unwrap_or` | option/result smoke | 冻结显式缺失值约定；不引入隐式 null |
 | `std.path` | `join / parent / file_name / stem / extension / resolve / classify_file_kind / is_text_file` | text normalize、directory index、release promote、command batch | 路径拼接与轻量分类可冻结；分类规则是工具语言默认策略，不等于完整 MIME / 文件类型系统 |
-| `std.process` | `run / try_run / run_in / try_run_in / capture_in` | command capture、command batch、process/result smoke | 冻结同步命令执行、状态型 Result 接口与输出捕获；不冻结 `try_capture_in`、stdout/stderr/exit-code 结构体、shell contract、async 或 streaming |
+| `std.process` | `ProcessStatus / status_from_code / run / try_run / try_status / run_in / try_run_in / try_status_in / capture_in` | command capture、command batch、process/result smoke | 冻结同步命令执行、状态型 Result 接口、基础状态结构与输出捕获；不冻结 `try_capture_in`、stdout/stderr 结构体、shell contract、async 或 streaming |
 | `std.report` | `append_line / append_string_stat / append_int_stat / append_bool_stat / append_path_stat / begin_section / append_section_details_or_none` | 五组迁移试点 | 只冻结确定性 key/value 与 section 文本报告，不做表格、主题、颜色或富文本 |
 | `std.result` | `Result<T,E> / Ok(T) / Err(E) / Result.ok / Result.err / is_ok / is_err / unwrap_or / error_or` | option/result、env/result、file/result、process/result smoke | 冻结显式失败值约定；错误传播语法与结构化错误类型后置 |
 | `std.text` | `TextStats / zero_text_stats / trim / analyze / normalize_content` | text normalize、command capture、command batch | 只冻结纯字符串处理与基础统计，不放搜索语义或文件读取 |
@@ -109,7 +109,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test
 | `std.fs` | file result 与五组迁移试点 | `project_file_result_runs_on_controlled_fixture` 覆盖 `try_read_to_string / try_read_dir / try_file_size`；五组运行夹具覆盖传统读写、目录创建、目录枚举、文件大小、存在性、删除和重命名；build source tree 确认 `std/fs.ax` 被复制 |
 | `std.option` | option/result smoke | `project_option_result_runs` 覆盖 `Option.some / Option.none / is_none / unwrap_or`；build source tree 确认 `std/option.ax` 被复制 |
 | `std.path` | text normalize、directory index、release promote、command batch、file result | 对应运行夹具覆盖 join、parent、file name、extension、resolve 与轻量分类；build source tree 确认 `std/path.ax` 被复制 |
-| `std.process` | command capture、command batch、process/result smoke | 两组命令类运行夹具覆盖 `capture_in / run / run_in`；`project_process_result_runs_on_controlled_fixture` 覆盖 `try_run / try_run_in`；build source tree 确认 `std/process.ax` 被复制 |
+| `std.process` | command capture、command batch、process/result smoke | 两组命令类运行夹具覆盖 `capture_in / run / run_in`；`project_process_result_runs_on_controlled_fixture` 覆盖 `ProcessStatus / try_run / try_run_in / try_status_in`；build source tree 确认 `std/process.ax` 被复制 |
 | `std.report` | 五组迁移试点 | 五组运行夹具覆盖 deterministic 文本报告构造；build source tree 确认 `std/report.ax` 被复制 |
 | `std.result` | option/result smoke、env/result smoke、file/result smoke、process/result smoke | `project_option_result_runs` 覆盖 `Result.ok / Result.err / is_ok / unwrap_or / error_or`；`project_env_result_runs`、`project_file_result_runs_on_controlled_fixture` 与 `project_process_result_runs_on_controlled_fixture` 覆盖宿主边界 Result 返回消费；build source tree 确认 `std/result.ax` 被复制 |
 | `std.text` | text normalize、command capture、command batch | 文本归一化、命令输出统计、batch 报告运行夹具覆盖 `trim / analyze / normalize_content` |
@@ -287,9 +287,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test
 
 当前迁移结果：
 
-- `std.process` 新增 `try_run / try_run_in`。
+- `std.process` 新增 `ProcessStatus / status_from_code / try_run / try_run_in / try_status / try_status_in`。
 - `AX.toml` 使用 `sources = ["../../std"]`。
-- `src/main.ax` 通过 `std.process.try_run / try_run_in` 和 `std.result.unwrap_or / error_or` 消费状态型进程失败返回约定。
+- `src/main.ax` 通过 `std.process.try_run / try_run_in / try_status_in`、`ProcessStatus` 和 `std.result.unwrap_or / error_or` 消费状态型进程失败返回约定。
 - interface snapshots 已覆盖该项目的 `check / run / build source tree`。
 - 本轮仍不引入 async、streaming process、结构化 stdout/stderr/exit-code、shell contract 或 `try_capture_in`。
 
