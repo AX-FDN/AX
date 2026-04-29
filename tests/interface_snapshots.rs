@@ -3494,6 +3494,7 @@ fn representative_project_examples_check_cleanly() {
         "examples/project_command_capture",
         "examples/project_command_batch",
         "examples/project_option_result",
+        "examples/project_env_result",
     ] {
         assert_project_example_checks(example_path);
     }
@@ -3972,6 +3973,17 @@ fn project_option_result_runs() {
     assert_eq!(
         normalize_text(&string_output(&output.stdout)),
         "score=5\nscore=0\ntrue\ntrue\ninvalid:bad\n"
+    );
+}
+
+#[test]
+fn project_env_result_runs() {
+    let output = run_axc([OsStr::new("run"), OsStr::new("examples/project_env_result")]);
+    assert_eq!(output.status.code(), Some(0));
+    assert_clean_stderr(&output);
+    assert_eq!(
+        normalize_text(&string_output(&output.stdout)),
+        "path_ok=true\nmissing environment variable: AX_THIS_VARIABLE_SHOULD_NOT_EXIST_7A9F3D0C\n"
     );
 }
 
@@ -5448,6 +5460,15 @@ fn project_option_result_build_copies_real_example_source_tree() {
     assert_project_example_build_sources(
         "project-option-result-build",
         "examples/project_option_result",
+        &project_sources_with_shared_std(&["src/main.ax"]),
+    );
+}
+
+#[test]
+fn project_env_result_build_copies_real_example_source_tree() {
+    assert_project_example_build_sources(
+        "project-env-result-build",
+        "examples/project_env_result",
         &project_sources_with_shared_std(&["src/main.ax"]),
     );
 }

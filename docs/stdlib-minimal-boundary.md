@@ -26,7 +26,7 @@ P3 的目标不是一次性做完整标准库，而是先把第一版官方标�
 | `std.fs` | 文件/目录存在性、读写、复制、移动、删除、重命名、目录创建、目录枚举、文件大小 | `std/fs.ax` 与宿主 `fs_*` builtin | AX 接口稳定，宿主实现细节隐藏 |
 | `std.option` | 显式可能缺失值：`Option<T>`、`Some(T)`、`None`、基础查询与 fallback | `std/option.ax` | 只定义低熵返回值约定，不引入隐式空值或异常 |
 | `std.path` | join、parent、file name、stem、extension、resolve、文件类型辅助 | `std/path.ax`、宿主 `path_*` builtin 与 `foundation/file_kind.ax` | 路径操作和轻量分类放这里，工作区递归逻辑不放这里 |
-| `std.env` | 环境变量存在性与读取 | `std/env.ax` 与宿主 `env_*` builtin | 只暴露 AX 函数，不暴露宿主环境实现 |
+| `std.env` | 环境变量存在性、读取与 Result 风格安全读取 | `std/env.ax` 与宿主 `env_*` builtin | 只暴露 AX 函数，不暴露宿主环境实现 |
 | `std.process` | 命令执行、工作目录内执行、输出捕获 | `std/process.ax` 与宿主 `process_*` builtin | 保持小而明确，不引入 async 或流式进程 API |
 | `std.report` | key/value 行、section、path stat、bool/int/string stat | `std/report.ax` 与 `foundation/report.ax` | 只放确定性文本报告构造，不放展示主题系统 |
 | `std.result` | 显式可能失败值：`Result<T,E>`、`Ok(T)`、`Err(E)`、基础查询与 fallback | `std/result.ax` | 先作为官方返回值约定，不引入 `?` 或异常系统 |
@@ -49,7 +49,7 @@ P3 的目标不是一次性做完整标准库，而是先把第一版官方标�
 | 文件 | 模块 | 当前职责 | 迁移状态 |
 | --- | --- | --- | --- |
 | [`../std/cli.ax`](../std/cli.ax) | `std.cli` | CLI 参数校验、usage、错误退出消息、输入文本校验 | 第一、第三、第四、第五试点已用 |
-| [`../std/env.ax`](../std/env.ax) | `std.env` | 环境变量存在性判断与读取 | 第四、第五试点已用 |
+| [`../std/env.ax`](../std/env.ax) | `std.env` | 环境变量存在性判断、读取与 `try_get` 安全读取 | 第四、第五、第七试点已用 |
 | [`../std/fs.ax`](../std/fs.ax) | `std.fs` | 文件读取、文件写入、目录创建、目录枚举、文件大小、文件/目录存在性判断、删除文件、重命名 | 第一、第二、第三、第四、第五试点已用 |
 | [`../std/option.ax`](../std/option.ax) | `std.option` | `Option<T>`、`Some(T)`、`None`、静态构造 `Option.some / Option.none`、`is_some / is_none / unwrap_or` | `project_option_result` 已用 |
 | [`../std/path.ax`](../std/path.ax) | `std.path` | `join / parent / file_name / stem / extension / resolve / classify_file_kind / is_text_file` | 第一、第二、第三、第五试点已用 |
@@ -67,7 +67,7 @@ P3 的目标不是一次性做完整标准库，而是先把第一版官方标�
 | 模块 | 冻结候选接口 | 已验证 workload | 冻结口径 |
 | --- | --- | --- | --- |
 | `std.cli` | `usage_error / require_min_args / exit_with_message / require_file / require_directory / require_non_empty_text / ensure_output_parent` | text normalize、directory index、release promote、command capture、command batch | 只冻结入口校验与输出父目录准备，不冻结目录重建策略 |
-| `std.env` | `has / get` | command capture、command batch | `get` 必须优先配合 `has` 使用；本轮不设计默认值、optional 或错误传播语法 |
+| `std.env` | `has / get / try_get` | command capture、command batch、env/result smoke | `get` 必须优先配合 `has` 使用；`try_get` 是第一条 Result 风格宿主边界接口；本轮不设计默认值或错误传播语法 |
 | `std.fs` | `read_to_string / write_string / create_dir_all / exists / remove_file / rename / read_dir / file_size / is_file / is_dir` | 五组迁移试点 | 只冻结同步文件系统薄接口，不引入权限模型、流式 IO、watcher 或平台细节 |
 | `std.option` | `Option<T> / Some(T) / None / Option.some / Option.none / is_some / is_none / unwrap_or` | option/result smoke | 冻结显式缺失值约定；不引入隐式 null |
 | `std.path` | `join / parent / file_name / stem / extension / resolve / classify_file_kind / is_text_file` | text normalize、directory index、release promote、command batch | 路径拼接与轻量分类可冻结；分类规则是工具语言默认策略，不等于完整 MIME / 文件类型系统 |
@@ -105,7 +105,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test
 | Std-1 候选模块 | 主要覆盖样例 | interface snapshots 覆盖点 |
 | --- | --- | --- |
 | `std.cli` | text normalize、directory index、release promote、command capture、command batch | 五组样例的 `check`，对应运行夹具，以及五组 `*_build_copies_real_example_source_tree` |
-| `std.env` | command capture、command batch | `project_command_capture_runs_on_controlled_fixture`、`project_command_batch_runs_on_controlled_fixture`、两组 build source tree |
+| `std.env` | command capture、command batch、env/result smoke | `project_command_capture_runs_on_controlled_fixture`、`project_command_batch_runs_on_controlled_fixture`、`project_env_result_runs`、三组 build source tree |
 | `std.fs` | 五组迁移试点 | 五组运行夹具覆盖读写、目录创建、目录枚举、文件大小、存在性、删除和重命名；五组 build source tree 确认 `std/fs.ax` 被复制 |
 | `std.option` | option/result smoke | `project_option_result_runs` 覆盖 `Option.some / Option.none / is_none / unwrap_or`；build source tree 确认 `std/option.ax` 被复制 |
 | `std.path` | text normalize、directory index、release promote、command batch | 对应运行夹具覆盖 join、parent、file name、extension、resolve 与轻量分类；build source tree 确认 `std/path.ax` 被复制 |
@@ -245,6 +245,21 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test
 - semantic test 已覆盖泛型 enum unit variant 在期望实例类型下的归入，例如 `let missing: Option<i32> = Option.None;`。
 - interface snapshots 已覆盖该项目的 `check / run / build source tree`。
 - 本轮没有引入 `?`、异常系统、泛型 trait 或完整错误模型。
+
+第七迁移试点：[`../examples/project_env_result/`](../examples/project_env_result/)
+
+理由：
+
+- 把 `std.result.Result<T,E>` 从纯约定推进到宿主边界接口，验证环境变量缺失可以用显式返回值承载。
+- 覆盖 `std.env.try_get` 的成功路径和缺失路径，避免继续只靠 `has/get` 组合表达失败边界。
+- 为后续 `std.fs / std.process` 的 Result 风格接口试点提供最小样板。
+
+当前迁移结果：
+
+- `AX.toml` 使用 `sources = ["../../std"]`。
+- `src/main.ax` 通过 `std.env.try_get`、`std.result.is_ok` 和 `std.result.error_or` 消费官方失败返回约定。
+- interface snapshots 已覆盖该项目的 `check / run / build source tree`。
+- 本轮仍不引入 `?`、默认值参数、异常系统或结构化错误类型。
 
 ## Rust 宿主边界
 

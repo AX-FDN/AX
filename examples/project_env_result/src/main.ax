@@ -1,0 +1,13 @@
+import std.env;
+import std.result;
+
+const MISSING_ENV_NAME: string = "AX_THIS_VARIABLE_SHOULD_NOT_EXIST_7A9F3D0C";
+
+fn main() -> i32 {
+    let path: std.result.Result<string, string> = std.env.try_get("PATH");
+    println("path_ok=" + to_string(std.result.is_ok(path)));
+
+    let missing: std.result.Result<string, string> = std.env.try_get(MISSING_ENV_NAME);
+    println(std.result.error_or(missing, "unexpected"));
+    return 0;
+}
