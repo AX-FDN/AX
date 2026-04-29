@@ -3496,6 +3496,7 @@ fn representative_project_examples_check_cleanly() {
         "examples/project_option_result",
         "examples/project_env_result",
         "examples/project_file_result",
+        "examples/project_process_result",
     ] {
         assert_project_example_checks(example_path);
     }
@@ -4004,6 +4005,24 @@ fn project_file_result_runs_on_controlled_fixture() {
     assert_eq!(
         normalize_temp_output(&string_output(&output.stdout), &temp),
         "read_ok=true\nsize=11\nparent_entries=1\nreadable file does not exist: <root>/missing-file-result-input.txt\n"
+    );
+}
+
+#[test]
+fn project_process_result_runs_on_controlled_fixture() {
+    let temp = TempDir::new("project-process-result");
+
+    let output = run_axc([
+        OsStr::new("run"),
+        OsStr::new("examples/project_process_result"),
+        OsStr::new("--"),
+        temp.path.as_os_str(),
+    ]);
+    assert_eq!(output.status.code(), Some(0));
+    assert_clean_stderr(&output);
+    assert_eq!(
+        normalize_temp_output(&string_output(&output.stdout), &temp),
+        "run_status=0\nworking directory does not exist: <root>/missing-process-result-dir\ncommand must not be empty\n"
     );
 }
 
@@ -5498,6 +5517,15 @@ fn project_file_result_build_copies_real_example_source_tree() {
     assert_project_example_build_sources(
         "project-file-result-build",
         "examples/project_file_result",
+        &project_sources_with_shared_std(&["src/main.ax"]),
+    );
+}
+
+#[test]
+fn project_process_result_build_copies_real_example_source_tree() {
+    assert_project_example_build_sources(
+        "project-process-result-build",
+        "examples/project_process_result",
         &project_sources_with_shared_std(&["src/main.ax"]),
     );
 }

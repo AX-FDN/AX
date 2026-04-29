@@ -1,11 +1,30 @@
 module std.process;
 
+import std.result;
+
 fn run(command: string) -> i32 {
     return process_run(command);
 }
 
+fn try_run(command: string) -> std.result.Result<i32, string> {
+    if (string_len(command) == 0) {
+        return std.result.Result.err("command must not be empty");
+    }
+    return std.result.Result.ok(process_run(command));
+}
+
 fn run_in(working_dir: string, command: string) -> i32 {
     return process_run_in(working_dir, command);
+}
+
+fn try_run_in(working_dir: string, command: string) -> std.result.Result<i32, string> {
+    if (!fs_is_dir(working_dir)) {
+        return std.result.Result.err("working directory does not exist: " + working_dir);
+    }
+    if (string_len(command) == 0) {
+        return std.result.Result.err("command must not be empty");
+    }
+    return std.result.Result.ok(process_run_in(working_dir, command));
 }
 
 fn capture_in(working_dir: string, command: string) -> string {
