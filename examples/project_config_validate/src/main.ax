@@ -1,0 +1,93 @@
+import std.cli;
+import std.fs;
+import std.path;
+import std.report;
+import std.result;
+
+enum ConfigError {
+    Io(string),
+    MissingField(string),
+    InvalidField(string),
+}
+
+fn from_io<T>(value: std.result.Result<T, string>) -> std.result.Result<T, ConfigError> {
+    return match (value) {
+        std.result.Result.Ok(found) => std.result.Result.Ok(found),
+        std.result.Result.Err(message) => std.result.Result.Err(ConfigError.Io(message)),
+    };
+}
+
+fn config_error_message(error: ConfigError) -> string {
+    return match (error) {
+        ConfigError.Io(message) => "io: " + message,
+        ConfigError.MissingField(name) => "missing field: " + name,
+        ConfigError.InvalidField(message) => "invalid field: " + message,
+    };
+}
+
+fn require_field(contents: string, name: string) -> std.result.Result<i32, ConfigError> {
+    if (string_contains(contents, name + "=")) {
+        return std.result.Result.ok(0);
+    }
+    return std.result.Result.err(ConfigError.MissingField(name));
+}
+
+fn reject_empty_value(contents: string, name: string) -> std.result.Result<i32, ConfigError> {
+    if (string_contains(contents, name + "=\n")) {
+        return std.result.Result.err(ConfigError.InvalidField(name + " must not be empty"));
+    }
+    return std.result.Result.ok(0);
+}
+
+fn reject_zero_port(contents: string) -> std.result.Result<i32, ConfigError> {
+    if (string_contains(contents, "port=0")) {
+        return std.result.Result.err(ConfigError.InvalidField("port must not be zero"));
+    }
+    return std.result.Result.ok(0);
+}
+
+fn validate_config(input_path: string, output_dir: string) -> std.result.Result<string, ConfigError> {
+    std.fs.create_dir_all(output_dir);
+
+    let contents: string = from_io(std.fs.try_read_to_string(input_path))?;
+    require_field(contents, "host")?;
+    require_field(contents, "port")?;
+    reject_empty_value(contents, "host")?;
+    reject_empty_value(contents, "port")?;
+    reject_zero_port(contents)?;
+
+    let mut report: string = "";
+    report = std.report.append_path_stat(report, "config", input_path);
+    report = std.report.append_bool_stat(report, "host_present", true);
+    report = std.report.append_bool_stat(report, "port_present", true);
+    report = std.report.append_int_stat(report, "bytes", string_len(contents));
+    let missing_optional: string = std.path.join(output_dir, "optional.conf");
+    let tagged_optional: std.result.Result<string, string> = std.result.prefix_error(std.fs.try_read_to_string(missing_optional), "optional config: ");
+    let replaced_optional: std.result.Result<string, string> = std.result.replace_error(std.fs.try_read_to_string(missing_optional), "optional config missing");
+    report = std.report.append_string_stat(report, "optional_tagged", std.result.error_or(tagged_optional, "none"));
+    report = std.report.append_string_stat(report, "optional_replaced", std.result.error_or(replaced_optional, "none"));
+
+    let report_path: string = std.path.join(output_dir, "CONFIG-VALIDATION.txt");
+    std.fs.write_string(report_path, report + "\n");
+    return std.result.Result.ok(report_path);
+}
+
+fn main() -> i32 {
+    let args_status: i32 = std.cli.require_min_args(argv_len(), 2, "examples/project_config_validate", "<config> <output_dir>");
+    if (args_status != 0) {
+        return args_status;
+    }
+
+    let result: std.result.Result<string, ConfigError> = validate_config(argv_get(0), argv_get(1));
+    match (result) {
+        std.result.Result.Ok(report_path) => {
+            println("config_report=" + report_path);
+            return 0;
+        }
+        std.result.Result.Err(error) => {
+            println("config_error=" + config_error_message(error));
+            return 1;
+        }
+    }
+    return 1;
+}

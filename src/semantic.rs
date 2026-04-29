@@ -1294,6 +1294,34 @@ fn main() -> i32 {
     }
 
     #[test]
+    fn infers_match_expression_enum_constructors_from_return_type() {
+        let codes = check(
+            "\
+enum Result<T, E> {
+    Ok(T),
+    Err(E),
+}
+
+enum ConfigError {
+    Io(string),
+}
+
+fn from_io<T>(value: Result<T, string>) -> Result<T, ConfigError> {
+    return match (value) {
+        Result.Ok(found) => Result.Ok(found),
+        Result.Err(error) => Result.Err(ConfigError.Io(error)),
+    };
+}
+
+fn main() -> i32 {
+    return 0;
+}
+",
+        );
+        assert!(codes.is_empty(), "unexpected diagnostics: {codes:?}");
+    }
+
+    #[test]
     fn accepts_generic_enum_unit_variant_with_expected_instance_type() {
         let codes = check(
             "\

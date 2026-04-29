@@ -1,0 +1,17 @@
+module std.collections;
+
+fn string_list_empty() -> string_list {
+    return string_list_new();
+}
+
+fn string_list_append(items: string_list, value: string) -> string_list {
+    return string_list_push(items, value);
+}
+
+fn string_list_count(items: string_list) -> i32 {
+    return len(items);
+}
+
+fn string_list_join_with(items: string_list, separator: string) -> string {
+    return string_list_join(items, separator);
+}

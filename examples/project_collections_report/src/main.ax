@@ -1,0 +1,29 @@
+import std.cli;
+import std.collections;
+import std.fs;
+import std.path;
+import std.report;
+
+fn build_report(output_dir: string) -> string {
+    std.fs.create_dir_all(output_dir);
+    let mut labels: string_list = std.collections.string_list_empty();
+    labels = std.collections.string_list_append(labels, "api");
+    labels = std.collections.string_list_append(labels, "worker");
+    labels = std.collections.string_list_append(labels, "scheduler");
+    let mut report: string = "";
+    report = std.report.append_int_stat(report, "label_count", std.collections.string_list_count(labels));
+    report = std.report.append_string_stat(report, "labels", std.collections.string_list_join_with(labels, ","));
+    let report_path: string = std.path.join(output_dir, "COLLECTIONS-REPORT.txt");
+    std.fs.write_string(report_path, report + "\n");
+    return report_path;
+}
+
+fn main() -> i32 {
+    let args_status: i32 = std.cli.require_min_args(argv_len(), 1, "examples/project_collections_report", "<output_dir>");
+    if (args_status != 0) {
+        return args_status;
+    }
+    let report_path: string = build_report(argv_get(0));
+    println("collections_report=" + report_path);
+    return 0;
+}

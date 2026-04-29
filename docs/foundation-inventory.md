@@ -11,7 +11,7 @@
 当前 P3 结论：
 
 - 保留所有现有 foundation 文件。
-- 已经有十组样例迁移或压力验证到 `std.*`，但不继续全仓改名。
+- 已经有十二组样例迁移或压力验证到 `std.*`，但不继续全仓改名。
 - 不把 Rust crate 或宿主实现细节暴露成 AX 用户接口。
 - 后续新增或迁移 helper 必须能被代表样例、宿主边界样例或 repair case 证明需要。
 - `foundation/search.ax`、`foundation/file_kind.ax` 和部分 workspace 展示 helper 继续孵化，不进入 Std-1 冻结候选。

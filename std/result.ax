@@ -30,3 +30,17 @@ fn unwrap_or<T, E>(value: Result<T, E>, fallback: T) -> T {
 fn error_or<T, E>(value: Result<T, E>, fallback: E) -> E {
     return match (value) { Result.Ok(_) => fallback, Result.Err(error) => error };
 }
+
+fn prefix_error<T>(value: Result<T, string>, prefix: string) -> Result<T, string> {
+    return match (value) {
+        Result.Ok(found) => Result.Ok(found),
+        Result.Err(error) => Result.Err(prefix + error),
+    };
+}
+
+fn replace_error<T>(value: Result<T, string>, message: string) -> Result<T, string> {
+    return match (value) {
+        Result.Ok(found) => Result.Ok(found),
+        Result.Err(_) => Result.Err(message),
+    };
+}

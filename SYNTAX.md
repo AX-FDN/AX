@@ -667,6 +667,7 @@ array_type        := "[" type_ref ";" INT "]"
 
 - `main`
 - `string_list` 类型与 `string_list_new / string_list_push / string_list_join`
+- `std.collections` 当前提供 `string_list_empty / string_list_append / string_list_count / string_list_join_with`，作为 `string_list_*` builtin 的官方源码级包装
 - 只读切片类型、切片表达式与切片索引读取
 - 局部变量
 - 变量赋值
@@ -739,7 +740,7 @@ Rules:
 - main must be exactly: fn main() -> i32 { ... }.
 - End let/assignment/expression/return/`break`/`continue` statements with semicolons.
 - Supported builtin types are bool, i32, f32, string, and string_list.
-- Builtin helpers are println(...), string_len(text), string_list_new(), string_list_push(list, value), string_list_join(list, separator), len(value), and to_string(value).
+- Builtin helpers are println(...), string_len(text), string_list_new(), string_list_push(list, value), string_list_join(list, separator), len(value), and to_string(value). `std.collections` wraps the string-list helpers for project code that imports `std/`.
 - Enum values must use `EnumName.Variant` or `EnumName.Variant(value)` when the variant declares a payload.
 - Methods are declared in `impl Type { fn name(self: Type, ...) -> Ret { ... } }`, `impl<T> Box<T> { ... }`, or `impl<T> Trait for Box<T> { ... }` blocks and called as `value.name(...)`; static inherent methods omit `self` and are called as `Type.name(...)`. Static constructor calls may use the expected return type to infer generic parameters, for example `let value: Result<i32, string> = Result.err("bad");`.
 - Traits are declared as `trait Name { fn method(self: Self) -> Ret; }` and implemented as `impl Name for Type { ... }`.

@@ -159,6 +159,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     callee.span,
                     &callee_name,
                     arguments,
+                    expected_type.as_ref(),
                 ) {
                     return result;
                 }
@@ -327,6 +328,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
         callee_span: crate::source::Span,
         callee_name: &str,
         arguments: &[Expr],
+        expected_type: Option<&Type>,
     ) -> Option<Type> {
         let (enum_path, variant) = callee_name.rsplit_once('.')?;
         let current_unit_path = self.current_unit_path().to_string();
@@ -371,16 +373,14 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             .map(|argument| self.check_expr(argument))
             .collect::<Vec<_>>();
 
-        let enum_result_type = generic_enum_result_type(
-            &resolved_enum_name,
-            self.info
-                .enums
-                .get(&resolved_enum_name)
-                .map(|info| info.type_params.as_slice())
-                .unwrap_or(&[]),
-            variant_info.payload.as_ref(),
-            argument_types.first(),
-        );
+        let type_params = self
+            .info
+            .enums
+            .get(&resolved_enum_name)
+            .map(|info| info.type_params.as_slice())
+            .unwrap_or(&[]);
+        let mut enum_substitutions =
+            expected_enum_substitutions(&resolved_enum_name, type_params, expected_type);
 
         match variant_info.payload {
             Some(payload_type) => {
@@ -404,14 +404,13 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     return Some(Type::Error);
                 }
 
-                let mut payload_substitutions = HashMap::new();
                 if !unify_generic_call_type(
                     &payload_type,
                     &argument_types[0],
-                    &mut payload_substitutions,
+                    &mut enum_substitutions,
                 ) {
                     let expected_payload =
-                        substitute_type_params(&payload_type, &payload_substitutions);
+                        substitute_type_params(&payload_type, &enum_substitutions);
                     self.expect_type_match_with_kind(
                         &expected_payload,
                         &argument_types[0],
@@ -425,7 +424,11 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     );
                 }
 
-                Some(enum_result_type)
+                Some(generic_enum_result_type(
+                    &resolved_enum_name,
+                    type_params,
+                    &enum_substitutions,
+                ))
             }
             None => {
                 self.diagnostics.push(
@@ -447,19 +450,28 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
     }
 }
 
+fn expected_enum_substitutions(
+    enum_name: &str,
+    type_params: &[String],
+    expected_type: Option<&Type>,
+) -> HashMap<String, Type> {
+    let mut substitutions = HashMap::new();
+    if let Some(Type::EnumInstance { name, args }) = expected_type
+        && name == enum_name
+        && args.len() == type_params.len()
+    {
+        substitutions.extend(type_params.iter().cloned().zip(args.iter().cloned()));
+    }
+    substitutions
+}
+
 fn generic_enum_result_type(
     enum_name: &str,
     type_params: &[String],
-    payload_type: Option<&Type>,
-    argument_type: Option<&Type>,
+    substitutions: &HashMap<String, Type>,
 ) -> Type {
     if type_params.is_empty() {
         return Type::Enum(enum_name.to_string());
-    }
-
-    let mut substitutions = HashMap::new();
-    if let (Some(payload_type), Some(argument_type)) = (payload_type, argument_type) {
-        let _ = unify_generic_call_type(payload_type, argument_type, &mut substitutions);
     }
 
     Type::EnumInstance {

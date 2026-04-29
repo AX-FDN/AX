@@ -31,7 +31,7 @@ P3 的目标不是一次性做完整标准库，而是先把第一版官方标�
 | `std.report` | key/value 行、section、path stat、bool/int/string stat | `std/report.ax` 与 `foundation/report.ax` | 只放确定性文本报告构造，不放展示主题系统 |
 | `std.result` | 显式可能失败值：`Result<T,E>`、`Ok(T)`、`Err(E)`、基础查询、fallback 与 `?` 消费形态 | `std/result.ax` | 作为官方失败返回约定，支持最小 `?` 错误传播，不引入异常系统 |
 | `std.workspace` | 工作区条目显示、深度前缀、递归扫描辅助 | `std/workspace.ax`、`foundation/workspace.ax` 与部分样例私有逻辑 | 只承接小型工具常用 workspace 输出，不做完整项目索引器 |
-| `std.collections` | `string_list` 和后续最小集合 helper | 宿主 `string_list_*` builtin | 第一版只承认已有最小集合，不提前上泛型 collections |
+| `std.collections` | `string_list` 官方源码级包装 | `std/collections.ax` 与宿主 `string_list_*` builtin | 第一版只冻结已有最小集合 helper，不提前上泛型 collections |
 
 ## Foundation 映射表
 
@@ -49,40 +49,42 @@ P3 的目标不是一次性做完整标准库，而是先把第一版官方标�
 | 文件 | 模块 | 当前职责 | 迁移状态 |
 | --- | --- | --- | --- |
 | [`../std/cli.ax`](../std/cli.ax) | `std.cli` | CLI 参数校验、usage、错误退出消息、输入文本校验 | 第一、第三、第四、第五、第十试点已用 |
+| [`../std/collections.ax`](../std/collections.ax) | `std.collections` | `string_list_empty / string_list_append / string_list_count / string_list_join_with` | 第十二集合试点已用 |
 | [`../std/env.ax`](../std/env.ax) | `std.env` | 环境变量存在性判断、读取与 `try_get` 安全读取 | 第四、第五、第七、第十试点已用 |
 | [`../std/fs.ax`](../std/fs.ax) | `std.fs` | 文件读取、文件写入、目录创建、目录枚举、文件大小、文件/目录存在性判断、删除文件、重命名、读侧 `try_*` 安全接口 | 第一、第二、第三、第四、第五、第八、第十试点已用 |
 | [`../std/option.ax`](../std/option.ax) | `std.option` | `Option<T>`、`Some(T)`、`None`、静态构造 `Option.some / Option.none`、`is_some / is_none / unwrap_or` | `project_option_result` 已用 |
 | [`../std/path.ax`](../std/path.ax) | `std.path` | `join / parent / file_name / stem / extension / resolve / classify_file_kind / is_text_file` | 第一、第二、第三、第五、第十试点已用 |
 | [`../std/process.ax`](../std/process.ax) | `std.process` | 命令执行、工作目录内执行、输出捕获、`ProcessStatus` 与状态型 `try_run / try_run_in / try_status / try_status_in` | 第四、第五、第九、第十试点已用 |
 | [`../std/report.ax`](../std/report.ax) | `std.report` | key/value 报告、路径报告、section 片段 | 第一、第二、第三、第四、第五、第十试点已用 |
-| [`../std/result.ax`](../std/result.ax) | `std.result` | `Result<T,E>`、`Ok(T)`、`Err(E)`、静态构造 `Result.ok / Result.err`、`is_ok / is_err / unwrap_or / error_or` | `project_option_result` 与第七到第十 Result 试点已用 |
+| [`../std/result.ax`](../std/result.ax) | `std.result` | `Result<T,E>`、`Ok(T)`、`Err(E)`、静态构造 `Result.ok / Result.err`、`is_ok / is_err / unwrap_or / error_or / prefix_error / replace_error` | `project_option_result` 与第七到第十一 Result 试点已用 |
 | [`../std/text.ax`](../std/text.ax) | `std.text` | trim、文本统计、基础 normalize | 第一、第四、第五试点已用 |
 | [`../std/workspace.ax`](../std/workspace.ax) | `std.workspace` | workspace 条目行、深度前缀、展示 label | 第二试点已用 |
 
 ## Std-1 冻结候选清单
 
-十组迁移/压力试点完成后，第一版 Std-1 不再继续按“看到 helper 就迁移”的方式扩张。
+十二组迁移/压力试点完成后，第一版 Std-1 不再继续按“看到 helper 就迁移”的方式扩张。
 当前冻结候选只包括已经被 project-backed workload 消费、并进入 `check / run / build` 或 interface snapshots 回归的接口。
 
 | 模块 | 冻结候选接口 | 已验证 workload | 冻结口径 |
 | --- | --- | --- | --- |
 | `std.cli` | `usage_error / require_min_args / exit_with_message / require_file / require_directory / require_non_empty_text / ensure_output_parent` | text normalize、directory index、release promote、command capture、command batch、result pipeline | 只冻结入口校验与输出父目录准备，不冻结目录重建策略 |
+| `std.collections` | `string_list_empty / string_list_append / string_list_count / string_list_join_with` | collections report smoke | 冻结 `string_list` 的官方包装入口；不冻结泛型 list/map/set、iterator、排序或高阶函数 |
 | `std.env` | `has / get / try_get` | command capture、command batch、env/result smoke、result pipeline | `get` 必须优先配合 `has` 使用；`try_get` 是第一条 Result 风格宿主边界接口，并可被 `?` 消费；本轮不设计默认值 |
 | `std.fs` | `read_to_string / try_read_to_string / write_string / create_dir_all / exists / remove_file / rename / read_dir / try_read_dir / file_size / try_file_size / is_file / is_dir` | file result、result pipeline 与五组迁移试点 | 冻结同步文件系统薄接口与读侧 Result 安全接口；写入、删除和重命名仍不伪装成可捕获异常的 Result 接口 |
 | `std.option` | `Option<T> / Some(T) / None / Option.some / Option.none / is_some / is_none / unwrap_or` | option/result smoke | 冻结显式缺失值约定；不引入隐式 null |
 | `std.path` | `join / parent / file_name / stem / extension / resolve / classify_file_kind / is_text_file` | text normalize、directory index、release promote、command batch、result pipeline | 路径拼接与轻量分类可冻结；分类规则是工具语言默认策略，不等于完整 MIME / 文件类型系统 |
 | `std.process` | `ProcessStatus / status_from_code / run / try_run / try_status / run_in / try_run_in / try_status_in / capture_in` | command capture、command batch、process/result smoke、result pipeline | 冻结同步命令执行、状态型 Result 接口、基础状态结构与输出捕获；不冻结 `try_capture_in`、stdout/stderr 结构体、shell contract、async 或 streaming |
 | `std.report` | `append_line / append_string_stat / append_int_stat / append_bool_stat / append_path_stat / begin_section / append_section_details_or_none` | 五组迁移试点与 result pipeline | 只冻结确定性 key/value 与 section 文本报告，不做表格、主题、颜色或富文本 |
-| `std.result` | `Result<T,E> / Ok(T) / Err(E) / Result.ok / Result.err / is_ok / is_err / unwrap_or / error_or / expr?` | option/result、env/result、file/result、process/result、result propagation、result pipeline smoke | 冻结显式失败值约定与最小错误传播语法；结构化错误类型后置 |
+| `std.result` | `Result<T,E> / Ok(T) / Err(E) / Result.ok / Result.err / is_ok / is_err / unwrap_or / error_or / prefix_error / replace_error / expr?` | option/result、env/result、file/result、process/result、result propagation、result pipeline、config validate smoke | 冻结显式失败值约定、最小错误传播语法和 string 错误标注 helper；结构化错误类型继续由项目级 enum 先试点 |
 | `std.text` | `TextStats / zero_text_stats / trim / analyze / normalize_content` | text normalize、command capture、command batch | 只冻结纯字符串处理与基础统计，不放搜索语义或文件读取 |
 | `std.workspace` | `display_label / depth_prefix / append_workspace_line` | directory index、command batch | 只冻结 workspace 展示辅助，不冻结递归扫描、索引策略或搜索策略 |
 
-当前 `std.collections` 只作为命名空间方向保留，不进入 Std-1 冻结候选。
-原因是仓库目前依赖的是宿主 `string_list_*` builtin，而不是 `std/collections.ax` 源码模块；它需要等更多集合 workload 或泛型路线明确后再启动。
+当前 `std.collections` 只冻结 `string_list` 的最小源码级包装，不进入泛型 collections。
+原因是仓库目前只有宿主 `string_list_*` builtin 和一个 project-backed workload；泛型 list/map/set 需要等更多集合 workload 或泛型路线明确后再启动。
 
 ## Std-1 候选验证入口
 
-Std-1 当前不是靠“文档声明”冻结，而是靠十组 project-backed 样例和 interface snapshots 共同保护。
+Std-1 当前不是靠“文档声明”冻结，而是靠十二组 project-backed 样例和 interface snapshots 共同保护。
 验证入口固定为下面三层：
 
 ```powershell
@@ -94,7 +96,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test
 三层含义分别是：
 
 - `representative_project_examples_check_cleanly`
-  快速确认十组 Std-1 试点/压力项目都还能 `check`。
+  快速确认十二组 Std-1 试点/压力项目都还能 `check`。
 - 单个 `project_*` filter
   局部确认某个试点的 `run` 夹具和 `build` source tree 快照。
 - 完整 `interface_snapshots`
@@ -105,13 +107,14 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test
 | Std-1 候选模块 | 主要覆盖样例 | interface snapshots 覆盖点 |
 | --- | --- | --- |
 | `std.cli` | text normalize、directory index、release promote、command capture、command batch、file result、process result、result pipeline | 八组样例的 `check`，对应运行夹具，以及八组 `*_build_copies_real_example_source_tree` |
+| `std.collections` | collections report | `project_collections_report_runs_on_controlled_fixture` 覆盖 `string_list_empty / append / count / join_with`；build source tree 确认 `std/collections.ax` 被复制 |
 | `std.env` | command capture、command batch、env/result smoke、result pipeline | `project_command_capture_runs_on_controlled_fixture`、`project_command_batch_runs_on_controlled_fixture`、`project_env_result_runs`、`project_result_pipeline_runs_on_controlled_fixture`、四组 build source tree |
 | `std.fs` | file result、result pipeline 与五组迁移试点 | `project_file_result_runs_on_controlled_fixture` 覆盖 `try_read_to_string / try_read_dir / try_file_size`；`project_result_pipeline_runs_on_controlled_fixture` 覆盖读侧 `Result` 与报告写入组合；五组运行夹具覆盖传统读写、目录创建、目录枚举、文件大小、存在性、删除和重命名；build source tree 确认 `std/fs.ax` 被复制 |
 | `std.option` | option/result smoke | `project_option_result_runs` 覆盖 `Option.some / Option.none / is_none / unwrap_or`；build source tree 确认 `std/option.ax` 被复制 |
 | `std.path` | text normalize、directory index、release promote、command batch、file result、result pipeline | 对应运行夹具覆盖 join、parent、file name、extension、resolve 与轻量分类；build source tree 确认 `std/path.ax` 被复制 |
 | `std.process` | command capture、command batch、process/result smoke、result pipeline | 两组命令类运行夹具覆盖 `capture_in / run / run_in`；`project_process_result_runs_on_controlled_fixture` 与 `project_result_pipeline_runs_on_controlled_fixture` 覆盖 `ProcessStatus / try_run / try_run_in / try_status_in`；build source tree 确认 `std/process.ax` 被复制 |
 | `std.report` | 五组迁移试点、result pipeline | 六组运行夹具覆盖 deterministic 文本报告构造；build source tree 确认 `std/report.ax` 被复制 |
-| `std.result` | option/result smoke、env/result smoke、file/result smoke、process/result smoke、result pipeline | `project_option_result_runs` 覆盖 `Result.ok / Result.err / is_ok / unwrap_or / error_or`；`project_env_result_runs`、`project_file_result_runs_on_controlled_fixture`、`project_process_result_runs_on_controlled_fixture` 与 `project_result_pipeline_runs_on_controlled_fixture` 覆盖宿主边界 Result 返回消费；build source tree 确认 `std/result.ax` 被复制 |
+| `std.result` | option/result smoke、env/result smoke、file/result smoke、process/result smoke、result pipeline、config validate | `project_option_result_runs` 覆盖 `Result.ok / Result.err / is_ok / unwrap_or / error_or`；`project_env_result_runs`、`project_file_result_runs_on_controlled_fixture`、`project_process_result_runs_on_controlled_fixture` 与 `project_result_pipeline_runs_on_controlled_fixture` 覆盖宿主边界 Result 返回消费；`project_config_validate_runs_on_controlled_fixture` 覆盖项目级 error enum 转换后继续用 `?` 传播；build source tree 确认 `std/result.ax` 被复制 |
 | `std.text` | text normalize、command capture、command batch | 文本归一化、命令输出统计、batch 报告运行夹具覆盖 `trim / analyze / normalize_content` |
 | `std.workspace` | directory index、command batch | 目录索引和 batch 报告运行夹具覆盖 workspace 行输出与深度展示；build source tree 确认 `std/workspace.ax` 被复制 |
 
@@ -309,6 +312,36 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test
 - interface snapshots 已覆盖该项目的 `check / run / build source tree`。
 - 本轮仍不引入异常系统、结构化错误类型、`try_capture_in` 或隐式错误类型转换；`?` 只作为 `Result` 形状的显式提前返回语法。
 
+第十一迁移/压力试点：[`../examples/project_config_validate/`](../examples/project_config_validate/)
+
+理由：
+
+- 把错误传播从统一 `string` 错误推进到项目级 `ConfigError` enum，验证 AX 后端工具常见的分层错误模型。
+- 通过 `from_io<T>` 把 `std.fs.try_read_to_string` 的宿主 string 错误显式转换为 `ConfigError.Io`，再用 `?` 在同一函数内传播。
+- 同时验证 `std.cli / std.fs / std.path / std.report / std.result` 可以承载配置校验、报告输出和失败路径。
+
+当前迁移结果：
+
+- `AX.toml` 使用 `sources = ["../../std"]`。
+- `src/main.ax` 定义 `ConfigError.Io / MissingField / InvalidField`，成功路径生成 `CONFIG-VALIDATION.txt`，失败路径输出稳定 `config_error=...`。
+- interface snapshots 已覆盖该项目的 `check / run / build source tree`。
+- 当前边界：项目级 error enum 仍靠显式转换 helper，不做隐式 `From`、异常系统、try/catch 或错误 trait。
+
+第十二迁移/压力试点：[`../examples/project_collections_report/`](../examples/project_collections_report/)
+
+理由：
+
+- 把宿主 `string_list_*` builtin 收口到 `std.collections` 源码模块，避免用户侧继续直接依赖裸 builtin 名称。
+- 用真实报告工具验证 `string_list_empty / string_list_append / string_list_count / string_list_join_with` 的最小集合边界。
+- 同时验证 `std.cli / std.collections / std.fs / std.path / std.report` 可以组合成稳定的 project-backed workload。
+
+当前迁移结果：
+
+- `AX.toml` 使用 `sources = ["../../std"]`。
+- `src/main.ax` 通过 `std.collections` 组装标签列表，生成 `COLLECTIONS-REPORT.txt`。
+- interface snapshots 已覆盖该项目的 `check / run / build source tree`。
+- 当前边界：只冻结 `string_list` 包装，不做泛型 list/map/set、iterator、排序、高阶函数或集合 trait。
+
 ## Rust 宿主边界
 
 用户视角只能看到 AX 标准接口：
@@ -317,6 +350,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test
 - `std.path.*`
 - `std.env.*`
 - `std.process.*`
+- `std.collections.*`
 - `std.option.*`
 - `std.result.*`
 - `std.text.*`

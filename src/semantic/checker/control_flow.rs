@@ -100,6 +100,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
         scrutinee: &Expr,
         arms: &[MatchExprArm],
     ) -> Type {
+        let expected_result_type = self.take_expected_type();
         let cases = arms
             .iter()
             .map(|arm| MatchCase {
@@ -112,13 +113,18 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
         let mut result_type = None::<Type>;
         for arm in arms {
             self.check_match_arm_guard(&coverage.scrutinee_type, &arm.pattern, arm.guard.as_ref());
-            let arm_type =
-                self.check_match_expression_arm(&coverage.scrutinee_type, &arm.pattern, &arm.value);
+            let arm_expected_type = expected_result_type.as_ref().or(result_type.as_ref());
+            let arm_type = self.check_match_expression_arm(
+                &coverage.scrutinee_type,
+                &arm.pattern,
+                &arm.value,
+                arm_expected_type,
+            );
             if arm_type.is_error() {
                 continue;
             }
 
-            if let Some(expected_type) = &result_type {
+            if let Some(expected_type) = expected_result_type.as_ref().or(result_type.as_ref()) {
                 self.expect_type_match_with_kind(
                     expected_type,
                     &arm_type,
@@ -138,7 +144,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
 
         self.report_match_exhaustiveness(expr.span, &coverage);
 
-        result_type.unwrap_or(Type::Error)
+        expected_result_type.or(result_type).unwrap_or(Type::Error)
     }
 
     pub(super) fn check_return_statement(&mut self, statement: &Stmt, value: Option<&Expr>) {
@@ -879,10 +885,15 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
         scrutinee_type: &Type,
         pattern: &MatchPattern,
         value: &Expr,
+        expected_type: Option<&Type>,
     ) -> Type {
         self.scopes.push(HashMap::new());
         self.declare_match_binding(scrutinee_type, pattern);
-        let ty = self.check_expr(value);
+        let ty = if let Some(expected_type) = expected_type {
+            self.check_expr_with_expected(value, expected_type)
+        } else {
+            self.check_expr(value)
+        };
         self.scopes.pop();
         ty
     }

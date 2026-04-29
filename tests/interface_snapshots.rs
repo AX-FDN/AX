@@ -585,6 +585,7 @@ const SHARED_FOUNDATION_PROJECT_SOURCES: &[&str] = &[
 
 const SHARED_STD_PROJECT_SOURCES: &[&str] = &[
     "external/std/cli.ax",
+    "external/std/collections.ax",
     "external/std/env.ax",
     "external/std/fs.ax",
     "external/std/option.ax",
@@ -3562,6 +3563,8 @@ fn representative_project_examples_check_cleanly() {
         "examples/project_file_result",
         "examples/project_process_result",
         "examples/project_result_pipeline",
+        "examples/project_config_validate",
+        "examples/project_collections_report",
     ] {
         assert_project_example_checks(example_path);
     }
@@ -4116,6 +4119,76 @@ fn project_result_pipeline_runs_on_controlled_fixture() {
     assert_eq!(
         normalize_temp_output(&report, &temp),
         "input=<root>/input.txt\ninput_len=11\nenv_path_ok=true\nprocess_success=true\nprocess_code=0\nmissing_error=readable file does not exist: <root>/missing-result-pipeline.txt\n"
+    );
+}
+
+#[test]
+fn project_config_validate_runs_on_controlled_fixture() {
+    let temp = TempDir::new("project-config-validate");
+    let config_path = temp.write("app.conf", "host=localhost\nport=8080\n");
+    let output_dir = temp.join("out");
+
+    let output = run_axc([
+        OsStr::new("run"),
+        OsStr::new("examples/project_config_validate"),
+        OsStr::new("--"),
+        config_path.as_os_str(),
+        output_dir.as_os_str(),
+    ]);
+    assert_eq!(output.status.code(), Some(0));
+    assert_clean_stderr(&output);
+    assert_eq!(
+        normalize_temp_output(&string_output(&output.stdout), &temp),
+        "config_report=<root>/out/CONFIG-VALIDATION.txt\n"
+    );
+
+    let report = fs::read_to_string(output_dir.join("CONFIG-VALIDATION.txt"))
+        .expect("config validation report should be written");
+    assert_eq!(
+        normalize_temp_output(&report, &temp),
+        "config=<root>/app.conf\nhost_present=true\nport_present=true\nbytes=25\noptional_tagged=optional config: readable file does not exist: <root>/out/optional.conf\noptional_replaced=optional config missing\n"
+    );
+
+    let bad_config_path = temp.write("missing-port.conf", "host=localhost\n");
+    let bad_output_dir = temp.join("bad-out");
+    let bad_output = run_axc([
+        OsStr::new("run"),
+        OsStr::new("examples/project_config_validate"),
+        OsStr::new("--"),
+        bad_config_path.as_os_str(),
+        bad_output_dir.as_os_str(),
+    ]);
+    assert_eq!(bad_output.status.code(), Some(1));
+    assert_clean_stderr(&bad_output);
+    assert_eq!(
+        normalize_temp_output(&string_output(&bad_output.stdout), &temp),
+        "config_error=missing field: port\n"
+    );
+}
+
+#[test]
+fn project_collections_report_runs_on_controlled_fixture() {
+    let temp = TempDir::new("project-collections-report");
+    let output_dir = temp.join("out");
+
+    let output = run_axc([
+        OsStr::new("run"),
+        OsStr::new("examples/project_collections_report"),
+        OsStr::new("--"),
+        output_dir.as_os_str(),
+    ]);
+    assert_eq!(output.status.code(), Some(0));
+    assert_clean_stderr(&output);
+    assert_eq!(
+        normalize_temp_output(&string_output(&output.stdout), &temp),
+        "collections_report=<root>/out/COLLECTIONS-REPORT.txt\n"
+    );
+
+    let report = fs::read_to_string(output_dir.join("COLLECTIONS-REPORT.txt"))
+        .expect("collections report should be written");
+    assert_eq!(
+        normalize_temp_output(&report, &temp),
+        "label_count=3\nlabels=api,worker,scheduler\n"
     );
 }
 
@@ -5642,6 +5715,24 @@ fn project_result_pipeline_build_copies_real_example_source_tree() {
     assert_project_example_build_sources(
         "project-result-pipeline-build",
         "examples/project_result_pipeline",
+        &project_sources_with_shared_std(&["src/main.ax"]),
+    );
+}
+
+#[test]
+fn project_config_validate_build_copies_real_example_source_tree() {
+    assert_project_example_build_sources(
+        "project-config-validate-build",
+        "examples/project_config_validate",
+        &project_sources_with_shared_std(&["src/main.ax"]),
+    );
+}
+
+#[test]
+fn project_collections_report_build_copies_real_example_source_tree() {
+    assert_project_example_build_sources(
+        "project-collections-report-build",
+        "examples/project_collections_report",
         &project_sources_with_shared_std(&["src/main.ax"]),
     );
 }

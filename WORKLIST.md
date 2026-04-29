@@ -41,7 +41,7 @@
 - `P0` 是地基修复层，当前只剩入口口径收口
 - `P1` 是编译器护城河同步硬化层，当前 context / benchmark / public claims 已完成，下一轮增长点登记为 `Repair Archaeology v0`
 - `P2` 是语言内核主施工层，当前代表样例、宿主边界和语法优先级已完成冻结
-- `P3` 是第一版标准库冻结试点层，当前已完成 `project_text_normalize`、`project_directory_index`、`project_release_promote`、`project_command_capture`、`project_command_batch`、`project_option_result`、`project_env_result`、`project_file_result`、`project_process_result`、`project_result_pipeline` 十组 `std.*` 迁移/压力试点
+- `P3` 是第一版标准库冻结试点层，当前已完成 `project_text_normalize`、`project_directory_index`、`project_release_promote`、`project_command_capture`、`project_command_batch`、`project_option_result`、`project_env_result`、`project_file_result`、`project_process_result`、`project_result_pipeline`、`project_config_validate`、`project_collections_report` 十二组 `std.*` 迁移/压力试点
 
 ## 状态说明
 
@@ -59,7 +59,7 @@
 - `P1` 的 context-enabled repair export、benchmark 展示页和公开口径边界已经成立
 - `P2` 当前出口已经完成，语言内核主代表样例、宿主边界样例、第一项 `match` 语法线和 `Result` 错误传播 `?` 第一版已经进入回归
 - `P3` 前置边界已经完成，`project_text_normalize` 已作为第一组 `foundation -> std.*` 迁移试点完成第一轮闭环
-- 当前 `P0 / P1 / P2` 本轮出口均已完成，`P3` 已完成十组样例迁移/压力试点，`std.process / std.env` 已通过宿主边界样例验证，`std.env.try_get`、读侧 `std.fs.try_*` 与状态型 `std.process.try_*` 已启动 Result 风格宿主边界试点，`project_result_pipeline` 已把这些接口组合成 `Result` 错误传播 `?` 的真实压力样例，`std.option / std.result` 已通过跨模块泛型 enum smoke 验证，第一版 `std.*` 冻结候选清单已收口
+- 当前 `P0 / P1 / P2` 本轮出口均已完成，`P3` 已完成十二组样例迁移/压力试点，`std.process / std.env` 已通过宿主边界样例验证，`std.env.try_get`、读侧 `std.fs.try_*` 与状态型 `std.process.try_*` 已启动 Result 风格宿主边界试点，`project_result_pipeline` 已把这些接口组合成 `Result` 错误传播 `?` 的真实压力样例，`project_config_validate` 已把宿主 string 错误显式转换为项目级 error enum，`project_collections_report` 已把宿主 `string_list_*` 收口到 `std.collections` 源码级包装，`std.option / std.result` 已通过跨模块泛型 enum smoke 验证，第一版 `std.*` 冻结候选清单已收口
 
 当前优先级顺序固定为：
 
@@ -74,13 +74,15 @@
    - `project_file_result` 已验证 `std.fs.try_read_to_string / try_read_dir / try_file_size` 与 `std.result` 的读侧文件系统边界组合
    - `project_process_result` 已验证 `std.process.try_run / try_run_in` 与 `std.result` 的状态型进程边界组合
    - `project_result_pipeline` 已验证 `std.fs / std.env / std.process` 三类宿主边界 `Result` 在同一工具流水线里的显式消费成本
+   - `project_config_validate` 已验证项目级 `ConfigError` enum、显式错误转换 helper 和 `?` 可以组合成真实配置校验工具
+   - `project_collections_report` 已验证 `std.collections` 对 `string_list` 的最小源码级包装可以承载真实报告工具
    - `std.*` 第一版接口冻结候选已收口，冻结候选验证入口与文档入口已补强
    - 继续保持 `foundation/` 作为未迁移样例的 Std-0 孵化层
 2. 暂不启动 P4 AOT、P5 包接口、JIT、自举或三方库桥接
 3. 下一步回到 `Repair Archaeology v0`，先做 artifact schema 与最小 Markdown 报告入口，不启动 Live Repair Stream、真实 LLM 或 UI
 4. 任何下一轮实现都必须继续回写 examples、diagnostics、context、repair/benchmark 或 interface snapshots
 
-当前判断：P1 这一轮的基础链路已经完成，P3 的十组 Std-1 迁移/压力试点、冻结候选和验证入口也已经收口。下一步可以回到 P1 的 `Repair Archaeology v0`，把已有 replay / score / compare 事实做成 case 级可解释产物；错误传播语法已以 `project_result_pipeline` 暴露出的显式 `Result + match` 成本为输入，落地为最小 `expr?`，后续只围绕真实样例继续补强，不直接照搬异常或隐式转换模型。
+当前判断：P1 这一轮的基础链路已经完成，P3 的十二组 Std-1 迁移/压力试点、冻结候选和验证入口也已经收口。下一步可以回到 P1 的 `Repair Archaeology v0`，把已有 replay / score / compare 事实做成 case 级可解释产物；错误传播语法已以 `project_result_pipeline` 暴露出的显式 `Result + match` 成本为输入，落地为最小 `expr?`，并通过 `project_config_validate` 开始验证项目级 error enum；集合能力先以 `std.collections` 包装 `string_list`，不提前承诺泛型 list/map。
 
 ## 阶段承接图
 
@@ -762,11 +764,11 @@
     - `project_command_batch` 的 `check / run / build` 和对应 interface snapshots 通过
 
 - [x] `W-P3-14` 收口第一版 `std.*` 冻结候选清单
-  - 目标：前五组迁移试点完成后，先判断哪些接口可以进入 Std-1 冻结候选，哪些仍留在 `foundation/` 继续孵化；后续第六到第十组试点继续验证 `Option / Result` 与宿主边界组合，不扩大 Std-1 命名空间。
+  - 目标：前五组迁移试点完成后，先判断哪些接口可以进入 Std-1 冻结候选，哪些仍留在 `foundation/` 继续孵化；后续第六到第十二组试点继续验证 `Option / Result`、项目级错误 enum、`std.collections` 与宿主边界组合，不盲目扩大 Std-1 命名空间。
   - 依赖：`W-P3-07` 到 `W-P3-13`
   - 当前结果：
-    - `docs/stdlib-minimal-boundary.md` 已写清 `std.cli / std.env / std.fs / std.path / std.process / std.report / std.text / std.workspace` 的 Std-1 冻结候选接口
-    - `docs/stdlib-minimal-boundary.md` 已写清 `std.collections` 不进入当前冻结候选，因为还没有 `std/collections.ax` 源码模块
+    - `docs/stdlib-minimal-boundary.md` 已写清 `std.cli / std.collections / std.env / std.fs / std.path / std.process / std.report / std.text / std.workspace` 的 Std-1 冻结候选接口
+    - `docs/stdlib-minimal-boundary.md` 已写清 `std.collections` 当前只冻结 `string_list` 源码级包装，不提前承诺泛型 list/map/set
     - `docs/foundation-inventory.md` 已更新为 P3 迁移后的孵化层事实
     - `foundation/search.ax`、`foundation/file_kind.ax` 的 searchable/markdown 分类、`foundation/workspace.ax` 的 `append_named_line` 和目录重建策略继续孵化
   - 本轮仍不做：
@@ -849,7 +851,7 @@
     - 样例组合消费 `std.fs.try_read_to_string`、`std.env.try_get`、`std.process.try_status_in`、`std.result`、`std.report`、`std.path` 和 `std.cli`
     - 输出稳定 `RESULT-PIPELINE.txt`，记录输入长度、环境变量可用性、进程状态和缺失文件错误
     - interface snapshots 覆盖 `check / run / build source tree`
-    - `docs/stdlib-minimal-boundary.md`、`docs/validation-matrix.md`、`docs/interface-contracts.md`、`PROJECT_FACTS.md` 与 `SYNTAX.md` 已同步十组样例口径
+    - `docs/stdlib-minimal-boundary.md`、`docs/validation-matrix.md`、`docs/interface-contracts.md`、`PROJECT_FACTS.md` 与 `SYNTAX.md` 已同步十二组样例口径
   - 当前不做：
     - 不引入异常系统或结构化错误类型
     - 不引入 `try_capture_in`
@@ -979,6 +981,10 @@
   - 代表样例：`examples/result_propagation.ax` 与 `examples/project_result_pipeline/`
   - repair 证据：`examples/result_propagation_non_result.ax` 覆盖 `S0053`，`examples/result_propagation_outside_result.ax` 覆盖 `S0054`，二者都进入 full manifest 与 shared replay candidate
   - 当前边界：只支持 `Result` 形状的 `Ok(T) / Err(E)`，当前函数必须返回兼容 `Result<_, E>`；不做隐式错误转换、异常系统、try/catch、结构化错误层级或 AOT 执行语义承诺
+- [x] `Q-P6-02l` 项目级错误 enum 与显式错误转换第一刀
+  - 状态：`examples/project_config_validate/` 已定义 `ConfigError.Io / MissingField / InvalidField`，通过 `from_io<T>` 把宿主 string 错误显式转换为项目错误，再用 `?` 传播
+  - 已覆盖：`std.result.prefix_error / replace_error`、project-backed config validate 样例、match 表达式 arm 的 return-context 泛型 enum 推断、interface snapshot、Std-1 边界文档、README
+  - 当前边界：不做隐式 `From`、错误 trait、异常系统或 try/catch；不同错误类型必须先显式转换，再用 `?` 或 `match` 传播
 - [ ] `Q-P7-01` 闭包 / lambda
 - [ ] `Q-P7-02` async / await
 

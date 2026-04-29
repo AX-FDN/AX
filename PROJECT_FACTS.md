@@ -91,7 +91,7 @@ AX 当前优先服务四类能被仓库直接验证的场景：
 - host runtime boundary：已开始收紧，但仍是当前最重要的持续硬化方向之一
 - `src/ai.rs` 的规则触发：正在从文案匹配继续迁移到更稳定的内部语义标签
 - `build`：当前仍是 backend 前的构建骨架，不应被表述成成熟 native compiler
-- `std/`：当前已启动第一批标准库试点模块，并已由 `project_text_normalize`、`project_directory_index`、`project_release_promote`、`project_command_capture`、`project_command_batch`、`project_option_result`、`project_env_result`、`project_file_result`、`project_process_result`、`project_result_pipeline` 十组真实样例消费；Std-1 冻结候选清单已在 [`docs/stdlib-minimal-boundary.md`](./docs/stdlib-minimal-boundary.md) 收口，但还不是完整官方标准库
+- `std/`：当前已启动第一批标准库试点模块，并已由 `project_text_normalize`、`project_directory_index`、`project_release_promote`、`project_command_capture`、`project_command_batch`、`project_option_result`、`project_env_result`、`project_file_result`、`project_process_result`、`project_result_pipeline`、`project_config_validate`、`project_collections_report` 十二组真实样例消费；Std-1 冻结候选清单已在 [`docs/stdlib-minimal-boundary.md`](./docs/stdlib-minimal-boundary.md) 收口，但还不是完整官方标准库
 - `foundation/`：当前仍是 Std-0 孵化层，负责承载尚未迁移的样例和未充分验证的 helper，尤其是搜索、markdown/searchable 文件分类和目录重建策略
 - `Repair Archaeology v0`：当前是规划中的证据链展示层，还没有实现导出脚本或 `axc` 命令；它不代表 live-model benchmark 已经完成
 

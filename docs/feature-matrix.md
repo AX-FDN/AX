@@ -16,7 +16,7 @@
 | `P0` 环境与契约修复 | `[~]` 文档治理与契约治理已基本收口，Windows GNU 本地验证路径已固定，剩余工作在验证矩阵与快照契约 |
 | `P1` 编译器护城河 | `[x]` repair/context/benchmark 已进入主线，context-enabled export、benchmark showcase 与公开口径边界已成立 |
 | `P2` 语言内核 / 可写项目能力 | `[~]` 已进入后段，但不等于“工具语言完成”；当前仍在继续补齐支撑标准库、后端与 AI 生成稳定性的通用语言表面 |
-| `P3` 官方最小标准库 | `[~]` 已启动第一批 `std.*` AX 源码模块，已完成十组 project-backed 迁移/压力试点，并已收口 Std-1 冻结候选清单；尚未全仓冻结 |
+| `P3` 官方最小标准库 | `[~]` 已启动第一批 `std.*` AX 源码模块，已完成十二组 project-backed 迁移/压力试点，并已收口 Std-1 冻结候选清单；尚未全仓冻结 |
 | `P4+` AOT / 包接口 / 自举 / 生态 | `[ ]` 已在 `PLAN.md` 定义，但不属于当前已完成能力 |
 
 ## 总览
@@ -91,7 +91,7 @@
 - 当前 `foundation/` 仍是 Std-0 孵化层。
 - 当前 `std/` 已经有第一批 AX 源码模块，并由 `project_text_normalize`、`project_directory_index`、`project_release_promote`、`project_command_capture`、`project_command_batch`、`project_option_result`、`project_env_result`、`project_file_result`、`project_process_result` 与 `project_result_pipeline` 消费。
 - Std-1 冻结候选清单已经收口到 `std.cli / std.env / std.fs / std.option / std.path / std.process / std.report / std.result / std.text / std.workspace`，但这不等于完整标准库已经冻结。
-- `std.collections`、`std.search`、网络、并发和第三方包接口仍然后置。
+- 泛型 `std.collections`、`std.search`、网络、并发和第三方包接口仍然后置；当前 `std.collections` 只冻结 `string_list` 的最小包装。
 
 ### 4. Linux core support 不等于三平台同级成熟
 

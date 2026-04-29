@@ -170,6 +170,7 @@ Stable for the current P3 freeze candidate:
 
 - project-backed examples can import `std.*` through `AX.toml sources = ["../../std", ...]`
 - build source snapshots include `external/std/cli.ax`
+- build source snapshots include `external/std/collections.ax`
 - build source snapshots include `external/std/env.ax`
 - build source snapshots include `external/std/fs.ax`
 - build source snapshots include `external/std/option.ax`
@@ -189,7 +190,7 @@ Not allowed without explicit contract update:
 
 - removing a `std/` source from project build snapshots
 - exposing Rust crate names as AX user-facing imports
-- declaring `std.collections` frozen before a real `std/collections.ax` module and workload coverage exist
+- expanding `std.collections` beyond `string_list` wrappers before generic collection workload coverage exists
 
 ## Current Verification Commands
 

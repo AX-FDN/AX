@@ -800,6 +800,8 @@ P2 阶段固定样例集合与回归职责见 [`docs/representative-samples.md`]
 | [`examples/project_process_result/`](./examples/project_process_result/)       | 进程状态运行的显式失败返回           | `std.process.ProcessStatus`、`try_run / try_status_in` 与 `std.result` 的状态型进程边界试点 |
 | [`examples/result_propagation.ax`](./examples/result_propagation.ax)           | `Result` 错误传播最小样例            | `expr?` 能解包 `Ok` 并在 `Err` 时提前返回                              |
 | [`examples/project_result_pipeline/`](./examples/project_result_pipeline/)     | 文件、环境变量、进程状态组合流水线   | `std.fs / std.env / std.process` 的 `Result` 接口已能用 `?` 组合消费    |
+| [`examples/project_config_validate/`](./examples/project_config_validate/)     | 配置文件校验与项目级错误 enum        | 把宿主 IO 错误显式转换为 `ConfigError`，再用 `?` 传播到真实 CLI 工具    |
+| [`examples/project_collections_report/`](./examples/project_collections_report/) | 最小集合报告工具                     | `std.collections` 对 `string_list` 的官方源码级包装已进入 project-backed workload |
 | [`examples/project_text_normalize/`](./examples/project_text_normalize/)       | 文本读取、重写、输出报告             | 第一批 `std.cli / std.fs / std.path / std.report / std.text` 试点样例   |
 | [`examples/project_module_smoke/`](./examples/project_module_smoke/)           | 第一阶段模块模式 smoke 工程          | `import/module` 已经进入主线验证链                                      |
 
@@ -857,7 +859,7 @@ P2 阶段固定样例集合与回归职责见 [`docs/representative-samples.md`]
 | 余数运算              | 已支持   | `%`，当前按 `i32` 运算处理                                                                                                                         |
 | 字符串拼接            | 已支持   | `string + string`                                                                                                                                  |
 | 常用 helpers          | 已支持   | `len(value)`、`string_len(text)`、`to_string(value)`                                                                                               |
-| `string_list` helpers | 已支持   | `string_list_new / push / join`                                                                                                                    |
+| `string_list` helpers | 已支持   | `string_list_new / push / join`；`std.collections.string_list_empty / append / count / join_with` 提供官方源码级包装                                |
 
 ### 已进入主链的关键语法点
 
