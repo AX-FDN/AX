@@ -1096,6 +1096,70 @@ fn main() -> i32 {
 }
 
 #[test]
+fn diagnostics_result_propagation_json_with_ai_matches_snapshot() {
+    let temp = TempDir::new("diagnostics-result-propagation-ai");
+    let input = temp.write(
+        "result_propagation_outside_result.ax",
+        "\
+enum Result<T, E> {
+    Ok(T),
+    Err(E),
+}
+
+impl<T, E> Result<T, E> {
+    fn ok(value: T) -> Result<T, E> {
+        return Result.Ok(value);
+    }
+
+    fn err(error: E) -> Result<T, E> {
+        return Result.Err(error);
+    }
+}
+
+fn read_score() -> Result<i32, string> {
+    return Result.ok(7);
+}
+
+fn score_or_default() -> i32 {
+    let score: i32 = read_score()?;
+    return score;
+}
+
+fn main() -> i32 {
+    return score_or_default();
+}
+",
+    );
+
+    let output = run_axc([
+        OsStr::new("check"),
+        input.as_os_str(),
+        OsStr::new("--json"),
+        OsStr::new("--ai"),
+    ]);
+    assert_eq!(output.status.code(), Some(1));
+    assert_clean_stderr(&output);
+
+    let mut diagnostics: Value =
+        serde_json::from_slice(&output.stdout).expect("diagnostics output should be JSON");
+    let placeholder = "<input>/result_propagation_outside_result.ax".to_string();
+    for diagnostic in diagnostics
+        .as_array_mut()
+        .expect("diagnostics output should be an array")
+    {
+        diagnostic["file"] = Value::String(placeholder.clone());
+    }
+
+    let rendered = serde_json::to_string_pretty(&diagnostics)
+        .expect("diagnostics JSON should serialize")
+        + "\n";
+    assert_eq!(
+        normalize_text(&rendered),
+        snapshot("diagnostics_result_propagation_ai.json")
+    );
+}
+
+#[test]
 fn check_rejects_unsupported_ai_session_version() {
     let temp = TempDir::new("unsupported-ai-session");
     let input = temp.write(
@@ -3133,8 +3197,8 @@ fn smoke_repair_manifest_stays_aligned_with_full_manifest() {
 
     assert_eq!(
         full_manifest.cases.len(),
-        33,
-        "full manifest should currently pin the 33-case repair benchmark baseline"
+        35,
+        "full manifest should currently pin the 35-case repair benchmark baseline"
     );
 
     assert_eq!(
@@ -3287,8 +3351,8 @@ fn full_compare_shared_replay_scores_cleanly() {
         &output_dir.join("summary.json"),
         "full compare shared score summary",
     );
-    assert_eq!(summary["totals"]["total"], Value::from(33));
-    assert_eq!(summary["totals"]["passed"], Value::from(33));
+    assert_eq!(summary["totals"]["total"], Value::from(35));
+    assert_eq!(summary["totals"]["passed"], Value::from(35));
     assert_eq!(summary["totals"]["failed"], Value::from(0));
     assert_eq!(summary["totals"]["missing"], Value::from(0));
 }

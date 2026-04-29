@@ -121,6 +121,24 @@
       "notes": "Extends exact-type diagnostics into return statements with a dedicated rule card."
     },
     {
+      "id": "result_propagation_non_result",
+      "file": "examples/result_propagation_non_result.ax",
+      "category": "semantic",
+      "expected_codes": ["S0053"],
+      "expected_ai_rule_ids": ["result_propagation_requires_result"],
+      "repair_goal": "Use `?` only on a Result value, or remove it when the expression already produces a plain value.",
+      "notes": "Covers the first `?` misuse class: postfix propagation on a non-Result expression."
+    },
+    {
+      "id": "result_propagation_outside_result",
+      "file": "examples/result_propagation_outside_result.ax",
+      "category": "semantic",
+      "expected_codes": ["S0054"],
+      "expected_ai_rule_ids": ["result_propagation_requires_result"],
+      "repair_goal": "Make the enclosing helper return a compatible Result or replace `?` with explicit match handling.",
+      "notes": "Covers the second `?` misuse class: propagation inside a function that returns a plain value."
+    },
+    {
       "id": "unknown_type_missing",
       "file": "examples/unknown_type.ax",
       "category": "semantic",

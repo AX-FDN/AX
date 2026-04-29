@@ -1,0 +1,55 @@
+[
+  {
+    "ai": {
+      "fixits": [
+        "change the function return type to `std.result.Result<..., ...>` or handle the error with `match`"
+      ],
+      "focus_item": {
+        "kind": "function",
+        "name": "score_or_default",
+        "signature": "fn score_or_default() -> i32",
+        "span": {
+          "end": 387,
+          "start": 301
+        }
+      },
+      "relevant_spans": [
+        {
+          "end": 366,
+          "start": 353
+        },
+        {
+          "end": 387,
+          "start": 301
+        },
+        {
+          "end": 387,
+          "start": 330
+        },
+        {
+          "end": 367,
+          "start": 336
+        }
+      ],
+      "repair_goal": "Use `?` only when the expression and current function both use compatible `Result<T, E>` types.",
+      "repeat_count": 1,
+      "rule_card": {
+        "summary": "`expr?` unwraps `Result.Ok(value)` and returns `Result.Err(error)` from the current function, so both sides need compatible `Result` error types."
+      },
+      "rule_id": "result_propagation_requires_result",
+      "teaching_level": "L1"
+    },
+    "code": "S0054",
+    "expected": [],
+    "file": "<input>/result_propagation_outside_result.ax",
+    "message": "`?` requires the current function to return `Result<_, string>`",
+    "notes": [
+      "AX keeps error propagation explicit: a propagated error must be returned as `Result.Err(error)`"
+    ],
+    "span": {
+      "end": 366,
+      "start": 353
+    },
+    "suggestion": "change the function return type to `std.result.Result<..., ...>` or handle the error with `match`"
+  }
+]

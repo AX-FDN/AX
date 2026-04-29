@@ -1,0 +1,28 @@
+enum Result<T, E> {
+    Ok(T),
+    Err(E),
+}
+
+impl<T, E> Result<T, E> {
+    fn ok(value: T) -> Result<T, E> {
+        return Result.Ok(value);
+    }
+
+    fn err(error: E) -> Result<T, E> {
+        return Result.Err(error);
+    }
+}
+
+fn read_score() -> Result<i32, string> {
+    return Result.ok(7);
+}
+
+fn score_or_default() -> Result<i32, string> {
+    let score: i32 = read_score()?;
+    return Result.ok(score);
+}
+
+fn main() -> i32 {
+    let result: Result<i32, string> = score_or_default();
+    return match (result) { Result.Ok(score) => score, Result.Err(_) => 0 };
+}

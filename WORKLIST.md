@@ -975,8 +975,9 @@
   - 后续补强：基于该样例继续统计重复样板，把 `?` 的误用诊断纳入 AI repair contract 与 benchmark case
 - [x] `Q-P6-02k` `Result` 错误传播 `?` 第一版
   - 状态：已支持 postfix `expr?`，对 `Result.Ok(value)` 解包为成功值，并在 `Result.Err(error)` 时把原 `Err` 作为当前函数返回值提前返回
-  - 已覆盖：lexer / parser / AST / HIR / MIR / formatter / semantic / interpreter / context / AI rule / examples / interface snapshot / SYNTAX / README
+  - 已覆盖：lexer / parser / AST / HIR / MIR / formatter / semantic / interpreter / context / AI rule / examples / interface snapshot / repair benchmark / SYNTAX / README
   - 代表样例：`examples/result_propagation.ax` 与 `examples/project_result_pipeline/`
+  - repair 证据：`examples/result_propagation_non_result.ax` 覆盖 `S0053`，`examples/result_propagation_outside_result.ax` 覆盖 `S0054`，二者都进入 full manifest 与 shared replay candidate
   - 当前边界：只支持 `Result` 形状的 `Ok(T) / Err(E)`，当前函数必须返回兼容 `Result<_, E>`；不做隐式错误转换、异常系统、try/catch、结构化错误层级或 AOT 执行语义承诺
 - [ ] `Q-P7-01` 闭包 / lambda
 - [ ] `Q-P7-02` async / await
