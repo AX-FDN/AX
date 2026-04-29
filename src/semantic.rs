@@ -915,6 +915,31 @@ fn main() -> i32 {
     }
 
     #[test]
+    fn accepts_static_impl_methods() {
+        let codes = check(
+            "\
+struct Point { x: i32, y: i32 }
+
+impl Point {
+    fn with(x: i32, y: i32) -> Point {
+        return Point { x: x, y: y };
+    }
+
+    fn sum(self: Point) -> i32 {
+        return self.x + self.y;
+    }
+}
+
+fn main() -> i32 {
+    let point: Point = Point.with(4, 8);
+    return point.sum();
+}
+",
+        );
+        assert!(codes.is_empty(), "unexpected diagnostics: {codes:?}");
+    }
+
+    #[test]
     fn accepts_generic_impl_methods_and_method_calls() {
         let codes = check(
             "\
@@ -985,20 +1010,24 @@ fn main() -> i32 {
     }
 
     #[test]
-    fn reports_impl_method_self_shape_error() {
+    fn reports_trait_impl_method_self_shape_error() {
         let diagnostics = diagnostics(
             "\
+trait Label {
+    fn label(self: Self) -> string;
+}
+
 struct Point { x: i32 }
 
-impl Point {
-    fn bad(value: Point) -> i32 {
-        return value.x;
+impl Label for Point {
+    fn label(value: Point) -> string {
+        return to_string(value.x);
     }
 }
 
 fn main() -> i32 {
     let point: Point = Point { x: 1 };
-    return point.bad();
+    return string_len(point.label());
 }
 ",
         );
@@ -1165,6 +1194,24 @@ fn main() -> i32 {
     let ok: Result<i32, string> = Result.Ok(7);
     let err: Result<i32, string> = Result.Err(\"bad\");
     return value_or_zero(ok) + value_or_zero(err);
+}
+",
+        );
+        assert!(codes.is_empty(), "unexpected diagnostics: {codes:?}");
+    }
+
+    #[test]
+    fn accepts_generic_enum_unit_variant_with_expected_instance_type() {
+        let codes = check(
+            "\
+enum Option<T> {
+    Some(T),
+    None,
+}
+fn main() -> i32 {
+    let missing: Option<i32> = Option.None;
+    let value: i32 = match (missing) { Option.Some(found) => found, Option.None => 0 };
+    return value;
 }
 ",
         );

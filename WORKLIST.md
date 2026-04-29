@@ -41,7 +41,7 @@
 - `P0` 是地基修复层，当前只剩入口口径收口
 - `P1` 是编译器护城河同步硬化层，当前 context / benchmark / public claims 已完成，下一轮增长点登记为 `Repair Archaeology v0`
 - `P2` 是语言内核主施工层，当前代表样例、宿主边界和语法优先级已完成冻结
-- `P3` 是第一版标准库冻结试点层，当前已完成 `project_text_normalize`、`project_directory_index`、`project_release_promote`、`project_command_capture`、`project_command_batch` 五组 `std.*` 迁移试点
+- `P3` 是第一版标准库冻结试点层，当前已完成 `project_text_normalize`、`project_directory_index`、`project_release_promote`、`project_command_capture`、`project_command_batch`、`project_option_result` 六组 `std.*` 迁移试点
 
 ## 状态说明
 
@@ -59,7 +59,7 @@
 - `P1` 的 context-enabled repair export、benchmark 展示页和公开口径边界已经成立
 - `P2` 当前出口已经完成，语言内核主代表样例、宿主边界样例和第一项 `match` 语法线已经进入回归
 - `P3` 前置边界已经完成，`project_text_normalize` 已作为第一组 `foundation -> std.*` 迁移试点完成第一轮闭环
-- 当前 `P0 / P1 / P2` 本轮出口均已完成，`P3` 已完成五组样例迁移试点，`std.process / std.env` 已通过两组宿主边界样例验证，第一版 `std.*` 冻结候选清单已收口
+- 当前 `P0 / P1 / P2` 本轮出口均已完成，`P3` 已完成六组样例迁移试点，`std.process / std.env` 已通过两组宿主边界样例验证，`std.option / std.result` 已通过跨模块泛型 enum smoke 验证，第一版 `std.*` 冻结候选清单已收口
 
 当前优先级顺序固定为：
 
@@ -69,13 +69,14 @@
    - `project_release_promote` 已验证 `std.fs` 的 exists/remove/rename 与 `std.path.extension`
    - `project_command_capture` 已验证 `std.process.capture_in` 与 `std.env.has`
    - `project_command_batch` 已验证 `std.process.run / std.process.run_in / std.env.get`
+   - `project_option_result` 已验证 `std.option.Option<T>` 与 `std.result.Result<T,E>` 的官方约定
    - `std.*` 第一版接口冻结候选已收口，冻结候选验证入口与文档入口已补强
    - 继续保持 `foundation/` 作为未迁移样例的 Std-0 孵化层
 2. 暂不启动 P4 AOT、P5 包接口、JIT、自举或三方库桥接
 3. 下一步回到 `Repair Archaeology v0`，先做 artifact schema 与最小 Markdown 报告入口，不启动 Live Repair Stream、真实 LLM 或 UI
 4. 任何下一轮实现都必须继续回写 examples、diagnostics、context、repair/benchmark 或 interface snapshots
 
-当前判断：P1 这一轮的基础链路已经完成，P3 的五组 Std-1 迁移试点、冻结候选和验证入口也已经收口。下一步可以回到 P1 的 `Repair Archaeology v0`，把已有 replay / score / compare 事实做成 case 级可解释产物。
+当前判断：P1 这一轮的基础链路已经完成，P3 的六组 Std-1 迁移试点、冻结候选和验证入口也已经收口。下一步可以回到 P1 的 `Repair Archaeology v0`，把已有 replay / score / compare 事实做成 case 级可解释产物。
 
 ## 阶段承接图
 
@@ -126,6 +127,7 @@
 - [x] `project_release_promote` 已消费 `std.fs / std.path / std.report / std.cli` 并通过回归
 - [x] `project_command_capture` 已消费 `std.process / std.env` 并通过回归
 - [x] `project_command_batch` 已消费 `std.process / std.env` 并通过回归
+- [x] `project_option_result` 已消费 `std.option / std.result` 并通过回归
 
 ## 近期已解除阻塞
 
@@ -595,7 +597,7 @@
   - 目标：先定义第一版官方命名空间和迁移边界，不急着一次性重写全部示例。
   - 依赖：`P2` 至少完成主代表样例与 helper 分类。
   - 完成标准：
-    - `std.text / std.cli / std.fs / std.path / std.env / std.process / std.report / std.workspace / std.collections` 的接口边界先写清
+    - `std.text / std.cli / std.fs / std.option / std.path / std.env / std.process / std.report / std.result / std.workspace / std.collections` 的接口边界先写清
 
 - [x] `W-P3-02` 建立 `foundation` 文件到 `std.*` 模块的映射表
   - 目标：明确当前哪些 helper 未来对应哪块标准库接口。
@@ -634,8 +636,10 @@
   - 当前范围：
     - `std/cli.ax`
     - `std/fs.ax`
+    - `std/option.ax`
     - `std/path.ax`
     - `std/report.ax`
+    - `std/result.ax`
     - `std/text.ax`
     - `std/workspace.ax`
   - 依赖：`W-P3-01` 到 `W-P3-05`
@@ -814,10 +818,10 @@
 ### `P6-P7` 后续语法线
 
 - [x] `Q-P6-01` methods / `impl`
-  - 状态：第一刀已进入主线候选，支持 `impl Type { fn method(self: Type, ...) -> Ret { ... } }`、`impl<T> Box<T> { ... }`、`impl<T> Trait for Box<T> { ... }` 与 `value.method(...)`
+  - 状态：第一刀已进入主线候选，支持 `impl Type { fn method(self: Type, ...) -> Ret { ... } }`、`impl<T> Box<T> { ... }`、`impl<T> Trait for Box<T> { ... }`、`value.method(...)` 与静态方法 `Type.method(...)`
   - 已覆盖：parser / semantic / HIR / MIR / interpreter / formatter / context / AI focus / example / interface snapshot
-  - 当前边界：已支持方法自带类型参数的泛型方法第一版；仍不支持静态方法、可变接收者或方法重载
-  - 后续补强：`Q-P6-01b` 方法专属 AI rule card、method call repair case、AOT method lowering 收口
+  - 当前边界：已支持方法自带类型参数的泛型方法第一版与 inherent impl 静态方法；仍不支持可变接收者、方法重载或 trait 静态方法
+  - 后续补强：方法专属 AI rule card、method call repair case、AOT method lowering 收口
 - [x] `Q-P6-02a` 泛型结构体第一刀
   - 状态：已支持 `struct Box<T> { value: T }`、`Box<i32>` 类型引用、泛型结构体字面量字段推断与字段读取
   - 已覆盖：parser / semantic / HIR / MIR / formatter / example / interface snapshot
@@ -829,11 +833,17 @@
   - 当前边界：已补 trait bounds、`where` 输入语法、泛型 impl 与泛型方法第一版；仍不支持显式 turbofish
   - 后续补强：`Q-P6-02d` 泛型诊断与 AI repair case
 - [x] `Q-P6-02c` 泛型 enum / Result-like 类型第一刀
-  - 状态：已支持 `enum Result<T, E> { Ok(T), Err(E) }`、`Result<i32, string>` 类型引用、payload variant 构造、赋值检查和 `match` payload 绑定
+  - 状态：已支持 `enum Result<T, E> { Ok(T), Err(E) }`、`Result<i32, string>` 类型引用、payload variant 构造、unit variant 上下文归入、赋值检查和 `match` payload 绑定
   - 已覆盖：parser / AST / semantic / HIR / MIR / formatter / example / interface snapshot / syntax docs
   - 代表样例：`examples/generic_result.ax`
   - 当前边界：不支持 trait bounds、where 约束、显式类型参数构造、多 payload tuple variant、命名 payload 字段或 enum 方法
-  - 后续补强：`Q-P6-02d` 泛型诊断与 AI repair case；`Q-P6-02e` 泛型 enum 与标准库 `Result` 候选接口评估
+  - 后续补强：`Q-P6-02d` 泛型诊断与 AI repair case；`Q-P6-02f` 标准库 `Option / Result` 与错误传播语法衔接
+- [x] `Q-P6-02e` 官方 `Option` / `Result` 约定
+  - 状态：已新增 `std.option.Option<T>` 与 `std.result.Result<T, E>`，并补齐跨模块泛型 enum 的 unit variant 上下文归入
+  - 已覆盖：`std/option.ax`、`std/result.ax`、`examples/project_option_result/`、semantic test、interface snapshot、README、SYNTAX、Std-1 边界文档
+  - 代表样例：`examples/project_option_result/`
+  - 当前边界：这是官方显式返回值约定，不是错误传播语法；`?`、泛型 trait、Result 专用方法和完整错误模型仍后置
+  - 后续补强：`Q-P6-02f` 设计错误传播语法前，必须先让更多 `std.process / std.fs / std.env` 接口按 `Result` 风格试点
 - [x] `Q-P6-03a` traits / interfaces 第一刀
   - 状态：已支持 `trait Label { fn label(self: Self) -> string; }` 与 `impl Label for Command { ... }`
   - 已覆盖：lexer / parser / semantic conformance / HIR lowering / formatter / context / AI focus / example / interface snapshot
@@ -867,7 +877,12 @@
 - [x] `Q-P6-01b` 泛型方法第一版
   - 状态：已支持 `impl<T> Pair<T, i32> { fn replace_right<U>(self: Pair<T, i32>, right: U) -> Pair<T, U> { ... } }`
   - 已覆盖：parser / formatter / semantic inference / HIR/MIR lowering metadata / interpreter runtime / example / syntax docs
-  - 当前边界：暂不支持静态方法、显式 turbofish、泛型方法 trait bounds、可变接收者或方法重载
+  - 当前边界：暂不支持显式 turbofish、泛型方法 trait bounds、可变接收者或方法重载
+- [x] `Q-P6-01c` 静态方法 / 构造器式方法
+  - 状态：已支持 inherent impl 中不带 `self` 的函数，调用写成 `Type.method(...)` 或 `module.Type.method(...)`
+  - 已覆盖：semantic、HIR、interpreter、`examples/static_methods.ax`、`std.option.Option.some`、`project_option_result`、interface snapshot、README、SYNTAX
+  - 当前边界：静态方法只进入 inherent impl；trait static method、重载、显式 turbofish 和返回上下文推断仍不支持
+  - 后续补强：如果 `Result.err()` 这类无参数推断压力变高，再评估“从期望返回类型推断泛型参数”，不要提前把类型推断复杂度铺大
 - [ ] `Q-P7-01` 闭包 / lambda
 - [ ] `Q-P7-02` async / await
 

@@ -53,7 +53,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test
 
 ### Std-1 Candidate Change
 
-改到 `std/`、五组 Std-1 试点样例、`AX.toml sources` 或标准库边界文档时，至少跑：
+改到 `std/`、六组 Std-1 试点样例、`AX.toml sources` 或标准库边界文档时，至少跑：
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test --test interface_snapshots representative_project_examples_check_cleanly
@@ -67,6 +67,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test --test interface_snapshots project_release_promote
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test --test interface_snapshots project_command_capture
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test --test interface_snapshots project_command_batch
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test --test interface_snapshots project_option_result
 ```
 
 如果改动会影响 `std/` source tree、build artifacts 或多个试点，跑完整 interface snapshots：

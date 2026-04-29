@@ -685,7 +685,7 @@ AX 的六层协议上下文，不只是让模型“更快读懂项目”，更�
 | AI 修复反馈      | 已沉淀 `rule_id / repair_goal / fixits / context_snippets`                                                                                                                                                | [`src/ai.rs`](./src/ai.rs)                                                                                             |
 | 项目组织         | 已支持 `AX.toml + sources` 的 project-backed 多文件项目                                                                                                                                                   | [`src/project.rs`](./src/project.rs)                                                                                   |
 | 模块模式         | 第一阶段 `import/module` 已接入 parser、project、semantic check，并有 smoke 项目验证                                                                                                                      | [`examples/project_module_smoke/`](./examples/project_module_smoke/)                                                   |
-| AX 侧共享库      | 已沉淀 `foundation/cli / report / text / search / file_kind / workspace`，并启动 `std.cli / std.env / std.fs / std.path / std.process / std.report / std.text / std.workspace` 试点；Std-1 冻结候选已收口 | [`foundation/`](./foundation/) [`std/`](./std/) [`docs/stdlib-minimal-boundary.md`](./docs/stdlib-minimal-boundary.md) |
+| AX 侧共享库      | 已沉淀 `foundation/cli / report / text / search / file_kind / workspace`，并启动 `std.cli / std.env / std.fs / std.option / std.path / std.process / std.report / std.result / std.text / std.workspace` 试点；Std-1 冻结候选已收口 | [`foundation/`](./foundation/) [`std/`](./std/) [`docs/stdlib-minimal-boundary.md`](./docs/stdlib-minimal-boundary.md) |
 | 构建产物         | `build` 已稳定导出 `source.ax`、HIR、MIR、manifest、project-sources 快照                                                                                                                                  | [`src/build.rs`](./src/build.rs)                                                                                       |
 | benchmark 证据链 | repair cases、adapter、export、score、compare、smoke、CI 均已进入仓库主线                                                                                                                                 | [`docs/repair-benchmark.md`](./docs/repair-benchmark.md)                                                               |
 | 平台支持         | Windows 工作流最完整；Linux 已打通核心 compiler/runtime 命令                                                                                                                                              | [`docs/platform-support.md`](./docs/platform-support.md)                                                               |
@@ -794,6 +794,7 @@ P2 阶段固定样例集合与回归职责见 [`docs/representative-samples.md`]
 | [`examples/project_release_promote/`](./examples/project_release_promote/)     | 构建产物整理与提升                   | 第三批 `std.fs / std.path / std.report / std.cli` 试点样例              |
 | [`examples/project_command_capture/`](./examples/project_command_capture/)     | 在指定工作目录执行命令并捕获输出报告 | 第四批 `std.process / std.env / std.report / std.text` 宿主边界试点样例 |
 | [`examples/project_command_batch/`](./examples/project_command_batch/)         | 批量执行命令、写入标记文件并生成报告 | 第五批 `std.process / std.env / std.fs / std.path` 宿主边界试点样例     |
+| [`examples/project_option_result/`](./examples/project_option_result/)         | 官方 `Option` / `Result` 约定 smoke  | `std.option / std.result` 跨模块泛型 enum 与 unit variant 归入试点样例  |
 | [`examples/project_text_normalize/`](./examples/project_text_normalize/)       | 文本读取、重写、输出报告             | 第一批 `std.cli / std.fs / std.path / std.report / std.text` 试点样例   |
 | [`examples/project_module_smoke/`](./examples/project_module_smoke/)           | 第一阶段模块模式 smoke 工程          | `import/module` 已经进入主线验证链                                      |
 
@@ -837,9 +838,10 @@ P2 阶段固定样例集合与回归职责见 [`docs/representative-samples.md`]
 | 枚举值                | 已支持   | `Flag.On`、`Result.Ok(7)`、`Result<i32, string>`、枚举值比较                                                                                       |
 | 固定长度数组          | 已支持   | `[Type; N]`、数组字面量、索引读取                                                                                                                  |
 | 只读 slice            | 已支持   | `[Type]`、`values[start:end]`                                                                                                                      |
-| 泛型结构体 / 泛型 impl | 已支持   | `struct Box<T> { value: T }`、`Box<i32>`、`impl<T> Box<T> { ... }`、`impl<T> Trait for Box<T> { ... }`、泛型方法 `fn replace<U>(...)`、字段读取与可变字段写入 |
+| 泛型结构体 / 泛型 impl | 已支持   | `struct Box<T> { value: T }`、`Box<i32>`、`impl<T> Box<T> { ... }`、`impl<T> Trait for Box<T> { ... }`、静态方法 `Type.method(...)`、泛型方法 `fn replace<U>(...)`、字段读取与可变字段写入 |
 | 泛型函数              | 已支持   | `fn identity<T>(value: T) -> T`，由实参推断类型参数；支持 `fn render<T: Label + ExitCode>(value: T) -> string` 与 `where T: Label + Code` 这类 trait bounds |
-| 泛型 enum             | 已支持   | `enum Result<T, E> { Ok(T), Err(E) }`、`Result<i32, string>`、payload 构造与 match 绑定                                                            |
+| 泛型 enum             | 已支持   | `enum Result<T, E> { Ok(T), Err(E) }`、`Result<i32, string>`、payload 构造、unit variant 上下文归入与 match 绑定                                |
+| 官方 Option/Result 约定 | 已支持   | `std.option.Option<T>` 与 `std.result.Result<T,E>` 已进入 `std/`，用于显式表达“可能缺失”和“可能失败”的低熵返回值形态                              |
 | 类型别名              | 已支持   | `type UserId = i32;`、`type Scores = [i32; 3];`、`type Boxed<T> = Box<T>;`，用于给标准库/后端 API 提供更稳定的显式类型边界                            |
 | traits / interfaces   | 已支持   | `trait Label { fn label(self: Self) -> string; }` 与 `impl Label for Command { ... }`                                                              |
 | trait bounds          | 已支持   | 当前支持泛型函数参数上的一个或多个 trait bounds，并允许在函数体内调用 bound 提供的方法                                                            |
@@ -878,7 +880,8 @@ P2 阶段固定样例集合与回归职责见 [`docs/representative-samples.md`]
 - methods / impl
   - 已支持 `impl Type { fn method(self: Type, ...) -> Ret { ... } }`
   - 已支持 `value.method(...)`
-  - 当前仍不支持泛型 impl、静态方法、可变接收者或方法重载
+  - 已支持不带 `self` 的静态方法，调用写成 `Type.method(...)` 或 `module.Type.method(...)`
+  - 当前仍不支持可变接收者、方法重载或 trait 静态方法
 - 泛型
   - 已支持泛型结构体、泛型函数和泛型 enum
   - 已支持泛型函数上的 trait bounds，例如 `fn render<T: Label + ExitCode>(value: T) -> string`

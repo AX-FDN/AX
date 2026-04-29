@@ -1,0 +1,24 @@
+module std.option;
+
+enum Option<T> {
+    Some(T),
+    None,
+}
+
+impl<T> Option<T> {
+    fn some(value: T) -> Option<T> {
+        return Option.Some(value);
+    }
+}
+
+fn is_some<T>(value: Option<T>) -> bool {
+    return match (value) { Option.Some(_) => true, Option.None => false };
+}
+
+fn is_none<T>(value: Option<T>) -> bool {
+    return match (value) { Option.Some(_) => false, Option.None => true };
+}
+
+fn unwrap_or<T>(value: Option<T>, fallback: T) -> T {
+    return match (value) { Option.Some(found) => found, Option.None => fallback };
+}

@@ -97,6 +97,13 @@ fn generic_instance_assignable(actual: &Type, expected: &Type) -> bool {
                     matches!(actual, Type::TypeParam(_)) || actual.is_assignable_to(expected)
                 })
         }
+        (
+            Type::Enum(actual_name),
+            Type::EnumInstance {
+                name: expected_name,
+                ..
+            },
+        ) if actual_name == expected_name => true,
         _ => false,
     }
 }

@@ -587,9 +587,11 @@ const SHARED_STD_PROJECT_SOURCES: &[&str] = &[
     "external/std/cli.ax",
     "external/std/env.ax",
     "external/std/fs.ax",
+    "external/std/option.ax",
     "external/std/path.ax",
     "external/std/process.ax",
     "external/std/report.ax",
+    "external/std/result.ax",
     "external/std/text.ax",
     "external/std/workspace.ax",
 ];
@@ -3491,6 +3493,7 @@ fn representative_project_examples_check_cleanly() {
         "examples/project_release_promote",
         "examples/project_command_capture",
         "examples/project_command_batch",
+        "examples/project_option_result",
     ] {
         assert_project_example_checks(example_path);
     }
@@ -3959,6 +3962,20 @@ local-ready.txt | local-ready
 }
 
 #[test]
+fn project_option_result_runs() {
+    let output = run_axc([
+        OsStr::new("run"),
+        OsStr::new("examples/project_option_result"),
+    ]);
+    assert_eq!(output.status.code(), Some(7));
+    assert_clean_stderr(&output);
+    assert_eq!(
+        normalize_text(&string_output(&output.stdout)),
+        "score=5\nscore=0\ntrue\ntrue\ninvalid:bad\n"
+    );
+}
+
+#[test]
 fn project_text_normalize_runs_on_controlled_fixture() {
     let temp = TempDir::new("project-text-normalize");
     let input_text = "\t# Title  \n\n\n  TODO fix  \n\tBody line\t\n";
@@ -4284,6 +4301,14 @@ fn methods_impl_example_runs() {
     assert_eq!(output.status.code(), Some(12));
     assert_clean_stderr(&output);
     assert_eq!(normalize_text(&string_output(&output.stdout)), "9\n12\n");
+}
+
+#[test]
+fn static_methods_example_runs() {
+    let output = run_axc([OsStr::new("run"), OsStr::new("examples/static_methods.ax")]);
+    assert_eq!(output.status.code(), Some(12));
+    assert_clean_stderr(&output);
+    assert_eq!(normalize_text(&string_output(&output.stdout)), "0\n12\n");
 }
 
 #[test]
@@ -5401,6 +5426,15 @@ fn project_command_batch_build_copies_real_example_source_tree() {
         "project-command-batch-build",
         "examples/project_command_batch",
         &project_sources_with_shared_std(&["lib/report.ax", "src/main.ax"]),
+    );
+}
+
+#[test]
+fn project_option_result_build_copies_real_example_source_tree() {
+    assert_project_example_build_sources(
+        "project-option-result-build",
+        "examples/project_option_result",
+        &project_sources_with_shared_std(&["src/main.ax"]),
     );
 }
 

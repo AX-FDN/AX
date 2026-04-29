@@ -104,9 +104,9 @@ AX 的 AI-first 必须落到具体工作负载，而不是停留在口号。
 
 | 层级 | 完成度 | 说明 |
 | --- | --- | --- |
-| 最小可写工具内核 | `90%~93%` | 已有显式类型、数组/切片、`for/for in`、`break/continue`、`match` 多个高价值切片、payload enum、泛型 enum、模块第一刀、`pub`、methods/impl、泛型结构体/函数/impl/方法、trait bounds、`where` 输入语法、泛型 `type` 别名、宿主 builtin |
-| 通用语言表面 | `62%~68%` | 已有 methods/impl、泛型结构体/函数/enum/impl/method、traits/interfaces、trait bounds、`where` 输入语法、`pub` 和泛型 `type` 别名；仍缺泛型 trait、闭包、async、错误传播语法、完整包系统等 |
-| 生态支撑语法 | `32%~38%` | 已能组织 project-backed 样例并启动 `std.*` 试点；仍缺稳定包接口、lockfile、host extension ABI、AOT 发布路径和第三方库契约 |
+| 最小可写工具内核 | `92%~95%` | 已有显式类型、数组/切片、`for/for in`、`break/continue`、`match` 多个高价值切片、payload enum、泛型 enum、官方 `Option/Result` 约定、模块第一刀、`pub`、methods/impl、静态方法、泛型结构体/函数/impl/方法、trait bounds、`where` 输入语法、泛型 `type` 别名、宿主 builtin |
+| 通用语言表面 | `64%~70%` | 已有 methods/impl、静态方法、泛型结构体/函数/enum/impl/method、traits/interfaces、trait bounds、`where` 输入语法、`pub`、泛型 `type` 别名和官方 `Option/Result` 约定；仍缺泛型 trait、闭包、async、错误传播语法、完整包系统等 |
+| 生态支撑语法 | `34%~40%` | 已能组织 project-backed 样例并启动 `std.*` 试点，`Option/Result` 已成为标准错误/缺失值约定前置；仍缺稳定包接口、lockfile、host extension ABI、AOT 发布路径和第三方库契约 |
 
 ### 当前阶段判断
 
@@ -349,10 +349,12 @@ flowchart TD
 - `std.text`
 - `std.cli`
 - `std.fs`
+- `std.option`
 - `std.path`
 - `std.env`
 - `std.process`
 - `std.report`
+- `std.result`
 - `std.workspace`
 - `std.collections`，先只含 `string_list` 与后续最小 collections
 
@@ -485,7 +487,7 @@ flowchart TD
 | import 人体工学第二刀 | 缺失 | P5 前 | `pub` 与 module/import 第一刀稳定 | parser、diagnostics、context topology、docs |
 | `const` / 常量定义 | 已实现顶层 `const` 第一版 | P2 | 标准库开始需要稳定常量 | 后续补 const expression 边界、AOT 常量布局与更细 diagnostics |
 | 泛型 `type` 类型别名 | 已实现第一版 | P2 | 标准库与后端 API 需要稳定类型边界 | 后续补递归别名诊断、包级别名导出 |
-| methods / `impl` | 已实现值方法、泛型 impl、泛型 trait impl 与泛型方法第一版 | P2-P6 | 标准库 API 复杂度开始上升 | 后续补静态方法、可变接收者、AOT method lowering、AI rule cards |
+| methods / `impl` | 已实现值方法、静态方法、泛型 impl、泛型 trait impl 与泛型方法第一版 | P2-P6 | 标准库 API 复杂度开始上升 | 后续补可变接收者、AOT method lowering、AI rule cards |
 | 泛型 | 已实现泛型结构体、泛型函数、泛型 enum、泛型 impl、泛型方法、泛型类型别名、trait bounds 与 `where` 输入语法 | P2-P6 | collections 与标准库压力明确出现 | 后续补显式类型参数调用、泛型 trait、HIR/MIR/AOT 深化 |
 | traits / interfaces | 已实现 trait 声明、`impl Trait for Type`、泛型 trait impl 与泛型函数 trait bounds | P2-P7 | 包生态与抽象层明确需要 | 后续补泛型 trait、关联类型、默认方法、stdlib 抽象迁移、package contracts |
 | richer pattern matching | 已实现字符串 pattern、payload enum pattern、多 pattern arm、range、guard | P2-P6 | `match` 第一版与 enum 使用成熟 | 后续补结构体/数组/tuple 解构、block-valued expression arm、AI rule cards |
@@ -531,7 +533,7 @@ flowchart TD
 #### Std-1：官方最小工具标准库
 
 - 启动阶段：P3
-- 正式范围：`std.text / std.cli / std.fs / std.path / std.env / std.process / std.report / std.workspace / std.collections`
+- 正式范围：`std.text / std.cli / std.fs / std.option / std.path / std.env / std.process / std.report / std.result / std.workspace / std.collections`
 - 完成条件：`5` 个代表样例稳定复用
 
 #### Std-2：中层实用库

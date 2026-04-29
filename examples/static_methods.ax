@@ -1,0 +1,26 @@
+struct Point {
+    x: i32,
+    y: i32,
+}
+
+impl Point {
+    fn origin() -> Point {
+        return Point { x: 0, y: 0 };
+    }
+
+    fn with(x: i32, y: i32) -> Point {
+        return Point { x: x, y: y };
+    }
+
+    fn sum(self: Point) -> i32 {
+        return self.x + self.y;
+    }
+}
+
+fn main() -> i32 {
+    let origin: Point = Point.origin();
+    let point: Point = Point.with(4, 8);
+    println(origin.sum());
+    println(point.sum());
+    return point.sum();
+}

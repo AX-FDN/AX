@@ -35,12 +35,6 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             return result;
         }
 
-        if let Some(result) =
-            self.check_enum_variant_constructor_call(expr, callee.span, &callee_name, arguments)
-        {
-            return result;
-        }
-
         let current_unit_path = self.current_unit_path().to_string();
         let resolved_name = self.info.resolve_function_key(
             &callee_name,
@@ -150,6 +144,15 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 Type::Error
             }
             None => {
+                if let Some(result) = self.check_enum_variant_constructor_call(
+                    expr,
+                    callee.span,
+                    &callee_name,
+                    arguments,
+                ) {
+                    return result;
+                }
+
                 if let ExprKind::Field { base, field } = &callee.kind
                     && let Some(result) = self.check_method_call(expr, base, field, arguments)
                 {

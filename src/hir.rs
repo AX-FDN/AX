@@ -366,7 +366,20 @@ impl<'a> LoweringContext<'a> {
                 ast::ItemKind::Trait { .. } => {
                     trait_names.insert(canonical_name);
                 }
-                ast::ItemKind::Impl { .. } => {}
+                ast::ItemKind::Impl {
+                    target, methods, ..
+                } => {
+                    if let Some(target_name) = target.direct_name() {
+                        let method_prefix = if target_name.contains('.') {
+                            target_name.to_string()
+                        } else {
+                            canonical_item_name(source, &unit_modules, item)
+                        };
+                        for method in methods {
+                            function_names.insert(format!("{method_prefix}.{}", method.name));
+                        }
+                    }
+                }
             }
         }
 
@@ -1490,47 +1503,45 @@ impl<'a> LoweringContext<'a> {
                 right: Box::new(self.lower_expr(right)?),
             },
             ast::ExprKind::Call { callee, arguments } => {
-                if let Some(enum_variant) =
+                let Some(function) = callee.qualified_name() else {
+                    return Err(self.lowering_error(
+                        "H0006",
+                        "HIR calls require a direct function name",
+                        callee.span,
+                    ));
+                };
+                if let Some(resolved_function) =
+                    self.resolve_canonical_name(&function, callee.span, &self.function_names)
+                {
+                    ExprKind::Call {
+                        function: resolved_function,
+                        arguments: arguments
+                            .iter()
+                            .map(|argument| self.lower_expr(argument))
+                            .collect::<Result<Vec<_>, _>>()?,
+                    }
+                } else if let Some(enum_variant) =
                     self.try_lower_enum_variant_constructor(callee, arguments)?
                 {
                     enum_variant
+                } else if let ast::ExprKind::Field { base, field } = &callee.kind
+                    && !self.field_base_names_type(base)
+                {
+                    ExprKind::MethodCall {
+                        receiver: Box::new(self.lower_expr(base)?),
+                        method: field.clone(),
+                        arguments: arguments
+                            .iter()
+                            .map(|argument| self.lower_expr(argument))
+                            .collect::<Result<Vec<_>, _>>()?,
+                    }
                 } else {
-                    let Some(function) = callee.qualified_name() else {
-                        return Err(self.lowering_error(
-                            "H0006",
-                            "HIR calls require a direct function name",
-                            callee.span,
-                        ));
-                    };
-                    if let Some(resolved_function) =
-                        self.resolve_canonical_name(&function, callee.span, &self.function_names)
-                    {
-                        ExprKind::Call {
-                            function: resolved_function,
-                            arguments: arguments
-                                .iter()
-                                .map(|argument| self.lower_expr(argument))
-                                .collect::<Result<Vec<_>, _>>()?,
-                        }
-                    } else if let ast::ExprKind::Field { base, field } = &callee.kind
-                        && !self.field_base_names_type(base)
-                    {
-                        ExprKind::MethodCall {
-                            receiver: Box::new(self.lower_expr(base)?),
-                            method: field.clone(),
-                            arguments: arguments
-                                .iter()
-                                .map(|argument| self.lower_expr(argument))
-                                .collect::<Result<Vec<_>, _>>()?,
-                        }
-                    } else {
-                        ExprKind::Call {
-                            function: self.resolve_function_name(&function, callee.span),
-                            arguments: arguments
-                                .iter()
-                                .map(|argument| self.lower_expr(argument))
-                                .collect::<Result<Vec<_>, _>>()?,
-                        }
+                    ExprKind::Call {
+                        function: self.resolve_function_name(&function, callee.span),
+                        arguments: arguments
+                            .iter()
+                            .map(|argument| self.lower_expr(argument))
+                            .collect::<Result<Vec<_>, _>>()?,
                     }
                 }
             }

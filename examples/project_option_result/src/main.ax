@@ -1,0 +1,28 @@
+import std.option;
+import std.result;
+
+fn summarize_score(value: std.option.Option<i32>) -> string {
+    let score: i32 = std.option.unwrap_or(value, 0);
+    return "score=" + to_string(score);
+}
+
+fn parse_demo(text: string) -> std.result.Result<i32, string> {
+    if (text == "ok") {
+        return std.result.Result.Ok(7);
+    }
+    return std.result.Result.Err("invalid:" + text);
+}
+
+fn main() -> i32 {
+    let present: std.option.Option<i32> = std.option.Option.some(5);
+    let missing: std.option.Option<i32> = std.option.Option.None;
+    println(summarize_score(present));
+    println(summarize_score(missing));
+    println(to_string(std.option.is_none(missing)));
+
+    let parsed: std.result.Result<i32, string> = parse_demo("ok");
+    let failed: std.result.Result<i32, string> = parse_demo("bad");
+    println(to_string(std.result.is_ok(parsed)));
+    println(std.result.error_or(failed, "none"));
+    return std.result.unwrap_or(parsed, 0);
+}

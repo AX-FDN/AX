@@ -31,7 +31,7 @@
 | context 协议 | `[x]` | 七个稳定视图已进入 CLI、快照回归与 repair export 输入链 |
 | 多文件项目 | `[x]` | `AX.toml + sources` 已是当前项目组织主路径 |
 | `import / module` | `[~]` | 第一刀已接入 parser/project/semantic/diagnostics，仍在补边界 |
-| 共享 AX 基础层 | `[~]` | `foundation/` 已沉淀第一批 helper，`std/` 已启动第一批官方接口试点，并开始覆盖文本、报告、文件、路径、工作区、环境变量和进程边界 |
+| 共享 AX 基础层 | `[~]` | `foundation/` 已沉淀第一批 helper，`std/` 已启动第一批官方接口试点，并开始覆盖文本、报告、文件、路径、工作区、环境变量、进程边界、`Option` 和 `Result` 约定 |
 | benchmark 证据链 | `[x]` | repair/export/score/compare/smoke/CI 已进入仓库主线，当前展示页可复现 `cold 23/30`、`base 25/30`、`ai 30/30` |
 | Repair Archaeology | `[ ]` | 已进入规划，目标是把 replay / score / compare 产物整理成 case 级 JSON 与 Markdown 报告；尚未实现导出入口 |
 | Linux core support | `[x]` | Ubuntu 上核心 `build / check / run / fmt` 与核心测试已进入 CI |
@@ -53,10 +53,10 @@
 | semantic 高频错误稳定化 | `[x]` | 模块误用与首批高价值 `S0022` 变体已接稳定 kind | 还会继续扩，但主框架已成立 | `src/diagnostics.rs` `src/ai.rs` |
 | runtime 高频错误稳定化 | `[~]` | 数组越界、除零、可读文件/目录、argv/env/process 一批误用已接 AI 规则 | runtime 还在持续硬化，不代表 host boundary 已完全收口 | `src/interpreter.rs` `src/ai.rs` |
 | context 协议 | `[x]` | `overview / boundaries / topology / flow / symbol / impact / evidence`，并可通过 `-IncludeContext` 进入 repair export | 当前完成的是输入链路，live-model A/B 收益仍需后续证明 | `src/context.rs` `docs/interface-contracts.md` |
-| 语言表面 | `[~]` | 基础函数、显式类型、数组、slice、struct、enum、泛型结构体/函数/enum 第一刀、trait/interface 第一刀、for、match、module/import 第一刀 | 不含 trait bounds、泛型方法、async、异常、宏 | `SYNTAX.md` |
+| 语言表面 | `[~]` | 基础函数、显式类型、数组、slice、struct、enum、泛型结构体/函数/enum、trait/interface、trait bounds、静态方法、泛型方法、for、match、module/import 第一刀 | 不含 async、异常、宏、泛型 trait、闭包 | `SYNTAX.md` |
 | 项目组织 | `[x]` | `AX.toml + sources`、project-backed 样例、共享 `foundation/` 与第一批 `std/` 试点 | 当前是最小工程模型，不是成熟包系统 | `examples/project_*/` |
 | 模块系统 | `[~]` | support source 模块路径、重复模块 / import、缺 import 等诊断已存在 | 当前是 minimal module mode，不是完整 package/visibility 系统 | `docs/import-module-minimal-design.md` |
-| 共享基础层 | `[~]` | `foundation/cli.ax`、`report.ax`、`search.ax`、`workspace.ax` 等，以及第一批 `std/cli.ax`、`env.ax`、`fs.ax`、`path.ax`、`process.ax`、`report.ax`、`text.ax`、`workspace.ax` | `std/` 仍是试点，不是全仓冻结后的完整标准库 | `foundation/` `std/` |
+| 共享基础层 | `[~]` | `foundation/cli.ax`、`report.ax`、`search.ax`、`workspace.ax` 等，以及第一批 `std/cli.ax`、`env.ax`、`fs.ax`、`option.ax`、`path.ax`、`process.ax`、`report.ax`、`result.ax`、`text.ax`、`workspace.ax` | `std/` 仍是试点，不是全仓冻结后的完整标准库 | `foundation/` `std/` |
 | benchmark 方法 | `[x]` | repair case、导出、评分、对比、smoke、CI、公开展示页 | 这不是“以后再补”的附件，而是语言主线的验证层；跨语言/live-model 对照仍是后续工作 | `docs/benchmark-showcase.md` `docs/repair-benchmark.md` |
 | 修复证据展示层 | `[ ]` | `Repair Archaeology v0` 已定义方向 | 当前只是规划与边界，不是 live repair、不是模型客户端、不是新 CLI 契约 | `docs/repair-archaeology.md` |
 | 对外平台支持 | `[~]` | Windows 路径已较完整，Linux 有 quickstart 与核心链路说明 | 仍应按文档与 CI 事实表述，不宜夸成“全平台成熟” | `docs/platform-support.md` |
@@ -71,8 +71,8 @@
 | --- | --- | --- | --- |
 | 顶层声明 | `[x]` | `fn`、`struct`、`enum`、`module`、`import` | `const`、`pub`、`impl`、traits/interfaces |
 | 语句 | `[x]` | `let`、`let mut`、赋值、`return`、`if/else`、`while`、`for`、`for in`、`break`、`continue`、语句 `match` | `defer`、异常传播、`switch` 类语法 |
-| 表达式 | `[~]` | 调用、字段访问、索引、slice、结构体字面量、枚举值、表达式 `match`、逻辑运算、余数、字符串拼接 | 闭包、方法调用语法糖、复杂 pattern matching、guard |
-| 类型系统 | `[~]` | `bool / i32 / f32 / string / string_list`、固定长度数组、只读 slice、payload enum 第一刀、泛型结构体/函数/enum 第一刀、trait/interface 声明与实现第一刀 | trait bounds、where 约束、泛型方法、完整错误结果体系 |
+| 表达式 | `[~]` | 调用、字段访问、索引、slice、结构体字面量、枚举值、表达式 `match`、逻辑运算、余数、字符串拼接、值方法调用、静态方法调用 | 闭包、复杂 pattern matching、block-valued match arm |
+| 类型系统 | `[~]` | `bool / i32 / f32 / string / string_list`、固定长度数组、只读 slice、payload enum、泛型结构体/函数/enum、trait/interface、trait bounds、where 约束、泛型方法、官方 `Option/Result` 约定 | 泛型 trait、关联类型、完整错误传播语法 |
 | 工程组织 | `[x]` | `AX.toml + sources`、最小模块模式、全限定跨模块引用 | 包依赖、registry、lockfile、可见性体系 |
 
 ## 现在最容易被误读的五件事
@@ -89,8 +89,8 @@
 ### 3. `std/` 已经开始试点，但还不是完整标准库
 
 - 当前 `foundation/` 仍是 Std-0 孵化层。
-- 当前 `std/` 已经有第一批 AX 源码模块，并由 `project_text_normalize`、`project_directory_index`、`project_release_promote`、`project_command_capture` 与 `project_command_batch` 消费。
-- Std-1 冻结候选清单已经收口到 `std.cli / std.env / std.fs / std.path / std.process / std.report / std.text / std.workspace`，但这不等于完整标准库已经冻结。
+- 当前 `std/` 已经有第一批 AX 源码模块，并由 `project_text_normalize`、`project_directory_index`、`project_release_promote`、`project_command_capture`、`project_command_batch` 与 `project_option_result` 消费。
+- Std-1 冻结候选清单已经收口到 `std.cli / std.env / std.fs / std.option / std.path / std.process / std.report / std.result / std.text / std.workspace`，但这不等于完整标准库已经冻结。
 - `std.collections`、`std.search`、网络、并发和第三方包接口仍然后置。
 
 ### 4. Linux core support 不等于三平台同级成熟

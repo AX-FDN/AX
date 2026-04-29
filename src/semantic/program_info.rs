@@ -638,9 +638,19 @@ impl<'a> ProgramInfo<'a> {
                             &all_type_params,
                             diagnostics,
                         );
+                        let method_signature = FunctionSignature {
+                            type_params: all_type_params.clone(),
+                            type_param_bounds: Vec::new(),
+                            params: resolved_params.clone(),
+                            return_type: resolved_return_type.clone(),
+                        };
+                        let method_function_name =
+                            format!("{}.{}", method_lookup_type_name(&self_type), method.name);
+                        let has_self_param =
+                            resolved_params.first().map(|param| param.name.as_str())
+                                == Some("self");
 
-                        if resolved_params.first().map(|param| param.name.as_str()) != Some("self")
-                        {
+                        if !has_self_param && trait_ref.is_some() {
                             diagnostics.push(
                                 Diagnostic::new(
                                     "S0056",
@@ -657,7 +667,8 @@ impl<'a> ProgramInfo<'a> {
                                     self_type.describe()
                                 )),
                             );
-                        } else if let Some(self_param) = resolved_params.first()
+                        } else if has_self_param
+                            && let Some(self_param) = resolved_params.first()
                             && !self_param.ty.is_assignable_to(&self_type)
                         {
                             diagnostics.push(
@@ -679,17 +690,17 @@ impl<'a> ProgramInfo<'a> {
                             );
                         }
 
-                        info.methods.insert(
-                            format!("{}.{}", method_lookup_type_name(&self_type), method.name),
-                            MethodSignature {
-                                function: FunctionSignature {
-                                    type_params: all_type_params.clone(),
-                                    type_param_bounds: Vec::new(),
-                                    params: resolved_params,
-                                    return_type: resolved_return_type,
+                        if has_self_param {
+                            info.methods.insert(
+                                method_function_name,
+                                MethodSignature {
+                                    function: method_signature.clone(),
                                 },
-                            },
-                        );
+                            );
+                        } else if trait_ref.is_none() {
+                            info.functions
+                                .insert(method_function_name, method_signature);
+                        }
                         impl_signatures.insert(
                             method.name.clone(),
                             FunctionSignature {

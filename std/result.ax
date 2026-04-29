@@ -1,0 +1,22 @@
+module std.result;
+
+enum Result<T, E> {
+    Ok(T),
+    Err(E),
+}
+
+fn is_ok<T, E>(value: Result<T, E>) -> bool {
+    return match (value) { Result.Ok(_) => true, Result.Err(_) => false };
+}
+
+fn is_err<T, E>(value: Result<T, E>) -> bool {
+    return match (value) { Result.Ok(_) => false, Result.Err(_) => true };
+}
+
+fn unwrap_or<T, E>(value: Result<T, E>, fallback: T) -> T {
+    return match (value) { Result.Ok(found) => found, Result.Err(_) => fallback };
+}
+
+fn error_or<T, E>(value: Result<T, E>, fallback: E) -> E {
+    return match (value) { Result.Ok(_) => fallback, Result.Err(error) => error };
+}
