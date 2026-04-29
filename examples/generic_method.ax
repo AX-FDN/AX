@@ -1,0 +1,17 @@
+struct Pair<T, U> {
+    left: T,
+    right: U,
+}
+
+impl<T> Pair<T, i32> {
+    fn replace_right<U>(self: Pair<T, i32>, right: U) -> Pair<T, U> {
+        return Pair { left: self.left, right: right };
+    }
+}
+
+fn main() -> i32 {
+    let pair: Pair<string, i32> = Pair { left: "ax", right: 1 };
+    let changed: Pair<string, string> = pair.replace_right("ok");
+    println(changed.left + ":" + changed.right);
+    return 0;
+}

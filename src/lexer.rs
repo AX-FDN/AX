@@ -160,6 +160,7 @@ impl<'a> Lexer<'a> {
             "trait" => TokenKind::TraitKw,
             "impl" => TokenKind::ImplKw,
             "const" => TokenKind::ConstKw,
+            "type" => TokenKind::TypeKw,
             "pub" => TokenKind::PubKw,
             "module" => TokenKind::ModuleKw,
             "import" => TokenKind::ImportKw,
@@ -174,6 +175,7 @@ impl<'a> Lexer<'a> {
             "while" => TokenKind::WhileKw,
             "for" => TokenKind::ForKw,
             "in" => TokenKind::InKw,
+            "where" => TokenKind::WhereKw,
             "true" => TokenKind::TrueKw,
             "false" => TokenKind::FalseKw,
             _ => TokenKind::Identifier,
@@ -340,6 +342,34 @@ mod tests {
         assert!(kinds.contains(&TokenKind::LetKw));
         assert!(kinds.contains(&TokenKind::MutKw));
         assert!(kinds.contains(&TokenKind::Arrow));
+    }
+
+    #[test]
+    fn tokenizes_where_keyword() {
+        let source = SourceFile::anonymous(
+            "fn render<T>(value: T) -> string where T: Label { return value.label(); }",
+        );
+        let output = tokenize(&source);
+        let kinds = output
+            .tokens
+            .iter()
+            .map(|token| token.kind)
+            .collect::<Vec<_>>();
+        assert!(output.diagnostics.is_empty());
+        assert!(kinds.contains(&TokenKind::WhereKw));
+    }
+
+    #[test]
+    fn tokenizes_type_keyword() {
+        let source = SourceFile::anonymous("type UserId = i32;");
+        let output = tokenize(&source);
+        let kinds = output
+            .tokens
+            .iter()
+            .map(|token| token.kind)
+            .collect::<Vec<_>>();
+        assert!(output.diagnostics.is_empty());
+        assert!(kinds.contains(&TokenKind::TypeKw));
     }
 
     #[test]

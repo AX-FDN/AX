@@ -9,7 +9,7 @@ use crate::source::SourceFile;
 use super::helpers::{builtin_types, item_name};
 use super::types::{
     ConstInfo, EnumInfo, EnumVariantInfo, FunctionSignature, MethodSignature, ParamInfo,
-    StructFieldInfo, StructInfo, TraitInfo, Type, TypeParamBoundInfo,
+    StructFieldInfo, StructInfo, TraitInfo, Type, TypeAliasInfo, TypeParamBoundInfo,
 };
 
 #[derive(Debug, Clone, Default)]
@@ -24,6 +24,7 @@ pub(super) struct ProgramInfo<'a> {
     pub(super) named_types: HashMap<String, Type>,
     pub(super) functions: HashMap<String, FunctionSignature>,
     pub(super) constants: HashMap<String, ConstInfo>,
+    pub(super) type_aliases: HashMap<String, TypeAliasInfo>,
     pub(super) methods: HashMap<String, MethodSignature>,
     pub(super) traits: HashMap<String, TraitInfo>,
     trait_impls: Vec<(Type, String)>,
@@ -195,6 +196,7 @@ impl<'a> ProgramInfo<'a> {
                 ItemKind::Enum { .. } => {
                     named_types.insert(canonical_name.clone(), Type::Enum(canonical_name));
                 }
+                ItemKind::TypeAlias { .. } => {}
                 ItemKind::Trait { .. } => {}
                 ItemKind::Impl { .. } => {}
                 ItemKind::Function {
@@ -236,6 +238,7 @@ impl<'a> ProgramInfo<'a> {
             named_types,
             functions: HashMap::new(),
             constants: HashMap::new(),
+            type_aliases: HashMap::new(),
             methods: HashMap::new(),
             traits: HashMap::new(),
             trait_impls: Vec::new(),
@@ -246,6 +249,65 @@ impl<'a> ProgramInfo<'a> {
             modules,
             units: unit_contexts,
         };
+
+        for item in &program.items {
+            let unit_path = source.display_path_for_offset(item.span.start).to_string();
+            let unit = info.unit_context(&unit_path).cloned().unwrap_or_default();
+            let canonical_name =
+                canonical_item_name(info.module_mode, &unit, item_name(&item.kind));
+
+            match &item.kind {
+                ItemKind::Struct { type_params, .. } => {
+                    info.structs
+                        .entry(canonical_name)
+                        .or_insert_with(|| StructInfo {
+                            type_params: type_params.clone(),
+                            fields: HashMap::new(),
+                        });
+                }
+                ItemKind::Enum { type_params, .. } => {
+                    info.enums
+                        .entry(canonical_name)
+                        .or_insert_with(|| EnumInfo {
+                            type_params: type_params.clone(),
+                            variants: HashMap::new(),
+                        });
+                }
+                _ => {}
+            }
+        }
+
+        for item in &program.items {
+            let unit_path = source.display_path_for_offset(item.span.start).to_string();
+            let unit = info.unit_context(&unit_path).cloned().unwrap_or_default();
+            let canonical_name =
+                canonical_item_name(info.module_mode, &unit, item_name(&item.kind));
+
+            let ItemKind::TypeAlias {
+                type_params,
+                target,
+                ..
+            } = &item.kind
+            else {
+                continue;
+            };
+
+            check_generic_type_params(source, &canonical_name, type_params, item.span, diagnostics);
+            let resolved_target =
+                info.resolve_type_ref_with_params(target, &unit_path, type_params, diagnostics);
+            if !resolved_target.is_error() {
+                info.type_aliases.insert(
+                    canonical_name.clone(),
+                    TypeAliasInfo {
+                        type_params: type_params.clone(),
+                        target: resolved_target.clone(),
+                    },
+                );
+                if type_params.is_empty() {
+                    info.named_types.insert(canonical_name, resolved_target);
+                }
+            }
+        }
 
         for item in &program.items {
             let unit_path = source.display_path_for_offset(item.span.start).to_string();
@@ -420,6 +482,7 @@ impl<'a> ProgramInfo<'a> {
                         },
                     );
                 }
+                ItemKind::TypeAlias { .. } => {}
                 ItemKind::Function {
                     type_params,
                     type_param_bounds,
@@ -503,6 +566,37 @@ impl<'a> ProgramInfo<'a> {
                     let mut method_names: HashMap<String, usize> = HashMap::new();
                     let mut impl_signatures = HashMap::new();
                     for method in methods {
+                        check_generic_type_params(
+                            source,
+                            &format!("method {}", method.name),
+                            &method.type_params,
+                            method.span,
+                            diagnostics,
+                        );
+                        for method_type_param in &method.type_params {
+                            if type_params.iter().any(|param| param == method_type_param) {
+                                diagnostics.push(
+                                    Diagnostic::new(
+                                        "S0058",
+                                        format!(
+                                            "method `{}` redeclares generic type parameter `{method_type_param}` from the enclosing impl",
+                                            method.name
+                                        ),
+                                        source,
+                                        method.span,
+                                    )
+                                    .with_suggestion(
+                                        "use a distinct method type parameter name",
+                                    ),
+                                );
+                            }
+                        }
+                        let all_type_params = type_params
+                            .iter()
+                            .cloned()
+                            .chain(method.type_params.iter().cloned())
+                            .collect::<Vec<_>>();
+
                         if let Some(previous_start) =
                             method_names.insert(method.name.clone(), method.span.start)
                         {
@@ -533,7 +627,7 @@ impl<'a> ProgramInfo<'a> {
                                 ty: info.resolve_type_ref_with_params(
                                     &param.ty,
                                     &unit_path,
-                                    type_params,
+                                    &all_type_params,
                                     diagnostics,
                                 ),
                             })
@@ -541,7 +635,7 @@ impl<'a> ProgramInfo<'a> {
                         let resolved_return_type = info.resolve_type_ref_with_params(
                             &method.return_type,
                             &unit_path,
-                            type_params,
+                            &all_type_params,
                             diagnostics,
                         );
 
@@ -589,7 +683,7 @@ impl<'a> ProgramInfo<'a> {
                             format!("{}.{}", method_lookup_type_name(&self_type), method.name),
                             MethodSignature {
                                 function: FunctionSignature {
-                                    type_params: type_params.clone(),
+                                    type_params: all_type_params.clone(),
                                     type_param_bounds: Vec::new(),
                                     params: resolved_params,
                                     return_type: resolved_return_type,
@@ -609,7 +703,7 @@ impl<'a> ProgramInfo<'a> {
                                         ty: info.resolve_type_ref_with_params(
                                             &param.ty,
                                             &unit_path,
-                                            type_params,
+                                            &all_type_params,
                                             diagnostics,
                                         ),
                                     })
@@ -617,7 +711,7 @@ impl<'a> ProgramInfo<'a> {
                                 return_type: info.resolve_type_ref_with_params(
                                     &method.return_type,
                                     &unit_path,
-                                    type_params,
+                                    &all_type_params,
                                     diagnostics,
                                 ),
                             },
@@ -664,6 +758,27 @@ impl<'a> ProgramInfo<'a> {
                 Type::TypeParam(name.clone())
             }
             (Some(name), [], None, None) => {
+                if let Some(alias) =
+                    self.resolve_type_alias(name, current_unit_path, ty.span, diagnostics)
+                {
+                    if !alias.type_params.is_empty() {
+                        diagnostics.push(
+                            Diagnostic::new(
+                                "S0058",
+                                format!("generic type alias `{name}` requires type arguments"),
+                                self.source,
+                                ty.span,
+                            )
+                            .with_suggestion(format!(
+                                "write `{}` with type arguments like `{}<i32>`",
+                                name, name
+                            )),
+                        );
+                        return Type::Error;
+                    }
+                    return alias.target;
+                }
+
                 match self.resolve_named_type_key(name, current_unit_path, ty.span, diagnostics) {
                     Some(found) => {
                         let resolved = self
@@ -714,6 +829,51 @@ impl<'a> ProgramInfo<'a> {
                 }
             }
             (Some(name), args, None, None) => {
+                if let Some(alias) =
+                    self.resolve_type_alias(name, current_unit_path, ty.span, diagnostics)
+                {
+                    let resolved_args = args
+                        .iter()
+                        .map(|arg| {
+                            self.resolve_type_ref_with_params(
+                                arg,
+                                current_unit_path,
+                                generic_params,
+                                diagnostics,
+                            )
+                        })
+                        .collect::<Vec<_>>();
+
+                    if alias.type_params.len() != resolved_args.len() {
+                        diagnostics.push(
+                            Diagnostic::new(
+                                "S0058",
+                                format!(
+                                    "generic type alias `{name}` expects {} type argument(s), found {}",
+                                    alias.type_params.len(),
+                                    resolved_args.len()
+                                ),
+                                self.source,
+                                ty.span,
+                            )
+                            .with_suggestion(format!(
+                                "write `{}` with exactly {} type argument(s)",
+                                name,
+                                alias.type_params.len()
+                            )),
+                        );
+                        return Type::Error;
+                    }
+
+                    let substitutions = alias
+                        .type_params
+                        .iter()
+                        .cloned()
+                        .zip(resolved_args)
+                        .collect::<HashMap<_, _>>();
+                    return substitute_type_params(&alias.target, &substitutions);
+                }
+
                 let Some(found) =
                     self.resolve_named_type_key(name, current_unit_path, ty.span, diagnostics)
                 else {
@@ -872,8 +1032,27 @@ impl<'a> ProgramInfo<'a> {
         )
     }
 
+    fn resolve_type_alias(
+        &self,
+        name: &str,
+        current_unit_path: &str,
+        span: crate::source::Span,
+        diagnostics: &mut Vec<Diagnostic>,
+    ) -> Option<TypeAliasInfo> {
+        self.resolve_named_key(
+            name,
+            current_unit_path,
+            span,
+            diagnostics,
+            &self.type_aliases,
+            "type alias",
+        )
+        .and_then(|key| self.type_aliases.get(&key).cloned())
+    }
+
     pub(super) fn named_type_candidate_exists(&self, name: &str, current_unit_path: &str) -> bool {
         self.named_key_candidate_exists(name, current_unit_path, &self.named_types)
+            || self.named_key_candidate_exists(name, current_unit_path, &self.type_aliases)
     }
 
     pub(super) fn resolve_function_key(
@@ -1410,6 +1589,37 @@ fn substitute_self_type(ty: &Type, self_type: &Type) -> Type {
             args: args
                 .iter()
                 .map(|arg| substitute_self_type(arg, self_type))
+                .collect(),
+        },
+        _ => ty.clone(),
+    }
+}
+
+fn substitute_type_params(ty: &Type, substitutions: &HashMap<String, Type>) -> Type {
+    match ty {
+        Type::TypeParam(name) => substitutions
+            .get(name)
+            .cloned()
+            .unwrap_or_else(|| ty.clone()),
+        Type::Slice { element } => Type::Slice {
+            element: Box::new(substitute_type_params(element, substitutions)),
+        },
+        Type::Array { element, length } => Type::Array {
+            element: Box::new(substitute_type_params(element, substitutions)),
+            length: *length,
+        },
+        Type::StructInstance { name, args } => Type::StructInstance {
+            name: name.clone(),
+            args: args
+                .iter()
+                .map(|arg| substitute_type_params(arg, substitutions))
+                .collect(),
+        },
+        Type::EnumInstance { name, args } => Type::EnumInstance {
+            name: name.clone(),
+            args: args
+                .iter()
+                .map(|arg| substitute_type_params(arg, substitutions))
                 .collect(),
         },
         _ => ty.clone(),

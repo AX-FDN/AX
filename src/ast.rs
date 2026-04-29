@@ -77,6 +77,12 @@ pub enum ItemKind {
         ty: TypeRef,
         value: Expr,
     },
+    TypeAlias {
+        name: String,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        type_params: Vec<String>,
+        target: TypeRef,
+    },
     Struct {
         name: String,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -119,6 +125,8 @@ pub struct TypeParamBound {
 #[derive(Debug, Clone, Serialize)]
 pub struct ImplMethod {
     pub name: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub type_params: Vec<String>,
     pub params: Vec<Param>,
     pub return_type: TypeRef,
     pub body: Block,

@@ -134,6 +134,10 @@ impl<'a> Parser<'a> {
                 self.advance();
                 Some(self.parse_const_item(start, visibility))
             }
+            TokenKind::TypeKw => {
+                self.advance();
+                Some(self.parse_type_alias_item(start, visibility))
+            }
             TokenKind::StructKw => {
                 self.advance();
                 Some(self.parse_struct_item(start, visibility))
@@ -156,7 +160,8 @@ impl<'a> Parser<'a> {
                     "P0001",
                     "expected a top-level declaration",
                     &[
-                        "`pub`", "`fn`", "`const`", "`struct`", "`enum`", "`trait`", "`impl`",
+                        "`pub`", "`fn`", "`const`", "`type`", "`struct`", "`enum`", "`trait`",
+                        "`impl`",
                     ],
                 );
                 None
@@ -194,6 +199,31 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn parse_type_alias_item(&mut self, start: usize, visibility: Visibility) -> Item {
+        let name = self.expect_identifier("expected a type alias name");
+        let type_params = self.parse_type_params();
+        self.expect(
+            TokenKind::Equal,
+            "expected `=` before type alias target",
+            &["`=`"],
+        );
+        let target = self.parse_type();
+        let end = self.expect(
+            TokenKind::Semicolon,
+            "expected `;` after type alias declaration",
+            &["`;`"],
+        );
+        Item {
+            kind: ItemKind::TypeAlias {
+                name: name.lexeme,
+                type_params,
+                target,
+            },
+            visibility,
+            span: Span::new(start, end.span.end),
+        }
+    }
+
     fn parse_function_item(&mut self, start: usize, visibility: Visibility) -> Item {
         let name = self.expect_identifier("expected a function name");
         let (type_params, type_param_bounds) = self.parse_function_type_params();
@@ -210,6 +240,8 @@ impl<'a> Parser<'a> {
             &["`->`"],
         );
         let return_type = self.parse_type();
+        let mut type_param_bounds = type_param_bounds;
+        type_param_bounds.extend(self.parse_where_bounds(&type_params));
         let body = self.parse_block();
         Item {
             kind: ItemKind::Function {
@@ -261,6 +293,52 @@ impl<'a> Parser<'a> {
             &["`>`"],
         );
         (params, bounds)
+    }
+
+    fn parse_where_bounds(&mut self, type_params: &[String]) -> Vec<TypeParamBound> {
+        if !self.matches(&[TokenKind::WhereKw]) {
+            return Vec::new();
+        }
+
+        let mut bounds = Vec::new();
+        loop {
+            let param =
+                self.expect_identifier("expected a generic type parameter name after `where`");
+            let param_name = param.lexeme;
+            if !type_params.iter().any(|candidate| candidate == &param_name) {
+                self.diagnostics.push(
+                    Diagnostic::new(
+                        "P0002",
+                        format!("where clause references undeclared type parameter `{param_name}`"),
+                        self.source,
+                        param.span,
+                    )
+                    .with_suggestion("use a type parameter declared in the preceding `<...>` list"),
+                );
+            }
+            self.expect(
+                TokenKind::Colon,
+                "expected `:` after where type parameter",
+                &["`:`"],
+            );
+            loop {
+                let trait_ref = self.parse_type();
+                bounds.push(TypeParamBound {
+                    type_param: param_name.clone(),
+                    span: Span::new(param.span.start, trait_ref.span.end),
+                    trait_ref,
+                });
+                if !self.matches(&[TokenKind::Plus]) {
+                    break;
+                }
+            }
+
+            if !self.matches(&[TokenKind::Comma]) {
+                break;
+            }
+        }
+
+        bounds
     }
 
     fn parse_struct_item(&mut self, start: usize, visibility: Visibility) -> Item {
@@ -455,6 +533,7 @@ impl<'a> Parser<'a> {
 
     fn parse_impl_method(&mut self, start: usize) -> ImplMethod {
         let name = self.expect_identifier("expected a method name");
+        let type_params = self.parse_type_params();
         self.expect(
             TokenKind::LParen,
             "expected `(` after method name",
@@ -471,6 +550,7 @@ impl<'a> Parser<'a> {
         let body = self.parse_block();
         ImplMethod {
             name: name.lexeme,
+            type_params,
             params,
             return_type,
             body: body.clone(),
@@ -1760,7 +1840,7 @@ fn enrich_parse_error(mut diagnostic: Diagnostic, token: &Token, message: &str) 
 
     if message == "expected a top-level declaration" {
         return diagnostic.with_suggestion(
-            "start a top-level item with `pub`, `fn`, `const`, `struct`, `enum`, `trait`, or `impl`",
+            "start a top-level item with `pub`, `fn`, `const`, `type`, `struct`, `enum`, `trait`, or `impl`",
         );
     }
 
@@ -1844,6 +1924,28 @@ mod tests {
     }
 
     #[test]
+    fn parses_type_alias_items() {
+        let source = SourceFile::anonymous(
+            "type UserId = i32; fn main() -> i32 { let id: UserId = 7; return id; }",
+        );
+        let tokens = tokenize(&source).tokens;
+        let output = parse(&source, tokens);
+        assert!(output.diagnostics.is_empty(), "{:?}", output.diagnostics);
+
+        let ItemKind::TypeAlias {
+            name,
+            type_params,
+            target,
+        } = &output.program.items[0].kind
+        else {
+            panic!("expected type alias item");
+        };
+        assert_eq!(name, "UserId");
+        assert!(type_params.is_empty());
+        assert_eq!(target.describe(), "i32");
+    }
+
+    #[test]
     fn parses_public_top_level_items() {
         let source = SourceFile::anonymous("pub fn helper() -> i32 { return 1; }");
         let tokens = tokenize(&source).tokens;
@@ -1860,6 +1962,28 @@ mod tests {
     fn parses_multiple_trait_bounds_on_generic_function() {
         let source = SourceFile::anonymous(
             "fn render<T: Label + Code>(value: T) -> string { return value.label(); }",
+        );
+        let tokens = tokenize(&source).tokens;
+        let output = parse(&source, tokens);
+        assert!(output.diagnostics.is_empty(), "{:?}", output.diagnostics);
+
+        let ItemKind::Function {
+            type_param_bounds, ..
+        } = &output.program.items[0].kind
+        else {
+            panic!("expected function");
+        };
+        assert_eq!(type_param_bounds.len(), 2);
+        assert_eq!(type_param_bounds[0].type_param, "T");
+        assert_eq!(type_param_bounds[0].trait_ref.describe(), "Label");
+        assert_eq!(type_param_bounds[1].type_param, "T");
+        assert_eq!(type_param_bounds[1].trait_ref.describe(), "Code");
+    }
+
+    #[test]
+    fn parses_where_trait_bounds_on_generic_function() {
+        let source = SourceFile::anonymous(
+            "fn render<T>(value: T) -> string where T: Label + Code { return value.label(); }",
         );
         let tokens = tokenize(&source).tokens;
         let output = parse(&source, tokens);
@@ -1899,6 +2023,22 @@ mod tests {
         assert_eq!(type_params, &vec!["T".to_string()]);
         assert_eq!(target.describe(), "Box<T>");
         assert_eq!(methods[0].return_type.describe(), "T");
+    }
+
+    #[test]
+    fn parses_generic_impl_methods() {
+        let source = SourceFile::anonymous(
+            "struct Pair<T, U> { left: T, right: U } impl<T> Pair<T, i32> { fn replace_right<U>(self: Pair<T, i32>, right: U) -> Pair<T, U> { return Pair { left: self.left, right: right }; } }",
+        );
+        let tokens = tokenize(&source).tokens;
+        let output = parse(&source, tokens);
+        assert!(output.diagnostics.is_empty(), "{:?}", output.diagnostics);
+
+        let ItemKind::Impl { methods, .. } = &output.program.items[1].kind else {
+            panic!("expected impl");
+        };
+        assert_eq!(methods[0].type_params, vec!["U".to_string()]);
+        assert_eq!(methods[0].return_type.describe(), "Pair<T, U>");
     }
 
     #[test]

@@ -55,7 +55,7 @@ AX 关注的不只是“模型能不能写出代码”，更关注三件更硬�
 
 - `P0` 继续收紧环境与外部契约
 - `P1` 继续做硬 repair/context/benchmark 证据链
-- `P2` 继续收紧最小可写工具内核与代表样例
+- `P2` 继续拓展语言内核与代表样例，避免过早把 AX 锁死在“只写小工具”的范围内
 - `P3` 已进入第一批 `std.*` 标准库试点阶段，但尚未全仓冻结
 
 完整的阶段门槛和前置条件看 [`PLAN.md`](./PLAN.md)。
@@ -696,7 +696,7 @@ AX 的六层协议上下文，不只是让模型“更快读懂项目”，更�
 
 | 当前主线                                        | 目的                                                                                                                                                                                                                                                                 | 结果会体现在哪里                                                                                                                                                                                                       |
 | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 推进语言内核与最小可写工具能力                  | 继续补最值钱的表达能力、宿主能力和 project-backed 工程组织                                                                                                                                                                                                           | `foundation/`、`examples/project_*`、`SYNTAX.md`                                                                                                                                                                       |
+| 推进语言内核与可写项目能力                      | 继续补最值钱的表达能力、宿主能力和 project-backed 工程组织；短期服务工具/自动化场景，中期面向后端语言能力扩展                                                                                                                                                       | `foundation/`、`examples/project_*`、`SYNTAX.md`                                                                                                                                                                       |
 | 推进显式、确定的模块组织                        | 让 shared foundation 和 project-private logic 有清晰边界                                                                                                                                                                                                             | `AX.toml + sources`、`module`、`import`、全限定名                                                                                                                                                                      |
 | 为第一版最小标准库做冻结试点                    | 用 `project_text_normalize`、`project_directory_index`、`project_release_promote`、`project_command_capture`、`project_command_batch` 验证 `std.*` 命名空间、全限定调用、递归工具逻辑、发布型文件操作、命令捕获、命令执行、环境变量检查和项目私有 `lib.*` 的组合成本 | `std/`、`examples/project_text_normalize/`、`examples/project_directory_index/`、`examples/project_release_promote/`、`examples/project_command_capture/`、`examples/project_command_batch/`、`PLAN.md`、`WORKLIST.md` |
 | 做硬 diagnostics / context / repair / benchmark | 让语言主线自带可消费的编译器反馈和可回放证据链                                                                                                                                                                                                                       | `src/ai.rs`、`benchmarks/`、`scripts/`、`docs/benchmark-showcase.md`                                                                                                                                                   |
@@ -708,7 +708,7 @@ AX 的六层协议上下文，不只是让模型“更快读懂项目”，更�
 把这几条线压成项目阶段语言，就是：
 
 - 先做硬 `P0` 的契约地基
-- 再以 `P2` 继续推进语言内核与最小可写工具能力
+- 再以 `P2` 继续推进语言内核与可写项目能力，不把当前阶段误读成“工具语言已经完成”
 - 同步推进 `P1` 的编译器护城河闭环
 - 继续推进 `P3` 的官方最小标准库试点与冻结
 - AOT、包接口、自举和生态扩张统一后置到 [`PLAN.md`](./PLAN.md) 的后续阶段
@@ -837,9 +837,10 @@ P2 阶段固定样例集合与回归职责见 [`docs/representative-samples.md`]
 | 枚举值                | 已支持   | `Flag.On`、`Result.Ok(7)`、`Result<i32, string>`、枚举值比较                                                                                       |
 | 固定长度数组          | 已支持   | `[Type; N]`、数组字面量、索引读取                                                                                                                  |
 | 只读 slice            | 已支持   | `[Type]`、`values[start:end]`                                                                                                                      |
-| 泛型结构体 / 泛型 impl | 已支持   | `struct Box<T> { value: T }`、`Box<i32>`、`impl<T> Box<T> { ... }`、`impl<T> Trait for Box<T> { ... }`、字段读取与可变字段写入                    |
-| 泛型函数              | 已支持   | `fn identity<T>(value: T) -> T`，由实参推断类型参数；支持 `fn render<T: Label + ExitCode>(value: T) -> string` 这类 trait bounds                   |
+| 泛型结构体 / 泛型 impl | 已支持   | `struct Box<T> { value: T }`、`Box<i32>`、`impl<T> Box<T> { ... }`、`impl<T> Trait for Box<T> { ... }`、泛型方法 `fn replace<U>(...)`、字段读取与可变字段写入 |
+| 泛型函数              | 已支持   | `fn identity<T>(value: T) -> T`，由实参推断类型参数；支持 `fn render<T: Label + ExitCode>(value: T) -> string` 与 `where T: Label + Code` 这类 trait bounds |
 | 泛型 enum             | 已支持   | `enum Result<T, E> { Ok(T), Err(E) }`、`Result<i32, string>`、payload 构造与 match 绑定                                                            |
+| 类型别名              | 已支持   | `type UserId = i32;`、`type Scores = [i32; 3];`、`type Boxed<T> = Box<T>;`，用于给标准库/后端 API 提供更稳定的显式类型边界                            |
 | traits / interfaces   | 已支持   | `trait Label { fn label(self: Self) -> string; }` 与 `impl Label for Command { ... }`                                                              |
 | trait bounds          | 已支持   | 当前支持泛型函数参数上的一个或多个 trait bounds，并允许在函数体内调用 bound 提供的方法                                                            |
 | `for in` 遍历         | 已支持   | 当前支持 `for (let value: T in values) { ... }`，目标为数组 / slice                                                                                |
@@ -881,7 +882,10 @@ P2 阶段固定样例集合与回归职责见 [`docs/representative-samples.md`]
 - 泛型
   - 已支持泛型结构体、泛型函数和泛型 enum
   - 已支持泛型函数上的 trait bounds，例如 `fn render<T: Label + ExitCode>(value: T) -> string`
-  - 当前仍不支持显式 turbofish、where 约束、泛型方法或泛型 impl
+  - 当前仍不支持显式 turbofish；`where` 约束已作为输入语法支持，并由 formatter 收敛到 canonical 泛型参数约束
+- 类型别名
+  - 已支持非泛型与泛型类型别名，例如 `type UserId = i32;`、`type Scores = [i32; 3];`、`type Boxed<T> = Box<T>;`
+  - 当前边界：递归类型别名、包级别名导出和更复杂的别名 diagnostics 仍在后续阶段
 - traits / interfaces
   - 已支持 trait 方法签名与 `impl Trait for Type`
   - 已支持缺失方法检查、签名匹配检查，以及 trait impl 方法作为普通方法调用

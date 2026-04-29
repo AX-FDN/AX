@@ -1,0 +1,16 @@
+type UserId = i32;
+type Scores = [i32; 3];
+
+fn sum_scores(scores: Scores) -> UserId {
+    let mut total: UserId = 0;
+    for (let score: i32 in scores) {
+        total = total + score;
+    }
+    return total;
+}
+
+fn main() -> i32 {
+    let scores: Scores = [1, 2, 3];
+    println("score total: " + to_string(sum_scores(scores)));
+    return 0;
+}

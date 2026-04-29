@@ -320,6 +320,7 @@ struct LoweringContext<'a> {
     struct_names: HashSet<String>,
     enum_names: HashSet<String>,
     trait_names: HashSet<String>,
+    type_aliases: HashMap<String, (Vec<String>, ast::TypeRef)>,
     enum_variant_payloads: HashMap<String, HashMap<String, Type>>,
     next_match_temp: Cell<u32>,
     next_for_in_temp: Cell<u32>,
@@ -340,6 +341,7 @@ impl<'a> LoweringContext<'a> {
         let mut struct_names = HashSet::new();
         let mut enum_names = HashSet::new();
         let mut trait_names = HashSet::new();
+        let mut type_aliases = HashMap::new();
 
         for item in &program.items {
             let canonical_name = canonical_item_name(source, &unit_modules, item);
@@ -348,6 +350,13 @@ impl<'a> LoweringContext<'a> {
                     function_names.insert(canonical_name);
                 }
                 ast::ItemKind::Const { .. } => {}
+                ast::ItemKind::TypeAlias {
+                    type_params,
+                    target,
+                    ..
+                } => {
+                    type_aliases.insert(canonical_name, (type_params.clone(), target.clone()));
+                }
                 ast::ItemKind::Struct { .. } => {
                     struct_names.insert(canonical_name);
                 }
@@ -368,6 +377,7 @@ impl<'a> LoweringContext<'a> {
             struct_names,
             enum_names,
             trait_names,
+            type_aliases,
             enum_variant_payloads: HashMap::new(),
             next_match_temp: Cell::new(0),
             next_for_in_temp: Cell::new(0),
@@ -444,6 +454,7 @@ impl<'a> LoweringContext<'a> {
                 ty: self.lower_type_ref(ty)?,
                 value: self.lower_expr(value)?,
             },
+            ast::ItemKind::TypeAlias { .. } => return Ok(Vec::new()),
             ast::ItemKind::Struct {
                 name,
                 type_params,
@@ -495,10 +506,15 @@ impl<'a> LoweringContext<'a> {
                 return methods
                     .iter()
                     .map(|method| {
+                        let all_type_params = type_params
+                            .iter()
+                            .cloned()
+                            .chain(method.type_params.iter().cloned())
+                            .collect::<Vec<_>>();
                         Ok(Item {
                             kind: ItemKind::Function {
                                 name: format!("{method_prefix}.{}", method.name),
-                                type_params: type_params.clone(),
+                                type_params: all_type_params,
                                 type_param_bounds: Vec::new(),
                                 params: method
                                     .params
@@ -547,6 +563,14 @@ impl<'a> LoweringContext<'a> {
                     {
                         return Ok(Type::Enum { name });
                     }
+                    if let Some(alias_name) =
+                        self.resolve_canonical_name(name, ty.span, &self.type_alias_names())
+                        && let Some((type_params, target)) = self.type_aliases.get(&alias_name)
+                    {
+                        if type_params.is_empty() {
+                            return self.lower_type_ref(target);
+                        }
+                    }
                     if looks_like_type_param(name) {
                         return Ok(Type::TypeParam { name: name.clone() });
                     }
@@ -558,6 +582,23 @@ impl<'a> LoweringContext<'a> {
                 }
             },
             (Some(name), args, None, None) => {
+                if let Some(alias_name) =
+                    self.resolve_canonical_name(name, ty.span, &self.type_alias_names())
+                    && let Some((type_params, target)) = self.type_aliases.get(&alias_name)
+                {
+                    let lowered_target = self.lower_type_ref(target)?;
+                    let substitutions = type_params
+                        .iter()
+                        .cloned()
+                        .zip(
+                            args.iter()
+                                .map(|arg| self.lower_type_ref(arg))
+                                .collect::<Result<Vec<_>, _>>()?,
+                        )
+                        .collect::<HashMap<_, _>>();
+                    return Ok(substitute_type_params(&lowered_target, &substitutions));
+                }
+
                 if let Some(name) = self.resolve_canonical_name(name, ty.span, &self.struct_names) {
                     return Ok(Type::StructInstance {
                         name,
@@ -616,6 +657,10 @@ impl<'a> LoweringContext<'a> {
             trait_name,
             span: bound.span,
         })
+    }
+
+    fn type_alias_names(&self) -> HashSet<String> {
+        self.type_aliases.keys().cloned().collect()
     }
 
     fn lower_block(&self, block: &ast::Block) -> Result<Block, Diagnostic> {
@@ -1673,6 +1718,7 @@ fn canonical_item_name(
     match &item.kind {
         ast::ItemKind::Function { name, .. }
         | ast::ItemKind::Const { name, .. }
+        | ast::ItemKind::TypeAlias { name, .. }
         | ast::ItemKind::Struct { name, .. }
         | ast::ItemKind::Enum { name, .. }
         | ast::ItemKind::Trait { name, .. } => unit_modules
@@ -1699,6 +1745,37 @@ fn looks_like_type_param(name: &str) -> bool {
         && name
             .chars()
             .all(|ch| ch.is_ascii_alphanumeric() || ch == '_')
+}
+
+fn substitute_type_params(ty: &Type, substitutions: &HashMap<String, Type>) -> Type {
+    match ty {
+        Type::TypeParam { name } => substitutions
+            .get(name)
+            .cloned()
+            .unwrap_or_else(|| ty.clone()),
+        Type::Slice { element } => Type::Slice {
+            element: Box::new(substitute_type_params(element, substitutions)),
+        },
+        Type::Array { element, length } => Type::Array {
+            element: Box::new(substitute_type_params(element, substitutions)),
+            length: *length,
+        },
+        Type::StructInstance { name, args } => Type::StructInstance {
+            name: name.clone(),
+            args: args
+                .iter()
+                .map(|arg| substitute_type_params(arg, substitutions))
+                .collect(),
+        },
+        Type::EnumInstance { name, args } => Type::EnumInstance {
+            name: name.clone(),
+            args: args
+                .iter()
+                .map(|arg| substitute_type_params(arg, substitutions))
+                .collect(),
+        },
+        _ => ty.clone(),
+    }
 }
 
 #[cfg(test)]

@@ -1426,6 +1426,21 @@ fn item_descriptor(item: &Item) -> AiFocusItem {
             signature: Some(format!("{prefix}const {name}: {}", ty.describe())),
             span: item.span,
         },
+        ItemKind::TypeAlias {
+            name,
+            type_params,
+            target,
+        } => AiFocusItem {
+            kind: "type_alias".to_string(),
+            name: name.clone(),
+            visibility: item.visibility,
+            signature: Some(format!(
+                "{prefix}type {name}{} = {}",
+                format_type_params(type_params),
+                target.describe()
+            )),
+            span: item.span,
+        },
         ItemKind::Struct { name, fields, .. } => AiFocusItem {
             kind: "struct".to_string(),
             name: name.clone(),
@@ -1518,6 +1533,7 @@ fn related_symbols_for_item(program: &Program, focus_item: &Item) -> Vec<AiRelat
         let name = match &item.kind {
             ItemKind::Function { name, .. }
             | ItemKind::Const { name, .. }
+            | ItemKind::TypeAlias { name, .. }
             | ItemKind::Struct { name, .. }
             | ItemKind::Enum { name, .. }
             | ItemKind::Trait { name, .. } => name.clone(),
@@ -1529,6 +1545,7 @@ fn related_symbols_for_item(program: &Program, focus_item: &Item) -> Vec<AiRelat
     let focus_name = match &focus_item.kind {
         ItemKind::Function { name, .. }
         | ItemKind::Const { name, .. }
+        | ItemKind::TypeAlias { name, .. }
         | ItemKind::Struct { name, .. }
         | ItemKind::Enum { name, .. }
         | ItemKind::Trait { name, .. } => name.clone(),
@@ -1557,6 +1574,9 @@ fn related_symbols_for_item(program: &Program, focus_item: &Item) -> Vec<AiRelat
         ItemKind::Const { ty, value, .. } => {
             collect_type_ref_names(ty, &mut referenced);
             collect_expr_names(value, &mut referenced);
+        }
+        ItemKind::TypeAlias { target, .. } => {
+            collect_type_ref_names(target, &mut referenced);
         }
         ItemKind::Enum { .. } => {}
         ItemKind::Trait { methods, .. } => {

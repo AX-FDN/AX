@@ -24,8 +24,9 @@
 - trait 当前写成 `trait Name { fn method(self: Self) -> Ret; }`，实现写成 `impl Name for Type { ... }`
 - 泛型当前支持泛型结构体：`struct Box<T> { value: T }`，使用时写成 `Box<i32>`；结构体字面量仍写成 `Box { value: 1 }`；泛型 impl 可用 `impl<T> Box<T>` 与 `impl<T> Trait for Box<T>`
 - 泛型函数当前支持由实参推断类型参数：`fn identity<T>(value: T) -> T { return value; }`
-- 泛型函数支持一个或多个 trait bounds：`fn render<T: Label + ExitCode>(value: T) -> string { return value.label(); }`
+- 泛型函数支持一个或多个 trait bounds：`fn render<T: Label + ExitCode>(value: T) -> string { return value.label(); }`；也接受 `where` 写法并由 formatter 收敛到 canonical 泛型参数约束
 - 泛型 enum 当前支持 Result-like 类型：`enum Result<T, E> { Ok(T), Err(E) }`，使用时写成 `Result<i32, string>`
+- 类型别名当前支持非泛型与泛型别名：`type UserId = i32;`、`type Scores = [i32; 3];`、`type Boxed<T> = Box<T>;`
 - 可写目标当前支持嵌套路径：`point.x = expr;`、`outer.inner.value = expr;`、`tokens[index].value = expr;`
 
 ## 2. 顶层声明
@@ -44,6 +45,24 @@ fn add(left: i32, right: i32) -> i32 {
 const EXIT_OK: i32 = 0;
 const TOOL_NAME: string = "ax";
 ```
+
+类型别名：
+
+```ax
+type UserId = i32;
+type Scores = [i32; 3];
+type Boxed<T> = Box<T>;
+
+fn sum_scores(scores: Scores) -> UserId {
+    let mut total: UserId = 0;
+    for (let score: i32 in scores) {
+        total = total + score;
+    }
+    return total;
+}
+```
+
+当前类型别名支持非泛型与泛型形式；递归别名、包级别名导出和更复杂的别名 diagnostics 保留给后续标准库与包接口阶段继续补强。
 
 公开顶层声明：
 
@@ -189,7 +208,7 @@ import lib.report;
 
 当前没有：
 
-- 泛型方法、where 约束、泛型 trait
+- 泛型 trait
 - `Option` / `Result` 的完整表面语法
 
 补充说明：
@@ -471,19 +490,22 @@ program           := source_unit+
 source_unit       := module_decl? import_decl* item*
 module_decl       := "module" qualified_name ";"
 import_decl       := "import" qualified_name ";"
-item              := visibility? (function | const_decl | struct_decl | enum_decl | trait_decl | impl_decl)
+item              := visibility? (function | const_decl | type_alias | struct_decl | enum_decl | trait_decl | impl_decl)
 visibility        := "pub"
 
-function          := "fn" IDENT function_generic_params? "(" param_list? ")" "->" type_ref block
+function          := "fn" IDENT function_generic_params? "(" param_list? ")" "->" type_ref where_clause? block
 param_list        := param ("," param)*
 param             := IDENT ":" type_ref
 
 const_decl        := "const" IDENT ":" type_ref "=" expr ";"
+type_alias        := "type" IDENT plain_generic_params? "=" type_ref ";"
 
 struct_decl       := "struct" IDENT plain_generic_params? "{" struct_field_list? "}"
 function_generic_params := "<" function_generic_param ("," function_generic_param)* ">"
 function_generic_param  := IDENT (":" type_ref ("+" type_ref)*)?
 plain_generic_params    := "<" IDENT ("," IDENT)* ">"
+where_clause      := "where" where_bound ("," where_bound)*
+where_bound       := IDENT ":" type_ref ("+" type_ref)*
 struct_field_list := struct_field ("," struct_field)* ","?
 struct_field      := IDENT ":" type_ref
 
@@ -495,7 +517,7 @@ trait_decl        := "trait" IDENT "{" trait_method* "}"
 trait_method      := "fn" IDENT "(" param_list? ")" "->" type_ref ";"
 
 impl_decl         := "impl" plain_generic_params? (type_ref | type_ref "for" type_ref) "{" impl_method* "}"
-impl_method       := "fn" IDENT "(" param_list? ")" "->" type_ref block
+impl_method       := "fn" IDENT plain_generic_params? "(" param_list? ")" "->" type_ref block
 
 type_ref          := qualified_name generic_args?
                   | "[" type_ref "]"
@@ -643,7 +665,7 @@ array_type        := "[" type_ref ";" INT "]"
 
 - 异常
 - async / await
-- 泛型方法、where 约束、泛型 trait
+- 泛型 trait
 - 宏
 - 原生后端
 
@@ -654,11 +676,12 @@ array_type        := "[" type_ref ";" INT "]"
 - 如果上下文不是零长度数组，例如 `let values: [i32; 1] = [];`，会报 `S0032`。
 - `match` 当前已支持表达式形态、最终绑定模式、字符串字面量 pattern、payload enum pattern、`A | B` 多 pattern arm、`i32` range pattern 与 binding-aware bool guard，但仍不支持结构体/数组/tuple 解构，表达式形态也还不支持 block-valued arm。
 - `module / import` 当前支持显式模块声明与显式导入；`pub` 当前已作为顶层导出标记进入语法、formatter、AST/HIR/MIR、context 与 AI focus 元数据；暂不支持 alias、wildcard import、包管理与远程依赖。
-- `impl / methods` 当前支持值方法、显式 `self: Type` 参数，以及 `impl<T> Box<T>` / `impl<T> Trait for Box<T>` 这类泛型 impl；暂不支持泛型方法、静态方法、可变接收者或方法重载。
+- `impl / methods` 当前支持值方法、显式 `self: Type` 参数、`impl<T> Box<T>` / `impl<T> Trait for Box<T>` 这类泛型 impl，以及方法自带类型参数的泛型方法；暂不支持静态方法、可变接收者或方法重载。
 - `trait / interface` 当前支持 trait 方法签名、`impl Trait for Type`、缺失方法检查、签名匹配检查、trait impl 方法作为普通方法调用，以及泛型函数上的一个或多个 trait bounds；暂不支持动态派发、关联类型、默认方法或泛型 trait。
-- `generic struct` 当前支持 `struct Box<T>`、`Box<i32>` 类型引用、字段推断、字段读取与可变字段写入；暂不支持 trait bounds 或 where 约束。
-- `generic function` 当前支持 `fn identity<T>(value: T) -> T` 并由调用实参推断 `T`；也支持 `fn render<T: Label + ExitCode>(value: T) -> string` 这类 trait bounds；暂不支持显式 turbofish、泛型方法或 where 约束。
-- `generic enum` 当前支持 `enum Result<T, E> { Ok(T), Err(E) }`、`Result<i32, string>`、payload 构造与 `match` payload 绑定；暂不支持 trait bounds、where 约束、多 payload tuple variant 或命名 payload 字段。
+- `generic struct` 当前支持 `struct Box<T>`、`Box<i32>` 类型引用、字段推断、字段读取与可变字段写入；暂不支持 struct 级 trait bounds。
+- `generic function` 当前支持 `fn identity<T>(value: T) -> T` 并由调用实参推断 `T`；也支持 `fn render<T: Label + ExitCode>(value: T) -> string` 与 `fn render<T>(value: T) -> string where T: Label + ExitCode` 这类 trait bounds；暂不支持显式 turbofish。
+- `generic enum` 当前支持 `enum Result<T, E> { Ok(T), Err(E) }`、`Result<i32, string>`、payload 构造与 `match` payload 绑定；暂不支持 enum 级 trait bounds、多 payload tuple variant 或命名 payload 字段。
+- `type alias` 当前支持非泛型与泛型类型别名，例如 `type UserId = i32;`、`type Scores = [i32; 3];` 与 `type Boxed<T> = Box<T>;`；暂不支持递归别名。
 
 ## 9. 给 AI 的直接提示词
 
@@ -666,7 +689,7 @@ array_type        := "[" type_ref ";" INT "]"
 Generate code in the current AX prototype syntax only.
 Rules:
 - Use braces for all blocks.
-- Use only module, import, pub, fn, const, struct, enum, trait, impl, let, let mut, return, if/else, while, for, and the current match forms.
+- Use only module, import, pub, fn, const, type, struct, enum, trait, impl, let, let mut, return, if/else, while, for, and the current match forms.
 - `break;` may be used to exit the nearest `while` or `for` loop early.
 - `continue;` may be used to skip to the next iteration of the nearest `while` or `for` loop.
 - `match` supports statement form `match (value) { pattern => { ... } ... }` and expression form `match (value) { pattern => expr, ... }`.
@@ -674,6 +697,7 @@ Rules:
 - `match` guards use `pattern if bool_expr => ...`; guards must be bool, do not count as exhaustive coverage, and may read pattern bindings introduced by the same arm.
 - Top-level constants may be declared as `const NAME: Type = expr;` and used as read-only values.
 - Public top-level declarations may use `pub`, such as `pub fn helper() -> i32 { ... }` or `pub const STATUS_OK: i32 = 0;`.
+- Type aliases may be declared as `type UserId = i32;` or `type Boxed<T> = Box<T>;`; do not use recursive type aliases yet.
 - A bare binding pattern is a final catch-all and introduces an immutable arm-local name.
 - Expression-form `match` arms must stay single expressions and all arms must produce the same type.
 - `&&` and `||` are supported and both sides must produce `bool`.
@@ -686,7 +710,7 @@ Rules:
 - Enum values must use `EnumName.Variant` or `EnumName.Variant(value)` when the variant declares a payload.
 - Methods are declared in `impl Type { fn name(self: Type, ...) -> Ret { ... } }`, `impl<T> Box<T> { ... }`, or `impl<T> Trait for Box<T> { ... }` blocks and called as `value.name(...)`.
 - Traits are declared as `trait Name { fn method(self: Self) -> Ret; }` and implemented as `impl Name for Type { ... }`.
-- Generic functions may use trait bounds such as `fn render<T: Label + ExitCode>(value: T) -> string { return value.label(); }`.
+- Generic functions may use trait bounds such as `fn render<T: Label + ExitCode>(value: T) -> string { return value.label(); }`; `where` bounds are accepted and formatted back to canonical generic parameter bounds.
 - Construct structs with TypeName { field: expr, ... }.
 - Use for loops only as `for (init; condition; step) { ... }` or `for (let value: T in values) { ... }`.
 - Read-only slices are allowed as [Type] and values[start:end].
@@ -697,7 +721,7 @@ Rules:
 - In project mode, support sources may declare `module ...;` and files may use explicit `import module.path;`.
 - Generic structs may be declared as `struct Box<T> { value: T }` and used in type positions like `Box<i32>`; construct them with normal struct literals like `Box { value: 1 }`.
 - Generic functions may be declared as `fn identity<T>(value: T) -> T { return value; }`; type parameters are inferred from arguments.
-- Do not use exceptions, async, generic methods, explicit turbofish calls, where clauses, dynamic dispatch, associated types, default trait methods, generic traits, destructuring match patterns, named payload fields, or multi-payload enum variants.
+- Do not use exceptions, async, explicit turbofish calls, dynamic dispatch, associated types, default trait methods, generic traits, recursive type aliases, destructuring match patterns, named payload fields, or multi-payload enum variants.
 - Use [] only when the target type is explicitly a zero-length array like [i32; 0].
 - Return 0 from main on success unless a different exit code is explicitly needed.
 ```

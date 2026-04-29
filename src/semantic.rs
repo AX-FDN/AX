@@ -85,10 +85,15 @@ pub fn check_program_with_project(
         } = &item.kind
         {
             for method in methods {
+                let all_type_params = type_params
+                    .iter()
+                    .cloned()
+                    .chain(method.type_params.iter().cloned())
+                    .collect::<Vec<_>>();
                 check_function_body(
                     source,
                     &method.name,
-                    type_params,
+                    &all_type_params,
                     &method.params,
                     &method.return_type,
                     &method.body,
@@ -1372,6 +1377,110 @@ fn main() -> i32 {
     let command: Command = Command { name: \"build\", exit_code: 5 };
     println(render(command));
     return 0;
+}
+",
+        );
+        assert!(codes.is_empty(), "unexpected diagnostics: {codes:?}");
+    }
+
+    #[test]
+    fn accepts_where_trait_bounds_on_generic_functions() {
+        let codes = check(
+            "\
+trait Label {
+    fn label(self: Self) -> string;
+}
+
+trait Code {
+    fn code(self: Self) -> i32;
+}
+
+struct Command { name: string, exit_code: i32 }
+
+impl Label for Command {
+    fn label(self: Command) -> string {
+        return self.name;
+    }
+}
+
+impl Code for Command {
+    fn code(self: Command) -> i32 {
+        return self.exit_code;
+    }
+}
+
+fn render<T>(value: T) -> string where T: Label + Code {
+    return value.label() + \":\" + to_string(value.code());
+}
+
+fn main() -> i32 {
+    let command: Command = Command { name: \"build\", exit_code: 5 };
+    println(render(command));
+    return 0;
+}
+",
+        );
+        assert!(codes.is_empty(), "unexpected diagnostics: {codes:?}");
+    }
+
+    #[test]
+    fn accepts_type_aliases_in_type_positions() {
+        let codes = check(
+            "\
+type UserId = i32;
+type Scores = [i32; 2];
+
+fn first(scores: Scores) -> UserId {
+    return scores[0];
+}
+
+fn main() -> i32 {
+    let scores: Scores = [4, 5];
+    let id: UserId = first(scores);
+    return id;
+}
+",
+        );
+        assert!(codes.is_empty(), "unexpected diagnostics: {codes:?}");
+    }
+
+    #[test]
+    fn accepts_generic_type_aliases_in_type_positions() {
+        let codes = check(
+            "\
+type Boxed<T> = Box<T>;
+
+struct Box<T> { value: T }
+
+fn unwrap(boxed: Boxed<i32>) -> i32 {
+    return boxed.value;
+}
+
+fn main() -> i32 {
+    let boxed: Boxed<i32> = Box { value: 7 };
+    return unwrap(boxed);
+}
+",
+        );
+        assert!(codes.is_empty(), "unexpected diagnostics: {codes:?}");
+    }
+
+    #[test]
+    fn accepts_generic_impl_methods() {
+        let codes = check(
+            "\
+struct Pair<T, U> { left: T, right: U }
+
+impl<T> Pair<T, i32> {
+    fn replace_right<U>(self: Pair<T, i32>, right: U) -> Pair<T, U> {
+        return Pair { left: self.left, right: right };
+    }
+}
+
+fn main() -> i32 {
+    let pair: Pair<string, i32> = Pair { left: \"ax\", right: 1 };
+    let changed: Pair<string, string> = pair.replace_right(\"ok\");
+    return string_len(changed.right);
 }
 ",
         );

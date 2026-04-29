@@ -97,6 +97,11 @@ impl Formatter {
                 body,
             ),
             ItemKind::Const { name, ty, value } => self.format_const_item(name, ty, value),
+            ItemKind::TypeAlias {
+                name,
+                type_params,
+                target,
+            } => self.format_type_alias_item(name, type_params, target),
             ItemKind::Struct {
                 name,
                 type_params,
@@ -123,6 +128,15 @@ impl Formatter {
             "const {name}: {} = {};",
             format_type_ref(ty),
             format_expr(value)
+        );
+    }
+
+    fn format_type_alias_item(&mut self, name: &str, type_params: &[String], target: &TypeRef) {
+        let _ = write!(
+            self.out,
+            "type {name}{} = {};",
+            format_type_params(type_params),
+            format_type_ref(target)
         );
     }
 
@@ -228,7 +242,12 @@ impl Formatter {
     }
 
     fn format_method_item(&mut self, method: &ImplMethod) {
-        let _ = write!(self.out, "fn {}(", method.name);
+        let _ = write!(
+            self.out,
+            "fn {}{}(",
+            method.name,
+            format_type_params(&method.type_params)
+        );
         for (index, param) in method.params.iter().enumerate() {
             if index > 0 {
                 self.out.push_str(", ");
@@ -815,6 +834,28 @@ mod tests {
     }
 
     #[test]
+    fn formats_where_trait_bounds_into_canonical_generic_params() {
+        let source = SourceFile::anonymous(
+            "fn render<T>(value:T)->string where T:Label+Code{return value.label();}",
+        );
+        let formatted = format_source(&source).expect("source should format");
+        assert_eq!(
+            formatted,
+            "fn render<T: Label + Code>(value: T) -> string {\n    return value.label();\n}\n"
+        );
+    }
+
+    #[test]
+    fn formats_type_alias_items() {
+        let source = SourceFile::anonymous("type UserId=i32;fn main()->i32{return 0;}");
+        let formatted = format_source(&source).expect("source should format");
+        assert_eq!(
+            formatted,
+            "type UserId = i32;\n\nfn main() -> i32 {\n    return 0;\n}\n"
+        );
+    }
+
+    #[test]
     fn formats_generic_impl_blocks() {
         let source = SourceFile::anonymous(
             "struct Box<T>{value:T}impl<T> Box<T>{fn get(self:Box<T>)->T{return self.value;}}",
@@ -833,6 +874,18 @@ mod tests {
                 "    }\n",
                 "}\n"
             )
+        );
+    }
+
+    #[test]
+    fn formats_generic_impl_methods() {
+        let source = SourceFile::anonymous(
+            "struct Pair<T,U>{left:T,right:U}impl<T> Pair<T,i32>{fn replace_right<U>(self:Pair<T,i32>,right:U)->Pair<T,U>{return Pair{left:self.left,right:right};}}",
+        );
+        let formatted = format_source(&source).expect("source should format");
+        assert_eq!(
+            formatted,
+            "struct Pair<T, U> {\n    left: T,\n    right: U,\n}\n\nimpl<T> Pair<T, i32> {\n    fn replace_right<U>(self: Pair<T, i32>, right: U) -> Pair<T, U> {\n        return Pair { left: self.left, right: right };\n    }\n}\n"
         );
     }
 

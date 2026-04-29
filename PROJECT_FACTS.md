@@ -42,9 +42,9 @@ AX 当前优先服务四类能被仓库直接验证的场景：
 
 | 层级 | 完成度 | 说明 |
 | --- | --- | --- |
-| 最小可写工具内核 | `82%~85%` | 已具备显式类型、数组/切片、`for/for in`、`break/continue`、最小 `match`、字符串 pattern、payload enum、泛型 enum 第一刀、模块第一刀、methods/impl 第一刀、泛型结构体与泛型函数第一刀、宿主 builtin |
-| 通用语言表面 | `48%~53%` | 已补 methods/impl 第一刀、泛型结构体/函数/enum 第一刀与 traits/interfaces 第一刀；还缺 trait bounds、可见性、包系统、闭包、async 等 |
-| 生态支撑语法 | `20%~30%` | 已能组织项目，但还不能支撑完整标准库与第三方包生态 |
+| 最小可写工具内核 | `90%~93%` | 已具备显式类型、数组/切片、`for/for in`、`break/continue`、`match` 多个高价值切片、字符串 pattern、payload enum、泛型 enum、模块第一刀、`pub`、methods/impl、泛型结构体/函数/impl/方法、trait bounds、`where` 输入语法、泛型 `type` 别名、宿主 builtin |
+| 通用语言表面 | `62%~68%` | 已补 methods/impl、泛型结构体/函数/enum/impl/method、traits/interfaces、trait bounds、`where` 输入语法、`pub` 与泛型 `type` 别名；还缺泛型 trait、闭包、async、错误传播语法、完整包系统等 |
+| 生态支撑语法 | `32%~38%` | 已能组织 project-backed 样例并启动 `std.*` 试点；仍缺稳定包接口、lockfile、host extension ABI、AOT 发布路径和第三方库契约 |
 
 ## AX 现在已经成立的事实
 

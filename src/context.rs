@@ -597,6 +597,7 @@ struct DefinedSymbol {
 enum DefinedSymbolKind {
     Function,
     Const,
+    TypeAlias,
     Struct,
     Enum,
     Trait,
@@ -607,6 +608,7 @@ impl DefinedSymbolKind {
         match self {
             Self::Function => "function",
             Self::Const => "const",
+            Self::TypeAlias => "type_alias",
             Self::Struct => "struct",
             Self::Enum => "enum",
             Self::Trait => "trait",
@@ -2015,6 +2017,36 @@ fn build_symbol_catalog(
                     .or_default()
                     .push(qualified_name);
             }
+            ItemKind::TypeAlias { name, target, .. } => {
+                let qualified_name = qualify_symbol_name(unit.module_path.as_deref(), name);
+                let mut related_types = BTreeSet::new();
+                collect_type_ref_names(target, &mut related_types);
+                definitions.insert(
+                    qualified_name.clone(),
+                    DefinedSymbol {
+                        qualified_name: qualified_name.clone(),
+                        kind: DefinedSymbolKind::TypeAlias,
+                        visibility: item.visibility,
+                        source_path: source_path.clone(),
+                        module_path: unit.module_path.clone(),
+                        is_entry: unit.is_entry,
+                        imports: unit.imports.clone(),
+                        params: Vec::new(),
+                        return_type: Some(target.describe()),
+                        related_types,
+                        raw_call_order: Vec::new(),
+                        resolved_callees: BTreeSet::new(),
+                        resolved_callee_order: Vec::new(),
+                        host_classes: BTreeSet::new(),
+                        branch_kinds: BTreeSet::new(),
+                        branch_count: 0,
+                    },
+                );
+                simple_names
+                    .entry(name.clone())
+                    .or_default()
+                    .push(qualified_name);
+            }
             ItemKind::Struct { name, fields, .. } => {
                 let qualified_name = qualify_symbol_name(unit.module_path.as_deref(), name);
                 let mut related_types = BTreeSet::new();
@@ -2712,6 +2744,9 @@ fn collect_unit_stats(source: &SourceFile, program: &Program) -> BTreeMap<String
                 visit_block(body, stats);
             }
             ItemKind::Const { name, .. } => {
+                stats.symbols.push(name.clone());
+            }
+            ItemKind::TypeAlias { name, .. } => {
                 stats.symbols.push(name.clone());
             }
             ItemKind::Struct { name, .. } => {

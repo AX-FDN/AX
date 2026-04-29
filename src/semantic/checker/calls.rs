@@ -258,18 +258,38 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 &substitute_self_type(&parameter.ty, &receiver_type),
                 &method_type_args,
             );
-            self.expect_type_match_with_kind(
-                &expected,
-                argument,
-                expr.span,
-                format!(
-                    "method `{method}` expects argument `{}` to be `{}`, found `{}`",
-                    parameter.name,
-                    expected.describe(),
-                    argument.describe()
-                ),
-                DiagnosticKind::FunctionArgumentTypeMismatch,
-            );
+            if !unify_generic_call_type(&expected, argument, &mut method_type_args) {
+                let expected = substitute_type_params(&expected, &method_type_args);
+                self.expect_type_match_with_kind(
+                    &expected,
+                    argument,
+                    expr.span,
+                    format!(
+                        "method `{method}` expects argument `{}` to be `{}`, found `{}`",
+                        parameter.name,
+                        expected.describe(),
+                        argument.describe()
+                    ),
+                    DiagnosticKind::FunctionArgumentTypeMismatch,
+                );
+            }
+        }
+
+        for type_param in &signature.type_params {
+            if !method_type_args.contains_key(type_param) {
+                self.diagnostics.push(
+                    Diagnostic::new(
+                        "S0058",
+                        format!(
+                            "could not infer generic type parameter `{type_param}` for method `{method}`"
+                        ),
+                        self.info.source,
+                        expr.span,
+                    )
+                    .with_suggestion("pass an argument whose type fixes the generic parameter"),
+                );
+                return Some(Type::Error);
+            }
         }
 
         Some(substitute_type_params(

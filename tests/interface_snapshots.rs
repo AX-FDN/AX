@@ -4295,6 +4295,25 @@ fn generic_box_example_runs() {
 }
 
 #[test]
+fn generic_method_example_runs() {
+    let output = run_axc([OsStr::new("run"), OsStr::new("examples/generic_method.ax")]);
+    assert_eq!(output.status.code(), Some(0));
+    assert_clean_stderr(&output);
+    assert_eq!(normalize_text(&string_output(&output.stdout)), "ax:ok\n");
+}
+
+#[test]
+fn generic_type_alias_example_runs() {
+    let output = run_axc([
+        OsStr::new("run"),
+        OsStr::new("examples/generic_type_alias.ax"),
+    ]);
+    assert_eq!(output.status.code(), Some(0));
+    assert_clean_stderr(&output);
+    assert_eq!(normalize_text(&string_output(&output.stdout)), "ax\n");
+}
+
+#[test]
 fn generic_functions_example_runs() {
     let output = run_axc([
         OsStr::new("run"),
@@ -4368,6 +4387,17 @@ fn public_api_example_runs() {
     assert_eq!(output.status.code(), Some(0));
     assert_clean_stderr(&output);
     assert_eq!(normalize_text(&string_output(&output.stdout)), "status=0\n");
+}
+
+#[test]
+fn type_alias_example_runs() {
+    let output = run_axc([OsStr::new("run"), OsStr::new("examples/type_alias.ax")]);
+    assert_eq!(output.status.code(), Some(0));
+    assert_clean_stderr(&output);
+    assert_eq!(
+        normalize_text(&string_output(&output.stdout)),
+        "score total: 6\n"
+    );
 }
 
 #[test]

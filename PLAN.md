@@ -104,9 +104,9 @@ AX 的 AI-first 必须落到具体工作负载，而不是停留在口号。
 
 | 层级 | 完成度 | 说明 |
 | --- | --- | --- |
-| 最小可写工具内核 | `82%~85%` | 已有显式类型、数组/切片、`for/for in`、`break/continue`、最小 `match`、payload enum、泛型 enum 第一刀、模块第一刀、方法第一刀、泛型结构体与泛型函数第一刀、宿主 builtin |
-| 通用语言表面 | `48%~53%` | 已有 methods/impl 第一刀、泛型结构体/函数/enum 第一刀、trait/interface 第一刀；仍缺 trait bounds、包系统、可见性、闭包、async、错误传播语法等 |
-| 生态支撑语法 | `20%~30%` | 项目可组织，但还不能支撑完整标准库与第三方包生态 |
+| 最小可写工具内核 | `90%~93%` | 已有显式类型、数组/切片、`for/for in`、`break/continue`、`match` 多个高价值切片、payload enum、泛型 enum、模块第一刀、`pub`、methods/impl、泛型结构体/函数/impl/方法、trait bounds、`where` 输入语法、泛型 `type` 别名、宿主 builtin |
+| 通用语言表面 | `62%~68%` | 已有 methods/impl、泛型结构体/函数/enum/impl/method、traits/interfaces、trait bounds、`where` 输入语法、`pub` 和泛型 `type` 别名；仍缺泛型 trait、闭包、async、错误传播语法、完整包系统等 |
+| 生态支撑语法 | `32%~38%` | 已能组织 project-backed 样例并启动 `std.*` 试点；仍缺稳定包接口、lockfile、host extension ABI、AOT 发布路径和第三方库契约 |
 
 ### 当前阶段判断
 
@@ -116,7 +116,7 @@ AX 当前不是“语法刚起步”的玩具仓库，但也还不是“已经�
 
 - `P0` 的环境与契约修复仍未完全收口，但 Windows 本地可复跑路径已经固定，剩余问题转向验证矩阵与外部契约收口
 - `P1` 的 diagnostics / context / repair / benchmark 护城河已经有骨架，但还缺更公开、更可复现的消费层和展示层
-- `P2` 的最小可写工具内核已经接近成型，但仍在依赖 `foundation/` 这一层孵化 helper，语言内核还没完全收口
+- `P2` 的最小可写工具内核已经进入后段，但当前目标不是宣布“工具语言完成”，而是继续补齐通用语言表面中会影响标准库、后端和 AI 生成稳定性的关键语法
 - `P3+` 之后的标准库、AOT、包接口、自举和生态都还不该提前宣传成“已经在做的主线”
 
 一句话：
@@ -479,15 +479,16 @@ flowchart TD
 
 | 语法组 | 当前状态 | 启动阶段 | 前置条件 | 完成时必须同步 |
 | --- | --- | --- | --- | --- |
-| `match` 第二刀 | 未完成 | P2 | 代表样例与现有 `match` 回归稳定 | parser、semantic、AI 规则、HIR/MIR、interpreter、snapshots、样例 |
-| payload enum 深化 | 未完成 | P2 | 现有 payload enum 稳定 | 同上 |
-| 可见性 `pub` / 模块边界 | 缺失 | P5 前 | module/import 第一刀稳定 | parser、resolver、semantic、包解析、docs、样例 |
-| import 人体工学第二刀 | 缺失 | P5 前 | 可见性方案确定 | parser、diagnostics、context topology、docs |
-| `const` / 常量定义 | 缺失 | P5 前 | 标准库开始需要稳定常量 | parser、semantic、formatter、AOT/interpreter |
-| methods / `impl` | 第一刀已实现 | P5-P6 | 标准库 API 复杂度开始上升 | 后续补泛型 impl、trait impl、静态方法、AOT method lowering、AI rule cards |
-| 泛型 | 泛型结构体、泛型函数与泛型 enum 第一刀已实现 | P6 后 | collections 与标准库压力明确出现 | 后续补 trait bounds、显式类型参数调用、AI diagnostics、HIR/MIR/AOT |
-| traits / interfaces | trait 声明与 `impl Trait for Type` 第一刀已实现 | P6-P7 | 包生态与抽象层明确需要 | 后续补 trait bounds、stdlib 抽象迁移、package contracts |
-| richer pattern matching | 字符串字面量 pattern 第一刀已实现 | P6 后 | `match` 第一版与 enum 使用成熟 | 后续补多 pattern arm、guard、解构、AI rule cards |
+| `match` 第二刀 | 已完成多个高价值切片 | P2 | 代表样例与现有 `match` 回归稳定 | 已覆盖 expression match、payload enum pattern、字符串 pattern、`A | B`、range、guard；后续补结构体/数组/tuple 解构 |
+| payload enum 深化 | 已完成 Result-like 泛型 enum、payload 构造与 payload pattern | P2 | 现有 payload enum 稳定 | 后续补多 payload tuple variant、命名 payload 字段、更多 exhaustiveness 规则 |
+| 可见性 `pub` / 模块边界 | 已实现顶层 `pub` 第一版 | P2-P5 | module/import 第一刀稳定 | 后续随包系统补包级可见性、re-export 与跨包 diagnostics |
+| import 人体工学第二刀 | 缺失 | P5 前 | `pub` 与 module/import 第一刀稳定 | parser、diagnostics、context topology、docs |
+| `const` / 常量定义 | 已实现顶层 `const` 第一版 | P2 | 标准库开始需要稳定常量 | 后续补 const expression 边界、AOT 常量布局与更细 diagnostics |
+| 泛型 `type` 类型别名 | 已实现第一版 | P2 | 标准库与后端 API 需要稳定类型边界 | 后续补递归别名诊断、包级别名导出 |
+| methods / `impl` | 已实现值方法、泛型 impl、泛型 trait impl 与泛型方法第一版 | P2-P6 | 标准库 API 复杂度开始上升 | 后续补静态方法、可变接收者、AOT method lowering、AI rule cards |
+| 泛型 | 已实现泛型结构体、泛型函数、泛型 enum、泛型 impl、泛型方法、泛型类型别名、trait bounds 与 `where` 输入语法 | P2-P6 | collections 与标准库压力明确出现 | 后续补显式类型参数调用、泛型 trait、HIR/MIR/AOT 深化 |
+| traits / interfaces | 已实现 trait 声明、`impl Trait for Type`、泛型 trait impl 与泛型函数 trait bounds | P2-P7 | 包生态与抽象层明确需要 | 后续补泛型 trait、关联类型、默认方法、stdlib 抽象迁移、package contracts |
+| richer pattern matching | 已实现字符串 pattern、payload enum pattern、多 pattern arm、range、guard | P2-P6 | `match` 第一版与 enum 使用成熟 | 后续补结构体/数组/tuple 解构、block-valued expression arm、AI rule cards |
 | 闭包 / lambda | 缺失 | P7 前 | 高阶标准库和并发前置需要 | parser、capture model、AOT/interpreter |
 | async / await | 缺失 | P7 | AOT、包系统、错误模型、并发模型已稳定 | syntax、runtime model、scheduler/ABI、docs、benchmarks |
 | 异常系统 | 不计划优先做 | 不进入主线 | 与 AI-first 低熵目标冲突 | 默认不用异常，优先显式结果类型 |

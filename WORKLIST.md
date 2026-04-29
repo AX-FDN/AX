@@ -816,17 +816,17 @@
 - [x] `Q-P6-01` methods / `impl`
   - 状态：第一刀已进入主线候选，支持 `impl Type { fn method(self: Type, ...) -> Ret { ... } }`、`impl<T> Box<T> { ... }`、`impl<T> Trait for Box<T> { ... }` 与 `value.method(...)`
   - 已覆盖：parser / semantic / HIR / MIR / interpreter / formatter / context / AI focus / example / interface snapshot
-  - 当前边界：不支持泛型方法、静态方法、可变接收者或方法重载
+  - 当前边界：已支持方法自带类型参数的泛型方法第一版；仍不支持静态方法、可变接收者或方法重载
   - 后续补强：`Q-P6-01b` 方法专属 AI rule card、method call repair case、AOT method lowering 收口
 - [x] `Q-P6-02a` 泛型结构体第一刀
   - 状态：已支持 `struct Box<T> { value: T }`、`Box<i32>` 类型引用、泛型结构体字面量字段推断与字段读取
   - 已覆盖：parser / semantic / HIR / MIR / formatter / example / interface snapshot
-  - 当前边界：支持泛型 impl；仍不支持泛型方法、where 约束或显式 turbofish 构造
+  - 当前边界：支持泛型 impl 与泛型方法第一版；仍不支持显式 turbofish 构造
   - 后续补强：`Q-P6-02d` 泛型诊断与 AI repair case
 - [x] `Q-P6-02b` 泛型函数第一刀
   - 状态：已支持 `fn identity<T>(value: T) -> T` 这类由实参推断类型参数的泛型函数
   - 已覆盖：parser / semantic / HIR / MIR / formatter / example / interface snapshot
-  - 当前边界：不支持显式 turbofish、where 约束、trait bounds、泛型方法、泛型 impl
+  - 当前边界：已补 trait bounds、`where` 输入语法、泛型 impl 与泛型方法第一版；仍不支持显式 turbofish
   - 后续补强：`Q-P6-02d` 泛型诊断与 AI repair case
 - [x] `Q-P6-02c` 泛型 enum / Result-like 类型第一刀
   - 状态：已支持 `enum Result<T, E> { Ok(T), Err(E) }`、`Result<i32, string>` 类型引用、payload variant 构造、赋值检查和 `match` payload 绑定
@@ -856,6 +856,18 @@
   - 代表样例：`examples/match_or.ax`
   - 当前边界：多 pattern arm 当前用于字面量或 unit enum variant；不在同一个 `|` arm 内引入绑定，不支持 guard 或解构
   - 后续补强：`Q-P6-04c` guard；`Q-P6-04d` 更深 enum/struct 解构
+- [x] `Q-P6-03e` `where` trait bounds 输入语法
+  - 状态：已支持 `fn render<T>(value: T) -> string where T: Label + Code { ... }`
+  - 已覆盖：lexer / parser / formatter / semantic / example / syntax docs
+  - 当前边界：formatter 会将 `where` 输入收敛成 canonical 泛型参数约束；暂不支持 impl/trait/struct/enum 级 where clause
+- [x] `Q-P6-05` 泛型 `type` 类型别名
+  - 状态：已支持 `type UserId = i32;`、`type Scores = [i32; 3];` 与 `type Boxed<T> = Box<T>;`
+  - 已覆盖：lexer / parser / formatter / semantic / HIR alias expansion / example / syntax docs
+  - 当前边界：递归别名、包级别名导出和更细 alias diagnostics 等待标准库与包接口稳定后再扩展
+- [x] `Q-P6-01b` 泛型方法第一版
+  - 状态：已支持 `impl<T> Pair<T, i32> { fn replace_right<U>(self: Pair<T, i32>, right: U) -> Pair<T, U> { ... } }`
+  - 已覆盖：parser / formatter / semantic inference / HIR/MIR lowering metadata / interpreter runtime / example / syntax docs
+  - 当前边界：暂不支持静态方法、显式 turbofish、泛型方法 trait bounds、可变接收者或方法重载
 - [ ] `Q-P7-01` 闭包 / lambda
 - [ ] `Q-P7-02` async / await
 

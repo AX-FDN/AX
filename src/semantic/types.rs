@@ -116,6 +116,12 @@ pub(super) struct TypeParamBoundInfo {
 }
 
 #[derive(Debug, Clone)]
+pub(super) struct TypeAliasInfo {
+    pub(super) type_params: Vec<String>,
+    pub(super) target: Type,
+}
+
+#[derive(Debug, Clone)]
 pub(super) struct MethodSignature {
     pub(super) function: FunctionSignature,
 }

@@ -1,0 +1,16 @@
+struct Box<T> {
+    value: T,
+}
+
+type Boxed<T> = Box<T>;
+type TextBox = Boxed<string>;
+
+fn unwrap_text(boxed: TextBox) -> string {
+    return boxed.value;
+}
+
+fn main() -> i32 {
+    let boxed: TextBox = Box { value: "ax" };
+    println(unwrap_text(boxed));
+    return 0;
+}
