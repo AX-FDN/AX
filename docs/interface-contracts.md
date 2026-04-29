@@ -202,6 +202,15 @@ Stable for the current package-interface slice:
 - dependency package sources are loaded from the dependency manifest's `[package].sources`
 - dependency modules must declare paths under the dependency alias, for example `module config_rules.validate;`
 - `axc build` packages dependency sources under their project-relative paths when they live inside the project tree
+- package resolver failures use stable `PX****` text codes before source diagnostics exist:
+  - `PX0001`: dependency alias is not a valid AX module root
+  - `PX0002`: dependency path is empty, missing, inaccessible, or not a directory
+  - `PX0003`: dependency `AX.toml` is missing, invalid, or declares unsupported package metadata
+  - `PX0004`: dependency sources are empty or invalid
+  - `PX0005`: dependency module root or module path conflicts with another loaded source
+  - `PX0006`: transitive path dependencies are not supported in v0
+  - `PX0007`: dependency source expands to a duplicate or entry-overlapping source
+- context `overview` and `topology` expose `local_path_packages` when a project uses path packages
 
 Allowed to evolve carefully:
 
@@ -216,6 +225,13 @@ Not allowed without explicit contract update:
 - lockfile semantics
 - transitive path dependencies
 - version solving
+
+Current smoke coverage:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test --test interface_snapshots project_path_package
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test --test interface_snapshots project_package_config_context
+```
 
 ## Current Verification Commands
 

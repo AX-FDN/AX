@@ -89,7 +89,12 @@ pub fn render_context_json(
             schema_version: CONTEXT_SCHEMA_VERSION,
             view: view.as_str(),
             subject: build_subject(request_path, input, None),
-            facts: build_topology_facts(&units, &unit_stats, &symbol_catalog),
+            facts: build_topology_facts(
+                input.project.as_ref(),
+                &units,
+                &unit_stats,
+                &symbol_catalog,
+            ),
             hints: build_topology_hints(&units, &unit_stats, &symbol_catalog),
             validation: build_validation(
                 diagnostics,
@@ -241,6 +246,8 @@ struct OverviewFacts {
     entry: String,
     module_mode: bool,
     source_roots: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    local_path_packages: Vec<ContextPathPackage>,
     summary: OverviewSummary,
     source_units: Vec<OverviewUnit>,
 }
@@ -307,9 +314,20 @@ struct BoundariesHints {
 struct TopologyFacts {
     module_mode: bool,
     summary: TopologySummary,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    local_path_packages: Vec<ContextPathPackage>,
     source_units: Vec<TopologyUnit>,
     module_edges: Vec<ModuleEdge>,
     symbol_edges: Vec<SymbolEdge>,
+}
+
+#[derive(Serialize)]
+struct ContextPathPackage {
+    alias: String,
+    root: String,
+    manifest: String,
+    source_count: usize,
+    modules: Vec<String>,
 }
 
 #[derive(Serialize)]
@@ -707,6 +725,7 @@ fn build_overview_facts(
                 .iter()
                 .any(|unit| unit.module_path.is_some() || !unit.imports.is_empty()),
         source_roots,
+        local_path_packages: build_local_path_package_facts(project, units),
         summary: OverviewSummary {
             source_unit_count: units.len(),
             support_unit_count: units.iter().filter(|unit| !unit.is_entry).count(),
@@ -826,6 +845,7 @@ fn build_boundaries_hints(
 }
 
 fn build_topology_facts(
+    project: Option<&Project>,
     units: &[ResolvedUnit],
     unit_stats: &BTreeMap<String, UnitStats>,
     symbol_catalog: &SymbolCatalog,
@@ -911,6 +931,7 @@ fn build_topology_facts(
             || units
                 .iter()
                 .any(|unit| unit.module_path.is_some() || !unit.imports.is_empty()),
+        local_path_packages: build_local_path_package_facts(project, units),
         summary: TopologySummary {
             source_unit_count: units.len(),
             module_edge_count: module_edges.len(),
@@ -921,6 +942,39 @@ fn build_topology_facts(
         module_edges,
         symbol_edges,
     }
+}
+
+fn build_local_path_package_facts(
+    project: Option<&Project>,
+    units: &[ResolvedUnit],
+) -> Vec<ContextPathPackage> {
+    let Some(project) = project else {
+        return Vec::new();
+    };
+
+    project
+        .local_path_dependencies()
+        .iter()
+        .map(|dependency| {
+            let prefix = format!("{}.", dependency.alias());
+            let modules = units
+                .iter()
+                .filter_map(|unit| unit.module_path.as_ref())
+                .filter(|module_path| {
+                    module_path.as_str() == dependency.alias()
+                        || module_path.starts_with(prefix.as_str())
+                })
+                .cloned()
+                .collect::<Vec<_>>();
+            ContextPathPackage {
+                alias: dependency.alias().to_string(),
+                root: normalize_path(dependency.root_dir()),
+                manifest: normalize_path(dependency.manifest_path()),
+                source_count: dependency.source_paths().len(),
+                modules,
+            }
+        })
+        .collect()
 }
 
 fn build_topology_hints(

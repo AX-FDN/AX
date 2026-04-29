@@ -4212,6 +4212,141 @@ fn project_package_config_runs_on_controlled_fixture() {
 }
 
 #[test]
+fn project_package_config_context_exposes_local_path_package() {
+    let output = run_axc([
+        OsStr::new("context"),
+        OsStr::new("overview"),
+        OsStr::new("examples/project_package_config"),
+        OsStr::new("--json"),
+    ]);
+    assert_eq!(output.status.code(), Some(0));
+    assert_clean_stderr(&output);
+
+    let context: Value =
+        serde_json::from_slice(&output.stdout).expect("context output should be JSON");
+    let packages = context["facts"]["local_path_packages"]
+        .as_array()
+        .expect("overview should expose local_path_packages");
+    assert_eq!(packages.len(), 1);
+    assert_eq!(packages[0]["alias"], "config_rules");
+    assert_eq!(packages[0]["source_count"], 1);
+    assert_eq!(
+        json_string_array(&packages[0]["modules"], "package modules"),
+        vec!["config_rules.validate".to_string()]
+    );
+}
+
+#[test]
+fn project_path_package_manifest_errors_are_stable() {
+    let temp = TempDir::new("project-package-errors");
+    temp.write(
+        "AX.toml",
+        "\
+manifest_version = 1
+
+[package]
+name = \"project_package_errors\"
+entry = \"src/main.ax\"
+
+[dependencies]
+config_rules = { path = \"packages/config_rules\" }
+",
+    );
+    temp.write_nested("src/main.ax", "fn main() -> i32 { return 0; }\n");
+
+    let missing_path = run_axc([OsStr::new("check"), temp.path.as_os_str()]);
+    assert_eq!(missing_path.status.code(), Some(1));
+    let stderr = string_output(&missing_path.stderr);
+    assert!(stderr.contains("PX0002"), "stderr:\n{stderr}");
+    assert!(
+        stderr.contains("failed to access dependency `config_rules` path"),
+        "stderr:\n{stderr}"
+    );
+
+    fs::create_dir_all(temp.join("packages").join("config_rules"))
+        .expect("dependency directory should exist");
+    let missing_manifest = run_axc([OsStr::new("check"), temp.path.as_os_str()]);
+    assert_eq!(missing_manifest.status.code(), Some(1));
+    let stderr = string_output(&missing_manifest.stderr);
+    assert!(stderr.contains("PX0003"), "stderr:\n{stderr}");
+    assert!(
+        stderr.contains("failed to read dependency `config_rules` manifest"),
+        "stderr:\n{stderr}"
+    );
+}
+
+#[test]
+fn project_path_package_module_mismatch_keeps_ai_repair_rule() {
+    let temp = TempDir::new("project-package-module-mismatch");
+    temp.write(
+        "AX.toml",
+        "\
+manifest_version = 1
+
+[package]
+name = \"project_package_module_mismatch\"
+entry = \"src/main.ax\"
+
+[dependencies]
+config_rules = { path = \"packages/config_rules\" }
+",
+    );
+    temp.write_nested(
+        "packages/config_rules/AX.toml",
+        "\
+manifest_version = 1
+
+[package]
+name = \"config_rules\"
+sources = [\"src\"]
+",
+    );
+    temp.write_nested(
+        "packages/config_rules/src/validate.ax",
+        "\
+module wrong.validate;
+
+fn value() -> i32 {
+    return 1;
+}
+",
+    );
+    temp.write_nested(
+        "src/main.ax",
+        "\
+import config_rules.validate;
+
+fn main() -> i32 {
+    return config_rules.validate.value();
+}
+",
+    );
+
+    let output = run_axc([
+        OsStr::new("check"),
+        temp.path.as_os_str(),
+        OsStr::new("--json"),
+        OsStr::new("--ai"),
+    ]);
+    assert_eq!(output.status.code(), Some(1));
+    assert_clean_stderr(&output);
+
+    let diagnostics: Value =
+        serde_json::from_slice(&output.stdout).expect("diagnostics output should be JSON");
+    let diagnostics = diagnostics
+        .as_array()
+        .expect("diagnostics output should be an array");
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic["code"] == "S0039"
+                && diagnostic["ai"]["rule_id"] == "module_path_must_match_source_path"),
+        "expected S0039 module_path_must_match_source_path diagnostic, got:\n{}",
+        serde_json::to_string_pretty(&diagnostics).expect("diagnostics should serialize")
+    );
+}
+
+#[test]
 fn project_collections_report_runs_on_controlled_fixture() {
     let temp = TempDir::new("project-collections-report");
     let output_dir = temp.join("out");

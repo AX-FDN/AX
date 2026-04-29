@@ -18,6 +18,7 @@ pub struct Project {
     manifest: ProjectManifest,
     source_paths: Vec<PathBuf>,
     source_module_paths: Vec<(PathBuf, String)>,
+    local_path_dependencies: Vec<ResolvedPathDependency>,
     entry_path: PathBuf,
 }
 
@@ -65,6 +66,36 @@ impl Project {
             .collect::<Vec<_>>();
         paths.push(self.entry_path.as_path());
         paths
+    }
+
+    pub fn local_path_dependencies(&self) -> &[ResolvedPathDependency] {
+        &self.local_path_dependencies
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ResolvedPathDependency {
+    alias: String,
+    root_dir: PathBuf,
+    manifest_path: PathBuf,
+    source_paths: Vec<PathBuf>,
+}
+
+impl ResolvedPathDependency {
+    pub fn alias(&self) -> &str {
+        &self.alias
+    }
+
+    pub fn root_dir(&self) -> &Path {
+        &self.root_dir
+    }
+
+    pub fn manifest_path(&self) -> &Path {
+        &self.manifest_path
+    }
+
+    pub fn source_paths(&self) -> &[PathBuf] {
+        &self.source_paths
     }
 }
 
@@ -165,13 +196,17 @@ fn load_project(manifest_path: &Path) -> Result<Project, String> {
     let mut source_module_paths = Vec::new();
     let mut source_root_aliases = Vec::<(String, String)>::new();
     let mut dependency_module_paths = Vec::<(String, String)>::new();
+    let mut local_path_dependencies = Vec::new();
 
     for (alias, dependency) in &manifest.dependencies {
         validate_dependency_alias(alias, manifest_path)?;
         if dependency.path.trim().is_empty() {
-            return Err(format!(
-                "dependency `{alias}` in {} must declare a non-empty `path`",
-                manifest_path.display()
+            return Err(project_package_error(
+                "PX0002",
+                format!(
+                    "dependency `{alias}` in {} must declare a non-empty `path`",
+                    manifest_path.display()
+                ),
             ));
         }
         let dependency_path = resolve_project_relative_path(
@@ -181,17 +216,23 @@ fn load_project(manifest_path: &Path) -> Result<Project, String> {
             &format!("dependency `{alias}` path"),
         )?;
         let metadata = fs::metadata(&dependency_path).map_err(|error| {
-            format!(
-                "failed to access dependency `{alias}` path {} declared in {}: {error}",
-                dependency_path.display(),
-                manifest_path.display()
+            project_package_error(
+                "PX0002",
+                format!(
+                    "failed to access dependency `{alias}` path {} declared in {}: {error}",
+                    dependency_path.display(),
+                    manifest_path.display()
+                ),
             )
         })?;
         if !metadata.is_dir() {
-            return Err(format!(
-                "dependency `{alias}` path {} declared in {} must be a directory",
-                dependency_path.display(),
-                manifest_path.display()
+            return Err(project_package_error(
+                "PX0002",
+                format!(
+                    "dependency `{alias}` path {} declared in {} must be a directory",
+                    dependency_path.display(),
+                    manifest_path.display()
+                ),
             ));
         }
 
@@ -199,9 +240,12 @@ fn load_project(manifest_path: &Path) -> Result<Project, String> {
             .iter()
             .find(|(claimed_alias, _)| claimed_alias == alias)
         {
-            return Err(format!(
-                "dependency `{alias}` in {} reuses module root alias `{alias}` already claimed by `{previous_source}`",
-                manifest_path.display()
+            return Err(project_package_error(
+                "PX0005",
+                format!(
+                    "dependency `{alias}` in {} reuses module root alias `{alias}` already claimed by `{previous_source}`",
+                    manifest_path.display()
+                ),
             ));
         }
         source_root_aliases.push((alias.clone(), format!("dependency `{alias}`")));
@@ -210,18 +254,25 @@ fn load_project(manifest_path: &Path) -> Result<Project, String> {
         let dependency_manifest =
             load_path_dependency_manifest(alias, &dependency_manifest_path, manifest_path)?;
         if dependency_manifest.package.sources.is_empty() {
-            return Err(format!(
-                "dependency `{alias}` in {} must declare at least one `[package].sources` entry",
-                manifest_path.display()
+            return Err(project_package_error(
+                "PX0004",
+                format!(
+                    "dependency `{alias}` in {} must declare at least one `[package].sources` entry",
+                    manifest_path.display()
+                ),
             ));
         }
 
+        let mut dependency_source_paths = Vec::new();
         for source in &dependency_manifest.package.sources {
             let source = source.trim();
             if source.is_empty() {
-                return Err(format!(
-                    "dependency `{alias}` in {} must not include an empty `[package].sources` entry",
-                    manifest_path.display()
+                return Err(project_package_error(
+                    "PX0004",
+                    format!(
+                        "dependency `{alias}` in {} must not include an empty `[package].sources` entry",
+                        manifest_path.display()
+                    ),
                 ));
             }
 
@@ -233,16 +284,22 @@ fn load_project(manifest_path: &Path) -> Result<Project, String> {
             let expanded_paths = support_spec.expanded_paths;
             for source_path in expanded_paths {
                 if source_path == entry_path {
-                    return Err(format!(
-                        "dependency `{alias}` source `{source}` in {} duplicates the configured entry file",
-                        manifest_path.display()
+                    return Err(project_package_error(
+                        "PX0007",
+                        format!(
+                            "dependency `{alias}` source `{source}` in {} duplicates the configured entry file",
+                            manifest_path.display()
+                        ),
                     ));
                 }
                 if source_paths.iter().any(|existing| existing == &source_path) {
-                    return Err(format!(
-                        "dependency `{alias}` source `{source}` in {} expands to duplicate file {}",
-                        manifest_path.display(),
-                        source_path.display()
+                    return Err(project_package_error(
+                        "PX0007",
+                        format!(
+                            "dependency `{alias}` source `{source}` in {} expands to duplicate file {}",
+                            manifest_path.display(),
+                            source_path.display()
+                        ),
                     ));
                 }
                 let module_path = expected_module_path_for_support_source(
@@ -261,13 +318,17 @@ fn load_project(manifest_path: &Path) -> Result<Project, String> {
                     .iter()
                     .find(|(existing_module_path, _)| existing_module_path == &module_path)
                 {
-                    return Err(format!(
-                        "dependency `{alias}` source `{source}` in {} derives duplicate module path `{previous_module_path}` already claimed by `{previous_source}`",
-                        manifest_path.display()
+                    return Err(project_package_error(
+                        "PX0005",
+                        format!(
+                            "dependency `{alias}` source `{source}` in {} derives duplicate module path `{previous_module_path}` already claimed by `{previous_source}`",
+                            manifest_path.display()
+                        ),
                     ));
                 }
                 dependency_module_paths
                     .push((module_path.clone(), source_path.display().to_string()));
+                dependency_source_paths.push(source_path.clone());
                 source_paths.push(source_path);
                 source_module_paths.push((
                     source_paths.last().expect("source path must exist").clone(),
@@ -275,6 +336,12 @@ fn load_project(manifest_path: &Path) -> Result<Project, String> {
                 ));
             }
         }
+        local_path_dependencies.push(ResolvedPathDependency {
+            alias: alias.clone(),
+            root_dir: dependency_path,
+            manifest_path: dependency_manifest_path,
+            source_paths: dependency_source_paths,
+        });
     }
 
     for source in &manifest.package.sources {
@@ -291,10 +358,13 @@ fn load_project(manifest_path: &Path) -> Result<Project, String> {
             .iter()
             .find(|(alias, _)| alias == &support_spec.root_alias)
         {
-            return Err(format!(
-                "project support source `{source}` in {} reuses module root alias `{}` already claimed by `{previous_source}`",
-                manifest_path.display(),
-                support_spec.root_alias,
+            return Err(project_package_error(
+                "PX0005",
+                format!(
+                    "project support source `{source}` in {} reuses module root alias `{}` already claimed by `{previous_source}`",
+                    manifest_path.display(),
+                    support_spec.root_alias,
+                ),
             ));
         }
         source_root_aliases.push((support_spec.root_alias.clone(), source.to_string()));
@@ -341,6 +411,7 @@ fn load_project(manifest_path: &Path) -> Result<Project, String> {
         manifest,
         source_paths,
         source_module_paths,
+        local_path_dependencies,
         entry_path,
     })
 }
@@ -591,29 +662,41 @@ fn is_valid_package_name(name: &str) -> bool {
 
 fn validate_dependency_alias(alias: &str, manifest_path: &Path) -> Result<(), String> {
     if alias.is_empty() {
-        return Err(format!(
-            "dependency alias in {} must not be empty",
-            manifest_path.display()
+        return Err(project_package_error(
+            "PX0001",
+            format!(
+                "dependency alias in {} must not be empty",
+                manifest_path.display()
+            ),
         ));
     }
 
     let mut chars = alias.chars();
     let Some(first) = chars.next() else {
-        return Err(format!(
-            "dependency alias in {} must not be empty",
-            manifest_path.display()
+        return Err(project_package_error(
+            "PX0001",
+            format!(
+                "dependency alias in {} must not be empty",
+                manifest_path.display()
+            ),
         ));
     };
     if !(first.is_ascii_alphabetic() || first == '_') {
-        return Err(format!(
-            "dependency alias `{alias}` in {} must start with an ASCII letter or `_`",
-            manifest_path.display()
+        return Err(project_package_error(
+            "PX0001",
+            format!(
+                "dependency alias `{alias}` in {} must start with an ASCII letter or `_`",
+                manifest_path.display()
+            ),
         ));
     }
     if !chars.all(|ch| ch.is_ascii_alphanumeric() || ch == '_') {
-        return Err(format!(
-            "dependency alias `{alias}` in {} may only contain ASCII letters, digits, and `_` because it becomes an AX module root",
-            manifest_path.display()
+        return Err(project_package_error(
+            "PX0001",
+            format!(
+                "dependency alias `{alias}` in {} may only contain ASCII letters, digits, and `_` because it becomes an AX module root",
+                manifest_path.display()
+            ),
         ));
     }
 
@@ -626,49 +709,71 @@ fn load_path_dependency_manifest(
     parent_manifest_path: &Path,
 ) -> Result<ProjectManifest, String> {
     let manifest_text = fs::read_to_string(dependency_manifest_path).map_err(|error| {
-        format!(
-            "failed to read dependency `{alias}` manifest {} declared in {}: {error}",
-            dependency_manifest_path.display(),
-            parent_manifest_path.display()
+        project_package_error(
+            "PX0003",
+            format!(
+                "failed to read dependency `{alias}` manifest {} declared in {}: {error}",
+                dependency_manifest_path.display(),
+                parent_manifest_path.display()
+            ),
         )
     })?;
     let manifest: ProjectManifest = toml::from_str(&manifest_text).map_err(|error| {
-        format!(
-            "failed to parse dependency `{alias}` manifest {} declared in {}: {error}",
-            dependency_manifest_path.display(),
-            parent_manifest_path.display()
+        project_package_error(
+            "PX0003",
+            format!(
+                "failed to parse dependency `{alias}` manifest {} declared in {}: {error}",
+                dependency_manifest_path.display(),
+                parent_manifest_path.display()
+            ),
         )
     })?;
 
     if manifest.manifest_version != SUPPORTED_MANIFEST_VERSION {
-        return Err(format!(
-            "unsupported AX dependency `{alias}` manifest version `{}` in {}; expected `{}`",
-            manifest.manifest_version,
-            dependency_manifest_path.display(),
-            SUPPORTED_MANIFEST_VERSION
+        return Err(project_package_error(
+            "PX0003",
+            format!(
+                "unsupported AX dependency `{alias}` manifest version `{}` in {}; expected `{}`",
+                manifest.manifest_version,
+                dependency_manifest_path.display(),
+                SUPPORTED_MANIFEST_VERSION
+            ),
         ));
     }
     if manifest.package.name.trim().is_empty() {
-        return Err(format!(
-            "dependency `{alias}` manifest {} must declare a non-empty `[package].name`",
-            dependency_manifest_path.display()
+        return Err(project_package_error(
+            "PX0003",
+            format!(
+                "dependency `{alias}` manifest {} must declare a non-empty `[package].name`",
+                dependency_manifest_path.display()
+            ),
         ));
     }
     if !is_valid_package_name(&manifest.package.name) {
-        return Err(format!(
-            "dependency `{alias}` package name `{}` in {} may only contain ASCII letters, digits, `-`, and `_`",
-            manifest.package.name,
-            dependency_manifest_path.display()
+        return Err(project_package_error(
+            "PX0003",
+            format!(
+                "dependency `{alias}` package name `{}` in {} may only contain ASCII letters, digits, `-`, and `_`",
+                manifest.package.name,
+                dependency_manifest_path.display()
+            ),
         ));
     }
     if !manifest.dependencies.is_empty() {
-        return Err(format!(
-            "dependency `{alias}` in {} declares nested `[dependencies]`; transitive path packages are not supported in v0",
-            dependency_manifest_path.display()
+        return Err(project_package_error(
+            "PX0006",
+            format!(
+                "dependency `{alias}` in {} declares nested `[dependencies]`; transitive path packages are not supported in v0",
+                dependency_manifest_path.display()
+            ),
         ));
     }
 
     Ok(manifest)
+}
+
+fn project_package_error(code: &str, message: String) -> String {
+    format!("{code}: {message}")
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -1073,6 +1178,9 @@ sources = [\"src\"]
             resolve_input(&project_root).expect("project with path dependency should resolve");
         let project = resolved.project.expect("project metadata should exist");
         assert_eq!(project.source_paths().len(), 1);
+        assert_eq!(project.local_path_dependencies().len(), 1);
+        assert_eq!(project.local_path_dependencies()[0].alias(), "config_rules");
+        assert_eq!(project.local_path_dependencies()[0].source_paths().len(), 1);
         assert_eq!(
             project.expected_module_path(&dependency_source),
             Some("config_rules.validate")
@@ -1149,7 +1257,147 @@ sources = [\"src\"]
 
         let error =
             resolve_input(&project_root).expect_err("alias conflict should fail project loading");
+        assert!(error.contains("PX0005"));
         assert!(error.contains("reuses module root alias `lib`"));
+
+        let _ = fs::remove_dir_all(&project_root);
+    }
+
+    #[test]
+    fn rejects_invalid_dependency_alias_with_stable_package_code() {
+        let project_root = repo_root()
+            .join("target")
+            .join("project-invalid-dependency-alias-test");
+        let _ = fs::remove_dir_all(&project_root);
+        fs::create_dir_all(project_root.join("src")).expect("project src directory should exist");
+        fs::create_dir_all(project_root.join("packages").join("bad-name"))
+            .expect("dependency directory should exist");
+        fs::write(
+            project_root.join(PROJECT_MANIFEST_FILE),
+            "\
+manifest_version = 1
+
+[package]
+name = \"project_invalid_dependency_alias\"
+entry = \"src/main.ax\"
+
+[dependencies]
+\"bad-name\" = { path = \"packages/bad-name\" }
+",
+        )
+        .expect("project manifest should exist");
+        fs::write(
+            project_root.join("src").join("main.ax"),
+            "fn main() -> i32 { return 0; }\n",
+        )
+        .expect("project entry should exist");
+
+        let error = resolve_input(&project_root).expect_err("invalid alias should fail");
+        assert!(error.contains("PX0001"));
+        assert!(error.contains("may only contain ASCII letters, digits, and `_`"));
+
+        let _ = fs::remove_dir_all(&project_root);
+    }
+
+    #[test]
+    fn rejects_missing_dependency_manifest_with_stable_package_code() {
+        let project_root = repo_root()
+            .join("target")
+            .join("project-missing-dependency-manifest-test");
+        let _ = fs::remove_dir_all(&project_root);
+        fs::create_dir_all(project_root.join("src")).expect("project src directory should exist");
+        fs::create_dir_all(project_root.join("packages").join("config_rules"))
+            .expect("dependency directory should exist");
+        fs::write(
+            project_root.join(PROJECT_MANIFEST_FILE),
+            "\
+manifest_version = 1
+
+[package]
+name = \"project_missing_dependency_manifest\"
+entry = \"src/main.ax\"
+
+[dependencies]
+config_rules = { path = \"packages/config_rules\" }
+",
+        )
+        .expect("project manifest should exist");
+        fs::write(
+            project_root.join("src").join("main.ax"),
+            "fn main() -> i32 { return 0; }\n",
+        )
+        .expect("project entry should exist");
+
+        let error = resolve_input(&project_root).expect_err("missing manifest should fail");
+        assert!(error.contains("PX0003"));
+        assert!(error.contains("failed to read dependency `config_rules` manifest"));
+
+        let _ = fs::remove_dir_all(&project_root);
+    }
+
+    #[test]
+    fn rejects_transitive_path_dependency_with_stable_package_code() {
+        let project_root = repo_root()
+            .join("target")
+            .join("project-transitive-dependency-test");
+        let _ = fs::remove_dir_all(&project_root);
+        fs::create_dir_all(project_root.join("src")).expect("project src directory should exist");
+        fs::create_dir_all(
+            project_root
+                .join("packages")
+                .join("config_rules")
+                .join("src"),
+        )
+        .expect("dependency src directory should exist");
+        fs::write(
+            project_root.join(PROJECT_MANIFEST_FILE),
+            "\
+manifest_version = 1
+
+[package]
+name = \"project_transitive_dependency\"
+entry = \"src/main.ax\"
+
+[dependencies]
+config_rules = { path = \"packages/config_rules\" }
+",
+        )
+        .expect("project manifest should exist");
+        fs::write(
+            project_root
+                .join("packages")
+                .join("config_rules")
+                .join(PROJECT_MANIFEST_FILE),
+            "\
+manifest_version = 1
+
+[package]
+name = \"config_rules\"
+sources = [\"src\"]
+
+[dependencies]
+nested_rules = { path = \"../nested_rules\" }
+",
+        )
+        .expect("dependency manifest should exist");
+        fs::write(
+            project_root
+                .join("packages")
+                .join("config_rules")
+                .join("src")
+                .join("validate.ax"),
+            "module config_rules.validate;\nfn value() -> i32 { return 1; }\n",
+        )
+        .expect("dependency source should exist");
+        fs::write(
+            project_root.join("src").join("main.ax"),
+            "fn main() -> i32 { return 0; }\n",
+        )
+        .expect("project entry should exist");
+
+        let error = resolve_input(&project_root).expect_err("transitive dependency should fail");
+        assert!(error.contains("PX0006"));
+        assert!(error.contains("transitive path packages are not supported in v0"));
 
         let _ = fs::remove_dir_all(&project_root);
     }

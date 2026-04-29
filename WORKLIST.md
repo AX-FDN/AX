@@ -890,7 +890,12 @@
   - 后续补强：`Q-P5-04` 继续补 package diagnostics / smoke，之后再评估 `Q-P5-02` lockfile。
 - [ ] `Q-P5-02` lockfile
 - [ ] `Q-P5-03` registry package
-- [ ] `Q-P5-04` package diagnostics / smoke
+- [x] `Q-P5-04` package diagnostics / smoke v0
+  - 状态：本地 path package resolver 错误已获得稳定 `PX0001~PX0007` 文本错误码，适合 CLI、脚本和 AI 先做稳定匹配。
+  - 已覆盖：非法依赖别名、依赖路径缺失/不可访问、依赖 manifest 缺失/不可解析、空 sources、模块根冲突、重复依赖模块路径、暂不支持 transitive dependencies。
+  - smoke 覆盖：`project_path_package_manifest_errors_are_stable`、`project_path_package_module_mismatch_keeps_ai_repair_rule`、`project_package_config_context_exposes_local_path_package`。
+  - context 覆盖：`overview/topology` 已在存在本地 path package 时输出 `local_path_packages`，包含 alias、root、manifest、source_count 和 modules。
+  - 当前边界：resolver 错误发生在 SourceFile/AST 生成前，因此先保持为稳定 CLI resolver error，不伪装成普通 source-span diagnostic；模块声明 mismatch 仍走 `S0039 + module_path_must_match_source_path` AI rule。
 
 ### `P6-P7` 后续语法线
 
