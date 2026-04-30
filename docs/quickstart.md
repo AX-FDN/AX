@@ -14,6 +14,8 @@ AX currently uses platform tiers instead of claiming full workflow parity everyw
   Current platform support tiers, boundaries, and what remains Windows-only.
 - [`validation-matrix.md`](./validation-matrix.md)
   Current local/CI validation matrix for Windows local, Windows CI, and Ubuntu CI.
+- [`../web/`](../web/)
+  Optional Repair Workbench frontend for viewing the AX repair/demo story in a browser.
 
 ## Current Boundary
 
@@ -25,6 +27,7 @@ What exists now:
 - a full Windows workflow
 - a Linux core compiler/runtime path
 - shared examples, tests, and Rust source on one mainline
+- an isolated Vite + React Repair Workbench frontend under `web/`
 
 Current Windows local validation contract:
 
@@ -41,6 +44,25 @@ What is still future productization work:
 - smoother release binaries
 - broader platform packaging
 
+## Optional Web Workbench
+
+The `web/` directory is a standalone frontend for presenting AX as a repair workbench. It is not required to build or run `axc`.
+
+```powershell
+cd web
+npm ci
+npm run dev
+```
+
+For production build verification:
+
+```powershell
+cd web
+npm run build
+```
+
+GitHub Actions runs a dedicated `web` job with Node.js 22, `npm ci`, and `npm run build`.
+
 ## Where To Go Next
 
 - [`why-not-language-subsets.md`](./why-not-language-subsets.md)
@@ -49,5 +71,7 @@ What is still future productization work:
   If you want the sharp same-case repair demo.
 - [`benchmark-showcase.md`](./benchmark-showcase.md)
   If you want the current evidence summary.
+- [`../web/README.md`](../web/README.md)
+  If you want to run the Repair Workbench frontend locally.
 - [`repair-benchmark.md`](./repair-benchmark.md)
   If you want the full benchmark/export/run/score workflow.

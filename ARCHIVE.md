@@ -4,7 +4,7 @@
 > 它不是路线图，也不是当前待做清单。  
 > 未来完成的新事项，一律从 [`WORKLIST.md`](./WORKLIST.md) 移到这里归档。
 
-最后更新：2026-04-28
+最后更新：2026-04-30
 
 ## 文档职责
 
@@ -23,7 +23,18 @@
 
 ## 已完成里程碑
 
+### 2026-04-30
+
+- `A-2026-04-30-01` `[Web/P1]` Repair Workbench 前端合入并接入 CI
+  - 结果：
+    - 合并 PR #1：`feat(web): add AX repair workbench frontend`
+    - 新增独立 `web/` Vite + React 前端，用于展示 AX 项目概览、`slice_assignment_read_only` demo、`cold / base / ai` 反馈对比、interface contract 卡片和 docs/workload 入口
+    - `.github/workflows/ci.yml` 已新增独立 `web` job，使用 Node.js 22 运行 `npm ci` 与 `npm run build`
+    - `README.md`、`docs/README.md`、`docs/quickstart.md`、`docs/validation-matrix.md` 与 `PROJECT_FACTS.md` 已补齐 web workbench 入口和 CI 口径
+    - 前端仍保持在 `web/` 下，不改变 Rust 编译器 crate、`cargo` 工作流或 AX 语言接口
+
 ### 2026-04-28
+
 
 - `A-2026-04-28-01` `[Docs/P3]` AI-first 应用场景与 Std-1 验证入口收口
   - 结果：

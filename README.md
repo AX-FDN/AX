@@ -43,6 +43,7 @@ AX 关注的不只是“模型能不能写出代码”，更关注三件更硬�
 | AI-first 具体先落在哪些场景 | [`docs/application-scenarios.md`](./docs/application-scenarios.md) |
 | 当前已经做到哪了            | [`PROJECT_FACTS.md`](./PROJECT_FACTS.md)                           |
 | 当前 benchmark 证据链       | [`docs/benchmark-showcase.md`](./docs/benchmark-showcase.md)       |
+| Repair Workbench 前端       | [`web/`](./web/)                                                    |
 | 下一轮修复证据展示层        | [`docs/repair-archaeology.md`](./docs/repair-archaeology.md)       |
 | 对外怎么准确介绍            | [`docs/public-claims.md`](./docs/public-claims.md)                 |
 | 本机和 CI 应该跑什么        | [`docs/validation-matrix.md`](./docs/validation-matrix.md)         |
@@ -69,7 +70,7 @@ AX 关注的不只是“模型能不能写出代码”，更关注三件更硬�
 | 关键收益     | 提高一次通过率、提高修复成功率、提高多文件项目中的架构理解效率，并把这些能力带入真实后端开发          |
 | 当前主要场景 | agent 生成 CLI 工具、可修复自动化脚本、后端 worker 辅助、compiler-guided repair benchmark             |
 | 演进方向     | 标准库、包系统、AOT 后端、后端 worker、服务端基础设施、部分自举                                       |
-| 当前形态     | 语言前端 + 解释执行 + project mode + structured diagnostics + context + repair benchmark + 标准库试点 |
+| 当前形态     | 语言前端 + 解释执行 + project mode + structured diagnostics + context + repair benchmark + Repair Workbench 前端 + 标准库试点 |
 | 核心价值     | 把语言本体、编译器反馈、AI 消费链路和未来后端生态放进同一个可运行仓库                                 |
 
 ## AX 的核心优势
@@ -1157,6 +1158,8 @@ AX 希望最终回答的是：
   Linux 核心 compiler/runtime 入口
 - [`docs/platform-support.md`](./docs/platform-support.md)
   平台支持分层说明
+- [`web/`](./web/)
+  Repair Workbench 前端入口，用于展示 benchmark 指标、same-case repair demo、cold/base/ai 对比和稳定接口卡片
 
 ## 文档导航
 
@@ -1188,6 +1191,8 @@ AX 希望最终回答的是：
   适合对外展示的短 demo 脚本
 - [`docs/benchmark-showcase.md`](./docs/benchmark-showcase.md)
   当前 benchmark 展示页
+- [`web/README.md`](./web/README.md)
+  Repair Workbench 前端的本地开发和构建入口
 - [`PLAN.md`](./PLAN.md)
   唯一方向基线，定义 `P0-P7` 闭环阶段、前置条件与退出条件
 - [`WORKLIST.md`](./WORKLIST.md)

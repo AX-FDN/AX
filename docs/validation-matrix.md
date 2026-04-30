@@ -7,6 +7,7 @@ AX 当前不是所有平台跑完全相同的验证链。仓库采用分层验�
 - Windows 本机：开发者可复跑的 full workflow 主路径。
 - Windows CI：全量回归与 PowerShell benchmark/orchestration 主路径。
 - Ubuntu CI：Linux core compiler/runtime 主路径。
+- Web CI：Repair Workbench 前端构建验证路径。
 
 ## Matrix
 
@@ -27,6 +28,7 @@ AX 当前不是所有平台跑完全相同的验证链。仓库采用分层验�
 | Ubuntu CI | Rust unit tests | `cargo test --locked --lib` | 不跑 Windows-only script smoke |
 | Ubuntu CI | Cross-platform interface tests | `cargo test --locked --test interface_snapshots` | PowerShell benchmark tests在非 Windows 上保持 ignore |
 | Ubuntu CI | Core CLI smoke | `axc fmt/check/run/build` 最小链 | 不覆盖 repair/export/compare `.ps1` 链 |
+| Web CI | Repair Workbench frontend | `cd web && npm ci && npm run build` | 不验证 Rust 编译器、benchmark 脚本或部署发布 |
 
 ## Recommended Local Paths
 
@@ -152,6 +154,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\export-repair-benc
 
 - `windows-latest` 是 full workflow support。
 - `ubuntu-latest` 是 core compiler/runtime support。
+- `web` job 是独立 frontend build support。
 - PowerShell benchmark/orchestration 仍是 Windows-only。
 - macOS 不在当前 CI 承诺范围。
 
@@ -159,6 +162,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\export-repair-benc
 
 - Windows CI 失败通常说明主工作流不能交付。
 - Ubuntu CI 失败通常说明 core compiler/runtime 不再跨平台。
+- Web CI 失败通常说明 `web/` Repair Workbench 不能构建，不代表 Rust compiler/runtime 失败。
 - Linux 不跑 `.ps1` benchmark / Repair Archaeology 链不是缺口，而是当前阶段边界。
 
 ## When To Expand This Matrix

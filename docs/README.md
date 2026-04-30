@@ -32,6 +32,8 @@
   定义 AX 的 AI-first 先落在哪些真实场景，以及后端语言方向的实际推进顺序。
 - [`killer-demo.md`](./killer-demo.md)
   给对外演示用的短 demo 脚本。
+- [`../web/`](../web/)
+  Repair Workbench 前端，用可视化方式展示 AX 项目概览、same-case repair demo、cold/base/ai 对比、interface contract 卡片和 workload 入口。
 - [`representative-samples.md`](./representative-samples.md)
   固定 P2 阶段的主代表样例、宿主边界样例和对应回归职责。
 - [`quickstart.md`](./quickstart.md)
@@ -62,6 +64,20 @@
   说明 `axc check --json`、`axc run --json` 与 `--json --ai` 的稳定结构。
 - [`diagnostics-benchmark-schema.md`](./diagnostics-benchmark-schema.md)
   说明 `benchmark-diagnostics.ps1` 输出 `summary.json` 的稳定结构。
+
+## Repair Workbench Frontend
+
+[`../web/`](../web/) 是当前独立的 Vite + React repair workbench 前端。它不改变 Rust 编译器 crate，也不影响 `cargo` 工作流；它负责把 benchmark 指标、`slice_assignment_read_only` sharp demo、`cold / base / ai` 反馈模式对比、稳定接口契约和 docs/workload 入口放到同一个可演示页面里。
+
+前端验证入口：
+
+```powershell
+cd web
+npm ci
+npm run build
+```
+
+GitHub Actions 已有独立 `web` job 验证 `npm ci` 与 `npm run build`。
 
 ## 真实 workload 入口
 

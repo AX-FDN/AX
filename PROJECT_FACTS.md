@@ -17,7 +17,7 @@ AX 当前优先服务四类能被仓库直接验证的场景：
 | Agent-generated CLI tools | 已有多组 project-backed CLI / workspace 工具样例和第一批 `std.*` 试点模块 |
 | Repairable automation scripts | `--json --ai`、repair cases、export、score、compare、smoke 已进入主线 |
 | Backend worker utilities | 发布提升、命令批处理、文本处理、目录索引等后端外围工具样例已存在 |
-| Compiler-guided repair benchmarks | deterministic replay 和 context-enabled export 已建立，Repair Archaeology v0 已登记为下一层展示 |
+| Compiler-guided repair benchmarks | deterministic replay、context-enabled export 和 Repair Archaeology v0 最小导出/smoke 已建立 |
 
 更完整的应用场景边界见 [`docs/application-scenarios.md`](./docs/application-scenarios.md)。
 
@@ -34,7 +34,8 @@ AX 当前优先服务四类能被仓库直接验证的场景：
 | 项目模式 | `AX.toml + sources` 与最小 `module/import` 已落地 |
 | 代表样例 | 已固定 P2 主代表样例与宿主边界样例，并接入 `check / run / build` 回归 |
 | benchmark | export / run / score / compare / smoke / CI 已落地，context-enabled export 已进入修复输入链 |
-| repair archaeology | 已登记为下一轮证据链展示层，目标是把 repair replay / score / compare 资产导出为 case 级 JSON 与 Markdown 报告 |
+| repair archaeology | v0 已有 artifact schema、最小导出脚本和固定 smoke，并已接入 Windows CI |
+| web workbench | `web/` 已作为独立 Vite + React 前端进入主线，展示 benchmark 指标、same-case repair demo、反馈模式对比和接口契约 |
 | build | 当前仍是 skeleton build，不是成熟 AOT/native backend |
 | 平台 | Windows 为 full workflow，Linux 为 core support，macOS 尚未启动 |
 
@@ -75,9 +76,9 @@ AX 当前优先服务四类能被仓库直接验证的场景：
 
 - 仓库内已有 repair cases、adapter spec、导出、评分、对比、smoke 与 CI
 - AX 的主张是“把语言本体和 AI 友好编译器一起做硬”，所以 benchmark 是继续条件的一部分
-- 当前 full manifest 有 `30` 个 repair case，仓库内 deterministic replay 当前可复现 `cold 23/30`、`base 25/30`、`ai 30/30`
+- 当前 full manifest 有 `35` 个 repair case；已发布 deterministic replay 快照覆盖 `30` 个 case，仓库内可复现 `cold 23/30`、`base 25/30`、`ai 30/30`
 - 公开展示页见 [`docs/benchmark-showcase.md`](./docs/benchmark-showcase.md)
-- 下一轮 P1 增长点是 [`docs/repair-archaeology.md`](./docs/repair-archaeology.md)：把 replay / score / compare 从“结果表”升级成按 case 可查询、可导出的修复证据对象
+- [`docs/repair-archaeology.md`](./docs/repair-archaeology.md) 已定义 Repair Archaeology v0；`scripts/export-repair-archaeology.ps1` 与 `scripts/smoke-repair-archaeology.ps1` 已把 replay / score / compare 升级成按 case 可查询、可导出的修复证据对象
 
 ### 6. context 协议已经是对外接口，不是草图
 
@@ -93,7 +94,7 @@ AX 当前优先服务四类能被仓库直接验证的场景：
 - `build`：当前仍是 backend 前的构建骨架，不应被表述成成熟 native compiler
 - `std/`：当前已启动第一批标准库试点模块，并已由 `project_text_normalize`、`project_directory_index`、`project_release_promote`、`project_command_capture`、`project_command_batch`、`project_option_result`、`project_env_result`、`project_file_result`、`project_process_result`、`project_result_pipeline`、`project_config_validate`、`project_collections_report` 十二组真实样例消费；Std-1 冻结候选清单已在 [`docs/stdlib-minimal-boundary.md`](./docs/stdlib-minimal-boundary.md) 收口，但还不是完整官方标准库
 - `foundation/`：当前仍是 Std-0 孵化层，负责承载尚未迁移的样例和未充分验证的 helper，尤其是搜索、markdown/searchable 文件分类和目录重建策略
-- `Repair Archaeology v0`：当前是规划中的证据链展示层，还没有实现导出脚本或 `axc` 命令；它不代表 live-model benchmark 已经完成
+- `Repair Archaeology v0`：artifact schema、最小导出脚本和固定 smoke 已落地；它仍不代表 live-model benchmark 已经完成，也暂不新增 `axc` 命令
 
 ## 当前明确后置、不是主线的方向
 
@@ -120,12 +121,13 @@ AX 当前优先服务四类能被仓库直接验证的场景：
 2. [`docs/feature-matrix.md`](./docs/feature-matrix.md)：当前能力面、边界和非目标
 3. [`docs/benchmark-showcase.md`](./docs/benchmark-showcase.md)：当前可复现 benchmark 展示页
 4. [`docs/public-claims.md`](./docs/public-claims.md)：对外表述边界
-5. [`docs/repair-archaeology.md`](./docs/repair-archaeology.md)：下一轮修复证据可解释展示层
+5. [`docs/repair-archaeology.md`](./docs/repair-archaeology.md)：修复证据可解释展示层
 6. [`docs/interface-contracts.md`](./docs/interface-contracts.md)：外部契约与快照覆盖
 7. [`docs/repair-benchmark.md`](./docs/repair-benchmark.md)：benchmark 证据链
-8. [`PLAN.md`](./PLAN.md)：全项目闭环计划与阶段门槛
-9. [`WORKLIST.md`](./WORKLIST.md)：当前施工项
-10. [`ARCHIVE.md`](./ARCHIVE.md)：已完成事项归档
+8. [`web/README.md`](./web/README.md)：Repair Workbench 前端入口
+9. [`PLAN.md`](./PLAN.md)：全项目闭环计划与阶段门槛
+10. [`WORKLIST.md`](./WORKLIST.md)：当前施工项
+11. [`ARCHIVE.md`](./ARCHIVE.md)：已完成事项归档
 
 ## 当前一句话判断
 
