@@ -6010,6 +6010,21 @@ fn project_package_config_build_manifest_exposes_local_path_package() {
         json_string_array(&packages[0]["modules"], "local package modules"),
         vec!["config_rules.validate".to_string()]
     );
+    let package_graph = &manifest["package_graph_readiness"];
+    assert_eq!(package_graph["package_mode"], "local_path_v0");
+    assert_eq!(package_graph["reproducible"], Value::Bool(true));
+    assert_eq!(package_graph["aot_ready"], Value::Bool(false));
+    assert_eq!(package_graph["lock_status"], "current");
+    assert_eq!(package_graph["risk_level"], "medium");
+    assert!(
+        json_string_array(
+            &package_graph["blocking_reasons"],
+            "build package graph blocking reasons"
+        )
+        .iter()
+        .any(|reason| reason.contains("local path package linking")),
+        "build manifest should keep package graph out of AOT-ready state"
+    );
 }
 
 #[test]
@@ -6098,6 +6113,95 @@ sources = [\"src\"]
             .join("validate.ax")
             .exists(),
         "build should copy sibling local path package sources under external/"
+    );
+}
+
+#[test]
+fn project_build_manifest_exposes_stale_package_graph_readiness() {
+    let temp = TempDir::new("project-build-stale-package-graph");
+    let project_dir = temp.join("app");
+    let package_dir = temp.join("packages").join("rules");
+    fs::create_dir_all(project_dir.join("src")).expect("project src directory should exist");
+    fs::create_dir_all(package_dir.join("src")).expect("package src directory should exist");
+    fs::write(
+        project_dir.join("AX.toml"),
+        "\
+manifest_version = 1
+
+[package]
+name = \"build_stale_package_app\"
+entry = \"src/main.ax\"
+
+[dependencies]
+rules = { path = \"../packages/rules\" }
+",
+    )
+    .expect("project manifest should exist");
+    fs::write(
+        package_dir.join("AX.toml"),
+        "\
+manifest_version = 1
+
+[package]
+name = \"rules_pkg\"
+sources = [\"src\"]
+",
+    )
+    .expect("package manifest should exist");
+    fs::write(
+        package_dir.join("src").join("validate.ax"),
+        "module rules.validate;\nfn ok() -> i32 { return 1; }\n",
+    )
+    .expect("package source should exist");
+    fs::write(
+        project_dir.join("src").join("main.ax"),
+        "import rules.validate;\nfn main() -> i32 { return rules.validate.ok(); }\n",
+    )
+    .expect("project entry should exist");
+
+    let lock_output = run_axc([OsStr::new("lock"), project_dir.as_os_str()]);
+    assert_eq!(lock_output.status.code(), Some(0));
+    assert_clean_stderr(&lock_output);
+    fs::write(
+        package_dir.join("src").join("extra.ax"),
+        "module rules.extra;\nfn value() -> i32 { return 2; }\n",
+    )
+    .expect("extra package source should exist");
+
+    let out_dir = temp.join("build-out");
+    let output = run_axc([
+        OsStr::new("build"),
+        project_dir.as_os_str(),
+        OsStr::new("--out-dir"),
+        out_dir.as_os_str(),
+    ]);
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "build should succeed while reporting package graph readiness\nstdout:\n{}\nstderr:\n{}",
+        string_output(&output.stdout),
+        string_output(&output.stderr)
+    );
+    assert_clean_stderr(&output);
+
+    let manifest: Value = serde_json::from_str(
+        &fs::read_to_string(out_dir.join("build-manifest.json"))
+            .expect("build manifest should be readable"),
+    )
+    .expect("build manifest should be valid JSON");
+    let package_graph = &manifest["package_graph_readiness"];
+    assert_eq!(package_graph["lock_status"], "stale");
+    assert_eq!(package_graph["risk_level"], "high");
+    assert_eq!(package_graph["reproducible"], Value::Bool(false));
+    assert_eq!(package_graph["aot_ready"], Value::Bool(false));
+    assert!(
+        json_string_array(
+            &package_graph["blocking_reasons"],
+            "build package graph blocking reasons"
+        )
+        .iter()
+        .any(|reason| reason.contains("AX.lock status is `stale`")),
+        "build manifest should expose stale lock risk"
     );
 }
 
@@ -6247,6 +6351,22 @@ sources = [\"src\"]
     let evidence: Value =
         serde_json::from_slice(&evidence_output.stdout).expect("evidence should be JSON");
     assert_eq!(evidence["facts"]["local_package_lock"]["status"], "current");
+    assert_eq!(
+        evidence["facts"]["package_graph_readiness"]["package_mode"],
+        "local_path_v0"
+    );
+    assert_eq!(
+        evidence["facts"]["package_graph_readiness"]["reproducible"],
+        Value::Bool(true)
+    );
+    assert_eq!(
+        evidence["facts"]["package_graph_readiness"]["aot_ready"],
+        Value::Bool(false)
+    );
+    assert_eq!(
+        evidence["facts"]["package_graph_readiness"]["risk_level"],
+        "medium"
+    );
     assert!(
         json_string_array(
             &evidence["hints"]["recommended_commands"],
@@ -6380,6 +6500,45 @@ sources = [\"src\"]
                     == "Regenerate AX.lock so it matches the current local path package graph."
         }),
         "context should expose AI-facing lock repair hints: {issues:?}"
+    );
+
+    let evidence_output = run_axc([
+        OsStr::new("context"),
+        OsStr::new("evidence"),
+        project_dir.as_os_str(),
+        OsStr::new("main"),
+        OsStr::new("--json"),
+    ]);
+    assert_eq!(
+        evidence_output.status.code(),
+        Some(0),
+        "context evidence should succeed\nstdout:\n{}\nstderr:\n{}",
+        string_output(&evidence_output.stdout),
+        string_output(&evidence_output.stderr)
+    );
+    assert_clean_stderr(&evidence_output);
+    let evidence: Value =
+        serde_json::from_slice(&evidence_output.stdout).expect("evidence should be JSON");
+    assert_eq!(
+        evidence["facts"]["package_graph_readiness"]["lock_status"],
+        "stale"
+    );
+    assert_eq!(
+        evidence["facts"]["package_graph_readiness"]["risk_level"],
+        "high"
+    );
+    assert_eq!(
+        evidence["facts"]["package_graph_readiness"]["reproducible"],
+        Value::Bool(false)
+    );
+    assert!(
+        json_string_array(
+            &evidence["facts"]["package_graph_readiness"]["blocking_reasons"],
+            "package graph readiness blocking reasons"
+        )
+        .iter()
+        .any(|reason| reason.contains("AX.lock status is `stale`")),
+        "evidence should explain stale lock risk"
     );
 }
 

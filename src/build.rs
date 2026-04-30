@@ -4,6 +4,7 @@ use std::path::{Component, Path, PathBuf};
 use serde::Serialize;
 
 use crate::hir::Program as HirProgram;
+use crate::lockfile::check_lockfile;
 use crate::mir::Program as MirProgram;
 use crate::project::Project;
 use crate::source::SourceFile;
@@ -32,6 +33,7 @@ pub struct BuildInput {
     pub project_manifest: Option<ProjectManifestArtifact>,
     pub project_sources: Option<ProjectSourcesArtifact>,
     pub local_path_packages: Vec<LocalPathPackageArtifact>,
+    pub package_graph_readiness: Option<BuildPackageGraphReadiness>,
 }
 
 #[derive(Debug, Clone)]
@@ -62,6 +64,17 @@ pub struct LocalPathPackageArtifact {
 }
 
 #[derive(Debug, Clone, Serialize)]
+pub struct BuildPackageGraphReadiness {
+    pub package_mode: String,
+    pub reproducible: bool,
+    pub aot_ready: bool,
+    pub lock_status: String,
+    pub risk_level: String,
+    pub blocking_reasons: Vec<String>,
+    pub recommended_commands: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
 pub struct BuildManifest {
     pub schema_version: u32,
     pub target_name: String,
@@ -71,6 +84,8 @@ pub struct BuildManifest {
     pub artifacts: BuildArtifacts,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub local_path_packages: Vec<LocalPathPackageArtifact>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub package_graph_readiness: Option<BuildPackageGraphReadiness>,
     pub notes: Vec<String>,
 }
 
@@ -128,6 +143,7 @@ pub fn build_input_from_source(source: &SourceFile) -> Result<BuildInput, String
         project_manifest: None,
         project_sources: None,
         local_path_packages: Vec::new(),
+        package_graph_readiness: None,
     })
 }
 
@@ -181,6 +197,11 @@ pub fn build_input_from_project(
             modules,
         });
     }
+    let package_graph_readiness = if project.local_path_dependencies().is_empty() {
+        None
+    } else {
+        Some(build_package_graph_readiness(project))
+    };
 
     Ok(BuildInput {
         target_name: project.target_name().to_string(),
@@ -194,7 +215,36 @@ pub fn build_input_from_project(
             files: project_source_files,
         }),
         local_path_packages,
+        package_graph_readiness,
     })
+}
+
+fn build_package_graph_readiness(project: &Project) -> BuildPackageGraphReadiness {
+    let lock_report = check_lockfile(project);
+    let reproducible = lock_report.status.as_str() == "current";
+    let mut blocking_reasons = Vec::new();
+    if !reproducible {
+        blocking_reasons.push(format!(
+            "local package graph is not reproducible because AX.lock status is `{}`",
+            lock_report.status.as_str()
+        ));
+    }
+    blocking_reasons
+        .push("native backend has not implemented local path package linking".to_string());
+
+    BuildPackageGraphReadiness {
+        package_mode: "local_path_v0".to_string(),
+        reproducible,
+        aot_ready: false,
+        lock_status: lock_report.status.as_str().to_string(),
+        risk_level: if reproducible { "medium" } else { "high" }.to_string(),
+        blocking_reasons,
+        recommended_commands: vec![
+            "axc lock <project> --check".to_string(),
+            "axc check <project>".to_string(),
+            "axc build <project>".to_string(),
+        ],
+    }
 }
 
 fn build_project_source_artifact_path(
@@ -358,6 +408,7 @@ pub fn build_program(
             executable: None,
         },
         local_path_packages: input.local_path_packages.clone(),
+        package_graph_readiness: input.package_graph_readiness.clone(),
         notes: vec![
             "This build currently emits frontend and midend stable artifacts only.".to_string(),
             "Native executable emission will be added in the future backend stage.".to_string(),

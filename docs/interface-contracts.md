@@ -207,6 +207,8 @@ Stable for the current package-interface slice:
 - `axc build` packages dependency sources under `external/<package-root>/...` when the path package lives outside the project tree
 - `build-manifest.json` uses schema version `4` and exposes `local_path_packages` for projects that declare path packages
 - each build-manifest package entry includes `alias`, `root`, `manifest`, `source_count`, and sorted `modules`
+- `build-manifest.json` exposes `package_graph_readiness` for local path package projects, including `package_mode`, `reproducible`, `aot_ready`, `lock_status`, `risk_level`, `blocking_reasons`, and `recommended_commands`
+- build package graph readiness must keep `aot_ready = false` until native local package linking semantics exist, even when `AX.lock` is current
 - `axc lock <project>` writes `AX.lock` as stable JSON with schema version `1`
 - `axc lock <project> --check` validates that the checked-in `AX.lock` matches the current local path package graph
 - `AX.lock` v0 records only local path packages: root package name, dependency `alias`, `kind = "path"`, dependency package name, declared path, manifest path, source count, and sorted modules
@@ -222,6 +224,12 @@ Stable for the current package-interface slice:
 - stale lock reports include issue kinds such as `dependency_count_changed`, `dependency_source_count_changed`, `dependency_modules_changed`, `dependency_metadata_changed`, `dependency_missing`, and `dependency_removed`
 - context `overview`、`topology` and `evidence` expose `local_package_lock` for projects that declare local path packages, with `status = missing/current/stale/unreadable/unavailable`
 - context `local_package_lock.issues[]` exposes the same lock check issue code, kind, message, fixit, `repair_rule`, and `repair_goal` used by `axc lock --check`
+- context `evidence` also exposes `package_graph_readiness` for local path package projects:
+  - `package_mode = local_path_v0`
+  - `reproducible = true` only when `AX.lock` is current
+  - `aot_ready = false` until local package AOT linking semantics exist
+  - `risk_level = medium/high` summarizes whether the package graph is reproducible
+  - `blocking_reasons` explains stale/missing lock risk and future AOT linking blockers
 - package resolver failures use stable `PX****` text codes before source diagnostics exist:
   - `PX0001`: dependency alias is not a valid AX module root
   - `PX0002`: dependency path is empty, missing, inaccessible, or not a directory

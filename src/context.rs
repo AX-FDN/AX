@@ -370,6 +370,17 @@ struct BuildReadiness {
 }
 
 #[derive(Serialize)]
+struct PackageGraphReadiness {
+    package_mode: &'static str,
+    reproducible: bool,
+    aot_ready: bool,
+    lock_status: &'static str,
+    risk_level: &'static str,
+    blocking_reasons: Vec<String>,
+    recommended_commands: Vec<String>,
+}
+
+#[derive(Serialize)]
 struct TopologySummary {
     source_unit_count: usize,
     module_edge_count: usize,
@@ -520,6 +531,8 @@ struct EvidenceFacts {
     build_readiness: BuildReadiness,
     #[serde(skip_serializing_if = "Option::is_none")]
     local_package_lock: Option<ContextPackageLock>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    package_graph_readiness: Option<PackageGraphReadiness>,
 }
 
 #[derive(Serialize)]
@@ -1494,6 +1507,9 @@ fn build_evidence_facts(
     let impact_facts = build_impact_facts(requested_symbol, symbol_catalog)?;
     let expected_artifacts =
         build_context_expected_artifacts(request_path, input, requested_symbol);
+    let local_package_lock = build_local_package_lock_fact(input.project.as_ref());
+    let package_graph_readiness =
+        build_package_graph_readiness_fact(input.project.as_ref(), local_package_lock.as_ref());
     Ok(EvidenceFacts {
         requested_symbol: requested_symbol.to_string(),
         resolved_symbol: impact_facts.resolved_symbol.clone(),
@@ -1508,7 +1524,46 @@ fn build_evidence_facts(
         related_benchmarks: build_related_benchmarks(input, &impact_facts),
         expected_artifacts,
         build_readiness: build_build_readiness_fact(input),
-        local_package_lock: build_local_package_lock_fact(input.project.as_ref()),
+        local_package_lock,
+        package_graph_readiness,
+    })
+}
+
+fn build_package_graph_readiness_fact(
+    project: Option<&Project>,
+    local_package_lock: Option<&ContextPackageLock>,
+) -> Option<PackageGraphReadiness> {
+    let project = project?;
+    if project.local_path_dependencies().is_empty() {
+        return None;
+    }
+
+    let lock_status = local_package_lock
+        .map(|lock| lock.status)
+        .unwrap_or("unavailable");
+    let reproducible = lock_status == "current";
+    let mut blocking_reasons = Vec::new();
+    if !reproducible {
+        blocking_reasons.push(format!(
+            "local package graph is not reproducible because AX.lock status is `{lock_status}`"
+        ));
+    }
+    blocking_reasons
+        .push("future AOT still needs explicit local package linking semantics".to_string());
+
+    let risk_level = if reproducible { "medium" } else { "high" };
+    Some(PackageGraphReadiness {
+        package_mode: "local_path_v0",
+        reproducible,
+        aot_ready: false,
+        lock_status,
+        risk_level,
+        blocking_reasons,
+        recommended_commands: vec![
+            "axc lock <project> --check".to_string(),
+            "axc check <project>".to_string(),
+            "axc build <project>".to_string(),
+        ],
     })
 }
 
