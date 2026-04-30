@@ -209,6 +209,7 @@ Stable for the current package-interface slice:
 - `axc lock <project>` writes `AX.lock` as stable JSON with schema version `1`
 - `axc lock <project> --check` validates that the checked-in `AX.lock` matches the current local path package graph
 - `AX.lock` v0 records only local path packages: root package name, dependency `alias`, `kind = "path"`, dependency package name, declared path, manifest path, source count, and sorted modules
+- context `overview`、`topology` and `evidence` expose `local_package_lock` for projects that declare local path packages, with `status = missing/current/stale/unreadable/unavailable`
 - package resolver failures use stable `PX****` text codes before source diagnostics exist:
   - `PX0001`: dependency alias is not a valid AX module root
   - `PX0002`: dependency path is empty, missing, inaccessible, or not a directory
@@ -218,6 +219,7 @@ Stable for the current package-interface slice:
   - `PX0006`: transitive path dependencies are not supported in v0
   - `PX0007`: dependency source expands to a duplicate or entry-overlapping source
 - context `overview` and `topology` expose `local_path_packages` when a project uses path packages
+- context `evidence` recommends `axc lock <project> --check` for local path package projects
 
 Allowed to evolve carefully:
 
@@ -240,6 +242,7 @@ Current smoke coverage:
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test --test interface_snapshots project_path_package
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test --test interface_snapshots project_package_config_context
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test --test interface_snapshots project_package_config_build_manifest
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test --test interface_snapshots project_lock_generates_and_checks_local_path_packages
 ```
 
 ## Current Verification Commands

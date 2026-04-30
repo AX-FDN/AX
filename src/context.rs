@@ -6,6 +6,7 @@ use serde::Serialize;
 
 use crate::ast::{Block, Expr, ExprKind, ItemKind, Program, Stmt, StmtKind, Visibility};
 use crate::diagnostics::Diagnostic;
+use crate::lockfile::render_lockfile;
 use crate::project::{Project, ResolvedInput};
 use crate::source::SourceFile;
 
@@ -248,6 +249,8 @@ struct OverviewFacts {
     source_roots: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     local_path_packages: Vec<ContextPathPackage>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    local_package_lock: Option<ContextPackageLock>,
     summary: OverviewSummary,
     source_units: Vec<OverviewUnit>,
 }
@@ -316,6 +319,8 @@ struct TopologyFacts {
     summary: TopologySummary,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     local_path_packages: Vec<ContextPathPackage>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    local_package_lock: Option<ContextPackageLock>,
     source_units: Vec<TopologyUnit>,
     module_edges: Vec<ModuleEdge>,
     symbol_edges: Vec<SymbolEdge>,
@@ -328,6 +333,15 @@ struct ContextPathPackage {
     manifest: String,
     source_count: usize,
     modules: Vec<String>,
+}
+
+#[derive(Serialize)]
+struct ContextPackageLock {
+    path: String,
+    schema_version: u32,
+    status: &'static str,
+    dependency_count: usize,
+    note: String,
 }
 
 #[derive(Serialize)]
@@ -478,6 +492,8 @@ struct EvidenceFacts {
     related_docs: Vec<String>,
     related_benchmarks: Vec<String>,
     expected_artifacts: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    local_package_lock: Option<ContextPackageLock>,
 }
 
 #[derive(Serialize)]
@@ -726,6 +742,7 @@ fn build_overview_facts(
                 .any(|unit| unit.module_path.is_some() || !unit.imports.is_empty()),
         source_roots,
         local_path_packages: build_local_path_package_facts(project, units),
+        local_package_lock: build_local_package_lock_fact(project),
         summary: OverviewSummary {
             source_unit_count: units.len(),
             support_unit_count: units.iter().filter(|unit| !unit.is_entry).count(),
@@ -932,6 +949,7 @@ fn build_topology_facts(
                 .iter()
                 .any(|unit| unit.module_path.is_some() || !unit.imports.is_empty()),
         local_path_packages: build_local_path_package_facts(project, units),
+        local_package_lock: build_local_package_lock_fact(project),
         summary: TopologySummary {
             source_unit_count: units.len(),
             module_edge_count: module_edges.len(),
@@ -975,6 +993,59 @@ fn build_local_path_package_facts(
             }
         })
         .collect()
+}
+
+fn build_local_package_lock_fact(project: Option<&Project>) -> Option<ContextPackageLock> {
+    let project = project?;
+    let dependency_count = project.local_path_dependencies().len();
+    if dependency_count == 0 {
+        return None;
+    }
+
+    let lock_path = project.root_dir().join("AX.lock");
+    let expected = match render_lockfile(project) {
+        Ok(text) => text,
+        Err(error) => {
+            return Some(ContextPackageLock {
+                path: normalize_path(&lock_path),
+                schema_version: 1,
+                status: "unavailable",
+                dependency_count,
+                note: format!("failed to render expected AX.lock: {error}"),
+            });
+        }
+    };
+
+    match fs::read_to_string(&lock_path) {
+        Ok(current) if current == expected => Some(ContextPackageLock {
+            path: normalize_path(&lock_path),
+            schema_version: 1,
+            status: "current",
+            dependency_count,
+            note: "AX.lock matches the current local path package graph".to_string(),
+        }),
+        Ok(_) => Some(ContextPackageLock {
+            path: normalize_path(&lock_path),
+            schema_version: 1,
+            status: "stale",
+            dependency_count,
+            note: "AX.lock exists but differs from the current local path package graph; run `axc lock <project>`".to_string(),
+        }),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Some(ContextPackageLock {
+            path: normalize_path(&lock_path),
+            schema_version: 1,
+            status: "missing",
+            dependency_count,
+            note: "AX.lock is missing; run `axc lock <project>` to freeze local path packages".to_string(),
+        }),
+        Err(error) => Some(ContextPackageLock {
+            path: normalize_path(&lock_path),
+            schema_version: 1,
+            status: "unreadable",
+            dependency_count,
+            note: format!("failed to read AX.lock: {error}"),
+        }),
+    }
 }
 
 fn build_topology_hints(
@@ -1434,6 +1505,7 @@ fn build_evidence_facts(
         related_docs: build_related_docs(input, &impact_facts),
         related_benchmarks: build_related_benchmarks(input, &impact_facts),
         expected_artifacts,
+        local_package_lock: build_local_package_lock_fact(input.project.as_ref()),
     })
 }
 
@@ -1452,6 +1524,13 @@ fn build_evidence_hints(
 
     if input.project.is_some() || command_target.starts_with("examples/") {
         recommended_commands.push(format!("axc run {command_target} -- <args...>"));
+    }
+    if input
+        .project
+        .as_ref()
+        .is_some_and(|project| !project.local_path_dependencies().is_empty())
+    {
+        recommended_commands.push(format!("axc lock {command_target} --check"));
     }
     if related_tests
         .iter()

@@ -841,7 +841,7 @@ fn validate(contents: string) -> std.result.Result<i32, string> {
 
 这一版只做本地 path package 和 `AX.lock` v0：没有 registry、版本求解，也不允许 `AX import -> Cargo crate` 直通。它的意义是先把 AX 自己的代码复用边界建立起来，为后续标准库冻结、AOT、包生态和第三方扩展打地基。
 
-本地包错误已经有稳定 resolver 文本码：`PX0001~PX0007` 覆盖非法 alias、依赖路径缺失、依赖 manifest 缺失、空 sources、模块根冲突、transitive dependency 禁用和重复 source；`context overview/topology` 会在项目使用本地包时输出 `local_path_packages`。需要锁定当前本地包图时，可以运行 `axc lock <project>` 生成 `AX.lock`，并用 `axc lock <project> --check` 在 CI 或本地验证锁文件是否仍然匹配。
+本地包错误已经有稳定 resolver 文本码：`PX0001~PX0007` 覆盖非法 alias、依赖路径缺失、依赖 manifest 缺失、空 sources、模块根冲突、transitive dependency 禁用和重复 source；`context overview/topology` 会在项目使用本地包时输出 `local_path_packages`。需要锁定当前本地包图时，可以运行 `axc lock <project>` 生成 `AX.lock`，并用 `axc lock <project> --check` 在 CI 或本地验证锁文件是否仍然匹配。`context overview/topology/evidence` 也会输出 `local_package_lock` 状态，让 agent 能区分锁文件是缺失、当前有效、过期还是不可读。
 
 ### 4. 命令行链路
 

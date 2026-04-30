@@ -4260,6 +4260,11 @@ fn project_package_config_context_exposes_local_path_package() {
         json_string_array(&packages[0]["modules"], "package modules"),
         vec!["config_rules.validate".to_string()]
     );
+    assert_eq!(context["facts"]["local_package_lock"]["status"], "missing");
+    assert_eq!(
+        context["facts"]["local_package_lock"]["dependency_count"],
+        Value::from(1)
+    );
 }
 
 #[test]
@@ -6169,6 +6174,74 @@ sources = [\"src\"]
         string_output(&check_output.stderr)
     );
     assert_clean_stderr(&check_output);
+
+    let overview_output = run_axc([
+        OsStr::new("context"),
+        OsStr::new("overview"),
+        project_dir.as_os_str(),
+        OsStr::new("--json"),
+    ]);
+    assert_eq!(
+        overview_output.status.code(),
+        Some(0),
+        "context overview should succeed\nstdout:\n{}\nstderr:\n{}",
+        string_output(&overview_output.stdout),
+        string_output(&overview_output.stderr)
+    );
+    assert_clean_stderr(&overview_output);
+    let overview: Value =
+        serde_json::from_slice(&overview_output.stdout).expect("overview should be JSON");
+    assert_eq!(overview["facts"]["local_package_lock"]["status"], "current");
+    assert_eq!(
+        overview["facts"]["local_package_lock"]["dependency_count"],
+        Value::from(1)
+    );
+
+    let topology_output = run_axc([
+        OsStr::new("context"),
+        OsStr::new("topology"),
+        project_dir.as_os_str(),
+        OsStr::new("--json"),
+    ]);
+    assert_eq!(
+        topology_output.status.code(),
+        Some(0),
+        "context topology should succeed\nstdout:\n{}\nstderr:\n{}",
+        string_output(&topology_output.stdout),
+        string_output(&topology_output.stderr)
+    );
+    assert_clean_stderr(&topology_output);
+    let topology: Value =
+        serde_json::from_slice(&topology_output.stdout).expect("topology should be JSON");
+    assert_eq!(topology["facts"]["local_package_lock"]["status"], "current");
+
+    let evidence_output = run_axc([
+        OsStr::new("context"),
+        OsStr::new("evidence"),
+        project_dir.as_os_str(),
+        OsStr::new("main"),
+        OsStr::new("--json"),
+    ]);
+    assert_eq!(
+        evidence_output.status.code(),
+        Some(0),
+        "context evidence should succeed\nstdout:\n{}\nstderr:\n{}",
+        string_output(&evidence_output.stdout),
+        string_output(&evidence_output.stderr)
+    );
+    assert_clean_stderr(&evidence_output);
+    let evidence: Value =
+        serde_json::from_slice(&evidence_output.stdout).expect("evidence should be JSON");
+    assert_eq!(evidence["facts"]["local_package_lock"]["status"], "current");
+    assert!(
+        json_string_array(
+            &evidence["hints"]["recommended_commands"],
+            "evidence recommended commands"
+        )
+        .iter()
+        .any(|command| command.contains("axc lock") && command.contains("--check")),
+        "evidence should recommend lockfile verification for local path package projects"
+    );
 }
 
 #[test]

@@ -899,7 +899,7 @@
 - [x] `Q-P5-02` lockfile v0
   - 状态：已新增 `axc lock <project> [--check]`，生成/校验 `AX.lock` schema version `1`。
   - 当前范围：只记录本地 path package 图，包括 root package name、dependency alias、`kind = "path"`、dependency package name、declared path、manifest path、source_count 和 sorted modules。
-  - 已覆盖：CLI 参数解析、temp project lockfile smoke、`--check` 验证、interface contract、feature matrix、README。
+  - 已覆盖：CLI 参数解析、temp project lockfile smoke、`--check` 验证、context `overview/topology/evidence` 的 `local_package_lock` 状态、interface contract、feature matrix、README。
   - 当前边界：不是 registry lockfile，不做版本求解，不解析三方包，不支持 transitive path dependencies，不生成 Cargo 依赖桥。
 - [ ] `Q-P5-03` registry package
 - [x] `Q-P5-04` package diagnostics / smoke v0
