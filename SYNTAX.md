@@ -16,7 +16,7 @@
 - `if`、`while`、`for` 必须写成带括号的头部：`if (cond) { ... }`、`while (cond) { ... }`、`for (init; cond; step) { ... }`、`for (let value: T in values) { ... }`
 - `break;` 当前已支持，可用于提前退出最近一层 `while` 或 `for`
 - `continue;` 当前已支持，可用于跳过最近一层 `while` 或 `for` 的本次迭代并进入下一轮
-- `match (...) { ... }` 当前已支持语句形态、表达式形态、最终裸标识符绑定模式、字符串字面量 pattern、payload enum pattern、`A | B` 多 pattern arm、`i32` range pattern 与 bool guard；模式当前支持 `true` / `false`、整数、`400..=499` 这类闭区间、字符串、枚举值、最终 `_`、最终裸标识符（如 `other`），以及 `Enum.Variant(name)` / `Enum.Variant(_)`
+- `match (...) { ... }` 当前已支持语句形态、表达式形态、最终裸标识符绑定模式、字符串字面量 pattern、payload enum pattern、结构体全字段解构 pattern、`A | B` 多 pattern arm、`i32` range pattern 与 bool guard；模式当前支持 `true` / `false`、整数、`400..=499` 这类闭区间、字符串、枚举值、`Point { x, y }` 这类结构体全字段 shorthand 解构、最终 `_`、最终裸标识符（如 `other`），以及 `Enum.Variant(name)` / `Enum.Variant(_)`
 - 逻辑运算当前已支持 `&&` 与 `||`，并按短路语义执行
 - 余数运算 `%` 当前已支持，且当前只接受 `i32` 操作数
 - 枚举值必须写成 `EnumName.Variant`；如果该 variant 声明了 payload，则当前写成 `EnumName.Variant(value)`
@@ -223,7 +223,7 @@ import lib.report;
 - AX 当前已经支持最小 `module / import` 模式：support source 可声明 `module ...;`，entry 与 support source 都可显式写 `import ...;`。
 - 当前最小的代码组织方式仍然是项目清单：可以在 `AX.toml` 里用 `[package].sources = ["src/lib.ax", "lib", ...]` 列出额外源文件或源目录，在 `check / run / build` 时与 `entry` 一起装载；目录项会递归展开为稳定路径顺序的 `.ax` 文件列表。
 - `module` 当前只允许出现在 support source，manifest `entry` 文件仍必须保持根入口身份并提供 `fn main() -> i32`。
-- 当前仍不做 alias / wildcard import / `pub` / 远程依赖；设计说明见 [`docs/import-module-minimal-design.md`](C:/Users/xiaoy/Desktop/A语言/AX/docs/import-module-minimal-design.md)。
+- 当前支持 `pub` 作为顶层导出标记，并支持本地 path package 与 `AX.lock` v0；仍不做 alias import、wildcard import、registry / 远程依赖、版本求解或直接导入 Rust crate。设计说明见 [`docs/import-module-minimal-design.md`](C:/Users/xiaoy/Desktop/A语言/AX/docs/import-module-minimal-design.md)。
 
 标准 `Option` / `Result` 约定：
 
@@ -392,6 +392,12 @@ let code: i32 = match (result) {
 ```
 
 ```ax
+let score: i32 = match (point) {
+    Point { x, y } => x + y,
+};
+```
+
+```ax
 match (flag) {
     true => {
         println("true");
@@ -416,6 +422,7 @@ let code: i32 = match (value) {
 - `i32` 闭区间 pattern 写作 `start..=end => ...`，常用于状态码、退出码、token 范围分类；区间 arm 仍需要最终 `_` 或绑定兜底来满足穷尽性
 - guard 写作 `pattern if bool_expr => ...`；guard 必须是 `bool`，带 guard 的 arm 不参与穷尽性证明，可以读取当前 arm 引入的 pattern binding
 - payload enum pattern 当前只支持单名字绑定或 `_`：`Result.Ok(value)`、`Result.Err(_)`
+- struct pattern 当前支持全字段 shorthand 解构：`Point { x, y }`；字段名必须来自结构体声明，且每个声明字段都要出现一次，字段名同时成为 arm-local 不可变绑定
 - payload enum 当前只支持 unit variant 与单 payload variant，不支持多 payload、命名字段或更深解构
 - 表达式形态的所有 arm 必须返回同类型
 
@@ -584,9 +591,11 @@ single_pattern    := "_"
                   | INT
                   | INT "..=" INT
                   | STRING
+                  | struct_pattern
                   | enum_pattern
                   | qualified_name
                   | binding_name
+struct_pattern    := qualified_name "{" IDENT ("," IDENT)* ","? "}"
 enum_pattern      := qualified_name ("(" ("_" | IDENT) ")")?
 binding_name      := IDENT  // bare identifier without `.`; catch-all and must be final
 if_stmt           := "if" "(" expr ")" block ("else" (block | if_stmt))?
@@ -621,7 +630,9 @@ primary_expr      := INT
                   | "(" expr ")"
 
 match_expr        := "match" "(" expr ")" "{" match_expr_arm ("," match_expr_arm)* ","? "}"
-match_expr_arm    := match_pattern match_guard? "=>" expr
+match_expr_arm    := match_pattern match_guard? "=>" (expr | match_expr_block)
+match_expr_block  := "{" linear_statement* expr "}"
+linear_statement  := let_stmt | assignment_stmt | expr_stmt | block
 
 struct_literal    := IDENT "{" struct_init_list? "}"
 struct_init_list  := struct_init ("," struct_init)* ","?
@@ -645,13 +656,14 @@ array_type        := "[" type_ref ";" INT "]"
 - 只读切片仍然不能写入，因此 `view[index] = expr;` 和 `view[index].field = expr;` 都会被拒绝
 - `break;` 只能出现在 `while` 或 `for` 的循环体内
 - `continue;` 只能出现在 `while` 或 `for` 的循环体内
-- `match` 当前支持语句形态、表达式形态、最终绑定 catch-all、payload enum pattern、`A | B` 多 pattern arm、`i32` range pattern 与 bool guard
-- `match` 模式当前只支持 `bool`、`i32`、`i32` 闭区间、`string`、枚举值、最终 `_`、最终裸标识符绑定、`A | B` 多 pattern arm，以及 `Enum.Variant(name)` / `Enum.Variant(_)`
+- `match` 当前支持语句形态、表达式形态、最终绑定 catch-all、payload enum pattern、结构体全字段解构 pattern、`A | B` 多 pattern arm、`i32` range pattern 与 bool guard
+- `match` 模式当前支持 `bool`、`i32`、`i32` 闭区间、`string`、枚举值、结构体全字段 shorthand 解构、最终 `_`、最终裸标识符绑定、`A | B` 多 pattern arm，以及 `Enum.Variant(name)` / `Enum.Variant(_)`
 - `_` 与裸标识符绑定都属于 catch-all，必须出现在最后一个 arm
 - 带 guard 的 arm 不参与穷尽性证明；guard 必须返回 `bool`，可以读取当前 arm 引入的 pattern binding
 - `match` 要求穷尽：`bool` 必须覆盖 `true/false` 或最终 catch-all，枚举必须覆盖全部 variant 或最终 catch-all，`i32` 当前必须以 `_` 或最终绑定兜底
-- 表达式 `match` 当前要求所有 arm 返回同类型，且 arm body 仍然必须是单个表达式
+- 表达式 `match` 当前要求所有 arm 返回同类型；arm body 可以是单个表达式，也可以是 `{ linear_statement* final_expr }` 形式的 block-valued arm，最后一个表达式不写分号；block-valued arm 里的前置语句当前只支持 `let`、赋值、表达式语句与嵌套线性 block
 - payload enum 当前只支持单 payload variant：声明 `Ok(i32)`，构造 `Result.Ok(7)`，pattern 写成 `Result.Ok(value)` 或 `Result.Ok(_)`
+- struct pattern 当前只支持全字段 shorthand 形式，不支持字段重命名、嵌套解构、partial pattern、数组/tuple 解构
 - `&&` 与 `||` 当前要求两边都为 `bool`
 - `%` 当前要求两边都为 `i32`
 - `for` 当前支持的表头子句是：
@@ -708,7 +720,7 @@ array_type        := "[" type_ref ";" INT "]"
 - 空数组字面量 `[]` 不是“完全不支持”。
 - 当前只支持带显式零长度数组上下文的写法：`let values: [i32; 0] = [];`
 - 如果上下文不是零长度数组，例如 `let values: [i32; 1] = [];`，会报 `S0032`。
-- `match` 当前已支持表达式形态、最终绑定模式、字符串字面量 pattern、payload enum pattern、`A | B` 多 pattern arm、`i32` range pattern 与 binding-aware bool guard，但仍不支持结构体/数组/tuple 解构，表达式形态也还不支持 block-valued arm。
+- `match` 当前已支持表达式形态、block-valued 表达式 arm、最终绑定模式、字符串字面量 pattern、payload enum pattern、结构体全字段解构 pattern、`A | B` 多 pattern arm、`i32` range pattern 与 binding-aware bool guard；暂不支持字段重命名、嵌套解构、partial struct pattern、数组/tuple 解构。
 - `module / import` 当前支持显式模块声明与显式导入；`pub` 当前已作为顶层导出标记进入语法、formatter、AST/HIR/MIR、context 与 AI focus 元数据；暂不支持 alias、wildcard import、包管理与远程依赖。
 - `impl / methods` 当前支持值方法、显式 `self: Type` 参数、不带 `self` 的静态方法、静态构造器的返回上下文泛型推断、`impl<T> Box<T>` / `impl<T> Trait for Box<T>` 这类泛型 impl，以及方法自带类型参数的泛型方法；暂不支持可变接收者、方法重载或 trait 静态方法。
 - `trait / interface` 当前支持 trait 方法签名、`impl Trait for Type`、缺失方法检查、签名匹配检查、trait impl 方法作为普通方法调用，以及泛型函数上的一个或多个 trait bounds；暂不支持动态派发、关联类型、默认方法或泛型 trait。
@@ -726,14 +738,17 @@ Rules:
 - Use only module, import, pub, fn, const, type, struct, enum, trait, impl, let, let mut, return, if/else, while, for, and the current match forms.
 - `break;` may be used to exit the nearest `while` or `for` loop early.
 - `continue;` may be used to skip to the next iteration of the nearest `while` or `for` loop.
-- `match` supports statement form `match (value) { pattern => { ... } ... }` and expression form `match (value) { pattern => expr, ... }`.
-- `match` patterns currently support `true`, `false`, integer literals, inclusive `i32` ranges like `400..=499`, string literals, enum variants, `A | B` alternatives, payload enum patterns like `Result.Ok(value)` / `Result.Err(_)`, final `_`, and final bare binding names like `other`.
+- `match` supports statement form `match (value) { pattern => { ... } ... }`, expression form `match (value) { pattern => expr, ... }`, and block-valued expression arms like `pattern => { let base: i32 = 1; base + 1 }`.
+- `match` patterns currently support `true`, `false`, integer literals, inclusive `i32` ranges like `400..=499`, string literals, enum variants, full-field struct destructuring like `Point { x, y }`, `A | B` alternatives, payload enum patterns like `Result.Ok(value)` / `Result.Err(_)`, final `_`, and final bare binding names like `other`.
+- Struct destructuring patterns must use full-field shorthand only: write `Point { x, y }`; do not write aliases like `Point { x: left }`, partial patterns like `Point { x }`, duplicate fields, unknown fields, nested patterns, tuple patterns, or array patterns.
+- In a struct destructuring pattern, each field name becomes an immutable arm-local binding with the same name.
+- If a struct pattern shape is wrong, repair it by listing every declared field exactly once using the declared field names.
 - `match` guards use `pattern if bool_expr => ...`; guards must be bool, do not count as exhaustive coverage, and may read pattern bindings introduced by the same arm.
 - Top-level constants may be declared as `const NAME: Type = expr;` and used as read-only values.
 - Public top-level declarations may use `pub`, such as `pub fn helper() -> i32 { ... }` or `pub const STATUS_OK: i32 = 0;`.
 - Type aliases may be declared as `type UserId = i32;` or `type Boxed<T> = Box<T>;`; do not use recursive type aliases yet.
 - A bare binding pattern is a final catch-all and introduces an immutable arm-local name.
-- Expression-form `match` arms must stay single expressions and all arms must produce the same type.
+- Expression-form `match` arms may be single expressions or `{ linear_statement* final_expr }` block-valued arms; all arms must produce the same type.
 - `&&` and `||` are supported and both sides must produce `bool`.
 - `%` is supported and currently requires `i32` operands.
 - Every function parameter, return type, and local variable must have an explicit type.
@@ -756,7 +771,7 @@ Rules:
 - Project manifests may declare local AX packages as `[dependencies] name = { path = "relative/path" }`; the dependency alias becomes the module root, so a dependency source under `src/validate.ax` should declare `module name.validate;`.
 - Generic structs may be declared as `struct Box<T> { value: T }` and used in type positions like `Box<i32>`; construct them with normal struct literals like `Box { value: 1 }`.
 - Generic functions may be declared as `fn identity<T>(value: T) -> T { return value; }`; type parameters are inferred from arguments.
-- Do not use exceptions, async, explicit turbofish calls, dynamic dispatch, associated types, default trait methods, generic traits, recursive type aliases, destructuring match patterns, named payload fields, multi-payload enum variants, registry packages, lockfiles, or direct Rust crate imports.
+- Do not use exceptions, async, explicit turbofish calls, dynamic dispatch, associated types, default trait methods, generic traits, recursive type aliases, nested destructuring match patterns, named payload fields, multi-payload enum variants, registry packages, version solving, or direct Rust crate imports. Local `AX.lock` v0 is supported only for local path package graphs.
 - Use [] only when the target type is explicitly a zero-length array like [i32; 0].
 - Return 0 from main on success unless a different exit code is explicitly needed.
 ```

@@ -364,6 +364,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 self.check_struct_literal_expr(expr, name, fields)
             }
             ExprKind::ArrayLiteral { elements } => self.check_array_literal_expr(expr, elements),
+            ExprKind::Block { statements, value } => self.check_block_expr(statements, value),
             ExprKind::Match { scrutinee, arms } => {
                 self.check_match_expression(expr, scrutinee, arms)
             }

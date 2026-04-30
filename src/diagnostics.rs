@@ -32,6 +32,7 @@ pub enum DiagnosticKind {
     MatchRequiresConcretePattern,
     MatchExpressionArmTypeMismatch,
     MatchEnumVariantPayloadShapeMismatch,
+    MatchStructPatternShapeMismatch,
     MatchGuardTypeMismatch,
     MatchRangeMustBeNonEmpty,
     FunctionArgumentTypeMismatch,

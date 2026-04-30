@@ -60,7 +60,7 @@
 | benchmark 方法 | `[x]` | repair case、导出、评分、对比、smoke、CI、公开展示页 | 这不是“以后再补”的附件，而是语言主线的验证层；跨语言/live-model 对照仍是后续工作 | `docs/benchmark-showcase.md` `docs/repair-benchmark.md` |
 | 修复证据展示层 | `[ ]` | `Repair Archaeology v0` 已定义方向 | 当前只是规划与边界，不是 live repair、不是模型客户端、不是新 CLI 契约 | `docs/repair-archaeology.md` |
 | 对外平台支持 | `[~]` | Windows 路径已较完整，Linux 有 quickstart 与核心链路说明 | 仍应按文档与 CI 事实表述，不宜夸成“全平台成熟” | `docs/platform-support.md` |
-| `build` | `[~]` | 可导出构建骨架产物 | 当前不是成熟 native compiler，更不是已完成后端 | `src/build.rs` |
+| `build` | `[~]` | 可导出构建骨架产物，`context evidence` 会暴露 `build_readiness` | 当前不是成熟 native compiler，更不是已完成后端 | `src/build.rs` `src/context.rs` |
 | AOT / JIT | `[ ]` | 尚未进入主线 | 只有在 `P4` 才正式启动 | `PLAN.md` |
 | 包接口 / 第三方库 | `[~]` | 本地 path package v0 已进入主线：`[dependencies] alias = { path = ... }` 会把本地 AX 包源码加载为 `alias.*` 模块；resolver 错误已有 `PX0001~PX0007` 稳定文本码，context 与 build manifest 可暴露 `local_path_packages`，`axc lock` 可生成/校验 `AX.lock` v0，context `overview/topology/evidence` 可暴露 `local_package_lock` 状态 | 仍不是 registry、版本求解、host extension ABI 或 `AX import -> Cargo crate` 直通桥 | `src/project.rs` `src/build.rs` `src/lockfile.rs` `src/context.rs` `examples/project_package_config/` |
 | 自举准备 | `[ ]` | 已有长期路线与关卡条件 | 现在不应被当成当前 KPI 或宣传口径 | `PLAN.md` |
@@ -71,7 +71,7 @@
 | --- | --- | --- | --- |
 | 顶层声明 | `[~]` | `fn`、`struct`、`enum`、`module`、`import`、`pub`、`impl`、`trait`、`type` 别名、本地 path package manifest 声明、`AX.lock` v0 | registry 契约 |
 | 语句 | `[x]` | `let`、`let mut`、赋值、`return`、`if/else`、`while`、`for`、`for in`、`break`、`continue`、语句 `match` | `defer`、异常传播、`switch` 类语法 |
-| 表达式 | `[~]` | 调用、字段访问、索引、slice、结构体字面量、枚举值、表达式 `match`、逻辑运算、余数、字符串拼接、值方法调用、静态方法调用 | 闭包、复杂 pattern matching、block-valued match arm |
+| 表达式 | `[~]` | 调用、字段访问、索引、slice、结构体字面量、枚举值、表达式 `match`、block-valued match arm、`Point { x, y }` 这类结构体全字段 shorthand 解构 pattern、逻辑运算、余数、字符串拼接、值方法调用、静态方法调用 | 闭包、字段重命名 destructuring、partial struct pattern、嵌套/数组/tuple destructuring |
 | 类型系统 | `[~]` | `bool / i32 / f32 / string / string_list`、固定长度数组、只读 slice、payload enum、泛型结构体/函数/enum、trait/interface、trait bounds、where 约束、泛型方法、官方 `Option/Result` 约定、`Result` 错误传播 `?` 第一刀 | 泛型 trait、关联类型、结构化错误层级 |
 | 工程组织 | `[~]` | `AX.toml + sources`、最小模块模式、全限定跨模块引用、本地 path package v0、`AX.lock` v0 | registry、版本求解、完整可见性体系 |
 

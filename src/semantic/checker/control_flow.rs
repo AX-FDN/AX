@@ -14,6 +14,7 @@ enum ResolvedMatchPattern {
     Int(i32),
     String(String),
     EnumVariant { variant: String },
+    Struct { name: String },
 }
 
 struct MatchCase<'a> {
@@ -30,6 +31,7 @@ struct MatchCoverage {
     seen_ints: HashSet<i32>,
     seen_strings: HashSet<String>,
     seen_variants: HashSet<String>,
+    seen_structs: HashSet<String>,
 }
 
 impl<'a, 'b> TypeChecker<'a, 'b> {
@@ -332,16 +334,20 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
         }
 
         let scrutinee_supported = match &scrutinee_type {
-            Type::Bool | Type::I32 | Type::String | Type::Enum(_) | Type::EnumInstance { .. } => {
-                true
-            }
+            Type::Bool
+            | Type::I32
+            | Type::String
+            | Type::Struct(_)
+            | Type::StructInstance { .. }
+            | Type::Enum(_)
+            | Type::EnumInstance { .. } => true,
             Type::Error => false,
             _ => {
                 self.diagnostics.push(
                     Diagnostic::new(
                         "S0045",
                         format!(
-                            "`match` currently requires `bool`, `i32`, `string`, or enum input, found `{}`",
+                            "`match` currently requires `bool`, `i32`, `string`, struct, or enum input, found `{}`",
                             scrutinee_type.describe()
                         ),
                         self.info.source,
@@ -349,10 +355,10 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     )
                     .with_kind(DiagnosticKind::MatchScrutineeTypeUnsupported)
                     .with_note(
-                        "the current AX `match` only covers boolean values, integer literals, string literals, and enum variants",
+                        "the current AX `match` covers boolean values, integer literals, string literals, struct destructuring, and enum variants",
                     )
                     .with_suggestion(
-                        "rewrite this with `if / else`, or change the match input to `bool`, `i32`, `string`, or an enum value",
+                        "rewrite this with `if / else`, or change the match input to `bool`, `i32`, `string`, a struct value, or an enum value",
                     ),
                 );
                 false
@@ -368,6 +374,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             seen_ints: HashSet::new(),
             seen_strings: HashSet::new(),
             seen_variants: HashSet::new(),
+            seen_structs: HashSet::new(),
         };
 
         for (index, case) in cases.iter().enumerate() {
@@ -468,6 +475,14 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     }
                     ResolvedMatchPattern::EnumVariant { variant } => {
                         if !coverage.seen_variants.insert(variant.clone()) {
+                            self.report_duplicate_match_pattern(
+                                pattern.span,
+                                pattern_label(pattern),
+                            );
+                        }
+                    }
+                    ResolvedMatchPattern::Struct { name } => {
+                        if !coverage.seen_structs.insert(name.clone()) {
                             self.report_duplicate_match_pattern(
                                 pattern.span,
                                 pattern_label(pattern),
@@ -612,6 +627,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     );
                 }
             }
+            Type::Struct(_) | Type::StructInstance { .. } => {}
             _ => {}
         }
     }
@@ -803,6 +819,120 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     variant: variant.to_string(),
                 })
             }
+            MatchPatternKind::Struct { path, fields } => {
+                let current_unit_path = self.current_unit_path().to_string();
+                let Some(resolved_key) = self.info.resolve_named_type_key(
+                    path,
+                    &current_unit_path,
+                    pattern.span,
+                    self.diagnostics,
+                ) else {
+                    return None;
+                };
+                let Some(Type::Struct(struct_name)) =
+                    self.info.named_types.get(&resolved_key).cloned()
+                else {
+                    self.diagnostics.push(
+                        Diagnostic::new(
+                            "S0046",
+                            format!("match pattern `{path} {{ ... }}` does not name a struct"),
+                            self.info.source,
+                            pattern.span,
+                        )
+                        .with_kind(DiagnosticKind::MatchPatternTypeMismatch)
+                        .with_suggestion("use a real struct name for struct destructuring"),
+                    );
+                    return None;
+                };
+
+                if !matches!(scrutinee_type, Type::Struct(name) if name == &struct_name)
+                    && !matches!(scrutinee_type, Type::StructInstance { name, .. } if name == &struct_name)
+                    && !matches!(scrutinee_type, Type::Error)
+                {
+                    self.report_match_pattern_type_mismatch(pattern, scrutinee_type);
+                    return None;
+                }
+
+                self.validate_struct_pattern_fields(pattern, &struct_name, fields);
+                Some(ResolvedMatchPattern::Struct { name: struct_name })
+            }
+        }
+    }
+
+    fn validate_struct_pattern_fields(
+        &mut self,
+        pattern: &MatchPattern,
+        struct_name: &str,
+        fields: &[crate::ast::StructPatternField],
+    ) {
+        let Some(struct_info) = self.info.structs.get(struct_name) else {
+            return;
+        };
+        let mut seen = HashSet::new();
+        for field in fields {
+            if !seen.insert(field.name.clone()) {
+                self.diagnostics.push(
+                    Diagnostic::new(
+                        "S0060",
+                        format!(
+                            "struct pattern `{}` lists field `{}` more than once",
+                            pattern_label(pattern),
+                            field.name
+                        ),
+                        self.info.source,
+                        field.span,
+                    )
+                    .with_kind(DiagnosticKind::MatchStructPatternShapeMismatch)
+                    .with_suggestion("remove the duplicate field from the struct pattern"),
+                );
+            }
+            if !struct_info.fields.contains_key(&field.name) {
+                self.diagnostics.push(
+                    Diagnostic::new(
+                        "S0060",
+                        format!(
+                            "struct `{struct_name}` does not contain field `{}`",
+                            field.name
+                        ),
+                        self.info.source,
+                        field.span,
+                    )
+                    .with_kind(DiagnosticKind::MatchStructPatternShapeMismatch)
+                    .with_suggestion("use one of the fields declared on the matched struct"),
+                );
+            }
+        }
+
+        let missing = struct_info
+            .fields
+            .keys()
+            .filter(|field| !seen.contains(*field))
+            .cloned()
+            .collect::<Vec<_>>();
+        if !missing.is_empty() {
+            self.diagnostics.push(
+                Diagnostic::new(
+                    "S0060",
+                    format!(
+                        "struct pattern `{}` must list every field of `{struct_name}`; missing {}",
+                        pattern_label(pattern),
+                        missing.join(", ")
+                    ),
+                    self.info.source,
+                    pattern.span,
+                )
+                .with_kind(DiagnosticKind::MatchStructPatternShapeMismatch)
+                .with_note("AX struct destructuring v0 uses full-field shorthand patterns only")
+                .with_suggestion(format!(
+                    "rewrite as `{struct_name} {{ {} }}`",
+                    struct_info
+                        .fields
+                        .keys()
+                        .cloned()
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )),
+            );
         }
     }
 
@@ -913,9 +1043,45 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     self.declare(name, payload_type, false, pattern.span.start);
                 }
             }
+            MatchPatternKind::Struct { path, fields } => {
+                let struct_name = self.struct_pattern_name(path, pattern.span);
+                for field in fields {
+                    if let Some(field_type) = struct_name.as_deref().and_then(|name| {
+                        self.resolve_struct_pattern_field_type(name, &field.name, scrutinee_type)
+                    }) {
+                        self.declare(&field.binding, field_type, false, field.span.start);
+                    }
+                }
+            }
             MatchPatternKind::Or { .. } => {}
             _ => {}
         }
+    }
+
+    fn struct_pattern_name(&mut self, path: &str, span: Span) -> Option<String> {
+        let current_unit_path = self.current_unit_path().to_string();
+        let resolved_key =
+            self.info
+                .resolve_named_type_key(path, &current_unit_path, span, self.diagnostics)?;
+        let Type::Struct(struct_name) = self.info.named_types.get(&resolved_key).cloned()? else {
+            return None;
+        };
+        Some(struct_name)
+    }
+
+    fn resolve_struct_pattern_field_type(
+        &self,
+        struct_name: &str,
+        field_name: &str,
+        scrutinee_type: &Type,
+    ) -> Option<Type> {
+        let struct_info = self.info.structs.get(struct_name)?;
+        let field_type = struct_info.fields.get(field_name)?.ty.clone();
+        Some(substitute_struct_field_type(
+            field_type,
+            struct_info.type_params.as_slice(),
+            scrutinee_type,
+        ))
     }
 
     fn resolve_enum_pattern_payload_type(
@@ -964,6 +1130,25 @@ fn substitute_enum_payload_type(
     substitute_type_params(&payload_type, &substitutions)
 }
 
+fn substitute_struct_field_type(
+    field_type: Type,
+    type_params: &[String],
+    scrutinee_type: &Type,
+) -> Type {
+    let Type::StructInstance { args, .. } = scrutinee_type else {
+        return field_type;
+    };
+    if type_params.len() != args.len() {
+        return field_type;
+    }
+    let substitutions = type_params
+        .iter()
+        .cloned()
+        .zip(args.iter().cloned())
+        .collect::<HashMap<_, _>>();
+    substitute_type_params(&field_type, &substitutions)
+}
+
 fn substitute_type_params(ty: &Type, substitutions: &HashMap<String, Type>) -> Type {
     match ty {
         Type::TypeParam(name) => substitutions
@@ -1008,6 +1193,14 @@ fn pattern_label(pattern: &MatchPattern) -> String {
             Some(EnumVariantPayloadPattern::Binding { name }) => format!("{path}({name})"),
             None => path.clone(),
         },
+        MatchPatternKind::Struct { path, fields } => {
+            let fields = fields
+                .iter()
+                .map(|field| field.name.as_str())
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!("{path} {{ {fields} }}")
+        }
         MatchPatternKind::Or { alternatives } => alternatives
             .iter()
             .map(pattern_label)
@@ -1038,6 +1231,7 @@ fn pattern_contains_binding(pattern: &MatchPattern) -> bool {
             payload: Some(EnumVariantPayloadPattern::Binding { .. }),
             ..
         } => true,
+        MatchPatternKind::Struct { .. } => true,
         MatchPatternKind::Or { alternatives } => alternatives.iter().any(pattern_contains_binding),
         _ => false,
     }

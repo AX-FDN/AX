@@ -105,6 +105,7 @@ fn match_is_exhaustive(arms: &[MatchArm], info: &ProgramInfo<'_>, current_unit_p
     let mut enum_variants = HashSet::new();
     let mut only_bools = true;
     let mut only_enums = true;
+    let mut struct_pattern_seen = false;
 
     for arm in arms.iter().filter(|arm| arm.guard.is_none()) {
         for pattern in match_pattern_alternatives(&arm.pattern.kind) {
@@ -140,6 +141,11 @@ fn match_is_exhaustive(arms: &[MatchArm], info: &ProgramInfo<'_>, current_unit_p
                     }
                     enum_variants.insert(variant.to_string());
                 }
+                MatchPatternKind::Struct { .. } => {
+                    only_bools = false;
+                    only_enums = false;
+                    struct_pattern_seen = true;
+                }
                 MatchPatternKind::Int { .. }
                 | MatchPatternKind::IntRange { .. }
                 | MatchPatternKind::String { .. }
@@ -153,6 +159,9 @@ fn match_is_exhaustive(arms: &[MatchArm], info: &ProgramInfo<'_>, current_unit_p
 
     if only_bools {
         return bools.len() == 2;
+    }
+    if struct_pattern_seen {
+        return true;
     }
 
     if only_enums {

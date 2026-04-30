@@ -125,20 +125,21 @@ if (-not (Test-Path $comparisonPath)) {
 $comparison = Get-Content $comparisonPath -Raw -Encoding utf8 | ConvertFrom-Json
 
 Assert-Equal -Label "schema_version" -Actual ([int] $comparison.schema_version) -Expected 1
-Assert-Equal -Label "comparison.total_cases" -Actual ([int] $comparison.comparison.total_cases) -Expected 11
+Assert-Equal -Label "comparison.total_cases" -Actual ([int] $comparison.comparison.total_cases) -Expected 12
 Assert-Equal -Label "comparison.base_passed" -Actual ([int] $comparison.comparison.base_passed) -Expected 6
-Assert-Equal -Label "comparison.ai_passed" -Actual ([int] $comparison.comparison.ai_passed) -Expected 11
-Assert-Equal -Label "comparison.absolute_lift_cases" -Actual ([int] $comparison.comparison.absolute_lift_cases) -Expected 5
-Assert-Equal -Label "comparison.absolute_lift_pp" -Actual ([double] $comparison.comparison.absolute_lift_pp) -Expected 45.45
-Assert-Equal -Label "base.invocation_totals.ok" -Actual ([int] $comparison.modes.base.invocation_totals.ok) -Expected 11
-Assert-Equal -Label "ai.invocation_totals.ok" -Actual ([int] $comparison.modes.ai.invocation_totals.ok) -Expected 11
-Assert-Equal -Label "base.score_totals.failed" -Actual ([int] $comparison.modes.base.score_totals.failed) -Expected 5
+Assert-Equal -Label "comparison.ai_passed" -Actual ([int] $comparison.comparison.ai_passed) -Expected 12
+Assert-Equal -Label "comparison.absolute_lift_cases" -Actual ([int] $comparison.comparison.absolute_lift_cases) -Expected 6
+Assert-Equal -Label "comparison.absolute_lift_pp" -Actual ([double] $comparison.comparison.absolute_lift_pp) -Expected 50
+Assert-Equal -Label "base.invocation_totals.ok" -Actual ([int] $comparison.modes.base.invocation_totals.ok) -Expected 12
+Assert-Equal -Label "ai.invocation_totals.ok" -Actual ([int] $comparison.modes.ai.invocation_totals.ok) -Expected 12
+Assert-Equal -Label "base.score_totals.failed" -Actual ([int] $comparison.modes.base.score_totals.failed) -Expected 6
 Assert-Equal -Label "ai.score_totals.failed" -Actual ([int] $comparison.modes.ai.score_totals.failed) -Expected 0
 Assert-Equal -Label "base.timed_out" -Actual ([bool] $comparison.modes.base.timed_out) -Expected $false
 Assert-Equal -Label "ai.timed_out" -Actual ([bool] $comparison.modes.ai.timed_out) -Expected $false
 Assert-StringArray -Label "comparison.improved_cases" -Actual @($comparison.comparison.improved_cases) -Expected @(
     "type_mismatch_bool_from_int",
     "missing_struct_literal_field",
+    "match_struct_pattern_missing_field",
     "slice_assignment_read_only",
     "index_out_of_bounds_runtime",
     "division_by_zero_runtime"
@@ -147,10 +148,10 @@ Assert-StringArray -Label "comparison.regressed_cases" -Actual @($comparison.com
 
 $semanticCategory = @($comparison.categories | Where-Object { [string] $_.category -eq "semantic" })
 Assert-Equal -Label "semantic category count" -Actual $semanticCategory.Count -Expected 1
-Assert-Equal -Label "semantic.total" -Actual ([int] $semanticCategory[0].total) -Expected 6
+Assert-Equal -Label "semantic.total" -Actual ([int] $semanticCategory[0].total) -Expected 7
 Assert-Equal -Label "semantic.base_passed" -Actual ([int] $semanticCategory[0].base_passed) -Expected 3
-Assert-Equal -Label "semantic.ai_passed" -Actual ([int] $semanticCategory[0].ai_passed) -Expected 6
-Assert-Equal -Label "semantic.improved" -Actual ([int] $semanticCategory[0].improved) -Expected 3
+Assert-Equal -Label "semantic.ai_passed" -Actual ([int] $semanticCategory[0].ai_passed) -Expected 7
+Assert-Equal -Label "semantic.improved" -Actual ([int] $semanticCategory[0].improved) -Expected 4
 Assert-Equal -Label "semantic.regressed" -Actual ([int] $semanticCategory[0].regressed) -Expected 0
 
 $runtimeCategory = @($comparison.categories | Where-Object { [string] $_.category -eq "runtime" })

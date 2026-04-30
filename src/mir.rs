@@ -204,10 +204,22 @@ pub enum MatchPatternKind {
         #[serde(skip_serializing_if = "Option::is_none")]
         payload_type: Option<Type>,
     },
+    Struct {
+        struct_name: String,
+        fields: Vec<StructPatternField>,
+    },
     Or {
         alternatives: Vec<MatchPattern>,
     },
     Error,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct StructPatternField {
+    pub name: String,
+    pub binding: String,
+    pub ty: Type,
+    pub span: Span,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -254,6 +266,10 @@ pub enum ExprKind {
     },
     ArrayLiteral {
         elements: Vec<Expr>,
+    },
+    Block {
+        statements: Vec<Statement>,
+        value: Box<Expr>,
     },
     Match {
         scrutinee: Box<Expr>,
@@ -681,6 +697,22 @@ impl FunctionLowerer {
                     .map(|element| self.lower_expr(element))
                     .collect::<Result<Vec<_>, _>>()?,
             },
+            hir::ExprKind::Block { statements, value } => {
+                self.push_scope();
+                let statements = match self.lower_block_expr_statements(statements) {
+                    Ok(statements) => statements,
+                    Err(error) => {
+                        self.pop_scope();
+                        return Err(error);
+                    }
+                };
+                let value = self.lower_expr(value);
+                self.pop_scope();
+                ExprKind::Block {
+                    statements,
+                    value: Box::new(value?),
+                }
+            }
             hir::ExprKind::Match { scrutinee, arms } => {
                 let scrutinee_ty = self.infer_match_scrutinee_type(arms, expr.span)?;
                 ExprKind::Match {
@@ -690,15 +722,15 @@ impl FunctionLowerer {
                         .map(|arm| {
                             let pattern = self.lower_match_pattern(&arm.pattern);
                             self.push_scope();
-                            if let Some((binding_name, binding_ty)) =
-                                Self::match_pattern_binding(&arm.pattern.kind, &scrutinee_ty)
+                            for (binding_name, binding_ty, binding_span) in
+                                Self::match_pattern_bindings(&arm.pattern, &scrutinee_ty)
                             {
                                 let local = self.allocate_local(
                                     binding_name,
                                     &binding_ty,
                                     false,
                                     LocalKind::Local,
-                                    arm.pattern.span,
+                                    binding_span,
                                 );
                                 self.declare(binding_name, local);
                             }
@@ -761,6 +793,71 @@ impl FunctionLowerer {
         })
     }
 
+    fn lower_block_expr_statements(
+        &mut self,
+        statements: &[hir::Stmt],
+    ) -> Result<Vec<Statement>, String> {
+        let mut lowered = Vec::new();
+        for statement in statements {
+            match &statement.kind {
+                hir::StmtKind::Let {
+                    mutable,
+                    name,
+                    ty,
+                    initializer,
+                } => {
+                    let initializer = self.lower_expr(initializer)?;
+                    let local =
+                        self.allocate_local(name, ty, *mutable, LocalKind::Local, statement.span);
+                    self.declare(name, local);
+                    lowered.push(Statement {
+                        kind: StatementKind::Let {
+                            local,
+                            name: name.clone(),
+                            mutable: *mutable,
+                            ty: ty.clone(),
+                            initializer,
+                        },
+                        span: statement.span,
+                    });
+                }
+                hir::StmtKind::Assign { target, value } => {
+                    lowered.push(Statement {
+                        kind: StatementKind::Assign {
+                            target: self.lower_place(target)?,
+                            value: self.lower_expr(value)?,
+                        },
+                        span: statement.span,
+                    });
+                }
+                hir::StmtKind::Expr { expr } => {
+                    lowered.push(Statement {
+                        kind: StatementKind::Eval {
+                            expr: self.lower_expr(expr)?,
+                        },
+                        span: statement.span,
+                    });
+                }
+                hir::StmtKind::Block { block } => {
+                    self.push_scope();
+                    lowered.extend(self.lower_block_expr_statements(&block.statements)?);
+                    self.pop_scope();
+                }
+                hir::StmtKind::Return { .. }
+                | hir::StmtKind::Break
+                | hir::StmtKind::Continue
+                | hir::StmtKind::If { .. }
+                | hir::StmtKind::While { .. } => {
+                    return Err(format!(
+                        "internal MIR lowering error: block-valued match arms currently lower only let, assignment, expression, and nested block statements at {}..{}",
+                        statement.span.start, statement.span.end
+                    ));
+                }
+            }
+        }
+        Ok(lowered)
+    }
+
     fn lower_match_pattern(&self, pattern: &hir::MatchPattern) -> MatchPattern {
         let kind = match &pattern.kind {
             hir::MatchPatternKind::Wildcard => MatchPatternKind::Wildcard,
@@ -786,6 +883,21 @@ impl FunctionLowerer {
                 variant: variant.clone(),
                 payload: payload.clone(),
                 payload_type: payload_type.clone(),
+            },
+            hir::MatchPatternKind::Struct {
+                struct_name,
+                fields,
+            } => MatchPatternKind::Struct {
+                struct_name: struct_name.clone(),
+                fields: fields
+                    .iter()
+                    .map(|field| StructPatternField {
+                        name: field.name.clone(),
+                        binding: field.binding.clone(),
+                        ty: field.ty.clone(),
+                        span: field.span,
+                    })
+                    .collect(),
             },
             hir::MatchPatternKind::Or { alternatives } => MatchPatternKind::Or {
                 alternatives: alternatives
@@ -818,6 +930,11 @@ impl FunctionLowerer {
                         name: enum_name.clone(),
                     });
                 }
+                hir::MatchPatternKind::Struct { struct_name, .. } => {
+                    return Ok(Type::Struct {
+                        name: struct_name.clone(),
+                    });
+                }
                 hir::MatchPatternKind::Or { alternatives } => {
                     for alternative in alternatives {
                         match &alternative.kind {
@@ -828,6 +945,11 @@ impl FunctionLowerer {
                             hir::MatchPatternKind::EnumVariant { enum_name, .. } => {
                                 return Ok(Type::Enum {
                                     name: enum_name.clone(),
+                                });
+                            }
+                            hir::MatchPatternKind::Struct { struct_name, .. } => {
+                                return Ok(Type::Struct {
+                                    name: struct_name.clone(),
                                 });
                             }
                             _ => {}
@@ -846,18 +968,24 @@ impl FunctionLowerer {
         ))
     }
 
-    fn match_pattern_binding<'a>(
-        pattern: &'a hir::MatchPatternKind,
+    fn match_pattern_bindings<'a>(
+        pattern: &'a hir::MatchPattern,
         scrutinee_ty: &'a Type,
-    ) -> Option<(&'a str, Type)> {
-        match pattern {
-            hir::MatchPatternKind::Binding { name } => Some((name.as_str(), scrutinee_ty.clone())),
+    ) -> Vec<(&'a str, Type, Span)> {
+        match &pattern.kind {
+            hir::MatchPatternKind::Binding { name } => {
+                vec![(name.as_str(), scrutinee_ty.clone(), pattern.span)]
+            }
             hir::MatchPatternKind::EnumVariant {
                 payload: Some(EnumVariantPayloadPattern::Binding { name }),
                 payload_type: Some(payload_type),
                 ..
-            } => Some((name.as_str(), payload_type.clone())),
-            _ => None,
+            } => vec![(name.as_str(), payload_type.clone(), pattern.span)],
+            hir::MatchPatternKind::Struct { fields, .. } => fields
+                .iter()
+                .map(|field| (field.binding.as_str(), field.ty.clone(), field.span))
+                .collect(),
+            _ => Vec::new(),
         }
     }
 
@@ -961,7 +1089,8 @@ fn goto(target: u32, span: Span) -> Terminator {
 #[cfg(test)]
 mod tests {
     use super::{
-        ExprKind, ItemKind, LocalKind, PlaceKind, StatementKind, TerminatorKind, lower_program,
+        ExprKind, ItemKind, LocalKind, MatchPatternKind, PlaceKind, StatementKind, TerminatorKind,
+        Type, lower_program,
     };
     use crate::hir::lower_program as lower_hir_program;
     use crate::lexer::tokenize;
@@ -1117,6 +1246,51 @@ fn main() -> i32 {
     }
 
     #[test]
+    fn lowers_match_struct_pattern_bindings() {
+        let program = lower(
+            "\
+struct Point { x: i32, y: i32 }
+
+fn main() -> i32 {
+    let point: Point = Point { x: 1, y: 2 };
+    let value: i32 = match (point) { Point { x, y } => x + y };
+    return value;
+}
+",
+        );
+
+        let ItemKind::Function { locals, blocks, .. } = &program.items[1].kind else {
+            panic!("expected function item");
+        };
+        assert!(
+            locals
+                .iter()
+                .any(|local| local.name == "x" && local.ty == Type::I32)
+        );
+        assert!(
+            locals
+                .iter()
+                .any(|local| local.name == "y" && local.ty == Type::I32)
+        );
+        let match_expr = blocks
+            .iter()
+            .flat_map(|block| block.statements.iter())
+            .find_map(|statement| match &statement.kind {
+                StatementKind::Let { initializer, .. } => match &initializer.kind {
+                    ExprKind::Match { arms, .. } => Some(&arms[0].pattern.kind),
+                    _ => None,
+                },
+                _ => None,
+            })
+            .expect("match expression should lower into MIR");
+        assert!(matches!(
+            match_expr,
+            MatchPatternKind::Struct { struct_name, fields }
+                if struct_name == "Point" && fields.len() == 2
+        ));
+    }
+
+    #[test]
     fn lowers_array_literals_and_index_reads() {
         let program = lower(
             "\
@@ -1197,6 +1371,36 @@ fn main() -> i32 {
             }
             _ => panic!("expected nested field assignment place"),
         }
+    }
+
+    #[test]
+    fn lowers_block_valued_match_expression_arms() {
+        let program = lower(
+            "\
+fn main() -> i32 {
+    let value: i32 = match (true) {
+        true => { let base: i32 = 40; base + 2 },
+        false => 0,
+    };
+    return value;
+}
+",
+        );
+
+        let ItemKind::Function { blocks, .. } = &program.items[0].kind else {
+            panic!("expected function item");
+        };
+        let StatementKind::Let { initializer, .. } = &blocks[0].statements[0].kind else {
+            panic!("expected value let statement");
+        };
+        let ExprKind::Match { arms, .. } = &initializer.kind else {
+            panic!("expected match initializer");
+        };
+        let ExprKind::Block { statements, value } = &arms[0].value.kind else {
+            panic!("expected block-valued match arm");
+        };
+        assert!(matches!(statements[0].kind, StatementKind::Let { .. }));
+        assert!(matches!(value.kind, ExprKind::Binary { .. }));
     }
 
     #[test]

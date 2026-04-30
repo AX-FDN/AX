@@ -130,6 +130,14 @@ pub enum EnumVariantPayloadPattern {
 }
 
 #[derive(Debug, Clone, Serialize)]
+pub struct StructPatternField {
+    pub name: String,
+    pub binding: String,
+    pub ty: Type,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Serialize)]
 pub struct MatchPattern {
     #[serde(flatten)]
     pub kind: MatchPatternKind,
@@ -163,6 +171,10 @@ pub enum MatchPatternKind {
         payload: Option<EnumVariantPayloadPattern>,
         #[serde(skip_serializing_if = "Option::is_none")]
         payload_type: Option<Type>,
+    },
+    Struct {
+        struct_name: String,
+        fields: Vec<StructPatternField>,
     },
     Or {
         alternatives: Vec<MatchPattern>,
@@ -280,6 +292,10 @@ pub enum ExprKind {
     ArrayLiteral {
         elements: Vec<Expr>,
     },
+    Block {
+        statements: Vec<Stmt>,
+        value: Box<Expr>,
+    },
     Match {
         scrutinee: Box<Expr>,
         arms: Vec<MatchExprArm>,
@@ -324,6 +340,7 @@ struct LoweringContext<'a> {
     enum_names: HashSet<String>,
     trait_names: HashSet<String>,
     type_aliases: HashMap<String, (Vec<String>, ast::TypeRef)>,
+    struct_fields: HashMap<String, (Vec<String>, HashMap<String, Type>)>,
     enum_variant_payloads: HashMap<String, HashMap<String, Type>>,
     next_match_temp: Cell<u32>,
     next_for_in_temp: Cell<u32>,
@@ -394,12 +411,43 @@ impl<'a> LoweringContext<'a> {
             enum_names,
             trait_names,
             type_aliases,
+            struct_fields: HashMap::new(),
             enum_variant_payloads: HashMap::new(),
             next_match_temp: Cell::new(0),
             next_for_in_temp: Cell::new(0),
         };
+        context.struct_fields = context.collect_struct_fields(program);
         context.enum_variant_payloads = context.collect_enum_variant_payloads(program);
         context
+    }
+
+    fn collect_struct_fields(
+        &self,
+        program: &ast::Program,
+    ) -> HashMap<String, (Vec<String>, HashMap<String, Type>)> {
+        let mut structs = HashMap::new();
+
+        for item in &program.items {
+            let ast::ItemKind::Struct {
+                type_params,
+                fields,
+                ..
+            } = &item.kind
+            else {
+                continue;
+            };
+
+            let struct_name = canonical_item_name(self.source, &self.unit_modules, item);
+            let mut lowered_fields = HashMap::new();
+            for field in fields {
+                if let Ok(field_type) = self.lower_type_ref(&field.ty) {
+                    lowered_fields.insert(field.name.clone(), field_type);
+                }
+            }
+            structs.insert(struct_name, (type_params.clone(), lowered_fields));
+        }
+
+        structs
     }
 
     fn collect_enum_variant_payloads(
@@ -1216,6 +1264,30 @@ impl<'a> LoweringContext<'a> {
                     payload_type: self.resolve_enum_variant_payload_type(path, pattern.span)?,
                 }
             }
+            ast::MatchPatternKind::Struct { path, fields } => {
+                let struct_name = self
+                    .resolve_canonical_name(path, pattern.span, &self.struct_names)
+                    .unwrap_or_else(|| path.clone());
+                MatchPatternKind::Struct {
+                    struct_name: struct_name.clone(),
+                    fields: fields
+                        .iter()
+                        .map(|field| {
+                            Ok(StructPatternField {
+                                name: field.name.clone(),
+                                binding: field.binding.clone(),
+                                ty: self.resolve_struct_pattern_field_type(
+                                    &struct_name,
+                                    &field.name,
+                                    pattern.span,
+                                    None,
+                                )?,
+                                span: field.span,
+                            })
+                        })
+                        .collect::<Result<Vec<_>, Diagnostic>>()?,
+                }
+            }
             ast::MatchPatternKind::Or { alternatives } => MatchPatternKind::Or {
                 alternatives: alternatives
                     .iter()
@@ -1255,6 +1327,12 @@ impl<'a> LoweringContext<'a> {
                         .unwrap_or_else(|| enum_path.to_string());
                     return Ok(Type::Enum { name: enum_name });
                 }
+                ast::MatchPatternKind::Struct { path, .. } => {
+                    let struct_name = self
+                        .resolve_canonical_name(path, arm.pattern.span, &self.struct_names)
+                        .unwrap_or_else(|| path.clone());
+                    return Ok(Type::Struct { name: struct_name });
+                }
                 ast::MatchPatternKind::Or { alternatives } => {
                     for alternative in alternatives {
                         match &alternative.kind {
@@ -1278,6 +1356,16 @@ impl<'a> LoweringContext<'a> {
                                     )
                                     .unwrap_or_else(|| enum_path.to_string());
                                 return Ok(Type::Enum { name: enum_name });
+                            }
+                            ast::MatchPatternKind::Struct { path, .. } => {
+                                let struct_name = self
+                                    .resolve_canonical_name(
+                                        path,
+                                        alternative.span,
+                                        &self.struct_names,
+                                    )
+                                    .unwrap_or_else(|| path.clone());
+                                return Ok(Type::Struct { name: struct_name });
                             }
                             _ => {}
                         }
@@ -1409,6 +1497,41 @@ impl<'a> LoweringContext<'a> {
                     span: pattern.span,
                 }])
             }
+            ast::MatchPatternKind::Struct { path, fields } => {
+                let struct_name = self
+                    .resolve_canonical_name(path, pattern.span, &self.struct_names)
+                    .unwrap_or_else(|| path.clone());
+                fields
+                    .iter()
+                    .map(|field| {
+                        Ok(Stmt {
+                            kind: StmtKind::Let {
+                                mutable: false,
+                                name: field.binding.clone(),
+                                ty: self.resolve_struct_pattern_field_type(
+                                    &struct_name,
+                                    &field.name,
+                                    pattern.span,
+                                    Some(temp_type),
+                                )?,
+                                initializer: Expr {
+                                    kind: ExprKind::Field {
+                                        base: Box::new(Expr {
+                                            kind: ExprKind::Name {
+                                                value: temp_name.to_string(),
+                                            },
+                                            span: pattern.span,
+                                        }),
+                                        field: field.name.clone(),
+                                    },
+                                    span: field.span,
+                                },
+                            },
+                            span: field.span,
+                        })
+                    })
+                    .collect()
+            }
             _ => Ok(Vec::new()),
         }
     }
@@ -1436,6 +1559,34 @@ impl<'a> LoweringContext<'a> {
             ));
         };
         Ok(variant_payloads.get(variant).cloned())
+    }
+
+    fn resolve_struct_pattern_field_type(
+        &self,
+        struct_name: &str,
+        field_name: &str,
+        span: Span,
+        scrutinee_type: Option<&Type>,
+    ) -> Result<Type, Diagnostic> {
+        let Some((type_params, fields)) = self.struct_fields.get(struct_name) else {
+            return Err(self.lowering_error(
+                "H0019",
+                format!("cannot find field metadata for struct `{struct_name}`"),
+                span,
+            ));
+        };
+        let Some(field_type) = fields.get(field_name) else {
+            return Err(self.lowering_error(
+                "H0020",
+                format!("struct `{struct_name}` does not contain field `{field_name}`"),
+                span,
+            ));
+        };
+        Ok(substitute_struct_field_type(
+            field_type.clone(),
+            type_params.as_slice(),
+            scrutinee_type,
+        ))
     }
 
     fn lower_place(&self, expr: &ast::Expr) -> Result<Place, Diagnostic> {
@@ -1571,6 +1722,13 @@ impl<'a> LoweringContext<'a> {
                     .iter()
                     .map(|element| self.lower_expr(element))
                     .collect::<Result<Vec<_>, _>>()?,
+            },
+            ast::ExprKind::Block { statements, value } => ExprKind::Block {
+                statements: statements
+                    .iter()
+                    .map(|statement| self.lower_statement(statement))
+                    .collect::<Result<Vec<_>, _>>()?,
+                value: Box::new(self.lower_expr(value)?),
             },
             ast::ExprKind::Match { scrutinee, arms } => ExprKind::Match {
                 scrutinee: Box::new(self.lower_expr(scrutinee)?),
@@ -1762,6 +1920,25 @@ fn looks_like_type_param(name: &str) -> bool {
         && name
             .chars()
             .all(|ch| ch.is_ascii_alphanumeric() || ch == '_')
+}
+
+fn substitute_struct_field_type(
+    field_type: Type,
+    type_params: &[String],
+    scrutinee_type: Option<&Type>,
+) -> Type {
+    let Some(Type::StructInstance { args, .. }) = scrutinee_type else {
+        return field_type;
+    };
+    if type_params.len() != args.len() {
+        return field_type;
+    }
+    let substitutions = type_params
+        .iter()
+        .cloned()
+        .zip(args.iter().cloned())
+        .collect::<HashMap<_, _>>();
+    substitute_type_params(&field_type, &substitutions)
 }
 
 fn substitute_type_params(ty: &Type, substitutions: &HashMap<String, Type>) -> Type {
@@ -2360,6 +2537,37 @@ fn main() -> i32 {
     }
 
     #[test]
+    fn lowers_block_valued_match_expression_arms() {
+        let program = lower(
+            "\
+fn main() -> i32 {
+    let value: i32 = match (true) {
+        true => { let base: i32 = 40; base + 2 },
+        false => 0,
+    };
+    return value;
+}
+",
+        );
+
+        let ItemKind::Function { body, .. } = &program.items[0].kind else {
+            panic!("expected function item");
+        };
+
+        let StmtKind::Let { initializer, .. } = &body.statements[0].kind else {
+            panic!("expected match-expression let");
+        };
+        let ExprKind::Match { arms, .. } = &initializer.kind else {
+            panic!("expected lowered match expression");
+        };
+        let ExprKind::Block { statements, value } = &arms[0].value.kind else {
+            panic!("expected lowered block expression");
+        };
+        assert!(matches!(statements[0].kind, StmtKind::Let { .. }));
+        assert!(matches!(value.kind, ExprKind::Binary { .. }));
+    }
+
+    #[test]
     fn lowers_match_expression_binding_patterns() {
         let program = lower(
             "\
@@ -2385,6 +2593,41 @@ fn main() -> i32 {
             MatchPatternKind::Binding { ref name } if name == "other"
         ));
         assert!(matches!(arms[1].value.kind, ExprKind::Name { ref value } if value == "other"));
+    }
+
+    #[test]
+    fn lowers_match_struct_patterns() {
+        let program = lower(
+            "\
+struct Point { x: i32, y: i32 }
+
+fn main() -> i32 {
+    let point: Point = Point { x: 1, y: 2 };
+    let value: i32 = match (point) { Point { x, y } => x + y };
+    return value;
+}
+",
+        );
+
+        let ItemKind::Function { body, .. } = &program.items[1].kind else {
+            panic!("expected function item");
+        };
+        let StmtKind::Let { initializer, .. } = &body.statements[1].kind else {
+            panic!("expected match-expression let");
+        };
+        let ExprKind::Match { arms, .. } = &initializer.kind else {
+            panic!("expected lowered match expression");
+        };
+        assert!(matches!(
+            arms[0].pattern.kind,
+            MatchPatternKind::Struct { ref struct_name, ref fields }
+                if struct_name == "Point"
+                    && fields.len() == 2
+                    && fields[0].binding == "x"
+                    && fields[0].ty == Type::I32
+                    && fields[1].binding == "y"
+                    && fields[1].ty == Type::I32
+        ));
     }
 
     #[test]

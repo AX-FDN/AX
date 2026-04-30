@@ -48,6 +48,7 @@ AX 关注的不只是“模型能不能写出代码”，更关注三件更硬�
 | 对外怎么准确介绍            | [`docs/public-claims.md`](./docs/public-claims.md)                 |
 | 本机和 CI 应该跑什么        | [`docs/validation-matrix.md`](./docs/validation-matrix.md)         |
 | 外部 JSON / artifact 契约   | [`docs/interface-contracts.md`](./docs/interface-contracts.md)     |
+| 语言能力当前支持状态        | [`docs/language-support-status.md`](./docs/language-support-status.md) |
 | 全项目按什么阶段推进        | [`PLAN.md`](./PLAN.md)                                             |
 | 现在具体在做什么            | [`WORKLIST.md`](./WORKLIST.md)                                     |
 | 哪些事情已经做完            | [`ARCHIVE.md`](./ARCHIVE.md)                                       |
@@ -914,7 +915,7 @@ P2 阶段固定样例集合与回归职责见 [`docs/representative-samples.md`]
 | `for (init; cond; step)` | 已支持   | 当前主循环表头形态                                                                                                                       |
 | `break;`                 | 已支持   | 只能出现在 `while` / `for` 中                                                                                                            |
 | `continue;`              | 已支持   | 已打通 `for -> while` lowering 下的 step 语义                                                                                            |
-| `match (...) { ... }`    | 已支持   | 语句形态、表达式形态、绑定 catch-all、字符串 pattern、payload enum pattern、`A | B` 多 pattern arm、`i32` range pattern 与 bool guard 都已进入 parser / semantic / interpreter 主链 |
+| `match (...) { ... }`    | 已支持   | 语句形态、表达式形态、block-valued 表达式 arm、绑定 catch-all、字符串 pattern、payload enum pattern、结构体全字段解构 pattern、`A | B` 多 pattern arm、`i32` range pattern 与 bool guard 都已进入 parser / semantic / interpreter 主链 |
 
 ### 表达式与类型能力
 
@@ -933,7 +934,7 @@ P2 阶段固定样例集合与回归职责见 [`docs/representative-samples.md`]
 | traits / interfaces   | 已支持   | `trait Label { fn label(self: Self) -> string; }` 与 `impl Label for Command { ... }`                                                              |
 | trait bounds          | 已支持   | 当前支持泛型函数参数上的一个或多个 trait bounds，并允许在函数体内调用 bound 提供的方法                                                            |
 | `for in` 遍历         | 已支持   | 当前支持 `for (let value: T in values) { ... }`，目标为数组 / slice                                                                                |
-| 表达式 `match`        | 已支持   | 支持单表达式 arm、最终绑定 catch-all、字符串 pattern，以及 `Result.Ok(value)` / `Result.Err(_)` 这类 payload enum pattern；所有 arm 必须返回同类型 |
+| 表达式 `match`        | 已支持   | 支持单表达式 arm、`{ linear_statement* final_expr }` block-valued arm、最终绑定 catch-all、字符串 pattern、`Point { x, y }` 这类结构体全字段解构 pattern，以及 `Result.Ok(value)` / `Result.Err(_)` 这类 payload enum pattern；所有 arm 必须返回同类型 |
 | 嵌套可写路径          | 已支持   | `outer.inner.value = ...`、`items[index].field = ...`                                                                                              |
 | 逻辑运算              | 已支持   | `&&`、`||`，并按短路语义执行                                                                                                                       |
 | 余数运算              | 已支持   | `%`，当前按 `i32` 运算处理                                                                                                                         |
@@ -949,8 +950,10 @@ P2 阶段固定样例集合与回归职责见 [`docs/representative-samples.md`]
   - 已支持在 `while` / `for` 中使用
   - `for` 场景下会先执行 step，再进入下一轮
 - `match`
-  - 支持语句形态、表达式形态、最终裸标识符绑定模式、字符串 pattern、payload enum pattern、`A | B` 多 pattern arm、`400..=499` 这类 `i32` range pattern，以及 `pattern if bool_expr => ...` guard
-  - pattern 目前支持 `true` / `false`、整数、字符串、枚举值、最终 `_`、最终裸标识符（如 `other`），以及 `Enum.Variant(name)` / `Enum.Variant(_)`
+  - 支持语句形态、表达式形态、最终裸标识符绑定模式、字符串 pattern、payload enum pattern、结构体全字段解构 pattern、`A | B` 多 pattern arm、`400..=499` 这类 `i32` range pattern，以及 `pattern if bool_expr => ...` guard
+  - pattern 目前支持 `true` / `false`、整数、字符串、枚举值、结构体全字段 shorthand 解构、最终 `_`、最终裸标识符（如 `other`），以及 `Enum.Variant(name)` / `Enum.Variant(_)`
+  - 结构体解构写作 `Point { x, y }`，当前要求列出声明中的全部字段，字段名同时就是当前 arm 的不可变局部绑定名
+  - 结构体解构当前不支持 `Point { x: left }` 字段重命名、不支持 `Point { x }` partial pattern、不支持重复字段、不支持未知字段；这几类错误会归入 `match_struct_pattern_must_match_declaration`
   - `A | B` arm 当前只建议用于字面量或 unit enum variant，不在同一个多 pattern arm 内引入绑定
   - guard 必须返回 `bool`；带 guard 的 arm 不参与穷尽性证明，可以读取当前 arm 引入的 pattern binding
   - 裸标识符 pattern 是 catch-all 绑定，只在当前 arm 内引入一个不可变局部名
@@ -959,7 +962,7 @@ P2 阶段固定样例集合与回归职责见 [`docs/representative-samples.md`]
     - enum 要覆盖全部 variant 或最终 catch-all
     - `i32` 当前需要最终 `_` 或最终绑定
     - `string` 当前需要最终 `_` 或最终绑定
-  - 表达式形态当前收敛为 `match (value) { pattern => expr, ... }`，所有 arm 必须返回同类型
+  - 表达式形态当前收敛为 `match (value) { pattern => expr, ... }` 或 `match (value) { pattern => { linear_statement* final_expr }, ... }`，所有 arm 必须返回同类型；block-valued arm 的前置语句当前只支持 `let`、赋值、表达式语句与嵌套线性 block
 - payload enum
 - 当前支持 unit variant 与单 payload variant：`Flag.On`、`Result.Ok(7)`、`Result.Err("bad")`
   - 当前 match pattern 支持 `Result.Ok(value)`、`Result.Err(_)` 与 unit variant `Flag.On`

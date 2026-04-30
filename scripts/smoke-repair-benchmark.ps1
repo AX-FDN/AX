@@ -107,11 +107,11 @@ $scoreSummary = Get-Content $scoreSummaryPath -Raw -Encoding utf8 | ConvertFrom-
 
 Assert-Equal -Label "runSummary.schema_version" -Actual ([int] $runSummary.schema_version) -Expected 1
 Assert-Equal -Label "runSummary.feedback_mode" -Actual ([string] $runSummary.feedback_mode) -Expected "ai"
-Assert-Equal -Label "runSummary.totals.total" -Actual ([int] $runSummary.totals.total) -Expected 11
-Assert-Equal -Label "runSummary.totals.ok" -Actual ([int] $runSummary.totals.ok) -Expected 11
+Assert-Equal -Label "runSummary.totals.total" -Actual ([int] $runSummary.totals.total) -Expected 12
+Assert-Equal -Label "runSummary.totals.ok" -Actual ([int] $runSummary.totals.ok) -Expected 12
 Assert-Equal -Label "runSummary.totals.failed" -Actual ([int] $runSummary.totals.failed) -Expected 0
 Assert-Equal -Label "runSummary.totals.timed_out" -Actual ([int] $runSummary.totals.timed_out) -Expected 0
-Assert-Equal -Label "runSummary.cases count" -Actual (@($runSummary.cases).Count) -Expected 11
+Assert-Equal -Label "runSummary.cases count" -Actual (@($runSummary.cases).Count) -Expected 12
 Assert-Equal -Label "runSummary.score.skipped" -Actual ([bool] $runSummary.score.skipped) -Expected $false
 if ($null -eq $runSummary.score.exit_code) {
     Write-Error "Repair smoke should record a non-null score exit code."
@@ -123,17 +123,17 @@ if (-not (Test-Path ([string] $runSummary.score.summary_path))) {
 }
 
 Assert-Equal -Label "scoreSummary.schema_version" -Actual ([int] $scoreSummary.schema_version) -Expected 1
-Assert-Equal -Label "scoreSummary.totals.total" -Actual ([int] $scoreSummary.totals.total) -Expected 11
-Assert-Equal -Label "scoreSummary.totals.passed" -Actual ([int] $scoreSummary.totals.passed) -Expected 11
+Assert-Equal -Label "scoreSummary.totals.total" -Actual ([int] $scoreSummary.totals.total) -Expected 12
+Assert-Equal -Label "scoreSummary.totals.passed" -Actual ([int] $scoreSummary.totals.passed) -Expected 12
 Assert-Equal -Label "scoreSummary.totals.failed" -Actual ([int] $scoreSummary.totals.failed) -Expected 0
 Assert-Equal -Label "scoreSummary.totals.missing" -Actual ([int] $scoreSummary.totals.missing) -Expected 0
-Assert-Equal -Label "scoreSummary.cases count" -Actual (@($scoreSummary.cases).Count) -Expected 11
+Assert-Equal -Label "scoreSummary.cases count" -Actual (@($scoreSummary.cases).Count) -Expected 12
 
 $runtimeCases = @($scoreSummary.cases | Where-Object { [string] $_.diagnostic_command -eq "run" })
 $checkCases = @($scoreSummary.cases | Where-Object { [string] $_.diagnostic_command -eq "check" })
 
 Assert-Equal -Label "runtime case count" -Actual $runtimeCases.Count -Expected 2
-Assert-Equal -Label "check case count" -Actual $checkCases.Count -Expected 9
+Assert-Equal -Label "check case count" -Actual $checkCases.Count -Expected 10
 Assert-StringArray -Label "runtime case ids" -Actual @($runtimeCases | ForEach-Object { [string] $_.id }) -Expected @(
     "index_out_of_bounds_runtime",
     "division_by_zero_runtime"

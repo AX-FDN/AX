@@ -108,9 +108,9 @@ $comparisonPath = Join-Path $comparisonDir "comparison.json"
 $comparison = Read-JsonFile -Path $comparisonPath -Label "Repair archaeology comparison"
 
 Assert-Equal -Label "comparison.schema_version" -Actual ([int] $comparison.schema_version) -Expected 1
-Assert-Equal -Label "comparison.total_cases" -Actual ([int] $comparison.comparison.total_cases) -Expected 11
+Assert-Equal -Label "comparison.total_cases" -Actual ([int] $comparison.comparison.total_cases) -Expected 12
 Assert-Equal -Label "comparison.base_passed" -Actual ([int] $comparison.comparison.base_passed) -Expected 6
-Assert-Equal -Label "comparison.ai_passed" -Actual ([int] $comparison.comparison.ai_passed) -Expected 11
+Assert-Equal -Label "comparison.ai_passed" -Actual ([int] $comparison.comparison.ai_passed) -Expected 12
 
 $caseIds = @(
     "missing_semicolon_basic",

@@ -28,7 +28,7 @@ AX 现在的外部契约不是只有 CLI 命令本身。对 agent 和工具链�
 | context flow | `axc context flow --json` | workflow-aware agents | `context_flow_matches_snapshot` |
 | context symbol | `axc context symbol --json` | local symbol repair planning | `context_symbol_matches_snapshot` |
 | context impact | `axc context impact --json` | change-risk planning | `context_impact_matches_snapshot` |
-| context evidence | `axc context evidence --json` | validation planning | `context_evidence_matches_snapshot` |
+| context evidence | `axc context evidence --json` | validation planning, build/AOT readiness planning | `context_evidence_matches_snapshot` |
 | repair export artifacts | `export-repair-benchmark.ps1` | repair adapters, score/compare scripts | `repair_benchmark_export_keeps_cold_base_ai_artifact_contracts` |
 | project-backed repair export | `export-repair-benchmark.ps1` | multi-file repair adapters | `repair_benchmark_export_supports_project_context_cases` |
 | context-enabled repair export | `export-repair-benchmark.ps1 -IncludeContext` | context-consuming repair adapters | `repair_benchmark_export_can_include_context_bundle` |
@@ -85,6 +85,7 @@ Allowed to evolve carefully:
 - adding fields under `facts`
 - adding fields under `hints`
 - adding recommended commands under `validation`
+- adding read-only readiness facts, such as `facts.build_readiness`, when they describe current compiler contracts instead of creating new behavior
 
 Not allowed without explicit contract update:
 

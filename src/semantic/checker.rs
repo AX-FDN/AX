@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::ast::Block;
+use crate::ast::{Block, Expr, Stmt, StmtKind};
 use crate::diagnostics::Diagnostic;
 
 #[path = "checker/assignment.rs"]
@@ -108,5 +108,55 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             self.check_statement(statement);
         }
         self.scopes.pop();
+    }
+
+    pub(super) fn check_block_expr(&mut self, statements: &[Stmt], value: &Expr) -> Type {
+        let expected_type = self.take_expected_type();
+        self.scopes.push(HashMap::new());
+        for statement in statements {
+            self.check_block_expr_statement_allowed(statement);
+            self.check_statement(statement);
+        }
+        let ty = if let Some(expected_type) = expected_type.as_ref() {
+            self.check_expr_with_expected(value, expected_type)
+        } else {
+            self.check_expr(value)
+        };
+        self.scopes.pop();
+        ty
+    }
+
+    fn check_block_expr_statement_allowed(&mut self, statement: &Stmt) {
+        match &statement.kind {
+            StmtKind::Let { .. } | StmtKind::Assign { .. } | StmtKind::Expr { .. } => {}
+            StmtKind::Block { block } => {
+                for statement in &block.statements {
+                    self.check_block_expr_statement_allowed(statement);
+                }
+            }
+            StmtKind::Return { .. }
+            | StmtKind::Break
+            | StmtKind::Continue
+            | StmtKind::Match { .. }
+            | StmtKind::If { .. }
+            | StmtKind::While { .. }
+            | StmtKind::For { .. }
+            | StmtKind::ForIn { .. } => {
+                self.diagnostics.push(
+                    Diagnostic::new(
+                        "S0057",
+                        "block-valued match expression arms currently support only local linear statements before the final value",
+                        self.info.source,
+                        statement.span,
+                    )
+                    .with_note(
+                        "allowed statements are `let`, assignment, expression statements, and nested linear blocks",
+                    )
+                    .with_suggestion(
+                        "move control flow outside the match expression arm, or rewrite this arm as a single final expression",
+                    ),
+                );
+            }
+        }
     }
 }

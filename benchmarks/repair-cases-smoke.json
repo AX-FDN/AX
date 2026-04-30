@@ -49,6 +49,15 @@
       "notes": "CI smoke struct-literal completeness case."
     },
     {
+      "id": "match_struct_pattern_missing_field",
+      "file": "examples/match_struct_pattern_missing_field.ax",
+      "category": "semantic",
+      "expected_codes": ["S0060"],
+      "expected_ai_rule_ids": ["match_struct_pattern_must_match_declaration"],
+      "repair_goal": "Rewrite the struct match pattern so it lists every declared field exactly once.",
+      "notes": "CI smoke struct-pattern completeness case."
+    },
+    {
       "id": "len_builtin_non_countable_value",
       "file": "examples/len_non_countable.ax",
       "category": "semantic",

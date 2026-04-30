@@ -2,7 +2,7 @@ use crate::ast::{
     BinaryOp, Block, EnumVariant, EnumVariantPayloadPattern, Expr, ExprKind, ForInBinding,
     ImplMethod, ImportDecl, Item, ItemKind, MatchArm, MatchExprArm, MatchPattern, MatchPatternKind,
     ModuleDecl, Param, Program, SourceUnit, Stmt, StmtKind, StructField, StructLiteralField,
-    TraitMethod, TypeParamBound, TypeRef, UnaryOp, Visibility,
+    StructPatternField, TraitMethod, TypeParamBound, TypeRef, UnaryOp, Visibility,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticKind};
 use crate::source::{SourceFile, Span};
@@ -924,13 +924,110 @@ impl<'a> Parser<'a> {
             "expected `=>` after match pattern",
             &["`=>`"],
         );
-        let value = self.parse_expression();
+        let value = if self.check(TokenKind::LBrace) {
+            self.parse_match_expression_block_value()
+        } else {
+            self.parse_expression()
+        };
         MatchExprArm {
             span: Span::new(pattern.span.start, value.span.end),
             pattern,
             guard,
             value,
         }
+    }
+
+    fn parse_match_expression_block_value(&mut self) -> Expr {
+        let open = self.expect(
+            TokenKind::LBrace,
+            "expected `{` to start match expression block arm",
+            &["`{`"],
+        );
+        let mut statements = Vec::new();
+
+        while !self.check(TokenKind::RBrace) && !self.is_at_end() {
+            if self.starts_forced_statement_in_block_expr() {
+                if let Some(statement) = self.parse_statement() {
+                    statements.push(statement);
+                }
+                continue;
+            }
+
+            let expr = self.parse_expression();
+            if self.matches(&[TokenKind::Equal]) {
+                let value = self.parse_expression();
+                let end = self.expect(
+                    TokenKind::Semicolon,
+                    "expected `;` after assignment in match expression block",
+                    &["`;`"],
+                );
+                statements.push(Stmt {
+                    span: Span::new(expr.span.start, end.span.end),
+                    kind: StmtKind::Assign {
+                        target: expr,
+                        value,
+                    },
+                });
+                continue;
+            }
+
+            if self.matches(&[TokenKind::Semicolon]) {
+                let semicolon = self.previous();
+                statements.push(Stmt {
+                    span: Span::new(expr.span.start, semicolon.span.end),
+                    kind: StmtKind::Expr { expr },
+                });
+                continue;
+            }
+
+            let close = self.expect(
+                TokenKind::RBrace,
+                "expected `}` after final match expression block value",
+                &["`}`"],
+            );
+            return Expr {
+                span: Span::new(open.span.start, close.span.end),
+                kind: ExprKind::Block {
+                    statements,
+                    value: Box::new(expr),
+                },
+            };
+        }
+
+        self.error_at_current(
+            "P0001",
+            "match expression block arms must end with a value expression",
+            &["final expression"],
+        );
+        let close = self.expect(
+            TokenKind::RBrace,
+            "expected a final expression before `}` in match expression block arm",
+            &["expression"],
+        );
+        Expr {
+            span: Span::new(open.span.start, close.span.end),
+            kind: ExprKind::Block {
+                statements,
+                value: Box::new(Expr {
+                    span: close.span,
+                    kind: ExprKind::Error,
+                }),
+            },
+        }
+    }
+
+    fn starts_forced_statement_in_block_expr(&self) -> bool {
+        matches!(
+            self.peek().kind,
+            TokenKind::LetKw
+                | TokenKind::ReturnKw
+                | TokenKind::BreakKw
+                | TokenKind::ContinueKw
+                | TokenKind::IfKw
+                | TokenKind::WhileKw
+                | TokenKind::ForKw
+                | TokenKind::LBrace
+        )
     }
 
     fn parse_match_guard(&mut self) -> Option<Expr> {
@@ -999,6 +1096,10 @@ impl<'a> Parser<'a> {
                     };
                 }
 
+                if self.check(TokenKind::LBrace) {
+                    return self.finish_struct_match_pattern(token.lexeme, token.span);
+                }
+
                 if !self.check(TokenKind::Dot) {
                     return MatchPattern {
                         span: token.span,
@@ -1010,6 +1111,9 @@ impl<'a> Parser<'a> {
                     token,
                     "expected an identifier after `.` in match pattern",
                 );
+                if self.check(TokenKind::LBrace) {
+                    return self.finish_struct_match_pattern(path, span);
+                }
                 let payload = if self.matches(&[TokenKind::LParen]) {
                     Some(self.parse_enum_variant_pattern_payload())
                 } else {
@@ -1033,6 +1137,52 @@ impl<'a> Parser<'a> {
                     kind: MatchPatternKind::Error,
                 }
             }
+        }
+    }
+
+    fn finish_struct_match_pattern(&mut self, path: String, path_span: Span) -> MatchPattern {
+        self.expect(
+            TokenKind::LBrace,
+            "expected `{` after struct pattern name",
+            &["`{`"],
+        );
+        let mut fields = Vec::new();
+        while !self.check(TokenKind::RBrace) && !self.is_at_end() {
+            let field =
+                self.expect_identifier("expected a field binding name in struct match pattern");
+            let span = field.span;
+            if self.matches(&[TokenKind::Colon]) {
+                let alias =
+                    self.expect_identifier("expected a binding name after `:` in struct pattern");
+                self.diagnostics.push(
+                    Diagnostic::new(
+                        "P0003",
+                        "struct match patterns currently use shorthand fields only",
+                        self.source,
+                        Span::new(span.start, alias.span.end),
+                    )
+                    .with_kind(DiagnosticKind::MatchStructPatternShapeMismatch)
+                    .with_expected("shorthand struct pattern field")
+                    .with_suggestion(format!("rewrite this field as `{}`", field.lexeme)),
+                );
+            }
+            fields.push(StructPatternField {
+                name: field.lexeme.clone(),
+                binding: field.lexeme,
+                span,
+            });
+            if !self.matches(&[TokenKind::Comma]) {
+                break;
+            }
+        }
+        let end = self.expect(
+            TokenKind::RBrace,
+            "expected `}` after struct match pattern",
+            &["`}`"],
+        );
+        MatchPattern {
+            span: Span::new(path_span.start, end.span.end),
+            kind: MatchPatternKind::Struct { path, fields },
         }
     }
 
@@ -2416,6 +2566,40 @@ fn main() -> i32 {
     }
 
     #[test]
+    fn parses_block_valued_match_expression_arms() {
+        let source = SourceFile::anonymous(
+            "\
+fn main() -> i32 {
+    let value: i32 = match (true) {
+        true => { let base: i32 = 40; base + 2 },
+        false => 0,
+    };
+    return value;
+}
+",
+        );
+        let tokens = tokenize(&source).tokens;
+        let output = parse(&source, tokens);
+        assert!(output.diagnostics.is_empty(), "{:?}", output.diagnostics);
+
+        let ItemKind::Function { body, .. } = &output.program.items[0].kind else {
+            panic!("expected function");
+        };
+        let StmtKind::Let { initializer, .. } = &body.statements[0].kind else {
+            panic!("expected let statement");
+        };
+        let ExprKind::Match { arms, .. } = &initializer.kind else {
+            panic!("expected match expression");
+        };
+        let ExprKind::Block { statements, value } = &arms[0].value.kind else {
+            panic!("expected block-valued match arm");
+        };
+        assert_eq!(statements.len(), 1);
+        assert!(matches!(statements[0].kind, StmtKind::Let { .. }));
+        assert!(matches!(value.kind, ExprKind::Binary { .. }));
+    }
+
+    #[test]
     fn parses_match_binding_pattern() {
         let source = SourceFile::anonymous(
             "\
@@ -2529,6 +2713,67 @@ fn main() -> i32 {
                 end: 499
             }
         ));
+    }
+
+    #[test]
+    fn parses_match_struct_patterns() {
+        let source = SourceFile::anonymous(
+            "\
+struct Point { x: i32, y: i32 }
+
+fn main() -> i32 {
+    let point: Point = Point { x: 1, y: 2 };
+    let value: i32 = match (point) { Point { x, y } => x + y };
+    return value;
+}
+",
+        );
+        let tokens = tokenize(&source).tokens;
+        let output = parse(&source, tokens);
+        assert!(output.diagnostics.is_empty(), "{:?}", output.diagnostics);
+
+        let ItemKind::Function { body, .. } = &output.program.items[1].kind else {
+            panic!("expected function");
+        };
+        let StmtKind::Let { initializer, .. } = &body.statements[1].kind else {
+            panic!("expected let statement");
+        };
+        let ExprKind::Match { arms, .. } = &initializer.kind else {
+            panic!("expected match expression");
+        };
+        assert!(matches!(
+            arms[0].pattern.kind,
+            MatchPatternKind::Struct { ref path, ref fields }
+                if path == "Point"
+                    && fields.len() == 2
+                    && fields[0].name == "x"
+                    && fields[1].name == "y"
+        ));
+    }
+
+    #[test]
+    fn reports_struct_pattern_aliases_as_non_canonical() {
+        let source = SourceFile::anonymous(
+            "\
+struct Point { x: i32, y: i32 }
+
+fn main() -> i32 {
+    let point: Point = Point { x: 1, y: 2 };
+    let value: i32 = match (point) { Point { x: left, y } => left + y };
+    return value;
+}
+",
+        );
+        let tokens = tokenize(&source).tokens;
+        let output = parse(&source, tokens);
+        assert!(
+            output.diagnostics.iter().any(|diagnostic| {
+                diagnostic.code == "P0003"
+                    && diagnostic.kind() == Some(DiagnosticKind::MatchStructPatternShapeMismatch)
+            }),
+            "expected canonical struct-pattern diagnostic, got {:?}",
+            output.diagnostics
+        );
     }
 
     #[test]

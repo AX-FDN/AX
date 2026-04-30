@@ -288,6 +288,13 @@ pub enum EnumVariantPayloadPattern {
 }
 
 #[derive(Debug, Clone, Serialize)]
+pub struct StructPatternField {
+    pub name: String,
+    pub binding: String,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum MatchPatternKind {
     Wildcard,
@@ -311,6 +318,10 @@ pub enum MatchPatternKind {
         path: String,
         #[serde(skip_serializing_if = "Option::is_none")]
         payload: Option<EnumVariantPayloadPattern>,
+    },
+    Struct {
+        path: String,
+        fields: Vec<StructPatternField>,
     },
     Or {
         alternatives: Vec<MatchPattern>,
@@ -437,6 +448,10 @@ pub enum ExprKind {
     },
     ArrayLiteral {
         elements: Vec<Expr>,
+    },
+    Block {
+        statements: Vec<Stmt>,
+        value: Box<Expr>,
     },
     Match {
         scrutinee: Box<Expr>,

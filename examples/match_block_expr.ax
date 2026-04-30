@@ -1,0 +1,12 @@
+fn classify(flag: bool) -> i32 {
+    return match (flag) {
+        true => { let base: i32 = 40; base + 2 },
+        false => { let fallback: i32 = 5; fallback },
+    };
+}
+
+fn main() -> i32 {
+    let value: i32 = classify(true);
+    println(value);
+    return 0;
+}

@@ -503,6 +503,14 @@ fn format_match_pattern(pattern: &MatchPattern) -> String {
             }
             None => path.clone(),
         },
+        MatchPatternKind::Struct { path, fields } => {
+            let fields = fields
+                .iter()
+                .map(|field| field.name.as_str())
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!("{path} {{ {fields} }}")
+        }
         MatchPatternKind::Or { alternatives } => alternatives
             .iter()
             .map(format_match_pattern)
@@ -578,6 +586,7 @@ fn format_expr_with_min_precedence(expr: &Expr, min_precedence: u8) -> String {
                 .join(", ");
             format!("[{body}]")
         }
+        ExprKind::Block { statements, value } => format_block_expr(statements, value),
         ExprKind::Match { scrutinee, arms } => format!(
             "match ({}) {{ {} }}",
             format_expr(scrutinee),
@@ -689,11 +698,28 @@ fn expr_precedence(expr: &Expr) -> u8 {
         | ExprKind::Bool { .. }
         | ExprKind::String { .. }
         | ExprKind::Name { .. }
+        | ExprKind::Block { .. }
         | ExprKind::Match { .. }
         | ExprKind::StructLiteral { .. }
         | ExprKind::ArrayLiteral { .. }
         | ExprKind::Error => PREC_PRIMARY,
     }
+}
+
+fn format_block_expr(statements: &[Stmt], value: &Expr) -> String {
+    let mut parts = statements
+        .iter()
+        .map(|statement| {
+            let mut formatter = Formatter {
+                out: String::new(),
+                indent: 0,
+            };
+            formatter.format_statement(statement);
+            formatter.out
+        })
+        .collect::<Vec<_>>();
+    parts.push(format_expr(value));
+    format!("{{ {} }}", parts.join(" "))
 }
 
 fn binary_precedence(op: BinaryOp) -> u8 {
@@ -999,6 +1025,24 @@ mod tests {
     }
 
     #[test]
+    fn formats_block_valued_match_expression_arms() {
+        let source = SourceFile::anonymous(
+            "fn main()->i32{let value:i32=match(true){true=>{let base:i32=40;base+2},false=>0};return value;}",
+        );
+
+        let formatted = format_source(&source).expect("source should format");
+        assert_eq!(
+            formatted,
+            concat!(
+                "fn main() -> i32 {\n",
+                "    let value: i32 = match (true) { true => { let base: i32 = 40; base + 2 }, false => 0 };\n",
+                "    return value;\n",
+                "}\n"
+            )
+        );
+    }
+
+    #[test]
     fn formats_match_binding_patterns() {
         let source = SourceFile::anonymous(
             "fn main()->i32{let value:i32=match(4){0=>1,other=>other};return value;}",
@@ -1064,6 +1108,30 @@ mod tests {
             concat!(
                 "fn main() -> i32 {\n",
                 "    let value: i32 = match (404) { 400..=499 => 4, _ => 0 };\n",
+                "    return value;\n",
+                "}\n"
+            )
+        );
+    }
+
+    #[test]
+    fn formats_match_struct_patterns() {
+        let source = SourceFile::anonymous(
+            "struct Point{x:i32,y:i32} fn main()->i32{let point:Point=Point{x:1,y:2};let value:i32=match(point){Point{x,y}=>x+y};return value;}",
+        );
+
+        let formatted = format_source(&source).expect("source should format");
+        assert_eq!(
+            formatted,
+            concat!(
+                "struct Point {\n",
+                "    x: i32,\n",
+                "    y: i32,\n",
+                "}\n",
+                "\n",
+                "fn main() -> i32 {\n",
+                "    let point: Point = Point { x: 1, y: 2 };\n",
+                "    let value: i32 = match (point) { Point { x, y } => x + y };\n",
                 "    return value;\n",
                 "}\n"
             )

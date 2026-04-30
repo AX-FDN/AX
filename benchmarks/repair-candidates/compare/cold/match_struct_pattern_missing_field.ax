@@ -1,0 +1,15 @@
+struct Point {
+    x: i32,
+    y: i32,
+}
+
+fn score(point: Point) -> i32 {
+    return match (point) {
+        Point { x } => x,
+    };
+}
+
+fn main() -> i32 {
+    let point: Point = Point { x: 20, y: 22 };
+    return score(point);
+}

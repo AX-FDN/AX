@@ -345,6 +345,16 @@ struct ContextPackageLock {
 }
 
 #[derive(Serialize)]
+struct BuildReadiness {
+    build_mode: &'static str,
+    aot_status: &'static str,
+    executable_emission: bool,
+    planned_executable_artifact: bool,
+    blocking_features: Vec<String>,
+    notes: Vec<String>,
+}
+
+#[derive(Serialize)]
 struct TopologySummary {
     source_unit_count: usize,
     module_edge_count: usize,
@@ -492,6 +502,7 @@ struct EvidenceFacts {
     related_docs: Vec<String>,
     related_benchmarks: Vec<String>,
     expected_artifacts: Vec<String>,
+    build_readiness: BuildReadiness,
     #[serde(skip_serializing_if = "Option::is_none")]
     local_package_lock: Option<ContextPackageLock>,
 }
@@ -1505,8 +1516,46 @@ fn build_evidence_facts(
         related_docs: build_related_docs(input, &impact_facts),
         related_benchmarks: build_related_benchmarks(input, &impact_facts),
         expected_artifacts,
+        build_readiness: build_build_readiness_fact(input),
         local_package_lock: build_local_package_lock_fact(input.project.as_ref()),
     })
+}
+
+fn build_build_readiness_fact(input: &ResolvedInput) -> BuildReadiness {
+    let mut blocking_features = vec!["native executable emission is not implemented".to_string()];
+    let mut notes = vec![
+        "axc build currently emits source, HIR, MIR, and build-manifest skeleton artifacts"
+            .to_string(),
+        "use axc run as the executable behavior path until AOT starts".to_string(),
+    ];
+
+    if let Some(project) = input.project.as_ref() {
+        blocking_features
+            .push("project source graph still needs future AOT packaging and linking".to_string());
+        notes.push(format!(
+            "project `{}` is currently build-ready only for skeleton artifacts",
+            project.target_name()
+        ));
+
+        if !project.local_path_dependencies().is_empty() {
+            blocking_features.push(
+                "local path package graph still needs future AOT package linking".to_string(),
+            );
+            notes.push(
+                "run axc lock <project> --check before treating package input as reproducible"
+                    .to_string(),
+            );
+        }
+    }
+
+    BuildReadiness {
+        build_mode: "skeleton_artifacts",
+        aot_status: "not_started",
+        executable_emission: false,
+        planned_executable_artifact: true,
+        blocking_features,
+        notes,
+    }
 }
 
 fn build_evidence_hints(
@@ -2508,6 +2557,12 @@ fn collect_symbol_walk_for_expr(expression: &Expr, walk: &mut SymbolWalk) {
                 collect_symbol_walk_for_expr(element, walk);
             }
         }
+        ExprKind::Block { statements, value } => {
+            for statement in statements {
+                collect_symbol_walk_for_stmt(statement, walk);
+            }
+            collect_symbol_walk_for_expr(value, walk);
+        }
         ExprKind::Match { scrutinee, arms } => {
             record_branch_kind(walk, "match");
             collect_symbol_walk_for_expr(scrutinee, walk);
@@ -3000,6 +3055,12 @@ fn visit_expr(expression: &Expr, stats: &mut UnitStats) {
             for element in elements {
                 visit_expr(element, stats);
             }
+        }
+        ExprKind::Block { statements, value } => {
+            for statement in statements {
+                visit_stmt(statement, stats);
+            }
+            visit_expr(value, stats);
         }
         ExprKind::Match { scrutinee, arms } => {
             visit_expr(scrutinee, stats);

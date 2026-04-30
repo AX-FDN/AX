@@ -232,8 +232,11 @@ Current `match`-related AI rule ids include:
 - `match_requires_concrete_pattern`
 - `match_expression_arms_must_share_type`
 - `match_enum_variant_payload_must_match_declaration`
+- `match_struct_pattern_must_match_declaration`
 - `match_guard_must_be_bool`
 - `match_range_must_be_non_empty`
+
+`match_struct_pattern_must_match_declaration` currently covers the explicit v0 struct pattern contract: use full-field shorthand such as `Point { x, y }`, list every declared field exactly once, and avoid alias/partial/nested/array/tuple destructuring.
 
 ## Example: Base Versus AI
 

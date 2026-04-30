@@ -2622,6 +2622,9 @@ impl<'a> Interpreter<'a> {
                 }
                 Ok(EvalFlow::Value(Value::Array(values)))
             }
+            ExprKind::Block { statements, value } => {
+                self.eval_block_expr(statements, value, frame, expr.span)
+            }
             ExprKind::Match { scrutinee, arms } => {
                 let scrutinee_value = eval_value!(scrutinee);
                 self.eval_match_expression(scrutinee_value, arms, expr.span, frame)
@@ -2714,6 +2717,44 @@ impl<'a> Interpreter<'a> {
                 )))
             }
         }
+    }
+
+    fn eval_block_expr(
+        &mut self,
+        statements: &[Stmt],
+        value: &Expr,
+        frame: &mut Frame,
+        span: Span,
+    ) -> Result<EvalFlow, Diagnostic> {
+        frame.scopes.push(HashMap::new());
+        for statement in statements {
+            match self.exec_statement(statement, frame)? {
+                ControlFlow::Continue => {}
+                ControlFlow::Return(value) => {
+                    frame.scopes.pop();
+                    return Ok(EvalFlow::Return(value));
+                }
+                ControlFlow::Break => {
+                    frame.scopes.pop();
+                    return Err(self.runtime_error(
+                        "R0137",
+                        "`break` cannot leave a block-valued expression",
+                        span,
+                    ));
+                }
+                ControlFlow::LoopContinue => {
+                    frame.scopes.pop();
+                    return Err(self.runtime_error(
+                        "R0138",
+                        "`continue` cannot leave a block-valued expression",
+                        span,
+                    ));
+                }
+            }
+        }
+        let result = self.eval_expr(value, frame);
+        frame.scopes.pop();
+        result
     }
 
     fn eval_match_expression(
@@ -2835,6 +2876,28 @@ impl<'a> Interpreter<'a> {
                     span,
                 )),
             },
+            MatchPatternKind::Struct {
+                struct_name,
+                fields,
+            } => match scrutinee {
+                Value::Struct {
+                    name,
+                    fields: values,
+                } => {
+                    if name != struct_name {
+                        return Ok(false);
+                    }
+                    Ok(fields.iter().all(|field| values.contains_key(&field.name)))
+                }
+                other => Err(self.runtime_error(
+                    "R0037",
+                    format!(
+                        "match struct pattern cannot be applied to runtime value `{}`",
+                        other.display()
+                    ),
+                    span,
+                )),
+            },
             MatchPatternKind::Or { alternatives } => {
                 for alternative in alternatives {
                     if self.match_pattern_matches_value(alternative, scrutinee, span)? {
@@ -2924,6 +2987,34 @@ impl<'a> Interpreter<'a> {
                     },
                 );
             }
+            MatchPatternKind::Struct { fields, .. } => {
+                let Value::Struct { fields: values, .. } = scrutinee else {
+                    return Err(self.runtime_error(
+                        "R0043",
+                        "struct pattern binding requires a struct value",
+                        pattern.span,
+                    ));
+                };
+                for field in fields {
+                    let Some(value) = values.get(&field.name) else {
+                        return Err(self.runtime_error(
+                            "R0043",
+                            format!(
+                                "struct pattern binding `{}` requires field `{}`",
+                                field.binding, field.name
+                            ),
+                            field.span,
+                        ));
+                    };
+                    frame.scopes.last_mut().expect("scope should exist").insert(
+                        field.binding.clone(),
+                        Slot {
+                            mutable: false,
+                            value: value.clone(),
+                        },
+                    );
+                }
+            }
             _ => {}
         }
         Ok(())
@@ -2952,6 +3043,17 @@ impl<'a> Interpreter<'a> {
             MatchPatternKind::EnumVariant {
                 enum_name, variant, ..
             } => format!("{enum_name}.{variant}"),
+            MatchPatternKind::Struct {
+                struct_name,
+                fields,
+            } => {
+                let fields = fields
+                    .iter()
+                    .map(|field| field.name.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                format!("{struct_name} {{ {fields} }}")
+            }
             MatchPatternKind::Or { alternatives } => alternatives
                 .iter()
                 .map(Self::match_pattern_label)
@@ -3561,6 +3663,30 @@ fn main() -> i32 {
     }
 
     #[test]
+    fn runs_block_valued_match_expression_arms() {
+        let (source, hir) = analyzed_hir(
+            "\
+fn classify(flag: bool) -> i32 {
+    return match (flag) {
+        true => { let base: i32 = 40; base + 2 },
+        false => { let fallback: i32 = 5; fallback },
+    };
+}
+
+fn main() -> i32 {
+    let value: i32 = classify(true);
+    println(value);
+    return value;
+}
+",
+        );
+
+        let output = run_program(&source, &hir).expect("program should run");
+        assert_eq!(output.exit_code, 42);
+        assert_eq!(output.stdout, vec!["42"]);
+    }
+
+    #[test]
     fn runs_match_binding_patterns() {
         let (source, hir) = analyzed_hir(
             "\
@@ -3592,6 +3718,35 @@ fn main() -> i32 {
         let output = run_program(&source, &hir).expect("program should run");
         assert_eq!(output.exit_code, 6);
         assert_eq!(output.stdout, vec!["false", "6"]);
+    }
+
+    #[test]
+    fn runs_match_struct_destructuring_patterns() {
+        let (source, hir) = analyzed_hir(
+            "\
+struct Point {
+    x: i32,
+    y: i32,
+}
+
+fn score(point: Point) -> i32 {
+    return match (point) {
+        Point { x, y } => x + y,
+    };
+}
+
+fn main() -> i32 {
+    let point: Point = Point { x: 20, y: 22 };
+    let value: i32 = score(point);
+    println(value);
+    return value;
+}
+",
+        );
+
+        let output = run_program(&source, &hir).expect("program should run");
+        assert_eq!(output.exit_code, 42);
+        assert_eq!(output.stdout, vec!["42"]);
     }
 
     #[test]

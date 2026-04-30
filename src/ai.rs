@@ -212,6 +212,8 @@ fn match_rule(_source: &SourceFile, diagnostic: &Diagnostic) -> Option<RuleTempl
         "S0041" => Some(RULE_MODULE_IMPORT_MUST_BE_UNIQUE),
         "S0042" => Some(RULE_IMPORTED_MODULE_MUST_EXIST),
         "S0043" => Some(RULE_CROSS_MODULE_REFERENCE_REQUIRES_IMPORT),
+        "S0057" => Some(RULE_BLOCK_MATCH_ARM_MUST_STAY_LINEAR),
+        "S0060" => Some(RULE_MATCH_STRUCT_PATTERN_MUST_MATCH_DECLARATION),
         "R0012" | "R0018" | "R0019" | "R0020" | "R0022" | "R0024" => {
             Some(RULE_INTEGER_ARITHMETIC_IN_RANGE)
         }
@@ -261,6 +263,9 @@ fn match_rule_by_kind(kind: DiagnosticKind) -> Option<RuleTemplate> {
         }
         DiagnosticKind::MatchEnumVariantPayloadShapeMismatch => {
             Some(RULE_MATCH_ENUM_VARIANT_PAYLOAD_MUST_MATCH_DECLARATION)
+        }
+        DiagnosticKind::MatchStructPatternShapeMismatch => {
+            Some(RULE_MATCH_STRUCT_PATTERN_MUST_MATCH_DECLARATION)
         }
         DiagnosticKind::MatchGuardTypeMismatch => Some(RULE_MATCH_GUARD_MUST_BE_BOOL),
         DiagnosticKind::MatchRangeMustBeNonEmpty => Some(RULE_MATCH_RANGE_MUST_BE_NON_EMPTY),
@@ -705,19 +710,19 @@ const RULE_CONTINUE_REQUIRES_LOOP_CONTEXT: RuleTemplate = RuleTemplate {
 const RULE_MATCH_INPUT_MUST_USE_SUPPORTED_TYPE: RuleTemplate = RuleTemplate {
     rule_id: "match_input_must_use_supported_type",
     normalized_pattern: "match_input_must_use_supported_type",
-    repair_goal: "Match only on `bool`, `i32`, or enum values in the current AX prototype.",
-    summary: "The first AX `match` rollout only supports boolean inputs, integer inputs, and enum values.",
+    repair_goal: "Match only on supported AX value domains: `bool`, `i32`, `string`, structs, or enum values.",
+    summary: "AX `match` currently supports boolean inputs, integer inputs, string inputs, full-field struct destructuring, and enum values.",
     pattern: "match (flag) { true => { return 1; } false => { return 0; } }",
     minimal_example: "match (status) { Status.Ready => { return 1; } _ => { return 0; } }",
-    anti_pattern: Some("match (message) { \"ok\" => { return 1; } _ => { return 0; } }"),
-    default_fixit: "rewrite this branch with `if / else`, or match on a `bool`, `i32`, or enum value",
+    anti_pattern: Some("match (items) { _ => { return 1; } }"),
+    default_fixit: "rewrite this branch with `if / else`, or match on a supported scalar, struct, or enum value",
 };
 
 const RULE_MATCH_PATTERN_MUST_MATCH_INPUT: RuleTemplate = RuleTemplate {
     rule_id: "match_pattern_must_match_input",
     normalized_pattern: "match_pattern_must_match_input",
     repair_goal: "Keep every `match` arm pattern in the same value domain as the matched input.",
-    summary: "AX `match` patterns must align with the scrutinee type: `bool` uses `true`/`false`, `i32` uses integer literals, and enums use `EnumName.Variant`.",
+    summary: "AX `match` patterns must align with the scrutinee type: `bool` uses `true`/`false`, `i32` uses integer literals, `string` uses string literals, structs use full-field shorthand destructuring, and enums use `EnumName.Variant`.",
     pattern: "match (flag) { true => { return 1; } false => { return 0; } }",
     minimal_example: "match (value) { 0 => { return 1; } _ => { return 2; } }",
     anti_pattern: Some("match (flag) { 0 => { return 1; } }"),
@@ -790,6 +795,17 @@ const RULE_MATCH_ENUM_VARIANT_PAYLOAD_MUST_MATCH_DECLARATION: RuleTemplate = Rul
     default_fixit: "rewrite the match arm so its payload binding or `_` exactly matches the enum variant declaration",
 };
 
+const RULE_MATCH_STRUCT_PATTERN_MUST_MATCH_DECLARATION: RuleTemplate = RuleTemplate {
+    rule_id: "match_struct_pattern_must_match_declaration",
+    normalized_pattern: "match_struct_pattern_must_match_declaration",
+    repair_goal: "Keep struct destructuring patterns aligned with the matched struct declaration.",
+    summary: "AX struct match patterns use full-field shorthand destructuring in this slice: every declared field appears once, and each field name becomes an arm-local binding.",
+    pattern: "match (point) { Point { x, y } => { return x + y; } }",
+    minimal_example: "let score: i32 = match (point) { Point { x, y } => x + y, };",
+    anti_pattern: Some("match (point) { Point { x } => x, }"),
+    default_fixit: "rewrite the struct pattern so it lists each declared field exactly once using shorthand field names",
+};
+
 const RULE_MATCH_GUARD_MUST_BE_BOOL: RuleTemplate = RuleTemplate {
     rule_id: "match_guard_must_be_bool",
     normalized_pattern: "match_guard_must_be_bool",
@@ -810,6 +826,17 @@ const RULE_MATCH_RANGE_MUST_BE_NON_EMPTY: RuleTemplate = RuleTemplate {
     minimal_example: "match (exit_code) { 0..=0 => 0, 1..=255 => 1, _ => 2 }",
     anti_pattern: Some("match (status) { 499..=400 => 4, _ => 0 }"),
     default_fixit: "swap the range bounds or change them to a non-empty inclusive interval",
+};
+
+const RULE_BLOCK_MATCH_ARM_MUST_STAY_LINEAR: RuleTemplate = RuleTemplate {
+    rule_id: "block_match_arm_must_stay_linear",
+    normalized_pattern: "block_match_arm_must_stay_linear",
+    repair_goal: "Keep block-valued match expression arms as local linear preparation followed by one final value expression.",
+    summary: "AX block-valued match expression arms currently allow `let`, assignment, expression statements, and nested linear blocks before the final expression; control flow belongs outside this arm form.",
+    pattern: "match (flag) { true => { let base: i32 = 1; base + 1 }, false => 0 }",
+    minimal_example: "pattern => { let base: i32 = 1; base + 1 }",
+    anti_pattern: Some("pattern => { if (flag) { println(1); } 1 }"),
+    default_fixit: "move `if` / loops / return / break / continue outside the block-valued arm, or rewrite the arm as a simple expression",
 };
 
 const RULE_ENUM_VARIANT_PAYLOAD_MUST_MATCH_DECLARATION: RuleTemplate = RuleTemplate {
@@ -1746,6 +1773,9 @@ fn collect_match_pattern_names(pattern: &MatchPattern, names: &mut BTreeSet<Stri
     {
         names.insert(enum_path.to_string());
     }
+    if let MatchPatternKind::Struct { path, .. } = &pattern.kind {
+        names.insert(path.to_string());
+    }
 }
 
 fn collect_expr_names(expr: &Expr, names: &mut BTreeSet<String>) {
@@ -1774,6 +1804,12 @@ fn collect_expr_names(expr: &Expr, names: &mut BTreeSet<String>) {
             for element in elements {
                 collect_expr_names(element, names);
             }
+        }
+        ExprKind::Block { statements, value } => {
+            for statement in statements {
+                collect_statement_names(statement, names);
+            }
+            collect_expr_names(value, names);
         }
         ExprKind::Match { scrutinee, arms } => {
             collect_expr_names(scrutinee, names);
@@ -2077,6 +2113,12 @@ mod tests {
                 message: "match range placeholder",
                 kind: DiagnosticKind::MatchRangeMustBeNonEmpty,
                 expected_rule_id: "match_range_must_be_non_empty",
+            },
+            KindCase {
+                code: "S0060",
+                message: "match struct pattern placeholder",
+                kind: DiagnosticKind::MatchStructPatternShapeMismatch,
+                expected_rule_id: "match_struct_pattern_must_match_declaration",
             },
             KindCase {
                 code: "S0022",
@@ -2598,6 +2640,90 @@ sources = [\"lib\"]
             .expect("match pattern mismatch diagnostic should exist");
         let ai = diagnostic.ai.as_ref().expect("ai payload should exist");
         assert_eq!(ai.rule_id, "match_pattern_must_match_input");
+        assert_eq!(ai.teaching_level, TeachingLevel::L1);
+    }
+
+    #[test]
+    fn enhances_match_struct_pattern_shape_with_specific_rule_card() {
+        let source = SourceFile::anonymous(
+            "\
+struct Point { x: i32, y: i32 }
+
+fn main() -> i32 {
+    let point: Point = Point { x: 1, y: 2 };
+    return match (point) {
+        Point { x } => x,
+    };
+}
+",
+        );
+        let mut analysis = analyze(&source);
+        enhance_diagnostics(&source, &analysis.program, &mut analysis.diagnostics, None)
+            .expect("ai enhancement should succeed");
+
+        let diagnostic = analysis
+            .diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.code == "S0060")
+            .expect("match struct pattern diagnostic should exist");
+        let ai = diagnostic.ai.as_ref().expect("ai payload should exist");
+        assert_eq!(ai.rule_id, "match_struct_pattern_must_match_declaration");
+        assert_eq!(ai.teaching_level, TeachingLevel::L1);
+    }
+
+    #[test]
+    fn enhances_struct_pattern_aliases_with_specific_rule_card() {
+        let source = SourceFile::anonymous(
+            "\
+struct Point { x: i32, y: i32 }
+
+fn main() -> i32 {
+    let point: Point = Point { x: 1, y: 2 };
+    return match (point) {
+        Point { x: left, y } => left + y,
+    };
+}
+",
+        );
+        let mut analysis = analyze(&source);
+        enhance_diagnostics(&source, &analysis.program, &mut analysis.diagnostics, None)
+            .expect("ai enhancement should succeed");
+
+        let diagnostic = analysis
+            .diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.code == "P0003")
+            .expect("struct pattern alias diagnostic should exist");
+        let ai = diagnostic.ai.as_ref().expect("ai payload should exist");
+        assert_eq!(ai.rule_id, "match_struct_pattern_must_match_declaration");
+        assert_eq!(ai.teaching_level, TeachingLevel::L1);
+    }
+
+    #[test]
+    fn enhances_block_match_arm_linearity_with_specific_rule_card() {
+        let source = SourceFile::anonymous(
+            "\
+fn main() -> i32 {
+    let flag: bool = true;
+    let value: i32 = match (flag) {
+        true => { if (flag) { println(1); } 1 },
+        false => 0,
+    };
+    return value;
+}
+",
+        );
+        let mut analysis = analyze(&source);
+        enhance_diagnostics(&source, &analysis.program, &mut analysis.diagnostics, None)
+            .expect("ai enhancement should succeed");
+
+        let diagnostic = analysis
+            .diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.code == "S0057")
+            .expect("block match arm linearity diagnostic should exist");
+        let ai = diagnostic.ai.as_ref().expect("ai payload should exist");
+        assert_eq!(ai.rule_id, "block_match_arm_must_stay_linear");
         assert_eq!(ai.teaching_level, TeachingLevel::L1);
     }
 

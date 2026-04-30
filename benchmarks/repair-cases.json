@@ -322,6 +322,15 @@
       "expected_ai_rule_ids": ["slice_values_are_read_only"],
       "repair_goal": "Rewrite the write to target the original mutable array instead of the slice view.",
       "notes": "Covers the current prototype rule that slices are read-only views."
+    },
+    {
+      "id": "match_struct_pattern_missing_field",
+      "file": "examples/match_struct_pattern_missing_field.ax",
+      "category": "semantic",
+      "expected_codes": ["S0060"],
+      "expected_ai_rule_ids": ["match_struct_pattern_must_match_declaration"],
+      "repair_goal": "Rewrite the struct match pattern so it lists every declared field exactly once.",
+      "notes": "Covers full-field shorthand struct destructuring, which is intentionally explicit for AI-readable repair."
     }
   ]
 }
