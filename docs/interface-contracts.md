@@ -202,6 +202,7 @@ Stable for the current package-interface slice:
 - dependency package sources are loaded from the dependency manifest's `[package].sources`
 - dependency modules must declare paths under the dependency alias, for example `module config_rules.validate;`
 - `axc build` packages dependency sources under their project-relative paths when they live inside the project tree
+- `axc build` packages dependency sources under `external/<package-root>/...` when the path package lives outside the project tree
 - `build-manifest.json` uses schema version `4` and exposes `local_path_packages` for projects that declare path packages
 - each build-manifest package entry includes `alias`, `root`, `manifest`, `source_count`, and sorted `modules`
 - package resolver failures use stable `PX****` text codes before source diagnostics exist:

@@ -5994,6 +5994,95 @@ fn project_package_config_build_manifest_exposes_local_path_package() {
 }
 
 #[test]
+fn project_build_manifest_exposes_external_local_path_package() {
+    let temp = TempDir::new("project-external-package-build-manifest");
+    let project_dir = temp.join("app");
+    let shared_pkg_dir = temp.join("shared_rules");
+    fs::create_dir_all(project_dir.join("src")).expect("project src directory should exist");
+    fs::create_dir_all(shared_pkg_dir.join("src"))
+        .expect("shared package src directory should exist");
+    fs::write(
+        project_dir.join("AX.toml"),
+        "\
+manifest_version = 1
+
+[package]
+name = \"external_package_app\"
+entry = \"src/main.ax\"
+
+[dependencies]
+shared_rules = { path = \"../shared_rules\" }
+",
+    )
+    .expect("project manifest should exist");
+    fs::write(
+        shared_pkg_dir.join("AX.toml"),
+        "\
+manifest_version = 1
+
+[package]
+name = \"shared_rules\"
+sources = [\"src\"]
+",
+    )
+    .expect("shared package manifest should exist");
+    fs::write(
+        shared_pkg_dir.join("src").join("validate.ax"),
+        "module shared_rules.validate;\nfn require_port(port: i32) -> i32 { return port; }\n",
+    )
+    .expect("shared package source should exist");
+    fs::write(
+        project_dir.join("src").join("main.ax"),
+        "import shared_rules.validate;\nfn main() -> i32 { return shared_rules.validate.require_port(8080); }\n",
+    )
+    .expect("project entry should exist");
+
+    let out_dir = temp.join("build-out");
+    let output = run_axc([
+        OsStr::new("build"),
+        project_dir.as_os_str(),
+        OsStr::new("--out-dir"),
+        out_dir.as_os_str(),
+    ]);
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "build should succeed\nstdout:\n{}\nstderr:\n{}",
+        string_output(&output.stdout),
+        string_output(&output.stderr)
+    );
+    assert_clean_stderr(&output);
+
+    let manifest: Value = serde_json::from_str(
+        &fs::read_to_string(out_dir.join("build-manifest.json"))
+            .expect("build manifest should be readable"),
+    )
+    .expect("build manifest should be valid JSON");
+    let packages = manifest["local_path_packages"]
+        .as_array()
+        .expect("build manifest should expose local_path_packages");
+    assert_eq!(packages.len(), 1);
+    assert_eq!(packages[0]["alias"], "shared_rules");
+    assert_eq!(packages[0]["root"], "external/shared_rules");
+    assert_eq!(packages[0]["manifest"], "external/shared_rules/AX.toml");
+    assert_eq!(packages[0]["source_count"], 1);
+    assert_eq!(
+        json_string_array(&packages[0]["modules"], "external local package modules"),
+        vec!["shared_rules.validate".to_string()]
+    );
+    assert!(
+        out_dir
+            .join("project-sources")
+            .join("external")
+            .join("shared_rules")
+            .join("src")
+            .join("validate.ax")
+            .exists(),
+        "build should copy sibling local path package sources under external/"
+    );
+}
+
+#[test]
 fn project_collections_report_build_copies_real_example_source_tree() {
     assert_project_example_build_sources(
         "project-collections-report-build",
