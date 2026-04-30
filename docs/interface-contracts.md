@@ -36,6 +36,7 @@ AX 现在的外部契约不是只有 CLI 命令本身。对 agent 和工具链�
 | Std-1 candidate source tree | `axc build examples/project_*` | future AOT/package/std consumers | `project_text_normalize_build_copies_real_example_source_tree`, `project_directory_index_build_copies_real_example_source_tree`, `project_release_promote_build_copies_real_example_source_tree`, `project_command_capture_build_copies_real_example_source_tree`, `project_command_batch_build_copies_real_example_source_tree`, `project_option_result_build_copies_real_example_source_tree`, `project_env_result_build_copies_real_example_source_tree`, `project_file_result_build_copies_real_example_source_tree`, `project_process_result_build_copies_real_example_source_tree`, `project_result_pipeline_build_copies_real_example_source_tree` |
 | Std-1 candidate runtime behavior | `axc run examples/project_*` | stdlib users, host-boundary examples | `project_text_normalize_runs_on_controlled_fixture`, `project_directory_index_runs_on_controlled_fixture`, `project_release_promote_runs_on_controlled_fixture`, `project_command_capture_runs_on_controlled_fixture`, `project_command_batch_runs_on_controlled_fixture`, `project_option_result_runs`, `project_env_result_runs`, `project_file_result_runs_on_controlled_fixture`, `project_process_result_runs_on_controlled_fixture`, `project_result_pipeline_runs_on_controlled_fixture` |
 | local path package v0 | `AX.toml [dependencies] alias = { path = ... }` | project organization, future package/AOT consumers | `project_package_config_runs_on_controlled_fixture`, `project_package_config_build_copies_real_example_source_tree`, `project::tests::resolves_local_path_dependency_sources_under_dependency_alias` |
+| `AX.lock` v0 | `axc lock <project> [--check]` | reproducible local package planning, future package/AOT consumers | `project_lock_generates_and_checks_local_path_packages` |
 
 ## Stability Rules
 
@@ -205,6 +206,9 @@ Stable for the current package-interface slice:
 - `axc build` packages dependency sources under `external/<package-root>/...` when the path package lives outside the project tree
 - `build-manifest.json` uses schema version `4` and exposes `local_path_packages` for projects that declare path packages
 - each build-manifest package entry includes `alias`, `root`, `manifest`, `source_count`, and sorted `modules`
+- `axc lock <project>` writes `AX.lock` as stable JSON with schema version `1`
+- `axc lock <project> --check` validates that the checked-in `AX.lock` matches the current local path package graph
+- `AX.lock` v0 records only local path packages: root package name, dependency `alias`, `kind = "path"`, dependency package name, declared path, manifest path, source count, and sorted modules
 - package resolver failures use stable `PX****` text codes before source diagnostics exist:
   - `PX0001`: dependency alias is not a valid AX module root
   - `PX0002`: dependency path is empty, missing, inaccessible, or not a directory
@@ -219,14 +223,14 @@ Allowed to evolve carefully:
 
 - richer package diagnostics
 - package-aware context facts
-- future lockfile fields that can consume the existing `local_path_packages` shape
+- future lockfile fields that extend the existing local path package shape
 - stricter public/private export checking
 
 Not allowed without explicit contract update:
 
 - direct `AX import -> Cargo crate` mapping
 - registry package resolution
-- lockfile semantics
+- registry lockfile semantics or version solving
 - transitive path dependencies
 - version solving
 

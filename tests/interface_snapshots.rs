@@ -6083,6 +6083,95 @@ sources = [\"src\"]
 }
 
 #[test]
+fn project_lock_generates_and_checks_local_path_packages() {
+    let temp = TempDir::new("project-lock-local-path-package");
+    let project_dir = temp.join("app");
+    let package_dir = temp.join("packages").join("rules");
+    fs::create_dir_all(project_dir.join("src")).expect("project src directory should exist");
+    fs::create_dir_all(package_dir.join("src")).expect("package src directory should exist");
+    fs::write(
+        project_dir.join("AX.toml"),
+        "\
+manifest_version = 1
+
+[package]
+name = \"lock_app\"
+entry = \"src/main.ax\"
+
+[dependencies]
+rules = { path = \"../packages/rules\" }
+",
+    )
+    .expect("project manifest should exist");
+    fs::write(
+        package_dir.join("AX.toml"),
+        "\
+manifest_version = 1
+
+[package]
+name = \"rules_pkg\"
+sources = [\"src\"]
+",
+    )
+    .expect("package manifest should exist");
+    fs::write(
+        package_dir.join("src").join("validate.ax"),
+        "module rules.validate;\nfn ok() -> i32 { return 1; }\n",
+    )
+    .expect("package source should exist");
+    fs::write(
+        project_dir.join("src").join("main.ax"),
+        "import rules.validate;\nfn main() -> i32 { return rules.validate.ok(); }\n",
+    )
+    .expect("project entry should exist");
+
+    let output = run_axc([OsStr::new("lock"), project_dir.as_os_str()]);
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "lock should succeed\nstdout:\n{}\nstderr:\n{}",
+        string_output(&output.stdout),
+        string_output(&output.stderr)
+    );
+    assert_clean_stderr(&output);
+
+    let lock_path = project_dir.join("AX.lock");
+    let lock: Value =
+        serde_json::from_str(&fs::read_to_string(&lock_path).expect("AX.lock should be readable"))
+            .expect("AX.lock should be valid JSON");
+    assert_eq!(lock["schema_version"], 1);
+    assert_eq!(lock["package"]["name"], "lock_app");
+    let dependencies = lock["dependencies"]
+        .as_array()
+        .expect("AX.lock dependencies should be an array");
+    assert_eq!(dependencies.len(), 1);
+    assert_eq!(dependencies[0]["alias"], "rules");
+    assert_eq!(dependencies[0]["kind"], "path");
+    assert_eq!(dependencies[0]["package"], "rules_pkg");
+    assert_eq!(dependencies[0]["path"], "../packages/rules");
+    assert_eq!(dependencies[0]["manifest"], "../packages/rules/AX.toml");
+    assert_eq!(dependencies[0]["source_count"], 1);
+    assert_eq!(
+        json_string_array(&dependencies[0]["modules"], "locked package modules"),
+        vec!["rules.validate".to_string()]
+    );
+
+    let check_output = run_axc([
+        OsStr::new("lock"),
+        project_dir.as_os_str(),
+        OsStr::new("--check"),
+    ]);
+    assert_eq!(
+        check_output.status.code(),
+        Some(0),
+        "lock --check should succeed\nstdout:\n{}\nstderr:\n{}",
+        string_output(&check_output.stdout),
+        string_output(&check_output.stderr)
+    );
+    assert_clean_stderr(&check_output);
+}
+
+#[test]
 fn project_collections_report_build_copies_real_example_source_tree() {
     assert_project_example_build_sources(
         "project-collections-report-build",

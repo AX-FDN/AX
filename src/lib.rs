@@ -9,6 +9,7 @@ pub mod frontend;
 pub mod hir;
 pub mod interpreter;
 pub mod lexer;
+pub mod lockfile;
 pub mod mir;
 pub mod parser;
 pub mod project;

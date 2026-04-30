@@ -76,6 +76,8 @@ impl Project {
 #[derive(Debug, Clone)]
 pub struct ResolvedPathDependency {
     alias: String,
+    declared_path: String,
+    package_name: String,
     root_dir: PathBuf,
     manifest_path: PathBuf,
     source_paths: Vec<PathBuf>,
@@ -84,6 +86,14 @@ pub struct ResolvedPathDependency {
 impl ResolvedPathDependency {
     pub fn alias(&self) -> &str {
         &self.alias
+    }
+
+    pub fn declared_path(&self) -> &str {
+        &self.declared_path
+    }
+
+    pub fn package_name(&self) -> &str {
+        &self.package_name
     }
 
     pub fn root_dir(&self) -> &Path {
@@ -338,6 +348,8 @@ fn load_project(manifest_path: &Path) -> Result<Project, String> {
         }
         local_path_dependencies.push(ResolvedPathDependency {
             alias: alias.clone(),
+            declared_path: dependency.path.trim().replace('\\', "/"),
+            package_name: dependency_manifest.package.name.clone(),
             root_dir: dependency_path,
             manifest_path: dependency_manifest_path,
             source_paths: dependency_source_paths,

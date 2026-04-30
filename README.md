@@ -747,7 +747,7 @@ AX 的六层协议上下文，不只是让模型“更快读懂项目”，更�
 - 再以 `P2` 继续推进语言内核与可写项目能力，不把当前阶段误读成“工具语言已经完成”
 - 同步推进 `P1` 的编译器护城河闭环
 - 继续推进 `P3` 的官方最小标准库试点与冻结
-- 本地 path package v0 已启动；AOT、lockfile、registry、自举和生态扩张继续按 [`PLAN.md`](./PLAN.md) 的后续阶段推进
+- 本地 path package v0 与 `AX.lock` v0 已启动；AOT、registry、自举和生态扩张继续按 [`PLAN.md`](./PLAN.md) 的后续阶段推进
 
 ## 快速理解 AX 现在能做什么
 
@@ -839,9 +839,9 @@ fn validate(contents: string) -> std.result.Result<i32, string> {
 }
 ```
 
-这一版只做本地 path package：没有 registry、lockfile、版本求解，也不允许 `AX import -> Cargo crate` 直通。它的意义是先把 AX 自己的代码复用边界建立起来，为后续标准库冻结、AOT、包生态和第三方扩展打地基。
+这一版只做本地 path package 和 `AX.lock` v0：没有 registry、版本求解，也不允许 `AX import -> Cargo crate` 直通。它的意义是先把 AX 自己的代码复用边界建立起来，为后续标准库冻结、AOT、包生态和第三方扩展打地基。
 
-本地包错误已经有稳定 resolver 文本码：`PX0001~PX0007` 覆盖非法 alias、依赖路径缺失、依赖 manifest 缺失、空 sources、模块根冲突、transitive dependency 禁用和重复 source；`context overview/topology` 会在项目使用本地包时输出 `local_path_packages`。
+本地包错误已经有稳定 resolver 文本码：`PX0001~PX0007` 覆盖非法 alias、依赖路径缺失、依赖 manifest 缺失、空 sources、模块根冲突、transitive dependency 禁用和重复 source；`context overview/topology` 会在项目使用本地包时输出 `local_path_packages`。需要锁定当前本地包图时，可以运行 `axc lock <project>` 生成 `AX.lock`，并用 `axc lock <project> --check` 在 CI 或本地验证锁文件是否仍然匹配。
 
 ### 4. 命令行链路
 
@@ -900,6 +900,7 @@ P2 阶段固定样例集合与回归职责见 [`docs/representative-samples.md`]
 | `import ...;`       | 已支持   | entry / support source 显式导入模块                    |
 | `AX.toml + sources` | 已支持   | project-backed 多文件组织主路径                        |
 | `[dependencies] path` | 已支持 | 本地 AX 包接口 v0，依赖别名成为模块根                   |
+| `AX.lock`           | 已支持   | `axc lock <project> [--check]` 锁定本地 path package 图 |
 
 ### 语句能力
 

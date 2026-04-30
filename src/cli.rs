@@ -11,6 +11,7 @@ use crate::diagnostics::render_diagnostics;
 use crate::formatter::format_source;
 use crate::frontend::{analyze_with_project, check_only_with_project};
 use crate::interpreter::{RunContext, run_program_with_context};
+use crate::lockfile::render_lockfile;
 use crate::project::{ResolvedInput, resolve_input};
 
 pub fn run_cli(args: Vec<String>) -> i32 {
@@ -28,6 +29,7 @@ pub fn run_cli(args: Vec<String>) -> i32 {
         "hir" => run_hir(rest),
         "mir" => run_mir(rest),
         "build" => run_build(rest),
+        "lock" => run_lock(rest),
         "run" => run_run(rest),
         "fmt" => run_fmt(rest),
         "context" => run_context_command(rest),
@@ -226,6 +228,66 @@ fn run_build(args: Vec<String>) -> i32 {
     };
 
     println!("build succeeded: {}", result.manifest_path.display());
+    0
+}
+
+fn run_lock(args: Vec<String>) -> i32 {
+    let options = match parse_lock_args(args) {
+        Ok(options) => options,
+        Err(error) => {
+            eprintln!("{error}\nusage: axc lock <project> [--check]");
+            return 2;
+        }
+    };
+
+    let input = match load_input(&options.file) {
+        Ok(input) => input,
+        Err(error) => {
+            eprintln!("{error}");
+            return 1;
+        }
+    };
+    let Some(project) = input.project.as_ref() else {
+        eprintln!("axc lock requires a project directory or AX.toml path");
+        return 2;
+    };
+
+    let lockfile_text = match render_lockfile(project) {
+        Ok(text) => text,
+        Err(error) => {
+            eprintln!("{error}");
+            return 1;
+        }
+    };
+    let lockfile_path = project.root_dir().join("AX.lock");
+
+    if options.check {
+        let current = match fs::read_to_string(&lockfile_path) {
+            Ok(text) => text,
+            Err(error) => {
+                eprintln!(
+                    "AX.lock is missing or unreadable at {}: {error}",
+                    lockfile_path.display()
+                );
+                return 1;
+            }
+        };
+        if current != lockfile_text {
+            eprintln!("AX.lock is out of date: {}", lockfile_path.display());
+            return 1;
+        }
+        println!("AX.lock is up to date: {}", lockfile_path.display());
+        return 0;
+    }
+
+    if let Err(error) = fs::write(&lockfile_path, lockfile_text) {
+        eprintln!(
+            "failed to write AX.lock {}: {error}",
+            lockfile_path.display()
+        );
+        return 1;
+    }
+    println!("wrote AX.lock: {}", lockfile_path.display());
     0
 }
 
@@ -469,6 +531,7 @@ Commands:
   hir <path>               Print stable HIR JSON
   mir <path>               Print stable MIR JSON
   build <path> [--out-dir <path>]   Emit the build skeleton artifacts for the native backend stage
+  lock <project> [--check] Generate or validate AX.lock for local path packages
   run <path> [--json] [--ai] [--ai-session <path>] [-- <args...>]   Execute the minimal interpreter
   fmt <path>               Rewrite the file or project sources to the canonical AX format
   context <overview|boundaries|topology|flow> <path> [--json]
@@ -496,6 +559,12 @@ struct CheckOptions {
 struct BuildCliOptions {
     file: PathBuf,
     out_dir: Option<PathBuf>,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+struct LockCliOptions {
+    file: PathBuf,
+    check: bool,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -688,6 +757,29 @@ fn parse_build_args(args: Vec<String>) -> Result<BuildCliOptions, String> {
     Ok(BuildCliOptions { file, out_dir })
 }
 
+fn parse_lock_args(args: Vec<String>) -> Result<LockCliOptions, String> {
+    let mut file = None;
+    let mut check = false;
+
+    for arg in args {
+        match arg.as_str() {
+            "--check" => check = true,
+            _ if file.is_none() => {
+                file = Some(PathBuf::from(arg));
+            }
+            _ => {
+                return Err(format!("unexpected argument `{arg}`"));
+            }
+        }
+    }
+
+    let Some(file) = file else {
+        return Err("missing input project for `axc lock`".to_string());
+    };
+
+    Ok(LockCliOptions { file, check })
+}
+
 fn parse_context_args(args: Vec<String>) -> Result<ContextOptions, String> {
     let Some((view, rest)) = args.split_first() else {
         return Err("missing context view for `axc context`".to_string());
@@ -755,8 +847,9 @@ fn load_input(path: &Path) -> Result<ResolvedInput, String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        BuildCliOptions, CheckOptions, ContextOptions, RunOptions, parse_build_args,
-        parse_check_args, parse_context_args, parse_run_args, render_check_success,
+        BuildCliOptions, CheckOptions, ContextOptions, LockCliOptions, RunOptions,
+        parse_build_args, parse_check_args, parse_context_args, parse_lock_args, parse_run_args,
+        render_check_success,
     };
     use crate::context::ContextView;
     use std::path::PathBuf;
@@ -826,6 +919,29 @@ mod tests {
         let error = parse_build_args(vec!["--out-dir".to_string(), "build/hello".to_string()])
             .expect_err("build arguments should be rejected");
         assert!(error.contains("missing input file for `axc build`"));
+    }
+
+    #[test]
+    fn parses_lock_check_options() {
+        let options = parse_lock_args(vec![
+            "examples/project_package_config".to_string(),
+            "--check".to_string(),
+        ])
+        .expect("lock arguments should parse");
+
+        assert_eq!(
+            options,
+            LockCliOptions {
+                file: PathBuf::from("examples/project_package_config"),
+                check: true,
+            }
+        );
+    }
+
+    #[test]
+    fn rejects_lock_without_project() {
+        let error = parse_lock_args(Vec::new()).expect_err("lock arguments should be rejected");
+        assert!(error.contains("missing input project for `axc lock`"));
     }
 
     #[test]
