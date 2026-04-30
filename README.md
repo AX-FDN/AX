@@ -52,6 +52,40 @@ AX 关注的不只是“模型能不能写出代码”，更关注三件更硬�
 | 现在具体在做什么            | [`WORKLIST.md`](./WORKLIST.md)                                     |
 | 哪些事情已经做完            | [`ARCHIVE.md`](./ARCHIVE.md)                                       |
 
+## Web 与社区门户
+
+AX 已经开始把 `web/` 从单一前端 demo 升级成语言项目的对外门户。
+它不是编译器主线的一部分，而是 AX 对外展示、社区入口和 AI-readable docs 的承载层。
+
+当前 `web/` 包含：
+
+- 官网首页：用更直观的方式说明 AX 是什么、适合什么场景、为什么围绕 Coding AI 设计
+- Docs 入口：把 quickstart、语言指南、AI 协议、编译器内部结构和验证矩阵组织成清晰入口
+- Packages catalog v0：先展示官方 `std.*` 试点模块和代表性 project-backed 样例，后续包系统成熟后再升级成真正 registry
+- Benchmarks 展示：把 repair benchmark、smoke、deterministic replay 和 Repair Archaeology 作为对外证据入口
+- Repair Workbench：展示同一个坏例子在 cold / base / ai 三档反馈下的差异
+- Context 展示：说明 `overview / boundaries / topology / flow / symbol / impact / evidence` 这套架构上下文协议
+- Download / platform 入口：把 Windows、Linux、macOS 的支持层级讲清楚
+- AI-readable docs：`/llms.txt` 与 `/llms-full.txt`，方便搜索引擎和 Coding AI 正确理解 AX
+
+当前公网预览：
+
+```text
+http://101.37.238.42
+```
+
+域名 `ax-language.top` 已经解析到当前服务器，但因为服务器在中国内地 ECS 上，正式域名访问需要等待 ICP 备案放行。
+备案完成前，公网 IP 预览可用于页面调试、社区文案迭代和截图展示。
+
+这一层的目标不是提前伪装成成熟生态，而是先让外部用户、贡献者和 AI 搜索都能看到 AX 的完整形态：
+
+- AX 是一门语言
+- AX 有文档入口
+- AX 有标准库和包目录的雏形
+- AX 有 benchmark 与 repair 证据链
+- AX 有 agent 可消费的上下文协议
+- AX 正在从工具语言走向后端可用语言
+
 当前仓库的主推进区间仍然是 `P0-P3`，其中 `P2` 是语言内核主增长线，`P1` 是编译器护城河硬化线：
 
 - `P0` 继续收紧环境与外部契约
@@ -1160,7 +1194,7 @@ AX 希望最终回答的是：
 - [`docs/platform-support.md`](./docs/platform-support.md)
   平台支持分层说明
 - [`web/`](./web/)
-  Repair Workbench 前端入口，用于展示 benchmark 指标、same-case repair demo、cold/base/ai 对比和稳定接口卡片
+  AX 语言门户与 Repair Workbench，用于展示官网首页、Docs、Packages catalog v0、benchmark、context、download、AI-readable docs 和 same-case repair demo
 
 ## 文档导航
 
