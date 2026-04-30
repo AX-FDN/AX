@@ -41,7 +41,7 @@
 - `P0` 是地基修复层，当前只剩入口口径收口
 - `P1` 是编译器护城河同步硬化层，当前 context / benchmark / public claims 已完成，下一轮增长点登记为 `Repair Archaeology v0`
 - `P2` 是语言内核主施工层，当前代表样例、宿主边界和语法优先级已完成冻结
-- `P3` 是第一版标准库冻结试点层，当前已完成 `project_text_normalize`、`project_directory_index`、`project_release_promote`、`project_command_capture`、`project_command_batch`、`project_option_result`、`project_env_result`、`project_file_result`、`project_process_result`、`project_result_pipeline`、`project_config_validate`、`project_collections_report` 十二组 `std.*` 迁移/压力试点
+- `P3` 是第一版标准库冻结试点层，当前已完成 `project_text_normalize`、`project_directory_index`、`project_release_promote`、`project_command_capture`、`project_command_batch`、`project_option_result`、`project_env_result`、`project_file_result`、`project_process_result`、`project_result_pipeline`、`project_config_validate`、`project_collections_report`、`project_job_runner` 十三组 `std.*` 迁移/压力试点
 
 ## 状态说明
 
@@ -59,7 +59,7 @@
 - `P1` 的 context-enabled repair export、benchmark 展示页和公开口径边界已经成立
 - `P2` 当前出口已经完成，语言内核主代表样例、宿主边界样例、第一项 `match` 语法线和 `Result` 错误传播 `?` 第一版已经进入回归
 - `P3` 前置边界已经完成，`project_text_normalize` 已作为第一组 `foundation -> std.*` 迁移试点完成第一轮闭环
-- 当前 `P0 / P1 / P2` 本轮出口均已完成，`P3` 已完成十二组样例迁移/压力试点，`std.process / std.env` 已通过宿主边界样例验证，`std.env.try_get`、读侧 `std.fs.try_*` 与状态型 `std.process.try_*` 已启动 Result 风格宿主边界试点，`project_result_pipeline` 已把这些接口组合成 `Result` 错误传播 `?` 的真实压力样例，`project_config_validate` 已把宿主 string 错误显式转换为项目级 error enum，`project_collections_report` 已把宿主 `string_list_*` 收口到 `std.collections` 源码级包装，`std.option / std.result` 已通过跨模块泛型 enum smoke 验证，`project_payload_event_report` 已把 payload enum 深化推进到 project-backed 多文件工具样例，第一版 `std.*` 冻结候选清单已收口
+- 当前 `P0 / P1 / P2` 本轮出口均已完成，`P3` 已完成十三组样例迁移/压力试点，`std.process / std.env` 已通过宿主边界样例验证，`std.env.try_get`、读侧 `std.fs.try_*` 与状态型 `std.process.try_*` 已启动 Result 风格宿主边界试点，`project_result_pipeline` 已把这些接口组合成 `Result` 错误传播 `?` 的真实压力样例，`project_config_validate` 已把宿主 string 错误显式转换为项目级 error enum，`project_collections_report` 已把宿主 `string_list_*` 收口到 `std.collections` 源码级包装，`project_job_runner` 已把本地 path package v0、`AX.lock`、`std.process / std.env / std.result` 放进 worker 风格后端负载，`std.option / std.result` 已通过跨模块泛型 enum smoke 验证，`project_payload_event_report` 已把 payload enum 深化推进到 project-backed 多文件工具样例，第一版 `std.*` 冻结候选清单已收口
 
 当前优先级顺序固定为：
 
@@ -77,13 +77,14 @@
    - `project_config_validate` 已验证项目级 `ConfigError` enum、显式错误转换 helper 和 `?` 可以组合成真实配置校验工具
    - `project_collections_report` 已验证 `std.collections` 对 `string_list` 的最小源码级包装、读取和查询能力可以承载真实报告工具
    - `project_package_config` 已验证本地 path package v0 可以把项目私有 AX 包接入 `check / run / build` 链路
+   - `project_job_runner` 已验证本地 path package v0、`AX.lock`、包图 readiness 与 worker/job runner 负载可以接入 `check / run / build / lock / context evidence`
    - `std.*` 第一版接口冻结候选已收口，冻结候选验证入口与文档入口已补强
    - 继续保持 `foundation/` 作为未迁移样例的 Std-0 孵化层
 2. P5 已启动本地 path package v0 与 `AX.lock` v0；暂不启动 P4 AOT、JIT、自举、registry 或三方库桥接
 3. 下一步在 package-aware context/diagnostics、lockfile 校验链与 `Repair Archaeology v0` 之间选择；如果继续后端语言扩张，优先补包生态基础设施，不启动 Live Repair Stream、真实 LLM 或 UI
 4. 任何下一轮实现都必须继续回写 examples、diagnostics、context、repair/benchmark 或 interface snapshots
 
-当前判断：P1 这一轮的基础链路已经完成，P3 的十二组 Std-1 迁移/压力试点、冻结候选和验证入口也已经收口；P5 已先落地本地 path package v0 和 `AX.lock` v0，用 `project_package_config` 与 lockfile smoke 证明 AX 包复用边界可以进入 `check / run / build / lock`。`PX****` 与 `LX****` 已继续补强为稳定错误码、package graph drift 详情、`repair_rule / repair_goal / fixit` 和 context issues 暴露；`context evidence` 与 `build-manifest.json` 已进一步输出 `package_graph_readiness`，用于判断包图是否可复现、是否阻塞 AOT 前置。错误传播语法已以 `project_result_pipeline` 暴露出的显式 `Result + match` 成本为输入，落地为最小 `expr?`，并通过 `project_config_validate` 开始验证项目级 error enum；集合能力先以 `std.collections` 包装 `string_list` 并提供最小读取/查询，不提前承诺泛型 list/map；payload enum 深化已通过 `project_payload_event_report` 进入多文件 project-backed workload。下一步如果继续后端语言扩张，优先补 package-aware context/diagnostics 或 lockfile 校验链；如果继续语言内核，优先评估更结构化的错误层级和泛型 trait 前置需求。
+当前判断：P1 这一轮的基础链路已经完成，P3 的十三组 Std-1 迁移/压力试点、冻结候选和验证入口也已经收口；P5 已先落地本地 path package v0 和 `AX.lock` v0，用 `project_package_config` 与 `project_job_runner` 证明 AX 包复用边界可以进入 `check / run / build / lock / context evidence`。`PX****` 与 `LX****` 已继续补强为稳定错误码、package graph drift 详情、`repair_rule / repair_goal / fixit` 和 context issues 暴露；`context evidence` 与 `build-manifest.json` 已进一步输出 `package_graph_readiness`，用于判断包图是否可复现、是否阻塞 AOT 前置。错误传播语法已以 `project_result_pipeline` 暴露出的显式 `Result + match` 成本为输入，落地为最小 `expr?`，并通过 `project_config_validate` 开始验证项目级 error enum；集合能力先以 `std.collections` 包装 `string_list` 并提供最小读取/查询，不提前承诺泛型 list/map；payload enum 深化已通过 `project_payload_event_report` 进入多文件 project-backed workload。下一步如果继续后端语言扩张，优先补 package-aware context/diagnostics 或 lockfile 校验链；如果继续语言内核，优先评估更结构化的错误层级和泛型 trait 前置需求。
 
 ## 阶段承接图
 
@@ -773,7 +774,7 @@
     - `project_command_batch` 的 `check / run / build` 和对应 interface snapshots 通过
 
 - [x] `W-P3-14` 收口第一版 `std.*` 冻结候选清单
-  - 目标：前五组迁移试点完成后，先判断哪些接口可以进入 Std-1 冻结候选，哪些仍留在 `foundation/` 继续孵化；后续第六到第十二组试点继续验证 `Option / Result`、项目级错误 enum、`std.collections` 与宿主边界组合，不盲目扩大 Std-1 命名空间。
+  - 目标：前五组迁移试点完成后，先判断哪些接口可以进入 Std-1 冻结候选，哪些仍留在 `foundation/` 继续孵化；后续第六到第十三组试点继续验证 `Option / Result`、项目级错误 enum、`std.collections`、本地 path package worker 负载与宿主边界组合，不盲目扩大 Std-1 命名空间。
   - 依赖：`W-P3-07` 到 `W-P3-13`
   - 当前结果：
     - `docs/stdlib-minimal-boundary.md` 已写清 `std.cli / std.collections / std.env / std.fs / std.path / std.process / std.report / std.text / std.workspace` 的 Std-1 冻结候选接口
@@ -860,7 +861,7 @@
     - 样例组合消费 `std.fs.try_read_to_string`、`std.env.try_get`、`std.process.try_status_in`、`std.result`、`std.report`、`std.path` 和 `std.cli`
     - 输出稳定 `RESULT-PIPELINE.txt`，记录输入长度、环境变量可用性、进程状态和缺失文件错误
     - interface snapshots 覆盖 `check / run / build source tree`
-    - `docs/stdlib-minimal-boundary.md`、`docs/validation-matrix.md`、`docs/interface-contracts.md`、`PROJECT_FACTS.md` 与 `SYNTAX.md` 已同步十二组样例口径
+    - `docs/stdlib-minimal-boundary.md`、`docs/validation-matrix.md`、`docs/interface-contracts.md`、`PROJECT_FACTS.md` 与 `SYNTAX.md` 已同步十三组样例口径
   - 当前不做：
     - 不引入异常系统或结构化错误类型
     - 不引入 `try_capture_in`

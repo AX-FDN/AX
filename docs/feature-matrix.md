@@ -16,7 +16,7 @@
 | `P0` 环境与契约修复 | `[~]` 文档治理与契约治理已基本收口，Windows GNU 本地验证路径已固定，剩余工作在验证矩阵与快照契约 |
 | `P1` 编译器护城河 | `[x]` repair/context/benchmark 已进入主线，context-enabled export、benchmark showcase 与公开口径边界已成立 |
 | `P2` 语言内核 / 可写项目能力 | `[~]` 已进入后段，但不等于“工具语言完成”；当前仍在继续补齐支撑标准库、后端与 AI 生成稳定性的通用语言表面，payload enum 已开始进入 project-backed workload |
-| `P3` 官方最小标准库 | `[~]` 已启动第一批 `std.*` AX 源码模块，已完成十二组 project-backed 迁移/压力试点，并已收口 Std-1 冻结候选清单；尚未全仓冻结 |
+| `P3` 官方最小标准库 | `[~]` 已启动第一批 `std.*` AX 源码模块，已完成十三组 project-backed 迁移/压力试点，并已收口 Std-1 冻结候选清单；尚未全仓冻结 |
 | `P4+` AOT / 包接口 / 自举 / 生态 | `[~]` 本地 path package v0 与 `AX.lock` v0 已启动；AOT、registry、自举和生态仍按 `PLAN.md` 后续阶段推进 |
 
 ## 总览
@@ -54,7 +54,7 @@
 | runtime 高频错误稳定化 | `[~]` | 数组越界、除零、可读文件/目录、argv/env/process 一批误用已接 AI 规则 | runtime 还在持续硬化，不代表 host boundary 已完全收口 | `src/interpreter.rs` `src/ai.rs` |
 | context 协议 | `[x]` | `overview / boundaries / topology / flow / symbol / impact / evidence`，并可通过 `-IncludeContext` 进入 repair export | 当前完成的是输入链路，live-model A/B 收益仍需后续证明 | `src/context.rs` `docs/interface-contracts.md` |
 | 语言表面 | `[~]` | 基础函数、显式类型、数组、slice、struct、enum、泛型结构体/函数/enum、trait/interface、trait bounds、静态方法、泛型方法、for、match、module/import 第一刀 | 不含 async、异常、宏、泛型 trait、闭包 | `SYNTAX.md` |
-| 项目组织 | `[~]` | `AX.toml + sources`、project-backed 样例、共享 `foundation/` 与第一批 `std/` 试点、本地 path package v0、`AX.lock` v0 | 当前不是成熟 registry/版本求解系统 | `examples/project_*/` `examples/project_package_config/` |
+| 项目组织 | `[~]` | `AX.toml + sources`、project-backed 样例、共享 `foundation/` 与第一批 `std/` 试点、本地 path package v0、`AX.lock` v0 | 当前不是成熟 registry/版本求解系统 | `examples/project_*/` `examples/project_package_config/` `examples/project_job_runner/` |
 | 模块系统 | `[~]` | support source 模块路径、重复模块 / import、缺 import 等诊断已存在 | 当前是 minimal module mode，不是完整 package/visibility 系统 | `docs/import-module-minimal-design.md` |
 | 共享基础层 | `[~]` | `foundation/cli.ax`、`report.ax`、`search.ax`、`workspace.ax` 等，以及第一批 `std/cli.ax`、`env.ax`、`fs.ax`、`option.ax`、`path.ax`、`process.ax`、`report.ax`、`result.ax`、`text.ax`、`workspace.ax` | `std/` 仍是试点，不是全仓冻结后的完整标准库 | `foundation/` `std/` |
 | benchmark 方法 | `[x]` | repair case、导出、评分、对比、smoke、CI、公开展示页 | 这不是“以后再补”的附件，而是语言主线的验证层；跨语言/live-model 对照仍是后续工作 | `docs/benchmark-showcase.md` `docs/repair-benchmark.md` |
@@ -62,7 +62,7 @@
 | 对外平台支持 | `[~]` | Windows 路径已较完整，Linux 有 quickstart 与核心链路说明 | 仍应按文档与 CI 事实表述，不宜夸成“全平台成熟” | `docs/platform-support.md` |
 | `build` | `[~]` | 可导出构建骨架产物，`context evidence` 会暴露 `build_readiness` | 当前不是成熟 native compiler，更不是已完成后端 | `src/build.rs` `src/context.rs` |
 | AOT / JIT | `[ ]` | 尚未进入主线 | 只有在 `P4` 才正式启动 | `PLAN.md` |
-| 包接口 / 第三方库 | `[~]` | 本地 path package v0 已进入主线：`[dependencies] alias = { path = ... }` 会把本地 AX 包源码加载为 `alias.*` 模块；resolver 错误已有 `PX0001~PX0007` 稳定文本码和 `repair_rule / repair_goal / fixit`，context 与 build manifest 可暴露 `local_path_packages`，`axc lock` 可生成/校验 `AX.lock` v0；`axc lock --check` 已有 `LX0001~LX0004` 稳定文本码、package graph drift 详情和 AI-facing repair hints；`context evidence` 和 `build-manifest.json` 都会输出 `package_graph_readiness` 说明包图是否可复现、是否阻塞 AOT 前置 | 仍不是 registry、版本求解、host extension ABI 或 `AX import -> Cargo crate` 直通桥 | `src/project.rs` `src/build.rs` `src/lockfile.rs` `src/context.rs` `examples/project_package_config/` |
+| 包接口 / 第三方库 | `[~]` | 本地 path package v0 已进入主线：`[dependencies] alias = { path = ... }` 会把本地 AX 包源码加载为 `alias.*` 模块；resolver 错误已有 `PX0001~PX0007` 稳定文本码和 `repair_rule / repair_goal / fixit`，context 与 build manifest 可暴露 `local_path_packages`，`axc lock` 可生成/校验 `AX.lock` v0；`axc lock --check` 已有 `LX0001~LX0004` 稳定文本码、package graph drift 详情和 AI-facing repair hints；`context evidence` 和 `build-manifest.json` 都会输出 `package_graph_readiness` 说明包图是否可复现、是否阻塞 AOT 前置 | 仍不是 registry、版本求解、host extension ABI 或 `AX import -> Cargo crate` 直通桥 | `src/project.rs` `src/build.rs` `src/lockfile.rs` `src/context.rs` `examples/project_package_config/` `examples/project_job_runner/` |
 | 自举准备 | `[ ]` | 已有长期路线与关卡条件 | 现在不应被当成当前 KPI 或宣传口径 | `PLAN.md` |
 
 ## 当前语法面矩阵
@@ -91,6 +91,7 @@
 - 当前 `foundation/` 仍是 Std-0 孵化层。
 - 当前 `std/` 已经有第一批 AX 源码模块，并由 `project_text_normalize`、`project_directory_index`、`project_release_promote`、`project_command_capture`、`project_command_batch`、`project_option_result`、`project_env_result`、`project_file_result`、`project_process_result` 与 `project_result_pipeline` 消费。
 - `project_payload_event_report` 已补上语言能力压力样例：payload enum 跨模块进入数组、`match`、报告生成和 `check / run / build` 回归。
+- `project_job_runner` 已补上 package-backed 后端 worker 样例：本地 path package、`AX.lock`、`Result`、`std.process`、`std.env` 与 build/context package readiness 进入同一条回归链。
 - Std-1 冻结候选清单已经收口到 `std.cli / std.collections / std.env / std.fs / std.option / std.path / std.process / std.report / std.result / std.text / std.workspace`，但这不等于完整标准库已经冻结。
 - 泛型 `std.collections`、`std.search`、网络、并发和第三方包接口仍然后置；当前 `std.collections` 只冻结 `string_list` 的最小包装。
 

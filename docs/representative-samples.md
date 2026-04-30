@@ -6,10 +6,11 @@
 ## 为什么固定样例集合
 
 AX 现在需要用少量稳定 workload 验证语言内核，而不是继续堆更多分散 demo。
-P2 阶段的样例分两类：
+P2/P3 交界阶段的样例分三类：
 
 - 主代表样例：验证 AX 是否能写真实工具程序。
 - 宿主边界样例：验证 AX 通过宿主能力访问 `process / env / path / fs` 时是否稳定。
+- 包接口压力样例：验证本地 AX 包、`AX.lock`、标准库和 worker 风格入口能否组合成更接近后端任务的 workload。
 
 新增语法、基础库 helper、宿主 builtin 或诊断规则时，优先看这些样例是否真的受益。
 
@@ -33,11 +34,22 @@ P2 阶段的样例分两类：
 这两组样例专门承接宿主能力边界。
 如果未来改 `process_*`、`env_*`、`path_*`、`fs_*` builtin，必须优先确认这两组样例没有回退。
 
+## 包接口压力样例
+
+| 样例 | 主要职责 | 当前回归 |
+| --- | --- | --- |
+| [`../examples/project_package_config/`](../examples/project_package_config/) | 本地 path package v0、包内规则模块、配置校验报告、build manifest package graph | `check / run / build / context` |
+| [`../examples/project_job_runner/`](../examples/project_job_runner/) | 本地 path package v0、`AX.lock`、worker/job runner 入口、`std.process / std.env / std.result` 组合 | `check / run / build / lock / context` |
+
+这两组样例承接“AX 包接口优先”的路线：用户依赖的是 AX 包模块，不是直接导入 Rust crate。
+如果未来改 `[dependencies]`、`AX.lock`、package graph readiness、build manifest 或 context package facts，必须优先确认这两组样例没有回退。
+
 ## 当前 P2 使用规则
 
 - 新增语言能力时，先判断它是否能让上述样例更稳定、更短、更可诊断。
 - 新增 helper 时，先判断它是主代表样例复用出来的能力，还是一次性 glue。
 - 新增宿主 builtin 时，必须能落到宿主边界样例或对应 runtime diagnostics。
+- 新增包接口能力时，必须能落到包接口压力样例，并同步 `AX.lock`、context evidence 与 build manifest 契约。
 - 新增 diagnostics / AI rule 时，优先让它能解释这些样例里的真实失败方式。
 
 ## 语言能力压力样例

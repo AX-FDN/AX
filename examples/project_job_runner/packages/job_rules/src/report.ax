@@ -1,0 +1,14 @@
+module job_rules.report;
+
+import job_rules.jobs;
+import std.report;
+
+fn append_job_result(report: string, index: i32, job: job_rules.jobs.JobSpec, exit_code: i32, env_ready: bool) -> string {
+    let mut next: string = report;
+    let prefix: string = "job_" + to_string(index);
+    next = std.report.append_string_stat(next, prefix + "_name", job.name);
+    next = std.report.append_string_stat(next, prefix + "_kind", job_rules.jobs.job_kind_label(job.kind));
+    next = std.report.append_int_stat(next, prefix + "_exit", exit_code);
+    next = std.report.append_bool_stat(next, prefix + "_env_ready", env_ready);
+    return next;
+}

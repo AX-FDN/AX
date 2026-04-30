@@ -880,6 +880,7 @@ P2 阶段固定样例集合与回归职责见 [`docs/representative-samples.md`]
 | [`examples/project_config_validate/`](./examples/project_config_validate/)     | 配置文件校验与项目级错误 enum        | 把宿主 IO 错误显式转换为 `ConfigError`，再用 `?` 传播到真实 CLI 工具    |
 | [`examples/project_collections_report/`](./examples/project_collections_report/) | 最小集合报告工具                     | `std.collections` 对 `string_list` 的官方源码级包装已进入 project-backed workload |
 | [`examples/project_package_config/`](./examples/project_package_config/)       | 本地 AX 包复用的配置校验工具         | `[dependencies] path` 与 `AX.lock` 能把项目私有规则包接入主项目、check/run/build/lock 回归链 |
+| [`examples/project_job_runner/`](./examples/project_job_runner/)               | 本地 AX 包复用的后端 job runner      | path package、`AX.lock`、`Result`、`std.process`、`std.env` 和 build package readiness 进入同一个 worker-style workload |
 | [`examples/project_payload_event_report/`](./examples/project_payload_event_report/) | payload enum 事件报告工具            | payload enum 已能跨 project support modules 进入 `match`、数组、报告生成和 `check/run/build` 回归 |
 | [`examples/project_text_normalize/`](./examples/project_text_normalize/)       | 文本读取、重写、输出报告             | 第一批 `std.cli / std.fs / std.path / std.report / std.text` 试点样例   |
 | [`examples/project_module_smoke/`](./examples/project_module_smoke/)           | 第一阶段模块模式 smoke 工程          | `import/module` 已经进入主线验证链                                      |

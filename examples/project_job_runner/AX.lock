@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "package": {
+    "name": "project_job_runner"
+  },
+  "dependencies": [
+    {
+      "alias": "job_rules",
+      "kind": "path",
+      "package": "job_rules",
+      "path": "packages/job_rules",
+      "manifest": "packages/job_rules/AX.toml",
+      "source_count": 2,
+      "modules": [
+        "job_rules.jobs",
+        "job_rules.report"
+      ]
+    }
+  ]
+}

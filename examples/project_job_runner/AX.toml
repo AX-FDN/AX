@@ -1,0 +1,9 @@
+manifest_version = 1
+
+[package]
+name = "project_job_runner"
+entry = "src/main.ax"
+sources = ["../../std"]
+
+[dependencies]
+job_rules = { path = "packages/job_rules" }

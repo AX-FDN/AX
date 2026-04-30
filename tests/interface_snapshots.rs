@@ -3566,6 +3566,7 @@ fn representative_project_examples_check_cleanly() {
         "examples/project_config_validate",
         "examples/project_collections_report",
         "examples/project_package_config",
+        "examples/project_job_runner",
     ] {
         assert_project_example_checks(example_path);
     }
@@ -5974,6 +5975,20 @@ fn project_package_config_build_copies_real_example_source_tree() {
 }
 
 #[test]
+fn project_job_runner_build_copies_real_example_source_tree() {
+    let mut expected_sources = vec![
+        "packages/job_rules/src/jobs.ax".to_string(),
+        "packages/job_rules/src/report.ax".to_string(),
+    ];
+    expected_sources.extend(project_sources_with_shared_std(&["src/main.ax"]));
+    assert_project_example_build_sources(
+        "project-job-runner-build",
+        "examples/project_job_runner",
+        &expected_sources,
+    );
+}
+
+#[test]
 fn project_package_config_build_manifest_exposes_local_path_package() {
     let temp = TempDir::new("project-package-config-build-manifest");
     let out_dir = temp.join("build-out");
@@ -6024,6 +6039,96 @@ fn project_package_config_build_manifest_exposes_local_path_package() {
         .iter()
         .any(|reason| reason.contains("local path package linking")),
         "build manifest should keep package graph out of AOT-ready state"
+    );
+}
+
+#[test]
+fn project_job_runner_runs_on_controlled_fixture() {
+    let temp = TempDir::new("project-job-runner");
+    let output_dir = temp.join("out");
+
+    let output = run_axc([
+        OsStr::new("run"),
+        OsStr::new("examples/project_job_runner"),
+        OsStr::new("--"),
+        repo_root().as_os_str(),
+        output_dir.as_os_str(),
+    ]);
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "job runner should succeed\nstdout:\n{}\nstderr:\n{}",
+        string_output(&output.stdout),
+        string_output(&output.stderr)
+    );
+    assert_clean_stderr(&output);
+    assert_eq!(
+        normalize_temp_output(&string_output(&output.stdout), &temp),
+        "job_runner_report=<root>/out/JOB-RUNNER.txt\n"
+    );
+
+    let report =
+        fs::read_to_string(output_dir.join("JOB-RUNNER.txt")).expect("job report should exist");
+    assert_eq!(
+        normalize_text(&report),
+        "job_runner=local_path_package\njob_0_name=check\njob_0_kind=check\njob_0_exit=0\njob_0_env_ready=true\njob_1_name=package\njob_1_kind=package\njob_1_exit=0\njob_1_env_ready=true\njob_2_name=publish\njob_2_kind=publish\njob_2_exit=0\njob_2_env_ready=true\nfailure_count=0\npackage_backed=true\n"
+    );
+}
+
+#[test]
+fn project_job_runner_lock_and_context_expose_package_graph() {
+    let check_output = run_axc([
+        OsStr::new("lock"),
+        OsStr::new("examples/project_job_runner"),
+        OsStr::new("--check"),
+    ]);
+    assert_eq!(
+        check_output.status.code(),
+        Some(0),
+        "lock --check should succeed\nstdout:\n{}\nstderr:\n{}",
+        string_output(&check_output.stdout),
+        string_output(&check_output.stderr)
+    );
+    assert_clean_stderr(&check_output);
+
+    let evidence_output = run_axc([
+        OsStr::new("context"),
+        OsStr::new("evidence"),
+        OsStr::new("examples/project_job_runner"),
+        OsStr::new("main"),
+        OsStr::new("--json"),
+    ]);
+    assert_eq!(
+        evidence_output.status.code(),
+        Some(0),
+        "context evidence should succeed\nstdout:\n{}\nstderr:\n{}",
+        string_output(&evidence_output.stdout),
+        string_output(&evidence_output.stderr)
+    );
+    assert_clean_stderr(&evidence_output);
+    let evidence: Value =
+        serde_json::from_slice(&evidence_output.stdout).expect("evidence should be JSON");
+    assert_eq!(evidence["facts"]["local_package_lock"]["status"], "current");
+    assert_eq!(
+        evidence["facts"]["package_graph_readiness"]["package_mode"],
+        "local_path_v0"
+    );
+    assert_eq!(
+        evidence["facts"]["package_graph_readiness"]["reproducible"],
+        Value::Bool(true)
+    );
+    assert_eq!(
+        evidence["facts"]["package_graph_readiness"]["aot_ready"],
+        Value::Bool(false)
+    );
+    assert!(
+        json_string_array(
+            &evidence["facts"]["package_graph_readiness"]["blocking_reasons"],
+            "package graph readiness blocking reasons"
+        )
+        .iter()
+        .any(|reason| reason.contains("AOT")),
+        "context evidence should keep local packages out of AOT-ready state"
     );
 }
 

@@ -1,0 +1,59 @@
+import job_rules.jobs;
+import job_rules.report;
+import std.cli;
+import std.env;
+import std.fs;
+import std.path;
+import std.process;
+import std.report;
+import std.result;
+
+fn run_jobs(work_dir: string, output_dir: string) -> std.result.Result<string, string> {
+    std.fs.create_dir_all(output_dir);
+
+    let jobs: [job_rules.jobs.JobSpec; 3] = job_rules.jobs.default_jobs();
+    let mut report: string = "job_runner=local_path_package";
+    let mut failures: i32 = 0;
+
+    for (let mut i: i32 = 0; i < len(jobs); i = i + 1) {
+        let job: job_rules.jobs.JobSpec = jobs[i];
+        job_rules.jobs.validate_job(job)?;
+
+        let env_ready: bool = string_len(job.required_env) == 0 || std.env.has(job.required_env);
+        let status: std.result.Result<std.process.ProcessStatus, string> = std.process.try_status_in(work_dir, job.command);
+        let status_value: std.process.ProcessStatus = status?;
+        if (!status_value.success) {
+            failures = failures + 1;
+        }
+        if (!env_ready) {
+            failures = failures + 1;
+        }
+        report = job_rules.report.append_job_result(report, i, job, status_value.code, env_ready);
+    }
+
+    report = std.report.append_int_stat(report, "failure_count", failures);
+    report = std.report.append_bool_stat(report, "package_backed", true);
+    let report_path: string = std.path.join(output_dir, "JOB-RUNNER.txt");
+    std.fs.write_string(report_path, report + "\n");
+    return std.result.Result.ok(report_path);
+}
+
+fn main() -> i32 {
+    let args_status: i32 = std.cli.require_min_args(argv_len(), 2, "examples/project_job_runner", "<work_dir> <output_dir>");
+    if (args_status != 0) {
+        return args_status;
+    }
+
+    let result: std.result.Result<string, string> = run_jobs(argv_get(0), argv_get(1));
+    match (result) {
+        std.result.Result.Ok(report_path) => {
+            println("job_runner_report=" + report_path);
+            return 0;
+        }
+        std.result.Result.Err(message) => {
+            println("job_runner_error=" + message);
+            return 1;
+        }
+    }
+    return 1;
+}

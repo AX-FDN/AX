@@ -1,0 +1,5 @@
+manifest_version = 1
+
+[package]
+name = "job_rules"
+sources = ["src"]

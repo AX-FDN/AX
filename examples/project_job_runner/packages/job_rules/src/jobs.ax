@@ -1,0 +1,47 @@
+module job_rules.jobs;
+
+import std.result;
+
+enum JobKind {
+    Check,
+    Package,
+    Publish,
+}
+
+struct JobSpec {
+    name: string,
+    command: string,
+    kind: JobKind,
+    required_env: string,
+}
+
+fn job_kind_label(kind: JobKind) -> string {
+    return match (kind) {
+        JobKind.Check => "check",
+        JobKind.Package => "package",
+        JobKind.Publish => "publish",
+    };
+}
+
+fn validate_job(job: JobSpec) -> std.result.Result<i32, string> {
+    if (string_len(job.name) == 0) {
+        return std.result.Result.err("job name must not be empty");
+    }
+    if (string_len(job.command) == 0) {
+        return std.result.Result.err("job command must not be empty");
+    }
+    if (job.kind == JobKind.Publish) {
+        if (string_len(job.required_env) == 0) {
+            return std.result.Result.err("publish job must declare required_env");
+        }
+    }
+    return std.result.Result.ok(0);
+}
+
+fn default_jobs() -> [JobSpec; 3] {
+    return [
+        JobSpec { name: "check", command: "exit 0", kind: JobKind.Check, required_env: "" },
+        JobSpec { name: "package", command: "exit 0", kind: JobKind.Package, required_env: "" },
+        JobSpec { name: "publish", command: "exit 0", kind: JobKind.Publish, required_env: "PATH" },
+    ];
+}
