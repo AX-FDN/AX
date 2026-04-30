@@ -5955,6 +5955,45 @@ fn project_package_config_build_copies_real_example_source_tree() {
 }
 
 #[test]
+fn project_package_config_build_manifest_exposes_local_path_package() {
+    let temp = TempDir::new("project-package-config-build-manifest");
+    let out_dir = temp.join("build-out");
+
+    let output = run_axc([
+        OsStr::new("build"),
+        OsStr::new("examples/project_package_config"),
+        OsStr::new("--out-dir"),
+        out_dir.as_os_str(),
+    ]);
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "build should succeed\nstdout:\n{}\nstderr:\n{}",
+        string_output(&output.stdout),
+        string_output(&output.stderr)
+    );
+    assert_clean_stderr(&output);
+
+    let manifest: Value = serde_json::from_str(
+        &fs::read_to_string(out_dir.join("build-manifest.json"))
+            .expect("build manifest should be readable"),
+    )
+    .expect("build manifest should be valid JSON");
+    let packages = manifest["local_path_packages"]
+        .as_array()
+        .expect("build manifest should expose local_path_packages");
+    assert_eq!(packages.len(), 1);
+    assert_eq!(packages[0]["alias"], "config_rules");
+    assert_eq!(packages[0]["root"], "packages/config_rules");
+    assert_eq!(packages[0]["manifest"], "packages/config_rules/AX.toml");
+    assert_eq!(packages[0]["source_count"], 1);
+    assert_eq!(
+        json_string_array(&packages[0]["modules"], "local package modules"),
+        vec!["config_rules.validate".to_string()]
+    );
+}
+
+#[test]
 fn project_collections_report_build_copies_real_example_source_tree() {
     assert_project_example_build_sources(
         "project-collections-report-build",

@@ -16,6 +16,6 @@
     "Native executable emission will be added in the future backend stage."
   ],
   "output_dir": "<build-out>",
-  "schema_version": 3,
+  "schema_version": 4,
   "target_name": "hello"
 }

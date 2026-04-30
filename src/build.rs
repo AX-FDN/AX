@@ -31,6 +31,7 @@ pub struct BuildInput {
     pub entry_file: String,
     pub project_manifest: Option<ProjectManifestArtifact>,
     pub project_sources: Option<ProjectSourcesArtifact>,
+    pub local_path_packages: Vec<LocalPathPackageArtifact>,
 }
 
 #[derive(Debug, Clone)]
@@ -52,6 +53,15 @@ pub struct ProjectSourceArtifact {
 }
 
 #[derive(Debug, Clone, Serialize)]
+pub struct LocalPathPackageArtifact {
+    pub alias: String,
+    pub root: String,
+    pub manifest: String,
+    pub source_count: usize,
+    pub modules: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
 pub struct BuildManifest {
     pub schema_version: u32,
     pub target_name: String,
@@ -59,6 +69,8 @@ pub struct BuildManifest {
     pub output_dir: String,
     pub backend: BuildBackend,
     pub artifacts: BuildArtifacts,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub local_path_packages: Vec<LocalPathPackageArtifact>,
     pub notes: Vec<String>,
 }
 
@@ -115,6 +127,7 @@ pub fn build_input_from_source(source: &SourceFile) -> Result<BuildInput, String
         entry_file: source.display_path(),
         project_manifest: None,
         project_sources: None,
+        local_path_packages: Vec::new(),
     })
 }
 
@@ -144,6 +157,31 @@ pub fn build_input_from_project(
         });
     }
 
+    let mut local_path_packages = Vec::new();
+    for dependency in project.local_path_dependencies() {
+        let mut modules = dependency
+            .source_paths()
+            .iter()
+            .filter_map(|path| {
+                project
+                    .expected_module_path(path)
+                    .map(std::string::ToString::to_string)
+            })
+            .collect::<Vec<_>>();
+        modules.sort();
+
+        local_path_packages.push(LocalPathPackageArtifact {
+            alias: dependency.alias().to_string(),
+            root: build_project_source_artifact_path(project.root_dir(), dependency.root_dir())?,
+            manifest: build_project_source_artifact_path(
+                project.root_dir(),
+                dependency.manifest_path(),
+            )?,
+            source_count: dependency.source_paths().len(),
+            modules,
+        });
+    }
+
     Ok(BuildInput {
         target_name: project.target_name().to_string(),
         entry_file: project.entry_path().display().to_string(),
@@ -155,6 +193,7 @@ pub fn build_input_from_project(
             dir_name: PROJECT_SOURCES_DIR.to_string(),
             files: project_source_files,
         }),
+        local_path_packages,
     })
 }
 
@@ -287,7 +326,7 @@ pub fn build_program(
     }
 
     let manifest = BuildManifest {
-        schema_version: 3,
+        schema_version: 4,
         target_name: input.target_name.clone(),
         entry_file: input.entry_file.clone(),
         output_dir: options.out_dir.display().to_string(),
@@ -318,6 +357,7 @@ pub fn build_program(
             planned_executable: format!("bin/{}{}", input.target_name, executable_suffix()),
             executable: None,
         },
+        local_path_packages: input.local_path_packages.clone(),
         notes: vec![
             "This build currently emits frontend and midend stable artifacts only.".to_string(),
             "Native executable emission will be added in the future backend stage.".to_string(),

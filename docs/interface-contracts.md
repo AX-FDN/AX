@@ -202,6 +202,8 @@ Stable for the current package-interface slice:
 - dependency package sources are loaded from the dependency manifest's `[package].sources`
 - dependency modules must declare paths under the dependency alias, for example `module config_rules.validate;`
 - `axc build` packages dependency sources under their project-relative paths when they live inside the project tree
+- `build-manifest.json` uses schema version `4` and exposes `local_path_packages` for projects that declare path packages
+- each build-manifest package entry includes `alias`, `root`, `manifest`, `source_count`, and sorted `modules`
 - package resolver failures use stable `PX****` text codes before source diagnostics exist:
   - `PX0001`: dependency alias is not a valid AX module root
   - `PX0002`: dependency path is empty, missing, inaccessible, or not a directory
@@ -216,6 +218,7 @@ Allowed to evolve carefully:
 
 - richer package diagnostics
 - package-aware context facts
+- future lockfile fields that can consume the existing `local_path_packages` shape
 - stricter public/private export checking
 
 Not allowed without explicit contract update:
@@ -231,6 +234,7 @@ Current smoke coverage:
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test --test interface_snapshots project_path_package
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test --test interface_snapshots project_package_config_context
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test --test interface_snapshots project_package_config_build_manifest
 ```
 
 ## Current Verification Commands
