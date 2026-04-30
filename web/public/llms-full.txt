@@ -1,0 +1,87 @@
+# AX AI-Readable Project Brief
+
+AX is a programming language and compiler/runtime prototype designed around
+AI-written, AI-reviewed, and AI-repaired code. The project is moving toward a
+mature backend/tool language, but its differentiator is not only syntax. Its
+moat is the combination of explicit syntax, structured diagnostics, architecture
+context, repair contracts, and benchmark evidence.
+
+## Positioning
+
+AX targets agent-written backend tools, deterministic automation, workspace
+analysis, report generation, repairable CLI utilities, and compiler-assisted
+coding workflows.
+
+The language is intended to become more capable over time: standard library,
+package interface, AOT build path, backend workloads, and eventually a broader
+language ecosystem. New language capability should remain compatible with
+AI-first constraints: low ambiguity, canonical style, predictable diagnostics,
+and stable repair feedback.
+
+## Current Public Surface
+
+Compiler commands:
+- `axc check`
+- `axc check --json`
+- `axc check --json --ai`
+- `axc run`
+- `axc fmt`
+- `axc build`
+- `axc context`
+
+AI-facing protocols:
+- Diagnostics JSON
+- AI diagnostics with `rule_id`, `repair_goal`, `fixits`, and context snippets
+- Context JSON views: `overview`, `boundaries`, `topology`, `flow`, `symbol`, `impact`, `evidence`
+- Repair benchmark bundles
+- Repair Archaeology replay/export workflow
+
+Language and project surface:
+- Explicit types
+- Functions
+- Arrays and slices
+- Loops
+- `break` and `continue`
+- Match-style branching
+- Payload enums
+- Modules and imports
+- Project mode through `AX.toml`
+- Foundation/std-style helper modules for text, CLI, fs, path, env, process, report, workspace, and collections
+
+## Website Structure
+
+The web app is a portal and workbench:
+- Home: explains AX as an AI-first language for backend/tool programs.
+- Docs: links the language guide, CLI, protocol docs, and compiler internals.
+- Packages: static catalog v0 for official modules and representative examples.
+- Benchmarks: presents repair evidence and repeatable comparison workflows.
+- Repair: shows cold/base/ai repair payload differences.
+- Context: explains the architecture context layers.
+- Download: states platform support tiers.
+
+The package section is intentionally a static catalog first. A real registry
+should wait for AX package dependencies, lockfiles, publish contracts, and a
+stable build path.
+
+## Key Repository Areas
+
+- `src/`: Rust compiler, parser, semantic checker, interpreter, build/context/AI interfaces.
+- `std/`: official foundation-style AX library surface.
+- `examples/`: representative AX programs and project-backed workloads.
+- `benchmarks/`: repair cases and candidates.
+- `scripts/`: benchmark/export/score/compare automation.
+- `docs/`: protocol, benchmark, quickstart, platform, and planning documents.
+- `web/`: AX portal and Repair Workbench frontend.
+
+## Project Direction
+
+Near-term work should keep two tracks connected:
+- Language maturity: syntax, standard library, backend-oriented examples, package preconditions, build path.
+- AI moat: diagnostics, repair contract, context protocol, benchmark evidence, Repair Archaeology.
+
+AX should not become a generic research-only protocol, and it should not become
+a generic language that forgets AI execution. The intended path is a real
+language whose compiler exposes better surfaces for coding agents.
+
+Repository:
+https://github.com/AX-FDN/AX

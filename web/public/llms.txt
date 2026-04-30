@@ -1,0 +1,30 @@
+# AX
+
+AX is an AI-first explicit programming language for AI-written backend tools,
+automation scripts, repairable CLI programs, and compiler-assisted agent
+workflows.
+
+Core idea:
+- Explicit, low-ambiguity syntax for autoregressive coding models.
+- Structured diagnostics exposed by `axc check --json`.
+- AI repair contracts exposed by `axc check --json --ai`.
+- Architecture context exposed by `axc context`.
+- Repair benchmark evidence through export, run, score, compare, and archaeology workflows.
+
+Primary commands:
+- `axc check`
+- `axc run`
+- `axc fmt`
+- `axc build`
+- `axc context`
+
+Portal sections:
+- Docs: getting started, language guide, AI protocols, compiler internals.
+- Packages: static catalog v0 for official `std.*` modules and representative examples.
+- Benchmarks: repair evidence, smoke suites, deterministic replay.
+- Repair: cold/base/ai repair feedback comparison.
+- Context: overview, boundaries, topology, flow, symbol, impact, evidence.
+- Download: Windows full workflow, Linux core support, macOS planned later.
+
+Repository:
+https://github.com/AX-FDN/AX
