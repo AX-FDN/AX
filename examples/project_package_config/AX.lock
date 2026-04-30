@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "package": {
+    "name": "project_package_config"
+  },
+  "dependencies": [
+    {
+      "alias": "config_rules",
+      "kind": "path",
+      "package": "config_rules",
+      "path": "packages/config_rules",
+      "manifest": "packages/config_rules/AX.toml",
+      "source_count": 1,
+      "modules": [
+        "config_rules.validate"
+      ]
+    }
+  ]
+}

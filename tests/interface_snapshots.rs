@@ -4260,7 +4260,7 @@ fn project_package_config_context_exposes_local_path_package() {
         json_string_array(&packages[0]["modules"], "package modules"),
         vec!["config_rules.validate".to_string()]
     );
-    assert_eq!(context["facts"]["local_package_lock"]["status"], "missing");
+    assert_eq!(context["facts"]["local_package_lock"]["status"], "current");
     assert_eq!(
         context["facts"]["local_package_lock"]["dependency_count"],
         Value::from(1)
