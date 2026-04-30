@@ -243,6 +243,7 @@ Stable for the current package-interface slice:
 - context `evidence` recommends `axc lock <project> --check` for local path package projects
 - `axc check <project> --json --ai` emits `PX****` package resolver failures as normal JSON diagnostics when project loading fails before AX source analysis starts
 - package resolver JSON diagnostics point at `AX.toml`, use `expected = ["valid local path package graph"]`, and expose the same package repair hint as `ai.rule_id`, `ai.repair_goal`, and `ai.fixits`
+- repair benchmark package cases currently cover every local path package resolver code from `PX0001` through `PX0007`; they repair `AX.toml` as the target file and keep `LX****` lockfile repair out of the source-repair scorer until a separate artifact type is defined
 
 Allowed to evolve carefully:
 

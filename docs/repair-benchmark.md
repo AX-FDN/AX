@@ -92,6 +92,25 @@ As of 2026-04-30, the committed manifests include two repository-backed project-
 - [`package_missing_dependency`](../benchmarks/repair-projects/package_missing_dependency)
   validates package resolver diagnostics where `PX0002` is exported through `--json --ai` and the repaired target is `AX.toml`.
 
+The full manifest now carries package resolver cases for every current local path package resolver code `PX0001` through `PX0007`:
+
+- `package_invalid_alias`
+  covers dependency aliases that cannot become AX module roots.
+- `package_missing_dependency`
+  covers dependency paths that do not point at an existing local package directory.
+- `package_missing_manifest`
+  covers a dependency directory that exists but lacks a valid dependency `AX.toml`.
+- `package_empty_sources`
+  covers dependency packages that do not declare any AX source files.
+- `package_duplicate_module_root`
+  covers a dependency alias that collides with a project support source module root.
+- `package_transitive_dependency`
+  covers the v0 rule that local path packages remain one level deep.
+- `package_duplicate_source`
+  covers dependency sources that duplicate the project entry or another loaded source.
+
+These package cases are deliberately manifest-repair cases. They strengthen the package/AI repair contract without pretending that `AX.lock` repair is the same artifact type as AX source repair.
+
 The match-language cases are intentionally kept in the benchmark manifest, not just in parser or semantic unit tests. They currently cover:
 
 - `match_payload_shape`

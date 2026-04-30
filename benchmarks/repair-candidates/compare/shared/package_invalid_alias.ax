@@ -1,0 +1,5 @@
+manifest_version = 1
+
+[package]
+name = "package_invalid_alias"
+entry = "src/main.ax"

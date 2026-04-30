@@ -1,0 +1,5 @@
+manifest_version = 1
+
+[package]
+name = "package_empty_sources"
+entry = "src/main.ax"

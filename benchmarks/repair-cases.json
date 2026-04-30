@@ -32,6 +32,66 @@
       "notes": "Project-backed package resolver case where the repair target is AX.toml rather than an AX source file."
     },
     {
+      "id": "package_invalid_alias",
+      "file": "benchmarks/repair-projects/package_invalid_alias/AX.toml",
+      "project": "benchmarks/repair-projects/package_invalid_alias",
+      "category": "package",
+      "expected_codes": ["PX0001"],
+      "expected_ai_rule_ids": ["package_dependency_alias_must_be_module_root"],
+      "repair_goal": "Rename the dependency alias to a valid AX module root or remove the stale dependency entry.",
+      "notes": "Project-backed package resolver case for invalid dependency aliases that cannot become AX module roots."
+    },
+    {
+      "id": "package_missing_manifest",
+      "file": "benchmarks/repair-projects/package_missing_manifest/AX.toml",
+      "project": "benchmarks/repair-projects/package_missing_manifest",
+      "category": "package",
+      "expected_codes": ["PX0003"],
+      "expected_ai_rule_ids": ["package_dependency_manifest_must_be_valid"],
+      "repair_goal": "Remove the stale dependency entry or add a valid AX.toml manifest inside the dependency directory.",
+      "notes": "Project-backed package resolver case for a dependency directory that exists but is not a valid AX package."
+    },
+    {
+      "id": "package_empty_sources",
+      "file": "benchmarks/repair-projects/package_empty_sources/AX.toml",
+      "project": "benchmarks/repair-projects/package_empty_sources",
+      "category": "package",
+      "expected_codes": ["PX0004"],
+      "expected_ai_rule_ids": ["package_dependency_sources_must_be_declared"],
+      "repair_goal": "Remove the stale dependency entry or make the dependency package declare at least one AX source.",
+      "notes": "Project-backed package resolver case for dependency packages that do not declare any source files."
+    },
+    {
+      "id": "package_duplicate_module_root",
+      "file": "benchmarks/repair-projects/package_duplicate_module_root/AX.toml",
+      "project": "benchmarks/repair-projects/package_duplicate_module_root",
+      "category": "package",
+      "expected_codes": ["PX0005"],
+      "expected_ai_rule_ids": ["package_module_roots_must_be_unique"],
+      "repair_goal": "Remove or rename the package dependency so every module root is owned by exactly one loaded source tree.",
+      "notes": "Project-backed package resolver case where a local support source and dependency alias both claim the same module root."
+    },
+    {
+      "id": "package_transitive_dependency",
+      "file": "benchmarks/repair-projects/package_transitive_dependency/AX.toml",
+      "project": "benchmarks/repair-projects/package_transitive_dependency",
+      "category": "package",
+      "expected_codes": ["PX0006"],
+      "expected_ai_rule_ids": ["package_dependency_graph_must_stay_one_level"],
+      "repair_goal": "Keep the local path package graph one level deep by removing or flattening the nested dependency.",
+      "notes": "Project-backed package resolver case for the v0 rule that dependencies cannot declare their own path dependencies."
+    },
+    {
+      "id": "package_duplicate_source",
+      "file": "benchmarks/repair-projects/package_duplicate_source/AX.toml",
+      "project": "benchmarks/repair-projects/package_duplicate_source",
+      "category": "package",
+      "expected_codes": ["PX0007"],
+      "expected_ai_rule_ids": ["package_sources_must_not_duplicate_loaded_inputs"],
+      "repair_goal": "Remove the dependency source entry that duplicates the project entry or another loaded source.",
+      "notes": "Project-backed package resolver case for dependency sources that duplicate an already loaded project input."
+    },
+    {
       "id": "missing_paren_condition",
       "file": "examples/missing_paren.ax",
       "category": "syntax",

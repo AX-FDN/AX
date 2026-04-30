@@ -1,0 +1,8 @@
+manifest_version = 1
+
+[package]
+name = "package_duplicate_source"
+entry = "src/main.ax"
+
+[dependencies]
+config_rules = { path = "packages/config_rules" }

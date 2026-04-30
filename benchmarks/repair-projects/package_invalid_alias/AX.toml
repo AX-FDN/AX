@@ -1,0 +1,8 @@
+manifest_version = 1
+
+[package]
+name = "package_invalid_alias"
+entry = "src/main.ax"
+
+[dependencies]
+"bad-name" = { path = "packages/bad_name" }
