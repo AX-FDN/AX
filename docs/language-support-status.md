@@ -48,7 +48,7 @@ AX is growing from an AI-first tool language into a backend-capable language. Th
 | `std.collections` | partial | partial | partial | partial | stable | stable | not_started | Currently focused on minimal `string_list` wrappers and queries. |
 | `AX.toml + sources` | stable | stable | stable | stable | stable | stable | not_started | Main project organization path. |
 | Local path package v0 | partial | partial | partial | stable | stable | stable | not_started | `[dependencies] alias = { path = "..." }` loads local AX package sources as `alias.*` modules. |
-| `AX.lock` v0 | stable | stable | n/a | stable | stable | n/a | n/a | `axc lock <project>` freezes local path package graphs; no registry lock solving exists yet. |
+| `AX.lock` v0 | stable | stable | n/a | stable | stable | n/a | n/a | `axc lock <project>` freezes local path package graphs; `axc lock --check` reports stable `LX****` drift reasons and repair hints; no registry lock solving exists yet. |
 | Registry packages | planned | planned | planned | planned | planned | planned | planned | P5+ work after standard library and AOT are stable enough. |
 | Native AOT executable output | planned | planned | planned | planned | partial | partial | not_started | `context evidence` exposes `build_readiness` so agents can see the current boundary. |
 | JIT | deferred | deferred | deferred | deferred | deferred | deferred | not_started | Only evaluated after AOT proves whether compile latency is a real bottleneck. |

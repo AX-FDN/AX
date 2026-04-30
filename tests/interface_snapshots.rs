@@ -4290,6 +4290,16 @@ config_rules = { path = \"packages/config_rules\" }
     let stderr = string_output(&missing_path.stderr);
     assert!(stderr.contains("PX0002"), "stderr:\n{stderr}");
     assert!(
+        stderr.contains("repair_rule: package_dependency_path_must_exist"),
+        "stderr:\n{stderr}"
+    );
+    assert!(
+        stderr.contains(
+            "repair_goal: Point the dependency to an existing local AX package directory."
+        ),
+        "stderr:\n{stderr}"
+    );
+    assert!(
         stderr.contains("failed to access dependency `config_rules` path"),
         "stderr:\n{stderr}"
     );
@@ -4300,6 +4310,10 @@ config_rules = { path = \"packages/config_rules\" }
     assert_eq!(missing_manifest.status.code(), Some(1));
     let stderr = string_output(&missing_manifest.stderr);
     assert!(stderr.contains("PX0003"), "stderr:\n{stderr}");
+    assert!(
+        stderr.contains("repair_rule: package_dependency_manifest_must_be_valid"),
+        "stderr:\n{stderr}"
+    );
     assert!(
         stderr.contains("failed to read dependency `config_rules` manifest"),
         "stderr:\n{stderr}"
@@ -6241,6 +6255,131 @@ sources = [\"src\"]
         .iter()
         .any(|command| command.contains("axc lock") && command.contains("--check")),
         "evidence should recommend lockfile verification for local path package projects"
+    );
+}
+
+#[test]
+fn project_lock_check_reports_stale_package_graph_details() {
+    let temp = TempDir::new("project-lock-stale-package");
+    let project_dir = temp.join("app");
+    let package_dir = temp.join("packages").join("rules");
+    fs::create_dir_all(project_dir.join("src")).expect("project src directory should exist");
+    fs::create_dir_all(package_dir.join("src")).expect("package src directory should exist");
+    fs::write(
+        project_dir.join("AX.toml"),
+        "\
+manifest_version = 1
+
+[package]
+name = \"lock_stale_app\"
+entry = \"src/main.ax\"
+
+[dependencies]
+rules = { path = \"../packages/rules\" }
+",
+    )
+    .expect("project manifest should exist");
+    fs::write(
+        package_dir.join("AX.toml"),
+        "\
+manifest_version = 1
+
+[package]
+name = \"rules_pkg\"
+sources = [\"src\"]
+",
+    )
+    .expect("package manifest should exist");
+    fs::write(
+        package_dir.join("src").join("validate.ax"),
+        "module rules.validate;\nfn ok() -> i32 { return 1; }\n",
+    )
+    .expect("package source should exist");
+    fs::write(
+        project_dir.join("src").join("main.ax"),
+        "import rules.validate;\nfn main() -> i32 { return rules.validate.ok(); }\n",
+    )
+    .expect("project entry should exist");
+
+    let lock_output = run_axc([OsStr::new("lock"), project_dir.as_os_str()]);
+    assert_eq!(lock_output.status.code(), Some(0));
+    assert_clean_stderr(&lock_output);
+
+    fs::write(
+        package_dir.join("src").join("extra.ax"),
+        "module rules.extra;\nfn value() -> i32 { return 2; }\n",
+    )
+    .expect("extra package source should exist");
+
+    let check_output = run_axc([
+        OsStr::new("lock"),
+        project_dir.as_os_str(),
+        OsStr::new("--check"),
+    ]);
+    assert_eq!(check_output.status.code(), Some(1));
+    let stderr = normalize_temp_output(&string_output(&check_output.stderr), &temp);
+    assert!(
+        stderr.contains("LX0002: AX.lock stale"),
+        "stderr:\n{stderr}"
+    );
+    assert!(
+        stderr.contains("dependency_source_count_changed"),
+        "stderr:\n{stderr}"
+    );
+    assert!(
+        stderr.contains("dependency_modules_changed"),
+        "stderr:\n{stderr}"
+    );
+    assert!(
+        stderr.contains("fixit: regenerate AX.lock with `axc lock <project>`"),
+        "stderr:\n{stderr}"
+    );
+    assert!(
+        stderr.contains("repair_rule: package_lockfile_must_match_graph"),
+        "stderr:\n{stderr}"
+    );
+    assert!(
+        stderr.contains(
+            "repair_goal: Regenerate AX.lock so it matches the current local path package graph."
+        ),
+        "stderr:\n{stderr}"
+    );
+
+    let overview_output = run_axc([
+        OsStr::new("context"),
+        OsStr::new("overview"),
+        project_dir.as_os_str(),
+        OsStr::new("--json"),
+    ]);
+    assert_eq!(
+        overview_output.status.code(),
+        Some(0),
+        "context overview should succeed\nstdout:\n{}\nstderr:\n{}",
+        string_output(&overview_output.stdout),
+        string_output(&overview_output.stderr)
+    );
+    assert_clean_stderr(&overview_output);
+
+    let overview: Value =
+        serde_json::from_slice(&overview_output.stdout).expect("overview should be JSON");
+    let lock = &overview["facts"]["local_package_lock"];
+    assert_eq!(lock["status"], "stale");
+    let issues = lock["issues"]
+        .as_array()
+        .expect("local_package_lock issues should be an array");
+    assert!(
+        issues
+            .iter()
+            .any(|issue| issue["kind"] == "dependency_modules_changed"),
+        "context should expose module drift issue: {issues:?}"
+    );
+    assert!(
+        issues.iter().any(|issue| {
+            issue["repair_rule"] == "package_lockfile_must_match_graph"
+                && issue["repair_goal"]
+                    == "Regenerate AX.lock so it matches the current local path package graph."
+        }),
+        "context should expose AI-facing lock repair hints: {issues:?}"
     );
 }
 

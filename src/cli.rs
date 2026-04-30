@@ -11,7 +11,10 @@ use crate::diagnostics::render_diagnostics;
 use crate::formatter::format_source;
 use crate::frontend::{analyze_with_project, check_only_with_project};
 use crate::interpreter::{RunContext, run_program_with_context};
-use crate::lockfile::render_lockfile;
+use crate::lockfile::{LockfileCheckReport, check_lockfile, render_lockfile};
+use crate::package_diagnostics::{
+    append_package_repair_hint, package_repair_hint, render_package_repair_hint,
+};
 use crate::project::{ResolvedInput, resolve_input};
 
 pub fn run_cli(args: Vec<String>) -> i32 {
@@ -262,18 +265,9 @@ fn run_lock(args: Vec<String>) -> i32 {
     let lockfile_path = project.root_dir().join("AX.lock");
 
     if options.check {
-        let current = match fs::read_to_string(&lockfile_path) {
-            Ok(text) => text,
-            Err(error) => {
-                eprintln!(
-                    "AX.lock is missing or unreadable at {}: {error}",
-                    lockfile_path.display()
-                );
-                return 1;
-            }
-        };
-        if current != lockfile_text {
-            eprintln!("AX.lock is out of date: {}", lockfile_path.display());
+        let report = check_lockfile(project);
+        if !report.issues.is_empty() {
+            eprintln!("{}", render_lock_check_failure(&report));
             return 1;
         }
         println!("AX.lock is up to date: {}", lockfile_path.display());
@@ -289,6 +283,34 @@ fn run_lock(args: Vec<String>) -> i32 {
     }
     println!("wrote AX.lock: {}", lockfile_path.display());
     0
+}
+
+fn render_lock_check_failure(report: &LockfileCheckReport) -> String {
+    let mut lines = vec![format!(
+        "{}: AX.lock {}: {}",
+        report
+            .issues
+            .first()
+            .map(|issue| issue.code)
+            .unwrap_or("LX0000"),
+        report.status.as_str(),
+        report.path.display()
+    )];
+    lines.push(format!("note: {}", report.note));
+    lines.push(format!("dependency_count: {}", report.dependency_count));
+    for issue in &report.issues {
+        lines.push(format!(
+            "- {} [{}]: {}",
+            issue.code, issue.kind, issue.message
+        ));
+        lines.push(format!("  fixit: {}", issue.fixit));
+        if let Some(hint) = package_repair_hint(issue.code) {
+            for hint_line in render_package_repair_hint(hint).lines() {
+                lines.push(format!("  {hint_line}"));
+            }
+        }
+    }
+    lines.join("\n")
 }
 
 fn run_mir(args: Vec<String>) -> i32 {
@@ -841,7 +863,7 @@ fn parse_context_args(args: Vec<String>) -> Result<ContextOptions, String> {
 }
 
 fn load_input(path: &Path) -> Result<ResolvedInput, String> {
-    resolve_input(path)
+    resolve_input(path).map_err(|error| append_package_repair_hint(&error))
 }
 
 #[cfg(test)]

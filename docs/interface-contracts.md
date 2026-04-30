@@ -36,7 +36,7 @@ AX 现在的外部契约不是只有 CLI 命令本身。对 agent 和工具链�
 | Std-1 candidate source tree | `axc build examples/project_*` | future AOT/package/std consumers | `project_text_normalize_build_copies_real_example_source_tree`, `project_directory_index_build_copies_real_example_source_tree`, `project_release_promote_build_copies_real_example_source_tree`, `project_command_capture_build_copies_real_example_source_tree`, `project_command_batch_build_copies_real_example_source_tree`, `project_option_result_build_copies_real_example_source_tree`, `project_env_result_build_copies_real_example_source_tree`, `project_file_result_build_copies_real_example_source_tree`, `project_process_result_build_copies_real_example_source_tree`, `project_result_pipeline_build_copies_real_example_source_tree` |
 | Std-1 candidate runtime behavior | `axc run examples/project_*` | stdlib users, host-boundary examples | `project_text_normalize_runs_on_controlled_fixture`, `project_directory_index_runs_on_controlled_fixture`, `project_release_promote_runs_on_controlled_fixture`, `project_command_capture_runs_on_controlled_fixture`, `project_command_batch_runs_on_controlled_fixture`, `project_option_result_runs`, `project_env_result_runs`, `project_file_result_runs_on_controlled_fixture`, `project_process_result_runs_on_controlled_fixture`, `project_result_pipeline_runs_on_controlled_fixture` |
 | local path package v0 | `AX.toml [dependencies] alias = { path = ... }` | project organization, future package/AOT consumers | `project_package_config_runs_on_controlled_fixture`, `project_package_config_build_copies_real_example_source_tree`, `project::tests::resolves_local_path_dependency_sources_under_dependency_alias` |
-| `AX.lock` v0 | `axc lock <project> [--check]` | reproducible local package planning, future package/AOT consumers | `project_lock_generates_and_checks_local_path_packages` |
+| `AX.lock` v0 | `axc lock <project> [--check]` | reproducible local package planning, future package/AOT consumers | `project_lock_generates_and_checks_local_path_packages`, `project_lock_check_reports_stale_package_graph_details` |
 
 ## Stability Rules
 
@@ -210,7 +210,18 @@ Stable for the current package-interface slice:
 - `axc lock <project>` writes `AX.lock` as stable JSON with schema version `1`
 - `axc lock <project> --check` validates that the checked-in `AX.lock` matches the current local path package graph
 - `AX.lock` v0 records only local path packages: root package name, dependency `alias`, `kind = "path"`, dependency package name, declared path, manifest path, source count, and sorted modules
+- `axc lock <project> --check` failures use stable `LX****` text codes:
+  - `LX0001`: `AX.lock` is missing for a project with local path packages
+  - `LX0002`: `AX.lock` is stale or no longer matches the current package graph
+  - `LX0003`: `AX.lock` exists but cannot be read
+  - `LX0004`: the compiler cannot render the expected lockfile from the current package graph
+- `PX****` project resolver failures and `LX****` lock check failures include AI-facing repair hints in CLI stderr:
+  - `repair_rule`
+  - `repair_goal`
+  - `fixit`
+- stale lock reports include issue kinds such as `dependency_count_changed`, `dependency_source_count_changed`, `dependency_modules_changed`, `dependency_metadata_changed`, `dependency_missing`, and `dependency_removed`
 - context `overview`、`topology` and `evidence` expose `local_package_lock` for projects that declare local path packages, with `status = missing/current/stale/unreadable/unavailable`
+- context `local_package_lock.issues[]` exposes the same lock check issue code, kind, message, fixit, `repair_rule`, and `repair_goal` used by `axc lock --check`
 - package resolver failures use stable `PX****` text codes before source diagnostics exist:
   - `PX0001`: dependency alias is not a valid AX module root
   - `PX0002`: dependency path is empty, missing, inaccessible, or not a directory

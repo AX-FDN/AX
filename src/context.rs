@@ -6,7 +6,8 @@ use serde::Serialize;
 
 use crate::ast::{Block, Expr, ExprKind, ItemKind, Program, Stmt, StmtKind, Visibility};
 use crate::diagnostics::Diagnostic;
-use crate::lockfile::render_lockfile;
+use crate::lockfile::check_lockfile;
+use crate::package_diagnostics::package_repair_hint;
 use crate::project::{Project, ResolvedInput};
 use crate::source::SourceFile;
 
@@ -342,6 +343,20 @@ struct ContextPackageLock {
     status: &'static str,
     dependency_count: usize,
     note: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    issues: Vec<ContextPackageLockIssue>,
+}
+
+#[derive(Serialize)]
+struct ContextPackageLockIssue {
+    code: &'static str,
+    kind: &'static str,
+    message: String,
+    fixit: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    repair_rule: Option<&'static str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    repair_goal: Option<&'static str>,
 }
 
 #[derive(Serialize)]
@@ -1013,50 +1028,26 @@ fn build_local_package_lock_fact(project: Option<&Project>) -> Option<ContextPac
         return None;
     }
 
-    let lock_path = project.root_dir().join("AX.lock");
-    let expected = match render_lockfile(project) {
-        Ok(text) => text,
-        Err(error) => {
-            return Some(ContextPackageLock {
-                path: normalize_path(&lock_path),
-                schema_version: 1,
-                status: "unavailable",
-                dependency_count,
-                note: format!("failed to render expected AX.lock: {error}"),
-            });
-        }
-    };
-
-    match fs::read_to_string(&lock_path) {
-        Ok(current) if current == expected => Some(ContextPackageLock {
-            path: normalize_path(&lock_path),
-            schema_version: 1,
-            status: "current",
-            dependency_count,
-            note: "AX.lock matches the current local path package graph".to_string(),
-        }),
-        Ok(_) => Some(ContextPackageLock {
-            path: normalize_path(&lock_path),
-            schema_version: 1,
-            status: "stale",
-            dependency_count,
-            note: "AX.lock exists but differs from the current local path package graph; run `axc lock <project>`".to_string(),
-        }),
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Some(ContextPackageLock {
-            path: normalize_path(&lock_path),
-            schema_version: 1,
-            status: "missing",
-            dependency_count,
-            note: "AX.lock is missing; run `axc lock <project>` to freeze local path packages".to_string(),
-        }),
-        Err(error) => Some(ContextPackageLock {
-            path: normalize_path(&lock_path),
-            schema_version: 1,
-            status: "unreadable",
-            dependency_count,
-            note: format!("failed to read AX.lock: {error}"),
-        }),
-    }
+    let report = check_lockfile(project);
+    Some(ContextPackageLock {
+        path: normalize_path(&report.path),
+        schema_version: 1,
+        status: report.status.as_str(),
+        dependency_count,
+        note: report.note,
+        issues: report
+            .issues
+            .into_iter()
+            .map(|issue| ContextPackageLockIssue {
+                repair_rule: package_repair_hint(issue.code).map(|hint| hint.rule_id),
+                repair_goal: package_repair_hint(issue.code).map(|hint| hint.repair_goal),
+                code: issue.code,
+                kind: issue.kind,
+                message: issue.message,
+                fixit: issue.fixit,
+            })
+            .collect(),
+    })
 }
 
 fn build_topology_hints(

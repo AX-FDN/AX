@@ -80,10 +80,10 @@
    - `std.*` 第一版接口冻结候选已收口，冻结候选验证入口与文档入口已补强
    - 继续保持 `foundation/` 作为未迁移样例的 Std-0 孵化层
 2. P5 已启动本地 path package v0 与 `AX.lock` v0；暂不启动 P4 AOT、JIT、自举、registry 或三方库桥接
-3. 下一步在 `AX.lock` v0 继续补强、package-aware context/diagnostics 与 `Repair Archaeology v0` 之间选择；如果继续后端语言扩张，优先补包生态基础设施，不启动 Live Repair Stream、真实 LLM 或 UI
+3. 下一步在 package-aware context/diagnostics、lockfile 校验链与 `Repair Archaeology v0` 之间选择；如果继续后端语言扩张，优先补包生态基础设施，不启动 Live Repair Stream、真实 LLM 或 UI
 4. 任何下一轮实现都必须继续回写 examples、diagnostics、context、repair/benchmark 或 interface snapshots
 
-当前判断：P1 这一轮的基础链路已经完成，P3 的十二组 Std-1 迁移/压力试点、冻结候选和验证入口也已经收口；P5 已先落地本地 path package v0 和 `AX.lock` v0，用 `project_package_config` 与 lockfile smoke 证明 AX 包复用边界可以进入 `check / run / build / lock`。错误传播语法已以 `project_result_pipeline` 暴露出的显式 `Result + match` 成本为输入，落地为最小 `expr?`，并通过 `project_config_validate` 开始验证项目级 error enum；集合能力先以 `std.collections` 包装 `string_list` 并提供最小读取/查询，不提前承诺泛型 list/map；payload enum 深化已通过 `project_payload_event_report` 进入多文件 project-backed workload。下一步如果继续后端语言扩张，优先补 package-aware context/diagnostics 或 lockfile 校验链；如果继续语言内核，优先评估更结构化的错误层级和泛型 trait 前置需求。
+当前判断：P1 这一轮的基础链路已经完成，P3 的十二组 Std-1 迁移/压力试点、冻结候选和验证入口也已经收口；P5 已先落地本地 path package v0 和 `AX.lock` v0，用 `project_package_config` 与 lockfile smoke 证明 AX 包复用边界可以进入 `check / run / build / lock`。`PX****` 与 `LX****` 已继续补强为稳定错误码、package graph drift 详情、`repair_rule / repair_goal / fixit` 和 context issues 暴露。错误传播语法已以 `project_result_pipeline` 暴露出的显式 `Result + match` 成本为输入，落地为最小 `expr?`，并通过 `project_config_validate` 开始验证项目级 error enum；集合能力先以 `std.collections` 包装 `string_list` 并提供最小读取/查询，不提前承诺泛型 list/map；payload enum 深化已通过 `project_payload_event_report` 进入多文件 project-backed workload。下一步如果继续后端语言扩张，优先补 package-aware context/diagnostics 或 lockfile 校验链；如果继续语言内核，优先评估更结构化的错误层级和泛型 trait 前置需求。
 
 ## 阶段承接图
 
@@ -897,13 +897,13 @@
   - 当前边界：只支持本地 path package；不支持 transitive dependencies、registry、版本求解、host extension ABI 或 `AX import -> Cargo crate` 直通桥。
   - 后续补强：继续把 package graph 接入 context、diagnostics、build/AOT 和 lockfile 校验链。
 - [x] `Q-P5-02` lockfile v0
-  - 状态：已新增 `axc lock <project> [--check]`，生成/校验 `AX.lock` schema version `1`。
+  - 状态：已新增 `axc lock <project> [--check]`，生成/校验 `AX.lock` schema version `1`；`--check` 失败现在要求输出稳定 `LX0001~LX0004` 文本码、drift kind、fixit、`repair_rule` 和 `repair_goal`。
   - 当前范围：只记录本地 path package 图，包括 root package name、dependency alias、`kind = "path"`、dependency package name、declared path、manifest path、source_count 和 sorted modules。
-  - 已覆盖：CLI 参数解析、temp project lockfile smoke、`--check` 验证、context `overview/topology/evidence` 的 `local_package_lock` 状态、interface contract、feature matrix、README。
+  - 已覆盖：CLI 参数解析、temp project lockfile smoke、`--check` 验证、stale package graph drift 明细、context `overview/topology/evidence` 的 `local_package_lock` 状态与 AI-facing issues、interface contract、feature matrix、README。
   - 当前边界：不是 registry lockfile，不做版本求解，不解析三方包，不支持 transitive path dependencies，不生成 Cargo 依赖桥。
 - [ ] `Q-P5-03` registry package
 - [x] `Q-P5-04` package diagnostics / smoke v0
-  - 状态：本地 path package resolver 错误已获得稳定 `PX0001~PX0007` 文本错误码，适合 CLI、脚本和 AI 先做稳定匹配。
+  - 状态：本地 path package resolver 错误已获得稳定 `PX0001~PX0007` 文本错误码，并通过 `repair_rule / repair_goal / fixit` 给 CLI、脚本和 AI 提供稳定修复入口。
   - 已覆盖：非法依赖别名、依赖路径缺失/不可访问、依赖 manifest 缺失/不可解析、空 sources、模块根冲突、重复依赖模块路径、暂不支持 transitive dependencies。
   - smoke 覆盖：`project_path_package_manifest_errors_are_stable`、`project_path_package_module_mismatch_keeps_ai_repair_rule`、`project_package_config_context_exposes_local_path_package`。
   - context 覆盖：`overview/topology` 已在存在本地 path package 时输出 `local_path_packages`，包含 alias、root、manifest、source_count 和 modules。

@@ -11,6 +11,7 @@ pub mod interpreter;
 pub mod lexer;
 pub mod lockfile;
 pub mod mir;
+pub mod package_diagnostics;
 pub mod parser;
 pub mod project;
 pub mod semantic;
