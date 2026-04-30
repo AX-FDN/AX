@@ -6,7 +6,6 @@ import {
   Code2,
   Copy,
   Download,
-  ExternalLink,
   FileJson,
   Gauge,
   Github,
@@ -26,7 +25,6 @@ import {
   brokenSliceSource,
   comparisonRows,
   contextLayers,
-  contracts,
   docTracks,
   downloadRows,
   ecosystemMilestones,
@@ -35,9 +33,7 @@ import {
   modePanels,
   packageEntries,
   portalNav,
-  routeItems,
   sampleTracks,
-  statCards,
   type FeedbackMode,
 } from './data';
 
@@ -150,16 +146,6 @@ function App() {
         </div>
       </section>
 
-      <section className="stat-strip" aria-label="AX project status">
-        {statCards.map((stat) => (
-          <article className={`metric-card tone-${stat.tone}`} key={stat.label}>
-            <span>{stat.label}</span>
-            <strong>{stat.value}</strong>
-            <small>{stat.caption}</small>
-          </article>
-        ))}
-      </section>
-
       <section className="feature-section" aria-label="AX advantages">
         {featureCards.map((feature) => (
           <article className="feature-card" key={feature.title}>
@@ -170,73 +156,66 @@ function App() {
         ))}
       </section>
 
-      <section className="docs-section" id="docs">
-        <SectionTitle
-          kicker="documentation"
-          title="从入门到协议，按语言项目方式组织。"
-          icon={BookOpen}
-        />
-        <div className="doc-grid">
-          {docTracks.map((track) => (
-            <article className="doc-card" key={track.title}>
-              <track.icon size={24} />
-              <h3>{track.title}</h3>
-              <p>{track.summary}</p>
-              <ul>
-                {track.links.map((link) => (
-                  <li key={link}>{link}</li>
-                ))}
-              </ul>
-            </article>
-          ))}
+      <section className="portal-grid" aria-label="AX portal sections">
+        <div className="docs-section" id="docs">
+          <SectionTitle kicker="documentation" title="文档先分层，不把所有内容塞在首页。" icon={BookOpen} />
+          <div className="doc-list">
+            {docTracks.map((track) => (
+              <article className="doc-row" key={track.title}>
+                <track.icon size={22} />
+                <span>
+                  <strong>{track.title}</strong>
+                  <small>{track.summary}</small>
+                </span>
+              </article>
+            ))}
+          </div>
         </div>
-      </section>
 
-      <section className="packages-section" id="packages">
-        <SectionTitle
-          kicker="package catalog v0"
-          title="先展示官方库和代表样例，后续接入真正 registry。"
-          icon={Package}
-        />
-        <div className="search-shell" aria-label="Package search preview">
-          <Search size={18} />
-          <span>Search modules: std.fs, std.report, project_payload_event_report</span>
-        </div>
-        <div className="package-grid">
-          {packageEntries.map((entry) => (
-            <article className="package-card" key={`${entry.owner}/${entry.name}`}>
-              <div className="package-heading">
+        <div className="packages-section" id="packages">
+          <SectionTitle kicker="package catalog v0" title="社区目录先做轻量入口。" icon={Package} />
+          <div className="search-shell" aria-label="Package search preview">
+            <Search size={18} />
+            <span>std.fs, std.report, project_payload_event_report</span>
+          </div>
+          <div className="package-list">
+            {packageEntries.slice(0, 4).map((entry) => (
+              <article className="package-row" key={`${entry.owner}/${entry.name}`}>
                 <span>
                   {entry.owner} / <strong>{entry.name}</strong>
                 </span>
                 <small>{entry.status}</small>
-              </div>
-              <p>{entry.summary}</p>
-              <div className="tag-row">
-                {entry.tags.map((tag) => (
-                  <span key={tag}>{tag}</span>
-                ))}
-              </div>
-            </article>
-          ))}
+              </article>
+            ))}
+          </div>
         </div>
       </section>
 
-      <section className="benchmarks-section" id="benchmarks">
-        <SectionTitle
-          kicker="benchmark evidence"
-          title="AX 的证据页重点展示修复稳定性，不只展示脚本。"
-          icon={Gauge}
-        />
-        <div className="benchmark-grid">
-          {benchmarkCards.map((card) => (
-            <article className="benchmark-card" key={card.title}>
-              <span>{card.metric}</span>
-              <h3>{card.title}</h3>
-              <p>{card.summary}</p>
-              <code>{card.command}</code>
-            </article>
-          ))}
+      <section className="evidence-grid" aria-label="Evidence and context">
+        <div className="benchmarks-section" id="benchmarks">
+          <SectionTitle kicker="benchmark evidence" title="证据链保留重点指标。" icon={Gauge} />
+          <div className="benchmark-list">
+            {benchmarkCards.map((card) => (
+              <article className="benchmark-row" key={card.title}>
+                <span>{card.metric}</span>
+                <strong>{card.title}</strong>
+                <code>{card.command}</code>
+              </article>
+            ))}
+          </div>
+        </div>
+
+        <div className="context-section" id="context">
+          <SectionTitle kicker="architecture context" title="上下文协议只展示主干。" icon={TerminalSquare} />
+          <div className="context-list compact">
+            {contextLayers.map((layer, index) => (
+              <div className="context-row" key={layer}>
+                <span>{String(index + 1).padStart(2, '0')}</span>
+                <strong>{layer}</strong>
+                <small>axc context {layer}</small>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -342,56 +321,11 @@ function App() {
         </div>
       </section>
 
-      <section className="context-section" id="context">
-        <SectionTitle
-          kicker="architecture context"
-          title="六层上下文让 agent 知道边界、影响面和验证路径。"
-          icon={TerminalSquare}
-        />
-        <div className="context-layout">
-          <div className="payload-card">
-            <span className="section-kicker">ai-facing bundle</span>
-            <pre className="payload-block">
-              <code>{aiPayload}</code>
-            </pre>
-          </div>
-          <div className="context-list">
-            {contextLayers.map((layer, index) => (
-              <div className="context-row" key={layer}>
-                <span>{String(index + 1).padStart(2, '0')}</span>
-                <strong>{layer}</strong>
-                <small>axc context {layer}</small>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="contracts-section">
-        <SectionTitle
-          kicker="stable contracts"
-          title="官网默认展示的是可被工具链消费的接口。"
-          icon={FileJson}
-        />
-        <div className="contract-grid">
-          {contracts.map((contract) => (
-            <article className="contract-card" key={contract.title}>
-              <contract.icon size={22} />
-              <h3>{contract.title}</h3>
-              <dl>
-                <div>
-                  <dt>Producer</dt>
-                  <dd>{contract.producer}</dd>
-                </div>
-                <div>
-                  <dt>Consumer</dt>
-                  <dd>{contract.consumer}</dd>
-                </div>
-              </dl>
-              <p>{contract.guarantee}</p>
-            </article>
-          ))}
-        </div>
+      <section className="protocol-section">
+        <SectionTitle kicker="ai-facing bundle" title="协议示例单独放置，避免和导航信息混在一起。" icon={FileJson} />
+        <pre className="payload-block protocol-block">
+          <code>{aiPayload}</code>
+        </pre>
       </section>
 
       <section className="samples-section">
@@ -407,53 +341,32 @@ function App() {
         </div>
       </section>
 
-      <section className="download-section" id="download">
-        <SectionTitle
-          kicker="download"
-          title="平台支持按成熟度分级，不把未完成能力包装成承诺。"
-          icon={Download}
-        />
-        <div className="download-grid">
-          {downloadRows.map((row) => (
-            <article className="download-card" key={row.platform}>
-              <h3>{row.platform}</h3>
-              <p>{row.level}</p>
-              <code>{row.command}</code>
-            </article>
-          ))}
+      <section className="release-grid" id="download">
+        <div className="download-section">
+          <SectionTitle kicker="download" title="平台支持分级展示。" icon={Download} />
+          <div className="download-list">
+            {downloadRows.map((row) => (
+              <article className="download-row" key={row.platform}>
+                <strong>{row.platform}</strong>
+                <span>{row.level}</span>
+              </article>
+            ))}
+          </div>
         </div>
-      </section>
 
-      <section className="ecosystem-section">
-        <SectionTitle
-          kicker="ecosystem path"
-          title="先做门户，再做目录，最后做真正社区 registry。"
-          icon={ArrowRight}
-        />
-        <div className="milestone-grid">
-          {ecosystemMilestones.map((milestone) => (
-            <article className="milestone-card" key={milestone.title}>
-              <milestone.icon size={24} />
-              <h3>{milestone.title}</h3>
-              <p>{milestone.summary}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="docs-section">
-        <SectionTitle kicker="repository docs" title="可继续引用的仓库文档入口。" icon={BookOpen} />
-        <div className="route-list">
-          {routeItems.map((item) => (
-            <a className="route-item" href={`https://github.com/AX-FDN/AX/blob/main/${item.path}`} key={item.path}>
-              <item.icon size={20} />
-              <span>
-                <strong>{item.title}</strong>
-                <small>{item.summary}</small>
-              </span>
-              <ExternalLink size={16} />
-            </a>
-          ))}
+        <div className="ecosystem-section">
+          <SectionTitle kicker="ecosystem path" title="社区路线拆成三步。" icon={ArrowRight} />
+          <div className="milestone-list">
+            {ecosystemMilestones.map((milestone) => (
+              <article className="milestone-row" key={milestone.title}>
+                <milestone.icon size={20} />
+                <span>
+                  <strong>{milestone.title}</strong>
+                  <small>{milestone.summary}</small>
+                </span>
+              </article>
+            ))}
+          </div>
         </div>
       </section>
     </main>
