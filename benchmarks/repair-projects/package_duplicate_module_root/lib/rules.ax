@@ -1,0 +1,5 @@
+module lib.rules;
+
+fn local_value() -> i32 {
+    return 1;
+}

@@ -125,13 +125,13 @@ if (-not (Test-Path $comparisonPath)) {
 $comparison = Get-Content $comparisonPath -Raw -Encoding utf8 | ConvertFrom-Json
 
 Assert-Equal -Label "schema_version" -Actual ([int] $comparison.schema_version) -Expected 1
-Assert-Equal -Label "comparison.total_cases" -Actual ([int] $comparison.comparison.total_cases) -Expected 12
-Assert-Equal -Label "comparison.base_passed" -Actual ([int] $comparison.comparison.base_passed) -Expected 6
-Assert-Equal -Label "comparison.ai_passed" -Actual ([int] $comparison.comparison.ai_passed) -Expected 12
+Assert-Equal -Label "comparison.total_cases" -Actual ([int] $comparison.comparison.total_cases) -Expected 13
+Assert-Equal -Label "comparison.base_passed" -Actual ([int] $comparison.comparison.base_passed) -Expected 7
+Assert-Equal -Label "comparison.ai_passed" -Actual ([int] $comparison.comparison.ai_passed) -Expected 13
 Assert-Equal -Label "comparison.absolute_lift_cases" -Actual ([int] $comparison.comparison.absolute_lift_cases) -Expected 6
-Assert-Equal -Label "comparison.absolute_lift_pp" -Actual ([double] $comparison.comparison.absolute_lift_pp) -Expected 50
-Assert-Equal -Label "base.invocation_totals.ok" -Actual ([int] $comparison.modes.base.invocation_totals.ok) -Expected 12
-Assert-Equal -Label "ai.invocation_totals.ok" -Actual ([int] $comparison.modes.ai.invocation_totals.ok) -Expected 12
+Assert-Equal -Label "comparison.absolute_lift_pp" -Actual ([double] $comparison.comparison.absolute_lift_pp) -Expected 46.15
+Assert-Equal -Label "base.invocation_totals.ok" -Actual ([int] $comparison.modes.base.invocation_totals.ok) -Expected 13
+Assert-Equal -Label "ai.invocation_totals.ok" -Actual ([int] $comparison.modes.ai.invocation_totals.ok) -Expected 13
 Assert-Equal -Label "base.score_totals.failed" -Actual ([int] $comparison.modes.base.score_totals.failed) -Expected 6
 Assert-Equal -Label "ai.score_totals.failed" -Actual ([int] $comparison.modes.ai.score_totals.failed) -Expected 0
 Assert-Equal -Label "base.timed_out" -Actual ([bool] $comparison.modes.base.timed_out) -Expected $false
@@ -161,5 +161,13 @@ Assert-Equal -Label "runtime.base_passed" -Actual ([int] $runtimeCategory[0].bas
 Assert-Equal -Label "runtime.ai_passed" -Actual ([int] $runtimeCategory[0].ai_passed) -Expected 2
 Assert-Equal -Label "runtime.improved" -Actual ([int] $runtimeCategory[0].improved) -Expected 2
 Assert-Equal -Label "runtime.regressed" -Actual ([int] $runtimeCategory[0].regressed) -Expected 0
+
+$packageCategory = @($comparison.categories | Where-Object { [string] $_.category -eq "package" })
+Assert-Equal -Label "package category count" -Actual $packageCategory.Count -Expected 1
+Assert-Equal -Label "package.total" -Actual ([int] $packageCategory[0].total) -Expected 1
+Assert-Equal -Label "package.base_passed" -Actual ([int] $packageCategory[0].base_passed) -Expected 1
+Assert-Equal -Label "package.ai_passed" -Actual ([int] $packageCategory[0].ai_passed) -Expected 1
+Assert-Equal -Label "package.improved" -Actual ([int] $packageCategory[0].improved) -Expected 0
+Assert-Equal -Label "package.regressed" -Actual ([int] $packageCategory[0].regressed) -Expected 0
 
 Write-Host "Compare smoke passed. Stable comparison.json contract verified at $comparisonPath"

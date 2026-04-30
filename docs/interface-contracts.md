@@ -17,6 +17,7 @@ AX 现在的外部契约不是只有 CLI 命令本身。对 agent 和工具链�
 | --- | --- | --- | --- |
 | check diagnostics | `axc check --json` | CLI users, repair export, adapters | `diagnostics_json_matches_snapshot` |
 | AI diagnostics | `axc check --json --ai` | repair benchmark, adapters, AI agents | `diagnostics_json_with_ai_matches_snapshot`, `diagnostics_result_propagation_json_with_ai_matches_snapshot` |
+| package resolver diagnostics | `axc check <project> --json --ai` | package-aware repair benchmark, adapters, AI agents | `project_path_package_manifest_errors_have_json_ai_diagnostics` |
 | AI session escalation | `axc check --json --ai --ai-session` | repeated agent repair loops | `diagnostics_ai_session_escalation_matches_snapshots` |
 | runtime diagnostics | `axc run --json` | runtime repair benchmark | `run_runtime_error_json_matches_snapshot`, `run_runtime_division_by_zero_json_matches_snapshot` |
 | runtime AI diagnostics | `axc run --json --ai` | runtime repair benchmark, adapters | `run_runtime_error_json_with_ai_matches_snapshot`, `run_runtime_division_by_zero_json_with_ai_matches_snapshot` |
@@ -240,6 +241,8 @@ Stable for the current package-interface slice:
   - `PX0007`: dependency source expands to a duplicate or entry-overlapping source
 - context `overview` and `topology` expose `local_path_packages` when a project uses path packages
 - context `evidence` recommends `axc lock <project> --check` for local path package projects
+- `axc check <project> --json --ai` emits `PX****` package resolver failures as normal JSON diagnostics when project loading fails before AX source analysis starts
+- package resolver JSON diagnostics point at `AX.toml`, use `expected = ["valid local path package graph"]`, and expose the same package repair hint as `ai.rule_id`, `ai.repair_goal`, and `ai.fixits`
 
 Allowed to evolve carefully:
 

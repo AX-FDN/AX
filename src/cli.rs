@@ -1,13 +1,13 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::ai::enhance_diagnostics;
+use crate::ai::{AiDiagnostic, AiRuleCard, TeachingLevel, enhance_diagnostics};
 use crate::build::{
     BuildOptions, build_input_from_project, build_input_from_source, build_program,
     default_output_dir,
 };
 use crate::context::{ContextView, render_context_json};
-use crate::diagnostics::render_diagnostics;
+use crate::diagnostics::{Diagnostic, render_diagnostics};
 use crate::formatter::format_source;
 use crate::frontend::{analyze_with_project, check_only_with_project};
 use crate::interpreter::{RunContext, run_program_with_context};
@@ -16,6 +16,7 @@ use crate::package_diagnostics::{
     append_package_repair_hint, package_repair_hint, render_package_repair_hint,
 };
 use crate::project::{ResolvedInput, resolve_input};
+use crate::source::{SourceFile, Span};
 
 pub fn run_cli(args: Vec<String>) -> i32 {
     let mut args = args.into_iter();
@@ -59,8 +60,7 @@ fn run_check(args: Vec<String>) -> i32 {
     let input = match load_input(&options.file) {
         Ok(input) => input,
         Err(error) => {
-            eprintln!("{error}");
-            return 1;
+            return render_load_input_error(&options.file, &error, options.json, options.ai);
         }
     };
     let source = &input.source;
@@ -361,8 +361,7 @@ fn run_run(args: Vec<String>) -> i32 {
     let input = match load_input(&options.file) {
         Ok(input) => input,
         Err(error) => {
-            eprintln!("{error}");
-            return 1;
+            return render_load_input_error(&options.file, &error, options.json, options.ai);
         }
     };
     let source = &input.source;
@@ -567,6 +566,94 @@ fn render_check_success(json: bool, display_path: &str) -> String {
     } else {
         format!("check succeeded: {display_path}")
     }
+}
+
+fn render_load_input_error(path: &Path, error: &str, json: bool, ai: bool) -> i32 {
+    if json {
+        if let Some((_source, diagnostic)) = package_load_error_diagnostic(path, error, ai) {
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&vec![diagnostic])
+                    .expect("package load diagnostic json should serialize")
+            );
+            return 1;
+        }
+    }
+
+    eprintln!("{error}");
+    1
+}
+
+fn package_load_error_diagnostic(
+    path: &Path,
+    error: &str,
+    ai: bool,
+) -> Option<(SourceFile, Diagnostic)> {
+    let base_message = error.split("\nrepair_rule:").next().unwrap_or(error).trim();
+    let code = package_error_code(base_message)?;
+    let hint = package_repair_hint(code)?;
+    let source = source_for_load_error(path);
+    let span = first_source_span(&source);
+    let mut diagnostic = Diagnostic::new(code, base_message, &source, span)
+        .with_expected("valid local path package graph")
+        .with_suggestion(hint.fixit);
+
+    if ai {
+        diagnostic = diagnostic.with_ai(AiDiagnostic {
+            rule_id: hint.rule_id.to_string(),
+            teaching_level: TeachingLevel::L1,
+            repeat_count: 1,
+            repair_goal: hint.repair_goal.to_string(),
+            focus_item: None,
+            relevant_spans: vec![span],
+            related_symbols: Vec::new(),
+            rule_card: AiRuleCard {
+                summary: hint.repair_goal.to_string(),
+                pattern: Some("AX local path package manifests must describe a loadable one-level package graph.".to_string()),
+                minimal_example: Some("[dependencies]\nconfig_rules = { path = \"packages/config_rules\" }".to_string()),
+                anti_pattern: Some("Pointing a dependency alias at a missing directory, invalid manifest, duplicate module root, or transitive package graph.".to_string()),
+            },
+            fixits: vec![hint.fixit.to_string()],
+            context_snippets: Vec::new(),
+        });
+    }
+
+    Some((source, diagnostic))
+}
+
+fn package_error_code(message: &str) -> Option<&str> {
+    let code = message.get(0..6)?;
+    if code.len() == 6 && code.starts_with("PX") && code[2..].chars().all(|ch| ch.is_ascii_digit())
+    {
+        return Some(code);
+    }
+    None
+}
+
+fn source_for_load_error(path: &Path) -> SourceFile {
+    let source_path = if path.is_dir() {
+        path.join("AX.toml")
+    } else {
+        path.to_path_buf()
+    };
+    let text = fs::read_to_string(&source_path).unwrap_or_default();
+    SourceFile::new(source_path, text)
+}
+
+fn first_source_span(source: &SourceFile) -> Span {
+    let start = source
+        .text()
+        .char_indices()
+        .find(|(_, ch)| !ch.is_whitespace())
+        .map(|(index, _)| index)
+        .unwrap_or(0);
+    let end = source
+        .text()
+        .get(start..)
+        .and_then(|rest| rest.chars().next())
+        .map(|ch| start + ch.len_utf8())
+        .unwrap_or(start);
+    Span::new(start, end)
 }
 
 #[derive(Debug, PartialEq, Eq)]

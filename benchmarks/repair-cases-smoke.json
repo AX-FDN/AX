@@ -22,6 +22,16 @@
       "notes": "CI smoke project-context syntax case."
     },
     {
+      "id": "package_missing_dependency",
+      "file": "benchmarks/repair-projects/package_missing_dependency/AX.toml",
+      "project": "benchmarks/repair-projects/package_missing_dependency",
+      "category": "package",
+      "expected_codes": ["PX0002"],
+      "expected_ai_rule_ids": ["package_dependency_path_must_exist"],
+      "repair_goal": "Remove the stale dependency entry or point it at an existing local AX package directory.",
+      "notes": "CI smoke package resolver case with AX.toml as the repair target."
+    },
+    {
       "id": "type_mismatch_bool_from_int",
       "file": "examples/type_mismatch.ax",
       "category": "semantic",

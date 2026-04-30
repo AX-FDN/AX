@@ -36,6 +36,12 @@ Important compatibility rule:
 - base fields do not change meaning when `--ai` is enabled
 - diagnostics without a matched AI rule simply omit the `ai` field
 
+Project/package resolver errors:
+
+- `PX****` local path package resolver failures are emitted through the same JSON diagnostic array when `axc check <project> --json` is used.
+- With `--json --ai`, package resolver diagnostics include package-specific `ai.rule_id`, `repair_goal`, `rule_card`, and `fixits` derived from the package repair hint table.
+- The diagnostic `file` points at the project manifest when the resolver fails before AX source analysis can start.
+
 ### `axc check <file> --json --ai --ai-session <path>`
 
 This enables session-scoped teaching escalation.

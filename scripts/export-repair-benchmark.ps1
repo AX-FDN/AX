@@ -225,6 +225,33 @@ function New-RepairPrompt {
         $notesBlock = "Case notes: $Notes`n"
     }
 
+    $normalizedTargetFile = $TargetFile.Replace('\', '/')
+    $targetIsManifest = $normalizedTargetFile -eq "AX.toml" -or $normalizedTargetFile.EndsWith("/AX.toml")
+    $outputDescription = "the full repaired AX source code"
+    $sourceFence = "ax"
+    $targetConstraints = @"
+AX constraints:
+- All function parameters, return types, and local variables must keep explicit type annotations.
+- main must be fn main() -> i32.
+- Enum values use EnumName.Variant.
+- Struct literals use TypeName { field: expr, ... }.
+- let, assignment, expression, and return statements must end with ;.
+- Slices are supported, and empty array literals are only valid with explicit zero-length array types such as [i32; 0].
+- Do not introduce unsupported features such as generics, exceptions, async, binding-pattern matches, or expression-form match.
+"@
+    if ($targetIsManifest) {
+        $outputDescription = "the full repaired AX.toml manifest"
+        $sourceFence = "toml"
+        $targetConstraints = @"
+AX.toml manifest constraints:
+- Keep manifest_version = 1.
+- Keep a non-empty [package].name and [package].entry.
+- Local path dependencies use [dependencies] alias = { path = "relative/path" }.
+- Remove stale dependency entries when the project source does not import or use that package.
+- Do not invent registry, version, or transitive dependency syntax.
+"@
+    }
+
     $diagnosticsBlock = ""
     if (-not [string]::IsNullOrWhiteSpace($DiagnosticsJson)) {
         $diagnosticsBlock = @"
@@ -244,8 +271,14 @@ $DiagnosticsJson
     }
 
     $sourceHeader = "Broken AX source:"
+    if ($targetIsManifest) {
+        $sourceHeader = "Broken AX project manifest:"
+    }
     if (-not [string]::IsNullOrWhiteSpace($TargetFile)) {
         $sourceHeader = "Broken AX source (target file: $TargetFile):"
+        if ($targetIsManifest) {
+            $sourceHeader = "Broken AX project manifest (target file: $TargetFile):"
+        }
     }
 
     $projectContextBlock = ""
@@ -257,7 +290,7 @@ Project context:
 - Treat the remaining project files as read-only context.
 "@
 
-        if (-not [string]::IsNullOrWhiteSpace($ProjectManifestText)) {
+        if ((-not $targetIsManifest) -and (-not [string]::IsNullOrWhiteSpace($ProjectManifestText))) {
             $projectContextBlock += @"
 
 Project manifest:
@@ -297,18 +330,11 @@ $ContextBundleJson
 You are repairing a broken AX program.
 
 Output rules:
-- Return only the full repaired AX source code.
+- Return only $outputDescription.
 - Do not explain the change.
-- Stay within the currently implemented AX prototype syntax.
+- Keep the repaired text in the same target-file format as the broken file.
 
-AX constraints:
-- All function parameters, return types, and local variables must keep explicit type annotations.
-- main must be fn main() -> i32.
-- Enum values use EnumName.Variant.
-- Struct literals use TypeName { field: expr, ... }.
-- let, assignment, expression, and return statements must end with ;.
-- Slices are supported, and empty array literals are only valid with explicit zero-length array types such as [i32; 0].
-- Do not introduce unsupported features such as generics, exceptions, async, binding-pattern matches, or expression-form match.
+$targetConstraints
 
 Case id: $CaseId
 Feedback mode: $FeedbackMode
@@ -317,7 +343,7 @@ Repair goal: $RepairGoal
 $runtimeRepairBlock
 $notesBlock
 $sourceHeader
-~~~ax
+~~~$sourceFence
 $SourceText
 ~~~
 $projectContextBlock

@@ -1,0 +1,5 @@
+module lib.rules;
+
+fn dependency_value() -> i32 {
+    return 2;
+}

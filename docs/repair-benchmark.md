@@ -67,9 +67,9 @@ Field meanings:
 - `cases[].id`
   Stable case identifier used in artifacts, candidate lookup, and reports.
 - `cases[].file`
-  Path to the broken AX source that the adapter should rewrite. Repository-relative paths are the normal form, but the current scripts also accept absolute paths for local contract tests.
+  Path to the broken target file that the adapter should rewrite. Most cases target an AX source file; package resolver cases may target `AX.toml`.
 - `cases[].project`
-  Optional AX project root or `AX.toml` path. When present, diagnostics are exported from the whole project while `cases[].file` still names the specific AX source file that should be repaired.
+  Optional AX project root or `AX.toml` path. When present, diagnostics are exported from the whole project while `cases[].file` still names the specific file that should be repaired.
 - `cases[].category`
   Stable grouping key such as `syntax`, `semantic`, or `unsupported`.
 - `cases[].diagnostic_command`
@@ -85,9 +85,12 @@ Field meanings:
 - `cases[].context_symbol`
   Optional symbol used when exporting context-enabled repair bundles. If omitted, context export falls back to `main`.
 
-As of 2026-04-24, the committed manifests also include a repository-backed project-context case:
-[`project_helper_missing_semicolon`](../benchmarks/repair-projects/helper_missing_semicolon).
-It validates the "repair one target file while keeping the rest of the AX project read-only" path end to end.
+As of 2026-04-30, the committed manifests include two repository-backed project-context cases:
+
+- [`project_helper_missing_semicolon`](../benchmarks/repair-projects/helper_missing_semicolon)
+  validates the "repair one target AX source while keeping the rest of the AX project read-only" path end to end.
+- [`package_missing_dependency`](../benchmarks/repair-projects/package_missing_dependency)
+  validates package resolver diagnostics where `PX0002` is exported through `--json --ai` and the repaired target is `AX.toml`.
 
 The match-language cases are intentionally kept in the benchmark manifest, not just in parser or semantic unit tests. They currently cover:
 
@@ -123,13 +126,13 @@ By default it writes to:
 Each case directory contains:
 
 - `source.ax`
-  Broken target source copied from `cases[].file`.
+  Legacy artifact name for the broken target text copied from `cases[].file`. Most cases contain AX source; package resolver cases may contain `AX.toml` text.
 - `project\`
   Present only for project-backed cases. Keeps a read-only AX project snapshot containing `AX.toml` plus the `.ax` files needed to re-run `check` or `run` against the whole project.
 - `diagnostics.base.json`
-  Output of `axc <diagnostic_command> <file> --json`.
+  Output of `axc <diagnostic_command> <target> --json`, where `<target>` is the project root for project-backed cases and `cases[].file` for single-file cases.
 - `diagnostics.ai.json`
-  Output of `axc <diagnostic_command> <file> --json --ai`.
+  Output of `axc <diagnostic_command> <target> --json --ai`.
 - `bundle.cold.json`
   Structured repair bundle for the prompt-only `cold` branch. Its `diagnostics` array is intentionally empty.
 - `bundle.base.json`
@@ -171,7 +174,7 @@ The export script uses `cases[].context_symbol` as the symbol for `evidence` whe
 If any case drifts, export fails immediately.
 
 For `run`-based cases, the exported prompts also include an explicit runtime-repair note so adapters know the failure already passed `check` and should be repaired without introducing new check-time diagnostics.
-For project-backed cases, the exported prompts additionally include the project manifest and the other AX source files as read-only context, while keeping the broken target file as the only file the adapter is expected to rewrite.
+For project-backed cases, the exported prompts additionally include the other project files as read-only context, while keeping the broken target file as the only file the adapter is expected to rewrite. If the target file is `AX.toml`, the prompt asks for a full repaired manifest instead of AX source.
 For stable replay baselines, prefer repaired runtime candidates whose `main` returns `0` after the fix so benchmark evidence does not depend on the program's business result becoming the process exit code.
 
 ## Run Step
@@ -225,7 +228,7 @@ Default output root:
 Run output contains:
 
 - `candidates\`
-  Repaired AX source per case.
+  Repaired target text per case. Most candidates are AX source; package resolver cases can be repaired `AX.toml` text stored under the same replay candidate naming convention.
 - `invocations\`
   Per-case `stdout.txt`, `stderr.txt`, and `invocation.json`.
 - `run-summary.json`
@@ -351,7 +354,7 @@ Candidate lookup supports two layouts:
 - `.ax-ai\repair-candidates\demo\<case-id>.ax`
 - `.ax-ai\repair-candidates\demo\<case-id>\repaired.ax`
 
-For project-backed benchmark cases, the candidate is still one repaired AX file. The scorer reconstructs the exported `project\` snapshot, overwrites the target file named by the benchmark metadata, and then runs `axc check` / `axc run` against that working project root.
+For project-backed benchmark cases, the candidate is still one repaired target file. The scorer reconstructs the exported `project\` snapshot, overwrites the target file named by the benchmark metadata, and then runs `axc check` / `axc run` against that working project root.
 
 The scorer runs:
 
@@ -611,7 +614,7 @@ This script uses the smoke manifest plus replay candidates committed in the repo
 - the runner contract still works
 - scoring still works end to end
 
-It also asserts the stable `run-summary.json` and `score/summary.json` contracts for the current 11-case smoke subset, including the `run --json` validation path for the two runtime repair cases and the committed project-backed helper repair case.
+It also asserts the stable `run-summary.json` and `score/summary.json` contracts for the current 13-case smoke subset, including the `run --json` validation path for the two runtime repair cases, the committed project-backed helper repair case, and the package resolver `AX.toml` repair case.
 
 If your local environment does not expose `cargo`, the smoke entrypoints also accept `-SkipBuild`; combine that with `AXC_BINARY=<path-to-axc>` to replay the full smoke evidence chain against an existing compiler binary.
 
@@ -630,7 +633,7 @@ This compare smoke intentionally replays:
 - one shared repaired candidate set
 - one `base`-only override set that leaves five cases still broken, including three semantic cases and two runtime cases
 
-The committed `compare/shared` directory is broader than this smoke subset: it is intended to cover the full repair manifest so deterministic full-manifest compare runs can reuse one passing shared baseline instead of rebuilding ad hoc replay roots every time. That shared baseline now also includes the project-backed `project_helper_missing_semicolon` replay candidate.
+The committed `compare/shared` directory is broader than this smoke subset: it is intended to cover the full repair manifest so deterministic full-manifest compare runs can reuse one passing shared baseline instead of rebuilding ad hoc replay roots every time. That shared baseline now also includes the project-backed `project_helper_missing_semicolon` replay candidate and the `package_missing_dependency` manifest candidate.
 
 It then asserts the stable `comparison.json` contract, including:
 

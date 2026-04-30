@@ -1,0 +1,5 @@
+manifest_version = 1
+
+[package]
+name = "package_missing_dependency"
+entry = "src/main.ax"

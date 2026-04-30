@@ -79,6 +79,13 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test --test interface_snapshots project_job_runner
 ```
 
+改到 package resolver JSON diagnostics、`PX****` repair hints 或 package repair benchmark case 时，至少追加：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test --test interface_snapshots project_path_package_manifest_errors_have_json_ai_diagnostics
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke-repair-benchmark.ps1 -SkipBuild
+```
+
 如果改动会影响 `std/` source tree、build artifacts 或多个试点，跑完整 interface snapshots：
 
 ```powershell

@@ -4322,6 +4322,54 @@ config_rules = { path = \"packages/config_rules\" }
 }
 
 #[test]
+fn project_path_package_manifest_errors_have_json_ai_diagnostics() {
+    let temp = TempDir::new("project-package-json-errors");
+    temp.write(
+        "AX.toml",
+        "\
+manifest_version = 1
+
+[package]
+name = \"project_package_json_errors\"
+entry = \"src/main.ax\"
+
+[dependencies]
+config_rules = { path = \"packages/config_rules\" }
+",
+    );
+    temp.write_nested("src/main.ax", "fn main() -> i32 { return 0; }\n");
+
+    let output = run_axc([
+        OsStr::new("check"),
+        temp.path.as_os_str(),
+        OsStr::new("--json"),
+        OsStr::new("--ai"),
+    ]);
+    assert_eq!(output.status.code(), Some(1));
+    assert_clean_stderr(&output);
+
+    let diagnostics: Value =
+        serde_json::from_slice(&output.stdout).expect("diagnostics output should be JSON");
+    let diagnostics = diagnostics
+        .as_array()
+        .expect("diagnostics output should be an array");
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0]["code"], "PX0002");
+    assert_eq!(
+        diagnostics[0]["ai"]["rule_id"],
+        "package_dependency_path_must_exist"
+    );
+    assert_eq!(
+        diagnostics[0]["ai"]["repair_goal"],
+        "Point the dependency to an existing local AX package directory."
+    );
+    assert_eq!(
+        json_string_array(&diagnostics[0]["expected"], "package expected"),
+        vec!["valid local path package graph".to_string()]
+    );
+}
+
+#[test]
 fn project_path_package_module_mismatch_keeps_ai_repair_rule() {
     let temp = TempDir::new("project-package-module-mismatch");
     temp.write(

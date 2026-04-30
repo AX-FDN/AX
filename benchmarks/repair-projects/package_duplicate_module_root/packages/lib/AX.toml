@@ -1,0 +1,5 @@
+manifest_version = 1
+
+[package]
+name = "lib_package"
+sources = ["src"]

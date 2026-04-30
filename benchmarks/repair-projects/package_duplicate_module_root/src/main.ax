@@ -1,0 +1,5 @@
+import lib.rules;
+
+fn main() -> i32 {
+    return lib.rules.local_value();
+}
