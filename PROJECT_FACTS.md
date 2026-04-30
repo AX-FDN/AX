@@ -43,8 +43,8 @@ AX 当前优先服务四类能被仓库直接验证的场景：
 
 | 层级 | 完成度 | 说明 |
 | --- | --- | --- |
-| 最小可写工具内核 | `92%~95%` | 已具备显式类型、数组/切片、`for/for in`、`break/continue`、`match` 多个高价值切片、字符串 pattern、payload enum、泛型 enum、官方 `Option/Result` 约定、模块第一刀、`pub`、methods/impl、静态方法、返回上下文泛型推断、泛型结构体/函数/impl/方法、trait bounds、`where` 输入语法、泛型 `type` 别名、宿主 builtin |
-| 通用语言表面 | `68%~74%` | 已补 methods/impl、静态方法、返回上下文泛型推断、泛型结构体/函数/enum/impl/method、traits/interfaces、trait bounds、`where` 输入语法、`pub`、泛型 `type` 别名、官方 `Option/Result` 约定与 `Result` 错误传播 `?` 第一刀；还缺泛型 trait、闭包、async、结构化错误层级、完整包系统等 |
+| 最小可写工具内核 | `93%~96%` | 已具备显式类型、数组/切片、`for/for in`、`break/continue`、`match` 多个高价值切片、字符串 pattern、payload enum、跨模块 payload enum 工具样例、泛型 enum、官方 `Option/Result` 约定、模块第一刀、`pub`、methods/impl、静态方法、返回上下文泛型推断、泛型结构体/函数/impl/方法、trait bounds、`where` 输入语法、泛型 `type` 别名、宿主 builtin |
+| 通用语言表面 | `69%~75%` | 已补 methods/impl、静态方法、返回上下文泛型推断、泛型结构体/函数/enum/impl/method、traits/interfaces、trait bounds、`where` 输入语法、`pub`、泛型 `type` 别名、官方 `Option/Result` 约定与 `Result` 错误传播 `?` 第一刀；payload enum 已进入 project-backed 多文件工具验证；还缺泛型 trait、闭包、async、结构化错误层级、完整包系统等 |
 | 生态支撑语法 | `34%~40%` | 已能组织 project-backed 样例并启动 `std.*` 试点，`Option/Result` 已成为标准错误/缺失值约定前置；仍缺稳定包接口、lockfile、host extension ABI、AOT 发布路径和第三方库契约 |
 
 ## AX 现在已经成立的事实
@@ -70,6 +70,7 @@ AX 当前优先服务四类能被仓库直接验证的场景：
 - 项目组织采用 `AX.toml + sources`
 - 第一阶段 `import / module` 已接入 parser、project、semantic 与诊断主链
 - 仓库内已有 project-backed 代表样例、共享 `foundation/` helper，以及第一批 `std/` 标准库试点模块
+- `examples/project_payload_event_report/` 已验证 payload enum 可以跨 support modules 进入数组、`match`、报告生成和 `check / run / build` 回归
 - P2 阶段主代表样例与宿主边界样例已在 [`docs/representative-samples.md`](./docs/representative-samples.md) 固定
 
 ### 5. benchmark 证据链是语言主线的验证层，不是附属脚本

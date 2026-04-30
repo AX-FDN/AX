@@ -59,7 +59,7 @@
 - `P1` 的 context-enabled repair export、benchmark 展示页和公开口径边界已经成立
 - `P2` 当前出口已经完成，语言内核主代表样例、宿主边界样例、第一项 `match` 语法线和 `Result` 错误传播 `?` 第一版已经进入回归
 - `P3` 前置边界已经完成，`project_text_normalize` 已作为第一组 `foundation -> std.*` 迁移试点完成第一轮闭环
-- 当前 `P0 / P1 / P2` 本轮出口均已完成，`P3` 已完成十二组样例迁移/压力试点，`std.process / std.env` 已通过宿主边界样例验证，`std.env.try_get`、读侧 `std.fs.try_*` 与状态型 `std.process.try_*` 已启动 Result 风格宿主边界试点，`project_result_pipeline` 已把这些接口组合成 `Result` 错误传播 `?` 的真实压力样例，`project_config_validate` 已把宿主 string 错误显式转换为项目级 error enum，`project_collections_report` 已把宿主 `string_list_*` 收口到 `std.collections` 源码级包装，`std.option / std.result` 已通过跨模块泛型 enum smoke 验证，第一版 `std.*` 冻结候选清单已收口
+- 当前 `P0 / P1 / P2` 本轮出口均已完成，`P3` 已完成十二组样例迁移/压力试点，`std.process / std.env` 已通过宿主边界样例验证，`std.env.try_get`、读侧 `std.fs.try_*` 与状态型 `std.process.try_*` 已启动 Result 风格宿主边界试点，`project_result_pipeline` 已把这些接口组合成 `Result` 错误传播 `?` 的真实压力样例，`project_config_validate` 已把宿主 string 错误显式转换为项目级 error enum，`project_collections_report` 已把宿主 `string_list_*` 收口到 `std.collections` 源码级包装，`std.option / std.result` 已通过跨模块泛型 enum smoke 验证，`project_payload_event_report` 已把 payload enum 深化推进到 project-backed 多文件工具样例，第一版 `std.*` 冻结候选清单已收口
 
 当前优先级顺序固定为：
 
@@ -83,7 +83,7 @@
 3. 下一步在 `Q-P5-04 package diagnostics / smoke` 与 `Repair Archaeology v0` 之间选择；如果继续后端语言扩张，优先补 package diagnostics，不启动 Live Repair Stream、真实 LLM 或 UI
 4. 任何下一轮实现都必须继续回写 examples、diagnostics、context、repair/benchmark 或 interface snapshots
 
-当前判断：P1 这一轮的基础链路已经完成，P3 的十二组 Std-1 迁移/压力试点、冻结候选和验证入口也已经收口；P5 已先落地本地 path package v0，用 `project_package_config` 证明 AX 包复用边界可以进入 `check / run / build`。下一步如果继续后端语言扩张，优先补 package diagnostics / smoke；如果回到编译器护城河，优先做 `Repair Archaeology v0` 的 case 级可解释产物。错误传播语法已以 `project_result_pipeline` 暴露出的显式 `Result + match` 成本为输入，落地为最小 `expr?`，并通过 `project_config_validate` 开始验证项目级 error enum；集合能力先以 `std.collections` 包装 `string_list` 并提供最小读取/查询，不提前承诺泛型 list/map。
+当前判断：P1 这一轮的基础链路已经完成，P3 的十二组 Std-1 迁移/压力试点、冻结候选和验证入口也已经收口；P5 已先落地本地 path package v0，用 `project_package_config` 证明 AX 包复用边界可以进入 `check / run / build`。错误传播语法已以 `project_result_pipeline` 暴露出的显式 `Result + match` 成本为输入，落地为最小 `expr?`，并通过 `project_config_validate` 开始验证项目级 error enum；集合能力先以 `std.collections` 包装 `string_list` 并提供最小读取/查询，不提前承诺泛型 list/map；payload enum 深化已通过 `project_payload_event_report` 进入多文件 project-backed workload。下一步如果继续后端语言扩张，优先补 package diagnostics / smoke；如果继续语言内核，优先评估更结构化的错误层级和泛型 trait 前置需求。
 
 ## 阶段承接图
 
@@ -382,18 +382,26 @@
     - 同时消费 statement `match` 和 expression `match`
     - interface snapshot 固定输出与退出码
 
-- [ ] `W-P2-S08` 评估 payload enum 深化是否正式启动
+- [x] `W-P2-S08` 评估 payload enum 深化是否正式启动
   - 目标：在 `match` 第二刀第一轮闭环后，判断是否进入第二优先级 payload enum 深化，还是继续补 `match` 的诊断/样例密度。
   - 依赖：`W-P2-S06`、`W-P2-S07`
   - 当前候选：
-    - 增强 payload enum 构造与 pattern 的 AI rule 测试覆盖
-    - 补一个 project-backed payload enum 工具样例
-    - 继续保持 unit variant + 单 payload variant，不扩多 payload 或命名字段
+    - 已选择先补一个 project-backed payload enum 工具样例
+    - 已继续保持 unit variant + 单 payload variant，不扩多 payload 或命名字段
+    - AI rule 测试覆盖继续后置到下一轮坏例子/repair case，而不是本轮扩大语法表面积
   - 当前不做：
     - 不启动完整 ADT
     - 不启动泛型、trait、async
   - 完成标准：
     - 给出下一刀明确落点，并且能立即回写样例、语义检查、AI 反馈或 repair case
+  - 本轮落点：
+    - 新增 `examples/project_payload_event_report/`
+    - 用 `events.RepairSignal.Syntax(i32) / Semantic(i32) / Runtime(i32) / Note(string) / Clean` 验证 payload enum 工具建模
+    - 跨 `events` / `report` support modules 消费 payload enum
+    - 覆盖数组、expression `match`、payload binding、payload wildcard、unit variant 和报告文件输出
+    - `tests/interface_snapshots.rs` 已固定 `run` 输出和 `build` source copy
+  - 下一轮候选：
+    - 如继续语言内核，优先补 payload enum 相关坏例子/AI rule 或结构化错误层级前置，不扩多 payload / 命名字段
 
 ## P2 施工项：语言内核与最小可写工具
 

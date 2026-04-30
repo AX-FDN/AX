@@ -1,0 +1,28 @@
+import events;
+import report;
+import std.cli;
+import std.fs;
+import std.path;
+
+fn main() -> i32 {
+    let args_status: i32 = std.cli.require_min_args(argv_len(), 1, "examples/project_payload_event_report", "<output_dir>");
+    if (args_status != 0) {
+        return args_status;
+    }
+
+    let output_dir: string = argv_get(0);
+    std.fs.create_dir_all(output_dir);
+
+    let signals: [events.RepairSignal; 5] = [
+        events.RepairSignal.Syntax(1),
+        events.RepairSignal.Semantic(22),
+        events.RepairSignal.Runtime(3),
+        events.RepairSignal.Note("context-ready"),
+        events.RepairSignal.Clean,
+    ];
+    let report_text: string = report.build_signal_report(signals);
+    let report_path: string = std.path.join(output_dir, "PAYLOAD-EVENT-REPORT.txt");
+    std.fs.write_string(report_path, report_text + "\n");
+    println("payload_event_report=" + report_path);
+    return 0;
+}

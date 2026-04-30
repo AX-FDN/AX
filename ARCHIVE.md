@@ -33,6 +33,15 @@
     - `README.md`、`docs/README.md`、`docs/quickstart.md`、`docs/validation-matrix.md` 与 `PROJECT_FACTS.md` 已补齐 web workbench 入口和 CI 口径
     - 前端仍保持在 `web/` 下，不改变 Rust 编译器 crate、`cargo` 工作流或 AX 语言接口
 
+- `A-2026-04-30-02` `[P2]` payload enum 深化进入 project-backed workload
+  - 结果：
+    - 新增 `examples/project_payload_event_report/`
+    - `events.RepairSignal` 用 payload enum 表达 syntax / semantic / runtime / note / clean 事件
+    - `report` support module 跨模块消费 payload enum，并通过 expression `match` 生成 label、score 和 failure 状态
+    - 样例覆盖 enum payload binding、payload wildcard、unit variant、数组中的 enum 值、报告文件输出和 `std.report / std.fs / std.path` 组合
+    - `tests/interface_snapshots.rs` 已固定该 project 的 `run` 输出和 `build` source copy
+    - `WORKLIST.md` 已把 `W-P2-S08` 标记完成，下一轮 payload enum 相关工作转向坏例子/AI rule 或结构化错误层级前置，而不是扩多 payload / 命名字段
+
 ### 2026-04-28
 
 

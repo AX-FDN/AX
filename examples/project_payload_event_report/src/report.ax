@@ -1,0 +1,31 @@
+module report;
+
+import events;
+import std.report;
+
+fn append_signal(report: string, index: i32, signal: events.RepairSignal) -> string {
+    let mut next: string = report;
+    next = std.report.append_line(next, "event_" + to_string(index) + "=" + events.signal_label(signal));
+    next = std.report.append_line(next, "score_" + to_string(index) + "=" + to_string(events.signal_score(signal)));
+    next = std.report.append_line(next, "failure_" + to_string(index) + "=" + to_string(events.signal_is_failure(signal)));
+    return next;
+}
+
+fn build_signal_report(signals: [events.RepairSignal; 5]) -> string {
+    let mut report: string = "payload_enum_events=5";
+    let mut total_score: i32 = 0;
+    let mut failures: i32 = 0;
+
+    for (let mut i: i32 = 0; i < len(signals); i = i + 1) {
+        let signal: events.RepairSignal = signals[i];
+        report = append_signal(report, i, signal);
+        total_score = total_score + events.signal_score(signal);
+        if (events.signal_is_failure(signal)) {
+            failures = failures + 1;
+        }
+    }
+
+    report = std.report.append_line(report, "total_score=" + to_string(total_score));
+    report = std.report.append_line(report, "failure_count=" + to_string(failures));
+    return report;
+}

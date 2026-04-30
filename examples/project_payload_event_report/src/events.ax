@@ -1,0 +1,39 @@
+module events;
+
+enum RepairSignal {
+    Syntax(i32),
+    Semantic(i32),
+    Runtime(i32),
+    Note(string),
+    Clean,
+}
+
+fn signal_label(signal: RepairSignal) -> string {
+    return match (signal) {
+        RepairSignal.Syntax(_) => "syntax",
+        RepairSignal.Semantic(_) => "semantic",
+        RepairSignal.Runtime(_) => "runtime",
+        RepairSignal.Note(message) => "note:" + message,
+        RepairSignal.Clean => "clean",
+    };
+}
+
+fn signal_score(signal: RepairSignal) -> i32 {
+    return match (signal) {
+        RepairSignal.Syntax(code) => code + 100,
+        RepairSignal.Semantic(code) => code + 200,
+        RepairSignal.Runtime(_) => 900,
+        RepairSignal.Note(_) => 10,
+        RepairSignal.Clean => 0,
+    };
+}
+
+fn signal_is_failure(signal: RepairSignal) -> bool {
+    return match (signal) {
+        RepairSignal.Syntax(_) => true,
+        RepairSignal.Semantic(_) => true,
+        RepairSignal.Runtime(_) => true,
+        RepairSignal.Note(_) => false,
+        RepairSignal.Clean => false,
+    };
+}

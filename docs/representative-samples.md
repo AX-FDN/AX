@@ -40,6 +40,14 @@ P2 阶段的样例分两类：
 - 新增宿主 builtin 时，必须能落到宿主边界样例或对应 runtime diagnostics。
 - 新增 diagnostics / AI rule 时，优先让它能解释这些样例里的真实失败方式。
 
+## 语言能力压力样例
+
+这些样例不替代主代表样例和宿主边界样例；它们用于验证某条语言能力是否已经从单文件 smoke 进入 project-backed workload。
+
+| 样例 | 主要职责 | 当前回归 |
+| --- | --- | --- |
+| [`../examples/project_payload_event_report/`](../examples/project_payload_event_report/) | 用 payload enum 表达 repair/event 事件，跨 support modules 进入数组、`match`、报告生成和文件输出 | `check / run / build` |
+
 ## 已接入的回归层
 
 当前 `tests/interface_snapshots.rs` 已覆盖：

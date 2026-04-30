@@ -4048,6 +4048,32 @@ fn project_option_result_runs() {
 }
 
 #[test]
+fn project_payload_event_report_runs_on_controlled_fixture() {
+    let temp = TempDir::new("project-payload-event-report");
+    let output_dir = temp.join("out");
+
+    let output = run_axc([
+        OsStr::new("run"),
+        OsStr::new("examples/project_payload_event_report"),
+        OsStr::new("--"),
+        output_dir.as_os_str(),
+    ]);
+    assert_eq!(output.status.code(), Some(0));
+    assert_clean_stderr(&output);
+    assert_eq!(
+        normalize_temp_output(&string_output(&output.stdout), &temp),
+        "payload_event_report=<root>/out/PAYLOAD-EVENT-REPORT.txt\n"
+    );
+
+    let report = fs::read_to_string(output_dir.join("PAYLOAD-EVENT-REPORT.txt"))
+        .expect("payload event report should be written");
+    assert_eq!(
+        normalize_text(&report),
+        "payload_enum_events=5\nevent_0=syntax\nscore_0=101\nfailure_0=true\nevent_1=semantic\nscore_1=222\nfailure_1=true\nevent_2=runtime\nscore_2=900\nfailure_2=true\nevent_3=note:context-ready\nscore_3=10\nfailure_3=false\nevent_4=clean\nscore_4=0\nfailure_4=false\ntotal_score=1233\nfailure_count=3\n"
+    );
+}
+
+#[test]
 fn project_env_result_runs() {
     let output = run_axc([OsStr::new("run"), OsStr::new("examples/project_env_result")]);
     assert_eq!(output.status.code(), Some(0));
@@ -5896,6 +5922,15 @@ fn project_result_pipeline_build_copies_real_example_source_tree() {
         "project-result-pipeline-build",
         "examples/project_result_pipeline",
         &project_sources_with_shared_std(&["src/main.ax"]),
+    );
+}
+
+#[test]
+fn project_payload_event_report_build_copies_real_example_source_tree() {
+    assert_project_example_build_sources(
+        "project-payload-event-report-build",
+        "examples/project_payload_event_report",
+        &project_sources_with_shared_std(&["src/events.ax", "src/report.ax", "src/main.ax"]),
     );
 }
 
