@@ -36,7 +36,7 @@ AX 当前优先服务四类能被仓库直接验证的场景：
 | benchmark | export / run / score / compare / smoke / CI 已落地，context-enabled export 已进入修复输入链 |
 | repair archaeology | v0 已有 artifact schema、最小导出脚本和固定 smoke，并已接入 Windows CI |
 | web workbench | `web/` 已作为独立 Vite + React 前端进入主线，展示 benchmark 指标、same-case repair demo、反馈模式对比和接口契约 |
-| build | 当前仍是 skeleton build，不是成熟 AOT/native backend |
+| build | 当前仍是 skeleton build，不是成熟 AOT/native backend；`build-manifest.json` 与 `context evidence` 已暴露结构化 `aot_readiness` 阻塞项 |
 | 平台 | Windows 为 full workflow，Linux 为 core support，macOS 尚未启动 |
 
 ## 当前语法完成度判断
@@ -77,7 +77,7 @@ AX 当前优先服务四类能被仓库直接验证的场景：
 
 - 仓库内已有 repair cases、adapter spec、导出、评分、对比、smoke 与 CI
 - AX 的主张是“把语言本体和 AI 友好编译器一起做硬”，所以 benchmark 是继续条件的一部分
-- 当前 full manifest 有 `35` 个 repair case；已发布 deterministic replay 快照覆盖 `30` 个 case，仓库内可复现 `cold 23/30`、`base 25/30`、`ai 30/30`
+- 当前 full manifest 有 `43` 个 repair case；smoke subset 有 `13` 个 case；已发布 deterministic replay 快照覆盖 `30` 个 case，仓库内可复现 `cold 23/30`、`base 25/30`、`ai 30/30`
 - 公开展示页见 [`docs/benchmark-showcase.md`](./docs/benchmark-showcase.md)
 - [`docs/repair-archaeology.md`](./docs/repair-archaeology.md) 已定义 Repair Archaeology v0；`scripts/export-repair-archaeology.ps1` 与 `scripts/smoke-repair-archaeology.ps1` 已把 replay / score / compare 升级成按 case 可查询、可导出的修复证据对象
 

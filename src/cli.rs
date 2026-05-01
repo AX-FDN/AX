@@ -222,7 +222,14 @@ fn run_build(args: Vec<String>) -> i32 {
         },
     };
 
-    let result = match build_program(source, hir, mir, &build_input, &BuildOptions { out_dir }) {
+    let result = match build_program(
+        source,
+        &output.program,
+        hir,
+        mir,
+        &build_input,
+        &BuildOptions { out_dir },
+    ) {
         Ok(result) => result,
         Err(error) => {
             eprintln!("{error}");

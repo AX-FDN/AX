@@ -53,7 +53,63 @@
         "axc build currently emits source, HIR, MIR, and build-manifest skeleton artifacts",
         "use axc run as the executable behavior path until AOT starts",
         "project `project_workspace_search_report` is currently build-ready only for skeleton artifacts"
-      ]
+      ],
+      "aot_readiness": {
+        "schema_version": 1,
+        "stage": "Build-0 skeleton",
+        "status": "blocked",
+        "executable_emission": false,
+        "planned_executable_artifact": true,
+        "single_file_core_candidate": false,
+        "required_backend_features": [
+          "arrays",
+          "bool_values",
+          "control_flow",
+          "functions",
+          "host_argv",
+          "host_fs",
+          "host_stdio",
+          "i32_values",
+          "loops",
+          "multi_source_program",
+          "project_sources",
+          "slices",
+          "string_list_runtime",
+          "string_runtime",
+          "structs"
+        ],
+        "blockers": [
+          {
+            "code": "AOT0001",
+            "category": "backend",
+            "message": "native executable emission is not implemented yet",
+            "required_stage": "Build-1"
+          },
+          {
+            "code": "AOT0101",
+            "category": "project",
+            "message": "project source graph packaging exists, but native project linking semantics are not implemented",
+            "required_stage": "Build-2"
+          },
+          {
+            "code": "AOT0301",
+            "category": "runtime",
+            "message": "host boundary builtins need a native runtime ABI before AOT can preserve check/run behavior",
+            "required_stage": "Build-2/Build-3"
+          },
+          {
+            "code": "AOT0302",
+            "category": "runtime",
+            "message": "string and string_list values need a native runtime representation and ABI",
+            "required_stage": "Build-1/Build-2"
+          }
+        ],
+        "recommended_next_steps": [
+          "freeze the MIR subset for a single-file i32 main AOT prototype",
+          "keep axc run as the semantic reference while native output is pending",
+          "when packages are present, require axc lock <project> --check before AOT planning"
+        ]
+      }
     }
   },
   "hints": {

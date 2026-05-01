@@ -122,7 +122,7 @@ http://101.37.238.42
 | benchmark 证据链是一等公民          | repair cases、adapter spec、export、score、compare、smoke、CI 都在仓库里                                                             | 项目价值可以靠数据、回放和对比来建立                         |
 | 修复证据将进入可解释展示层          | `Repair Archaeology v0` 已作为下一轮增长点登记，目标是把 replay / score / compare 变成 case 级 JSON 与 Markdown 修复故事             | 外部读者可以按 case 理解“怎么修、哪里失败、context 是否参与” |
 
-当前仓库内可复现 benchmark 快照见 [`docs/benchmark-showcase.md`](./docs/benchmark-showcase.md)：已发布的 deterministic replay 快照覆盖 `30` 个 repair case，当前 full manifest 已继续扩展到 `35` 个 case，并加入 `Result` 错误传播 `?` 的误用诊断。这个结果证明的是 AX 内部修复证据链已经成立；跨语言、跨模型 live benchmark 仍是下一阶段公开证明。
+当前仓库内可复现 benchmark 快照见 [`docs/benchmark-showcase.md`](./docs/benchmark-showcase.md)：已发布的 deterministic replay 快照覆盖 `30` 个 repair case，当前 full manifest 已继续扩展到 `43` 个 case，smoke subset 固定为 `13` 个 case，并加入 `Result` 错误传播 `?`、包解析和结构化 pattern 相关误用诊断。这个结果证明的是 AX 内部修复证据链已经成立；跨语言、跨模型 live benchmark 仍是下一阶段公开证明。
 
 对外引用 AX 时，建议同时遵守 [`docs/public-claims.md`](./docs/public-claims.md)：仓库内可复现事实可以直接说，跨语言、跨模型和 live-model 收益必须作为后续验证目标来表述。
 
@@ -842,7 +842,7 @@ fn validate(contents: string) -> std.result.Result<i32, string> {
 
 这一版只做本地 path package 和 `AX.lock` v0：没有 registry、版本求解，也不允许 `AX import -> Cargo crate` 直通。它的意义是先把 AX 自己的代码复用边界建立起来，为后续标准库冻结、AOT、包生态和第三方扩展打地基。
 
-本地包错误已经有稳定 resolver 文本码：`PX0001~PX0007` 覆盖非法 alias、依赖路径缺失、依赖 manifest 缺失、空 sources、模块根冲突、transitive dependency 禁用和重复 source；这些错误会输出 `repair_rule / repair_goal / fixit`，让 agent 不需要猜 manifest 应该怎么改。`context overview/topology` 会在项目使用本地包时输出 `local_path_packages`。需要锁定当前本地包图时，可以运行 `axc lock <project>` 生成 `AX.lock`，并用 `axc lock <project> --check` 在 CI 或本地验证锁文件是否仍然匹配。`--check` 失败会输出稳定 `LX0001~LX0004` 文本码、package graph drift 详情和同样的 repair hints，例如依赖数量变化、source_count 变化或模块列表变化。`context overview/topology/evidence` 也会输出 `local_package_lock.status` 和 `local_package_lock.issues`，让 agent 能区分锁文件是缺失、当前有效、过期还是不可读，并知道应该重新生成锁文件还是先修 package graph。`context evidence` 和 `build-manifest.json` 还会输出 `package_graph_readiness`，明确包图是否可复现、当前风险等级、以及为什么还不能被当成 AOT-ready package graph。
+本地包错误已经有稳定 resolver 文本码：`PX0001~PX0007` 覆盖非法 alias、依赖路径缺失、依赖 manifest 缺失、空 sources、模块根冲突、transitive dependency 禁用和重复 source；这些错误会输出 `repair_rule / repair_goal / fixit`，让 agent 不需要猜 manifest 应该怎么改。`context overview/topology` 会在项目使用本地包时输出 `local_path_packages`。需要锁定当前本地包图时，可以运行 `axc lock <project>` 生成 `AX.lock`，并用 `axc lock <project> --check` 在 CI 或本地验证锁文件是否仍然匹配。`--check` 失败会输出稳定 `LX0001~LX0004` 文本码、package graph drift 详情和同样的 repair hints，例如依赖数量变化、source_count 变化或模块列表变化。`context overview/topology/evidence` 也会输出 `local_package_lock.status` 和 `local_package_lock.issues`，让 agent 能区分锁文件是缺失、当前有效、过期还是不可读，并知道应该重新生成锁文件还是先修 package graph。`context evidence` 和 `build-manifest.json` 会同时输出 `package_graph_readiness` 与 `aot_readiness`：前者说明包图是否可复现、当前风险等级、以及为什么还不能被当成 AOT-ready package graph；后者列出当前程序使用到的语法、runtime host boundary、包图和项目 source graph 对 native backend 的具体阻塞项。
 
 ### 4. 命令行链路
 

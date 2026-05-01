@@ -1,4 +1,36 @@
 {
+  "aot_readiness": {
+    "blockers": [
+      {
+        "category": "backend",
+        "code": "AOT0001",
+        "message": "native executable emission is not implemented yet",
+        "required_stage": "Build-1"
+      },
+      {
+        "category": "runtime",
+        "code": "AOT0301",
+        "message": "host boundary builtins need a native runtime ABI before AOT can preserve check/run behavior",
+        "required_stage": "Build-2/Build-3"
+      }
+    ],
+    "executable_emission": false,
+    "planned_executable_artifact": true,
+    "recommended_next_steps": [
+      "freeze the MIR subset for a single-file i32 main AOT prototype",
+      "keep axc run as the semantic reference while native output is pending",
+      "when packages are present, require axc lock <project> --check before AOT planning"
+    ],
+    "required_backend_features": [
+      "functions",
+      "host_stdio",
+      "i32_values"
+    ],
+    "schema_version": 1,
+    "single_file_core_candidate": true,
+    "stage": "Build-0 skeleton",
+    "status": "blocked"
+  },
   "artifacts": {
     "hir_json": "program.hir.json",
     "mir_json": "program.mir.json",
@@ -16,6 +48,6 @@
     "Native executable emission will be added in the future backend stage."
   ],
   "output_dir": "<build-out>",
-  "schema_version": 4,
+  "schema_version": 5,
   "target_name": "hello"
 }

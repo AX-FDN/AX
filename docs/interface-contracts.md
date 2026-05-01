@@ -101,12 +101,15 @@ Stable:
 - build emits a machine-readable manifest
 - source/HIR/MIR/build metadata remain available as skeleton artifacts
 - backend status is explicit while native executable output is not yet ready
+- build manifest schema version `5` exposes `aot_readiness` so AOT blockers are machine-readable before native executable emission exists
+- `aot_readiness` records required backend features, blocker codes such as `AOT0001`, `AOT0101`, `AOT0201`, and `AOT0301`, and the next backend stage that must resolve each blocker
 
 Allowed to evolve carefully:
 
 - adding backend metadata
 - adding future AOT artifact fields
 - adding platform-specific output metadata
+- adding new `AOT****` blocker codes when new syntax, package, runtime, or ABI surfaces become visible to the backend
 
 Not allowed without explicit contract update:
 
@@ -206,7 +209,7 @@ Stable for the current package-interface slice:
 - dependency modules must declare paths under the dependency alias, for example `module config_rules.validate;`
 - `axc build` packages dependency sources under their project-relative paths when they live inside the project tree
 - `axc build` packages dependency sources under `external/<package-root>/...` when the path package lives outside the project tree
-- `build-manifest.json` uses schema version `4` and exposes `local_path_packages` for projects that declare path packages
+- `build-manifest.json` uses schema version `5` and exposes `local_path_packages` for projects that declare path packages
 - each build-manifest package entry includes `alias`, `root`, `manifest`, `source_count`, and sorted `modules`
 - `build-manifest.json` exposes `package_graph_readiness` for local path package projects, including `package_mode`, `reproducible`, `aot_ready`, `lock_status`, `risk_level`, `blocking_reasons`, and `recommended_commands`
 - build package graph readiness must keep `aot_ready = false` until native local package linking semantics exist, even when `AX.lock` is current

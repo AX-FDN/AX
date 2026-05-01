@@ -16,8 +16,8 @@ AX 的 benchmark 不是宣传页，而是项目的验证层。它用固定坏例
 | --- | --- |
 | Full manifest | [`../benchmarks/repair-cases.json`](../benchmarks/repair-cases.json) |
 | Smoke manifest | [`../benchmarks/repair-cases-smoke.json`](../benchmarks/repair-cases-smoke.json) |
-| Current full cases | `35` |
-| Smoke cases | `11` |
+| Current full cases | `43` |
+| Smoke cases | `13` |
 | Published deterministic snapshot | `30` cases |
 | Compare ladder | `cold -> base -> ai` |
 | `cold` replay result | `23/30` |
@@ -63,7 +63,7 @@ flowchart LR
 
 ## Case Set
 
-当前 full manifest 有 `35` 个 case。下表展示的是上一轮已发布的 `30` case deterministic replay 快照；新增的 `Result` 错误传播误用 case 已进入 full manifest 和 shared replay candidate 覆盖，下一次公开 benchmark 刷新时应重新生成 `cold/base/ai` 三档数字。
+当前 full manifest 有 `43` 个 case，smoke subset 有 `13` 个 case。下表展示的是上一轮已发布的 `30` case deterministic replay 快照；新增的 `Result` 错误传播、包解析、结构化 pattern 等 case 已进入 full manifest 和 shared replay candidate 覆盖，下一次公开 benchmark 刷新时应重新生成 `cold/base/ai` 三档数字。
 
 | Category | Cases | `cold` replay | `base` replay | `ai` replay | 代表 case |
 | --- | ---: | ---: | ---: | ---: | --- |

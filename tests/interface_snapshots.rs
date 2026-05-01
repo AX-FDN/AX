@@ -1228,8 +1228,8 @@ fn repair_benchmark_export_keeps_cold_base_ai_artifact_contracts() {
         .expect("repair benchmark export should include cases");
     assert_eq!(
         cases.len(),
-        11,
-        "smoke export should keep the 11-case repair manifest subset"
+        13,
+        "smoke export should keep the 13-case repair manifest subset"
     );
 
     let syntax_case = cases
@@ -2480,8 +2480,8 @@ fn repair_benchmark_run_keeps_smoke_run_and_score_contracts_without_rebuild() {
         assert_json_path_exists(&run_summary["output_dir"], "run summary output_dir"),
         output_dir
     );
-    assert_eq!(run_summary["totals"]["total"], Value::from(11));
-    assert_eq!(run_summary["totals"]["ok"], Value::from(11));
+    assert_eq!(run_summary["totals"]["total"], Value::from(13));
+    assert_eq!(run_summary["totals"]["ok"], Value::from(13));
     assert_eq!(run_summary["totals"]["failed"], Value::from(0));
     assert_eq!(run_summary["totals"]["timed_out"], Value::from(0));
     assert_eq!(run_summary["score"]["skipped"], Value::from(false));
@@ -2501,7 +2501,7 @@ fn repair_benchmark_run_keeps_smoke_run_and_score_contracts_without_rebuild() {
     let run_cases = run_summary["cases"]
         .as_array()
         .expect("run summary should include cases");
-    assert_eq!(run_cases.len(), 11);
+    assert_eq!(run_cases.len(), 13);
     for case in run_cases {
         assert_eq!(case["feedback_mode"], Value::from("ai"));
         assert_eq!(case["status"], Value::from("ok"));
@@ -2540,15 +2540,15 @@ fn repair_benchmark_run_keeps_smoke_run_and_score_contracts_without_rebuild() {
         assert_json_path_exists(&score_summary["output_dir"], "score summary output_dir"),
         output_dir.join("score")
     );
-    assert_eq!(score_summary["totals"]["total"], Value::from(11));
-    assert_eq!(score_summary["totals"]["passed"], Value::from(11));
+    assert_eq!(score_summary["totals"]["total"], Value::from(13));
+    assert_eq!(score_summary["totals"]["passed"], Value::from(13));
     assert_eq!(score_summary["totals"]["failed"], Value::from(0));
     assert_eq!(score_summary["totals"]["missing"], Value::from(0));
 
     let score_cases = score_summary["cases"]
         .as_array()
         .expect("score summary should include cases");
-    assert_eq!(score_cases.len(), 11);
+    assert_eq!(score_cases.len(), 13);
     for case in score_cases {
         assert_eq!(case["status"], Value::from("passed"));
         assert_eq!(case["success"], Value::from(true));
@@ -2565,7 +2565,7 @@ fn repair_benchmark_run_keeps_smoke_run_and_score_contracts_without_rebuild() {
         .filter(|case| case["diagnostic_command"].as_str() == Some("check"))
         .collect();
     assert_eq!(runtime_cases.len(), 2);
-    assert_eq!(check_cases.len(), 9);
+    assert_eq!(check_cases.len(), 11);
     assert_eq!(
         runtime_cases
             .iter()
@@ -2710,34 +2710,34 @@ fn repair_feedback_comparison_keeps_smoke_contract_without_rebuild() {
         assert_json_path_exists(&comparison["output_dir"], "feedback comparison output_dir"),
         output_dir
     );
-    assert_eq!(comparison["comparison"]["total_cases"], Value::from(11));
-    assert_eq!(comparison["comparison"]["base_passed"], Value::from(6));
-    assert_eq!(comparison["comparison"]["ai_passed"], Value::from(11));
+    assert_eq!(comparison["comparison"]["total_cases"], Value::from(13));
+    assert_eq!(comparison["comparison"]["base_passed"], Value::from(7));
+    assert_eq!(comparison["comparison"]["ai_passed"], Value::from(13));
     assert_eq!(
         comparison["comparison"]["absolute_lift_cases"],
-        Value::from(5)
+        Value::from(6)
     );
     assert_json_f64(
         &comparison["comparison"]["absolute_lift_pp"],
-        45.45,
+        46.15,
         "comparison absolute_lift_pp",
     );
     assert_json_f64(
         &comparison["comparison"]["relative_lift_pct"],
-        83.33,
+        85.71,
         "comparison relative_lift_pct",
     );
     assert_eq!(
         comparison["modes"]["base"]["invocation_totals"]["ok"],
-        Value::from(11)
+        Value::from(13)
     );
     assert_eq!(
         comparison["modes"]["ai"]["invocation_totals"]["ok"],
-        Value::from(11)
+        Value::from(13)
     );
     assert_eq!(
         comparison["modes"]["base"]["score_totals"]["failed"],
-        Value::from(5)
+        Value::from(6)
     );
     assert_eq!(
         comparison["modes"]["ai"]["score_totals"]["failed"],
@@ -2781,6 +2781,7 @@ fn repair_feedback_comparison_keeps_smoke_contract_without_rebuild() {
         vec![
             "type_mismatch_bool_from_int".to_string(),
             "missing_struct_literal_field".to_string(),
+            "match_struct_pattern_missing_field".to_string(),
             "slice_assignment_read_only".to_string(),
             "index_out_of_bounds_runtime".to_string(),
             "division_by_zero_runtime".to_string(),
@@ -2798,13 +2799,13 @@ fn repair_feedback_comparison_keeps_smoke_contract_without_rebuild() {
             .as_array()
             .expect("comparison unchanged_cases should be an array")
             .len(),
-        6
+        7
     );
 
     let case_deltas = comparison["cases"]
         .as_array()
         .expect("comparison should include per-case deltas");
-    assert_eq!(case_deltas.len(), 11);
+    assert_eq!(case_deltas.len(), 13);
     let runtime_case = case_deltas
         .iter()
         .find(|case| case["id"].as_str() == Some("index_out_of_bounds_runtime"))
@@ -2836,16 +2837,17 @@ fn repair_feedback_comparison_keeps_smoke_contract_without_rebuild() {
         .iter()
         .find(|category| category["category"].as_str() == Some("semantic"))
         .expect("comparison should include the semantic category");
-    assert_eq!(semantic["total"], Value::from(6));
+    assert_eq!(semantic["total"], Value::from(7));
     assert_eq!(semantic["base_passed"], Value::from(3));
-    assert_eq!(semantic["ai_passed"], Value::from(6));
-    assert_eq!(semantic["improved"], Value::from(3));
+    assert_eq!(semantic["ai_passed"], Value::from(7));
+    assert_eq!(semantic["improved"], Value::from(4));
     assert_eq!(semantic["regressed"], Value::from(0));
     assert_eq!(
         json_string_array(&semantic["improved_case_ids"], "semantic improved_case_ids",),
         vec![
             "type_mismatch_bool_from_int".to_string(),
             "missing_struct_literal_field".to_string(),
+            "match_struct_pattern_missing_field".to_string(),
             "slice_assignment_read_only".to_string(),
         ]
     );
@@ -2969,20 +2971,20 @@ fn repair_mode_comparison_keeps_smoke_contract_without_rebuild() {
         assert_json_path_exists(&comparison["output_dir"], "mode comparison output_dir"),
         output_dir
     );
-    assert_eq!(comparison["summary"]["total_cases"], Value::from(11));
-    assert_eq!(comparison["summary"]["cold_passed"], Value::from(4));
-    assert_eq!(comparison["summary"]["base_passed"], Value::from(6));
-    assert_eq!(comparison["summary"]["ai_passed"], Value::from(11));
+    assert_eq!(comparison["summary"]["total_cases"], Value::from(13));
+    assert_eq!(comparison["summary"]["cold_passed"], Value::from(5));
+    assert_eq!(comparison["summary"]["base_passed"], Value::from(7));
+    assert_eq!(comparison["summary"]["ai_passed"], Value::from(13));
     assert_eq!(comparison["modes"]["cold"]["exit_code"], Value::from(1));
     assert_eq!(comparison["modes"]["base"]["exit_code"], Value::from(1));
     assert_eq!(comparison["modes"]["ai"]["exit_code"], Value::from(0));
     assert_eq!(
         comparison["modes"]["cold"]["score_totals"]["failed"],
-        Value::from(7)
+        Value::from(8)
     );
     assert_eq!(
         comparison["modes"]["base"]["score_totals"]["failed"],
-        Value::from(5)
+        Value::from(6)
     );
     assert_eq!(
         comparison["modes"]["ai"]["score_totals"]["failed"],
@@ -3036,43 +3038,43 @@ fn repair_mode_comparison_keeps_smoke_contract_without_rebuild() {
     );
     assert_eq!(
         comparison["summary"]["pairwise_comparisons"]["base_to_ai"]["absolute_lift_cases"],
-        Value::from(5)
+        Value::from(6)
     );
     assert_eq!(
         comparison["summary"]["pairwise_comparisons"]["cold_to_ai"]["absolute_lift_cases"],
-        Value::from(7)
+        Value::from(8)
     );
     assert_eq!(
         comparison["summary"]["pairwise_comparisons"]["cold_to_base"]["absolute_lift_pp"]
             .as_f64()
             .expect("cold_to_base.absolute_lift_pp should be numeric"),
-        18.19
+        15.39
     );
     assert_eq!(
         comparison["summary"]["pairwise_comparisons"]["base_to_ai"]["absolute_lift_pp"]
             .as_f64()
             .expect("base_to_ai.absolute_lift_pp should be numeric"),
-        45.45
+        46.15
     );
     assert_eq!(
         comparison["summary"]["pairwise_comparisons"]["cold_to_ai"]["absolute_lift_pp"]
             .as_f64()
             .expect("cold_to_ai.absolute_lift_pp should be numeric"),
-        63.64
+        61.54
     );
     assert_json_f64(
         &comparison["summary"]["pairwise_comparisons"]["cold_to_base"]["relative_lift_pct"],
-        50.0,
+        40.0,
         "cold_to_base relative_lift_pct",
     );
     assert_json_f64(
         &comparison["summary"]["pairwise_comparisons"]["base_to_ai"]["relative_lift_pct"],
-        83.33,
+        85.71,
         "base_to_ai relative_lift_pct",
     );
     assert_json_f64(
         &comparison["summary"]["pairwise_comparisons"]["cold_to_ai"]["relative_lift_pct"],
-        175.0,
+        160.0,
         "cold_to_ai relative_lift_pct",
     );
     assert_eq!(
@@ -3093,6 +3095,7 @@ fn repair_mode_comparison_keeps_smoke_contract_without_rebuild() {
         vec![
             "type_mismatch_bool_from_int".to_string(),
             "missing_struct_literal_field".to_string(),
+            "match_struct_pattern_missing_field".to_string(),
             "slice_assignment_read_only".to_string(),
             "index_out_of_bounds_runtime".to_string(),
             "division_by_zero_runtime".to_string(),
@@ -3107,6 +3110,7 @@ fn repair_mode_comparison_keeps_smoke_contract_without_rebuild() {
             "type_mismatch_bool_from_int".to_string(),
             "unknown_type_missing".to_string(),
             "missing_struct_literal_field".to_string(),
+            "match_struct_pattern_missing_field".to_string(),
             "len_builtin_non_countable_value".to_string(),
             "slice_assignment_read_only".to_string(),
             "index_out_of_bounds_runtime".to_string(),
@@ -3125,27 +3129,27 @@ fn repair_mode_comparison_keeps_smoke_contract_without_rebuild() {
             .as_array()
             .expect("cold_to_base unchanged_cases should be an array")
             .len(),
-        9
+        11
     );
     assert_eq!(
         comparison["summary"]["pairwise_comparisons"]["base_to_ai"]["unchanged_cases"]
             .as_array()
             .expect("base_to_ai unchanged_cases should be an array")
             .len(),
-        6
+        7
     );
     assert_eq!(
         comparison["summary"]["pairwise_comparisons"]["cold_to_ai"]["unchanged_cases"]
             .as_array()
             .expect("cold_to_ai unchanged_cases should be an array")
             .len(),
-        4
+        5
     );
 
     let case_deltas = comparison["cases"]
         .as_array()
         .expect("mode comparison should include per-case deltas");
-    assert_eq!(case_deltas.len(), 11);
+    assert_eq!(case_deltas.len(), 13);
     let cold_to_base_case = case_deltas
         .iter()
         .find(|case| case["id"].as_str() == Some("unknown_type_missing"))
@@ -3170,10 +3174,10 @@ fn repair_mode_comparison_keeps_smoke_contract_without_rebuild() {
         .iter()
         .find(|category| category["category"].as_str() == Some("semantic"))
         .expect("mode comparison should include the semantic category");
-    assert_eq!(semantic["total"], Value::from(6));
+    assert_eq!(semantic["total"], Value::from(7));
     assert_eq!(semantic["cold_passed"], Value::from(1));
     assert_eq!(semantic["base_passed"], Value::from(3));
-    assert_eq!(semantic["ai_passed"], Value::from(6));
+    assert_eq!(semantic["ai_passed"], Value::from(7));
 
     let runtime = categories
         .iter()
@@ -3198,14 +3202,14 @@ fn smoke_repair_manifest_stays_aligned_with_full_manifest() {
 
     assert_eq!(
         full_manifest.cases.len(),
-        35,
-        "full manifest should currently pin the 35-case repair benchmark baseline"
+        43,
+        "full manifest should currently pin the 43-case repair benchmark baseline"
     );
 
     assert_eq!(
         smoke_manifest.cases.len(),
-        11,
-        "smoke manifest should currently pin the 11-case CI subset"
+        13,
+        "smoke manifest should currently pin the 13-case CI subset"
     );
 
     let runtime_case_ids: Vec<&str> = smoke_manifest
@@ -3226,8 +3230,8 @@ fn smoke_repair_manifest_stays_aligned_with_full_manifest() {
         .filter(|case| case.diagnostic_command() == "check")
         .count();
     assert_eq!(
-        check_case_count, 9,
-        "smoke manifest should keep the diagnostics benchmark subset at 9 check-based cases"
+        check_case_count, 11,
+        "smoke manifest should keep the diagnostics benchmark subset at 11 check-based cases"
     );
 
     for smoke_case in &smoke_manifest.cases {
@@ -3352,8 +3356,8 @@ fn full_compare_shared_replay_scores_cleanly() {
         &output_dir.join("summary.json"),
         "full compare shared score summary",
     );
-    assert_eq!(summary["totals"]["total"], Value::from(35));
-    assert_eq!(summary["totals"]["passed"], Value::from(35));
+    assert_eq!(summary["totals"]["total"], Value::from(43));
+    assert_eq!(summary["totals"]["passed"], Value::from(43));
     assert_eq!(summary["totals"]["failed"], Value::from(0));
     assert_eq!(summary["totals"]["missing"], Value::from(0));
 }

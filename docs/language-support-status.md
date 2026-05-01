@@ -50,7 +50,7 @@ AX is growing from an AI-first tool language into a backend-capable language. Th
 | Local path package v0 | partial | partial | partial | stable | stable | stable | not_started | `[dependencies] alias = { path = "..." }` loads local AX package sources as `alias.*` modules. |
 | `AX.lock` v0 | stable | stable | n/a | stable | stable | n/a | n/a | `axc lock <project>` freezes local path package graphs; `axc lock --check` reports stable `LX****` drift reasons and repair hints; no registry lock solving exists yet. |
 | Registry packages | planned | planned | planned | planned | planned | planned | planned | P5+ work after standard library and AOT are stable enough. |
-| Native AOT executable output | planned | planned | planned | planned | partial | partial | not_started | `context evidence` exposes `build_readiness` so agents can see the current boundary. |
+| Native AOT executable output | planned | planned | planned | planned | partial | partial | not_started | `build-manifest.json` and `context evidence` expose structured `aot_readiness` blockers so agents can see which language/runtime/package surfaces block native output. |
 | JIT | deferred | deferred | deferred | deferred | deferred | deferred | not_started | Only evaluated after AOT proves whether compile latency is a real bottleneck. |
 | Closures / lambda | planned | planned | planned | planned | planned | planned | planned | Later language expansion; not part of the current stable core. |
 | Async / await | planned | planned | planned | planned | planned | planned | planned | Backend and runtime model must mature first. |

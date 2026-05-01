@@ -80,7 +80,7 @@
    - `project_job_runner` 已验证本地 path package v0、`AX.lock`、包图 readiness 与 worker/job runner 负载可以接入 `check / run / build / lock / context evidence`
    - `std.*` 第一版接口冻结候选已收口，冻结候选验证入口与文档入口已补强
    - 继续保持 `foundation/` 作为未迁移样例的 Std-0 孵化层
-2. P5 已启动本地 path package v0 与 `AX.lock` v0；暂不启动 P4 AOT、JIT、自举、registry 或三方库桥接
+2. P5 已启动本地 path package v0 与 `AX.lock` v0；P4 只允许先做 AOT readiness / blocker 暴露，不启动真实 native backend、JIT、自举、registry 或三方库桥接
 3. 下一步在 package-aware context/diagnostics、lockfile 校验链与 `Repair Archaeology v0` 之间选择；如果继续后端语言扩张，优先补包生态基础设施，不启动 Live Repair Stream、真实 LLM 或 UI
 4. 任何下一轮实现都必须继续回写 examples、diagnostics、context、repair/benchmark 或 interface snapshots
 
@@ -884,6 +884,7 @@
 
 ### `P4` 后端线
 
+- [x] `Q-P4-00` AOT readiness v0：`build-manifest.json` schema v5 与 `context evidence` 输出 `aot_readiness`，把当前语法、runtime host boundary、本地包图、锁文件和项目 source graph 对 native backend 的阻塞项显式化
 - [ ] `Q-P4-01` `Build-1` 单文件 AOT
 - [ ] `Q-P4-02` `Build-2` 多文件代表项目 AOT
 - [ ] `Q-P4-03` `Build-3` 发布级 AOT

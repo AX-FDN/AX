@@ -693,7 +693,7 @@ The three-mode `comparison.json` keeps the same outer contract style with these 
 - `categories`
   Per-category aggregates now keep `cold_passed`, `base_passed`, `ai_passed`, the corresponding pass rates, and nested `pairwise_lifts`.
 
-For CI contract checks of that three-mode ladder, use [`../scripts/smoke-compare-repair-modes.ps1`](../scripts/smoke-compare-repair-modes.ps1). It replays the committed `cold`, `base`, and shared candidate sets and asserts the stable 11-case `comparison.json` contract, including pairwise lift totals and runtime category counts.
+For CI contract checks of that three-mode ladder, use [`../scripts/smoke-compare-repair-modes.ps1`](../scripts/smoke-compare-repair-modes.ps1). It replays the committed `cold`, `base`, and shared candidate sets and asserts the stable 13-case `comparison.json` contract, including pairwise lift totals, runtime category counts, and the current package resolver smoke case.
 
 ## Stability Policy
 

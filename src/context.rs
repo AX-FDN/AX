@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 use serde::Serialize;
 
 use crate::ast::{Block, Expr, ExprKind, ItemKind, Program, Stmt, StmtKind, Visibility};
+use crate::build::{AotReadiness, AotReadinessInput, assess_aot_readiness};
 use crate::diagnostics::Diagnostic;
 use crate::lockfile::check_lockfile;
 use crate::package_diagnostics::package_repair_hint;
@@ -177,8 +178,13 @@ pub fn render_context_json(
         ContextView::Evidence => {
             let requested_symbol = requested_symbol
                 .ok_or_else(|| "evidence view requires a symbol query".to_string())?;
-            let evidence_facts =
-                build_evidence_facts(requested_symbol, request_path, input, &symbol_catalog)?;
+            let evidence_facts = build_evidence_facts(
+                requested_symbol,
+                request_path,
+                input,
+                program,
+                &symbol_catalog,
+            )?;
             serde_json::to_string_pretty(&ContextDocument {
                 schema_version: CONTEXT_SCHEMA_VERSION,
                 view: view.as_str(),
@@ -367,6 +373,7 @@ struct BuildReadiness {
     planned_executable_artifact: bool,
     blocking_features: Vec<String>,
     notes: Vec<String>,
+    aot_readiness: AotReadiness,
 }
 
 #[derive(Serialize)]
@@ -1502,6 +1509,7 @@ fn build_evidence_facts(
     requested_symbol: &str,
     request_path: &Path,
     input: &ResolvedInput,
+    program: &Program,
     symbol_catalog: &SymbolCatalog,
 ) -> Result<EvidenceFacts, String> {
     let impact_facts = build_impact_facts(requested_symbol, symbol_catalog)?;
@@ -1523,7 +1531,7 @@ fn build_evidence_facts(
         related_docs: build_related_docs(input, &impact_facts),
         related_benchmarks: build_related_benchmarks(input, &impact_facts),
         expected_artifacts,
-        build_readiness: build_build_readiness_fact(input),
+        build_readiness: build_build_readiness_fact(input, program, local_package_lock.as_ref()),
         local_package_lock,
         package_graph_readiness,
     })
@@ -1567,7 +1575,11 @@ fn build_package_graph_readiness_fact(
     })
 }
 
-fn build_build_readiness_fact(input: &ResolvedInput) -> BuildReadiness {
+fn build_build_readiness_fact(
+    input: &ResolvedInput,
+    program: &Program,
+    local_package_lock: Option<&ContextPackageLock>,
+) -> BuildReadiness {
     let mut blocking_features = vec!["native executable emission is not implemented".to_string()];
     let mut notes = vec![
         "axc build currently emits source, HIR, MIR, and build-manifest skeleton artifacts"
@@ -1594,6 +1606,19 @@ fn build_build_readiness_fact(input: &ResolvedInput) -> BuildReadiness {
         }
     }
 
+    let has_local_path_packages = input
+        .project
+        .as_ref()
+        .is_some_and(|project| !project.local_path_dependencies().is_empty());
+    let aot_readiness = assess_aot_readiness(
+        program,
+        AotReadinessInput {
+            is_project: input.project.is_some(),
+            has_local_path_packages,
+            package_lock_status: local_package_lock.map(|lock| lock.status),
+        },
+    );
+
     BuildReadiness {
         build_mode: "skeleton_artifacts",
         aot_status: "not_started",
@@ -1601,6 +1626,7 @@ fn build_build_readiness_fact(input: &ResolvedInput) -> BuildReadiness {
         planned_executable_artifact: true,
         blocking_features,
         notes,
+        aot_readiness,
     }
 }
 

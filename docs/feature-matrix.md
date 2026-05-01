@@ -61,8 +61,8 @@
 | 修复证据展示层 | `[ ]` | `Repair Archaeology v0` 已定义方向 | 当前只是规划与边界，不是 live repair、不是模型客户端、不是新 CLI 契约 | `docs/repair-archaeology.md` |
 | 对外平台支持 | `[~]` | Windows 路径已较完整，Linux 有 quickstart 与核心链路说明 | 仍应按文档与 CI 事实表述，不宜夸成“全平台成熟” | `docs/platform-support.md` |
 | `build` | `[~]` | 可导出构建骨架产物，`context evidence` 会暴露 `build_readiness` | 当前不是成熟 native compiler，更不是已完成后端 | `src/build.rs` `src/context.rs` |
-| AOT / JIT | `[ ]` | 尚未进入主线 | 只有在 `P4` 才正式启动 | `PLAN.md` |
-| 包接口 / 第三方库 | `[~]` | 本地 path package v0 已进入主线：`[dependencies] alias = { path = ... }` 会把本地 AX 包源码加载为 `alias.*` 模块；resolver 错误已有 `PX0001~PX0007` 稳定文本码和 `repair_rule / repair_goal / fixit`，context 与 build manifest 可暴露 `local_path_packages`，`axc lock` 可生成/校验 `AX.lock` v0；`axc lock --check` 已有 `LX0001~LX0004` 稳定文本码、package graph drift 详情和 AI-facing repair hints；`context evidence` 和 `build-manifest.json` 都会输出 `package_graph_readiness` 说明包图是否可复现、是否阻塞 AOT 前置 | 仍不是 registry、版本求解、host extension ABI 或 `AX import -> Cargo crate` 直通桥 | `src/project.rs` `src/build.rs` `src/lockfile.rs` `src/context.rs` `examples/project_package_config/` `examples/project_job_runner/` |
+| AOT / JIT | `[~]` | AOT readiness v0 已进入 `build-manifest.json` schema v5 与 `context evidence`，可列出当前程序的 backend/runtime/package blocker | 仍没有 native executable output；JIT 仍不启动 | `src/build.rs` `src/context.rs` `PLAN.md` |
+| 包接口 / 第三方库 | `[~]` | 本地 path package v0 已进入主线：`[dependencies] alias = { path = ... }` 会把本地 AX 包源码加载为 `alias.*` 模块；resolver 错误已有 `PX0001~PX0007` 稳定文本码和 `repair_rule / repair_goal / fixit`，context 与 build manifest 可暴露 `local_path_packages`，`axc lock` 可生成/校验 `AX.lock` v0；`axc lock --check` 已有 `LX0001~LX0004` 稳定文本码、package graph drift 详情和 AI-facing repair hints；`context evidence` 和 `build-manifest.json` 都会输出 `package_graph_readiness` 与 `aot_readiness` 说明包图是否可复现、是否阻塞 AOT 前置 | 仍不是 registry、版本求解、host extension ABI 或 `AX import -> Cargo crate` 直通桥 | `src/project.rs` `src/build.rs` `src/lockfile.rs` `src/context.rs` `examples/project_package_config/` `examples/project_job_runner/` |
 | 自举准备 | `[ ]` | 已有长期路线与关卡条件 | 现在不应被当成当前 KPI 或宣传口径 | `PLAN.md` |
 
 ## 当前语法面矩阵
