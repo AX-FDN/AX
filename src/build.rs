@@ -5,6 +5,7 @@ use std::path::{Component, Path, PathBuf};
 use serde::Serialize;
 
 use crate::ast::{self, Program as AstProgram};
+use crate::backend::llvm::{self, LlvmAotOptions, LlvmAotResult, LlvmAotStatus};
 use crate::hir::Program as HirProgram;
 use crate::lockfile::check_lockfile;
 use crate::mir::Program as MirProgram;
@@ -132,6 +133,8 @@ pub struct BuildArtifacts {
     pub source_copy: String,
     pub hir_json: String,
     pub mir_json: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub llvm_ir: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub project_manifest: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -993,55 +996,87 @@ pub fn build_program(
         }
     }
 
+    let mut backend = BuildBackend {
+        kind: "native".to_string(),
+        status: "pending".to_string(),
+        entrypoint: "main".to_string(),
+    };
+    let mut aot_readiness = assess_aot_readiness(
+        program,
+        AotReadinessInput {
+            is_project: input.project_manifest.is_some(),
+            has_local_path_packages: !input.local_path_packages.is_empty(),
+            package_lock_status: input
+                .package_graph_readiness
+                .as_ref()
+                .map(|readiness| readiness.lock_status.as_str()),
+        },
+    );
+    let mut artifacts = BuildArtifacts {
+        source_copy: SOURCE_COPY_FILE.to_string(),
+        hir_json: HIR_FILE.to_string(),
+        mir_json: MIR_FILE.to_string(),
+        llvm_ir: None,
+        project_manifest: input
+            .project_manifest
+            .as_ref()
+            .map(|artifact| artifact.file_name.clone()),
+        project_sources_dir: input
+            .project_sources
+            .as_ref()
+            .map(|artifact| artifact.dir_name.clone()),
+        project_sources: input.project_sources.as_ref().map(|artifact| {
+            artifact
+                .files
+                .iter()
+                .map(|file| file.relative_path.clone())
+                .collect()
+        }),
+        planned_executable: format!("bin/{}{}", input.target_name, executable_suffix()),
+        executable: None,
+    };
+    let mut notes = vec![
+        "This build currently emits frontend and midend stable artifacts.".to_string(),
+        "LLVM AOT v0 may emit a textual LLVM IR artifact for the current single-file MIR subset."
+            .to_string(),
+    ];
+
+    let llvm_result = if input.project_manifest.is_none() && program.source_units.len() == 1 {
+        llvm::build(
+            mir,
+            LlvmAotOptions {
+                out_dir: &options.out_dir,
+                target_name: &input.target_name,
+                executable_suffix: executable_suffix(),
+            },
+        )?
+    } else {
+        LlvmAotResult {
+            status: LlvmAotStatus::Unsupported,
+            llvm_ir_artifact: None,
+            executable_artifact: None,
+            notes: Vec::new(),
+        }
+    };
+    apply_llvm_aot_result(
+        &llvm_result,
+        &mut backend,
+        &mut aot_readiness,
+        &mut artifacts,
+        &mut notes,
+    );
+
     let manifest = BuildManifest {
-        schema_version: 5,
+        schema_version: 6,
         target_name: input.target_name.clone(),
         entry_file: input.entry_file.clone(),
         output_dir: options.out_dir.display().to_string(),
-        backend: BuildBackend {
-            kind: "native".to_string(),
-            status: "pending".to_string(),
-            entrypoint: "main".to_string(),
-        },
-        aot_readiness: assess_aot_readiness(
-            program,
-            AotReadinessInput {
-                is_project: input.project_manifest.is_some(),
-                has_local_path_packages: !input.local_path_packages.is_empty(),
-                package_lock_status: input
-                    .package_graph_readiness
-                    .as_ref()
-                    .map(|readiness| readiness.lock_status.as_str()),
-            },
-        ),
-        artifacts: BuildArtifacts {
-            source_copy: SOURCE_COPY_FILE.to_string(),
-            hir_json: HIR_FILE.to_string(),
-            mir_json: MIR_FILE.to_string(),
-            project_manifest: input
-                .project_manifest
-                .as_ref()
-                .map(|artifact| artifact.file_name.clone()),
-            project_sources_dir: input
-                .project_sources
-                .as_ref()
-                .map(|artifact| artifact.dir_name.clone()),
-            project_sources: input.project_sources.as_ref().map(|artifact| {
-                artifact
-                    .files
-                    .iter()
-                    .map(|file| file.relative_path.clone())
-                    .collect()
-            }),
-            planned_executable: format!("bin/{}{}", input.target_name, executable_suffix()),
-            executable: None,
-        },
+        backend,
+        aot_readiness,
+        artifacts,
         local_path_packages: input.local_path_packages.clone(),
         package_graph_readiness: input.package_graph_readiness.clone(),
-        notes: vec![
-            "This build currently emits frontend and midend stable artifacts only.".to_string(),
-            "Native executable emission will be added in the future backend stage.".to_string(),
-        ],
+        notes,
     };
 
     let manifest_path = options.out_dir.join(BUILD_MANIFEST_FILE);
@@ -1058,6 +1093,56 @@ pub fn build_program(
         manifest_path,
         manifest,
     })
+}
+
+fn apply_llvm_aot_result(
+    result: &LlvmAotResult,
+    backend: &mut BuildBackend,
+    readiness: &mut AotReadiness,
+    artifacts: &mut BuildArtifacts,
+    notes: &mut Vec<String>,
+) {
+    if result.status == LlvmAotStatus::Unsupported {
+        return;
+    }
+
+    backend.kind = "llvm-aot".to_string();
+    backend.status = result.status.as_manifest_status().to_string();
+
+    artifacts.llvm_ir = result.llvm_ir_artifact.clone();
+    artifacts.executable = result.executable_artifact.clone();
+
+    readiness.stage = "Build-1 LLVM IR prototype".to_string();
+    readiness.status = if result.status == LlvmAotStatus::Built {
+        "built".to_string()
+    } else {
+        "ir_generated".to_string()
+    };
+    readiness.executable_emission = result.executable_artifact.is_some();
+    readiness
+        .blockers
+        .retain(|blocker| blocker.code != "AOT0001");
+    if let (Some(code), Some(message)) = (
+        result.status.blocker_code(),
+        result.status.blocker_message(),
+    ) {
+        readiness.blockers.push(AotReadinessBlocker {
+            code: code.to_string(),
+            category: "toolchain".to_string(),
+            message: message.to_string(),
+            required_stage: "Build-1".to_string(),
+        });
+    }
+    readiness.recommended_next_steps = vec![
+        "compare axc run with the generated LLVM AOT artifact for the same minimal MIR subset"
+            .to_string(),
+        "keep unsupported syntax in aot_readiness blockers until its MIR-to-LLVM lowering is explicit"
+            .to_string(),
+        "set AX_LLVM_AOT_LINK=1 and AX_LLVM_CLANG=<path> when validating executable linking"
+            .to_string(),
+    ];
+
+    notes.extend(result.notes.iter().cloned());
 }
 
 fn executable_suffix() -> &'static str {

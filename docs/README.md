@@ -30,6 +30,8 @@
   定义 AX 当前对外表述边界，避免把仓库内可复现事实说成尚未完成的跨语言或 live-model 结论。
 - [`application-scenarios.md`](./application-scenarios.md)
   定义 AX 的 AI-first 先落在哪些真实场景，以及后端语言方向的实际推进顺序。
+- [`llvm-aot.md`](./llvm-aot.md)
+  记录 `axc build` 当前的 LLVM IR v0 后端原型、manifest schema v6、链接环境变量和不应误读成发布级 native compiler 的边界。
 - [`killer-demo.md`](./killer-demo.md)
   给对外演示用的短 demo 脚本。
 - [`../web/`](../web/)

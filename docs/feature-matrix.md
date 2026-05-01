@@ -17,7 +17,7 @@
 | `P1` 编译器护城河 | `[x]` repair/context/benchmark 已进入主线，context-enabled export、benchmark showcase 与公开口径边界已成立 |
 | `P2` 语言内核 / 可写项目能力 | `[~]` 已进入后段，但不等于“工具语言完成”；当前仍在继续补齐支撑标准库、后端与 AI 生成稳定性的通用语言表面，payload enum 已开始进入 project-backed workload |
 | `P3` 官方最小标准库 | `[~]` 已启动第一批 `std.*` AX 源码模块，已完成十三组 project-backed 迁移/压力试点，并已收口 Std-1 冻结候选清单；尚未全仓冻结 |
-| `P4+` AOT / 包接口 / 自举 / 生态 | `[~]` 本地 path package v0 与 `AX.lock` v0 已启动；AOT、registry、自举和生态仍按 `PLAN.md` 后续阶段推进 |
+| `P4+` AOT / 包接口 / 自举 / 生态 | `[~]` 本地 path package v0 与 `AX.lock` v0 已启动；LLVM AOT v0 已能为极小单文件 MIR 子集生成文本 IR；registry、自举和生态仍按 `PLAN.md` 后续阶段推进 |
 
 ## 总览
 
@@ -36,7 +36,7 @@
 | Repair Archaeology | `[ ]` | 已进入规划，目标是把 replay / score / compare 产物整理成 case 级 JSON 与 Markdown 报告；尚未实现导出入口 |
 | Linux core support | `[x]` | Ubuntu 上核心 `build / check / run / fmt` 与核心测试已进入 CI |
 | macOS support | `[ ]` | 当前未进入主线承诺 |
-| 原生后端 | `[ ]` | `build` 当前仍是骨架，不是成熟 native backend |
+| 原生后端 | `[~]` | `build` 已开始为极小单文件 MIR 子集生成 LLVM IR v0，但还不是成熟 native backend |
 | 自举 | `[ ]` | 长期方向，不是当前主线 |
 | FFI / 包管理 / IDE | `[ ]` | 当前未进入主线实现 |
 
@@ -60,8 +60,8 @@
 | benchmark 方法 | `[x]` | repair case、导出、评分、对比、smoke、CI、公开展示页 | 这不是“以后再补”的附件，而是语言主线的验证层；跨语言/live-model 对照仍是后续工作 | `docs/benchmark-showcase.md` `docs/repair-benchmark.md` |
 | 修复证据展示层 | `[ ]` | `Repair Archaeology v0` 已定义方向 | 当前只是规划与边界，不是 live repair、不是模型客户端、不是新 CLI 契约 | `docs/repair-archaeology.md` |
 | 对外平台支持 | `[~]` | Windows 路径已较完整，Linux 有 quickstart 与核心链路说明 | 仍应按文档与 CI 事实表述，不宜夸成“全平台成熟” | `docs/platform-support.md` |
-| `build` | `[~]` | 可导出构建骨架产物，`context evidence` 会暴露 `build_readiness` | 当前不是成熟 native compiler，更不是已完成后端 | `src/build.rs` `src/context.rs` |
-| AOT / JIT | `[~]` | AOT readiness v0 已进入 `build-manifest.json` schema v5 与 `context evidence`，可列出当前程序的 backend/runtime/package blocker | 仍没有 native executable output；JIT 仍不启动 | `src/build.rs` `src/context.rs` `PLAN.md` |
+| `build` | `[~]` | 可导出构建骨架产物，`context evidence` 会暴露 `build_readiness`；极小单文件 MIR 子集可额外生成 `generated/main.ll` | 当前不是成熟 native compiler，更不是已完成后端 | `src/build.rs` `src/backend/llvm/` `src/context.rs` |
+| AOT / JIT | `[~]` | AOT readiness v0 已进入 `build-manifest.json` schema v6 与 `context evidence`；LLVM AOT v0 可为 `fn main() -> i32` 级别子集生成文本 IR，链接 exe 需显式设置 `AX_LLVM_AOT_LINK=1` | 仍不是发布级 native executable output；JIT 仍不启动 | `src/build.rs` `src/backend/llvm/` `src/context.rs` `docs/llvm-aot.md` |
 | 包接口 / 第三方库 | `[~]` | 本地 path package v0 已进入主线：`[dependencies] alias = { path = ... }` 会把本地 AX 包源码加载为 `alias.*` 模块；resolver 错误已有 `PX0001~PX0007` 稳定文本码和 `repair_rule / repair_goal / fixit`，context 与 build manifest 可暴露 `local_path_packages`，`axc lock` 可生成/校验 `AX.lock` v0；`axc lock --check` 已有 `LX0001~LX0004` 稳定文本码、package graph drift 详情和 AI-facing repair hints；`context evidence` 和 `build-manifest.json` 都会输出 `package_graph_readiness` 与 `aot_readiness` 说明包图是否可复现、是否阻塞 AOT 前置 | 仍不是 registry、版本求解、host extension ABI 或 `AX import -> Cargo crate` 直通桥 | `src/project.rs` `src/build.rs` `src/lockfile.rs` `src/context.rs` `examples/project_package_config/` `examples/project_job_runner/` |
 | 自举准备 | `[ ]` | 已有长期路线与关卡条件 | 现在不应被当成当前 KPI 或宣传口径 | `PLAN.md` |
 
@@ -79,7 +79,7 @@
 
 ### 1. `build` 不等于成熟原生后端
 
-- 当前 `axc build` 很重要，但它现在的意义是稳定骨架产物与后端前接口，不是“已经可以和成熟编译语言同台比性能”。
+- 当前 `axc build` 很重要，但它现在的意义是稳定骨架产物、后端前接口和最小 LLVM IR v0，不是“已经可以和成熟编译语言同台比性能”。
 
 ### 2. `import / module` 已经进入实现，但仍是最小方案
 

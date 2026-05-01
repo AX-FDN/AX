@@ -106,18 +106,33 @@ where
     I: IntoIterator<Item = S>,
     S: AsRef<OsStr>,
 {
+    run_axc_with_removed_env(args, std::iter::empty::<&str>())
+}
+
+fn run_axc_with_removed_env<I, S, E>(args: I, env_names: E) -> Output
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<OsStr>,
+    E: IntoIterator,
+    E::Item: AsRef<OsStr>,
+{
     let args: Vec<OsString> = args
         .into_iter()
         .map(|arg| arg.as_ref().to_os_string())
         .collect();
+    let env_names: Vec<OsString> = env_names
+        .into_iter()
+        .map(|name| name.as_ref().to_os_string())
+        .collect();
     let binary = invocable_axc_binary();
     let mut last_busy_error = None;
     for _ in 0..20 {
-        match Command::new(&binary)
-            .args(&args)
-            .current_dir(repo_root())
-            .output()
-        {
+        let mut command = Command::new(&binary);
+        command.args(&args).current_dir(repo_root());
+        for name in &env_names {
+            command.env_remove(name);
+        }
+        match command.output() {
             Ok(output) => {
                 remove_temp_file_best_effort(&binary);
                 return output;
@@ -6786,6 +6801,80 @@ fn main() -> i32 {
         "expected build success message, got:\n{}",
         stdout
     );
+}
+
+#[test]
+fn llvm_aot_return_build_emits_ir_artifact_without_linking_by_default() {
+    let temp = TempDir::new("llvm-aot-return-build");
+    let out_dir = temp.join("build-out");
+
+    let output = run_axc_with_removed_env(
+        [
+            OsStr::new("build"),
+            OsStr::new("examples/aot_return.ax"),
+            OsStr::new("--out-dir"),
+            out_dir.as_os_str(),
+        ],
+        ["AX_LLVM_AOT_LINK", "AX_LLVM_CLANG"],
+    );
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "LLVM AOT IR build should succeed\nstdout:\n{}\nstderr:\n{}",
+        string_output(&output.stdout),
+        string_output(&output.stderr)
+    );
+    assert_clean_stderr(&output);
+
+    let manifest_path = out_dir.join("build-manifest.json");
+    let llvm_ir_path = out_dir.join("generated").join("main.ll");
+    let planned_executable_path = out_dir.join("bin").join(format!(
+        "aot_return{}",
+        if cfg!(windows) { ".exe" } else { "" }
+    ));
+
+    assert!(
+        manifest_path.exists(),
+        "LLVM AOT build should keep writing build-manifest.json"
+    );
+    assert!(llvm_ir_path.exists(), "LLVM AOT build should emit main.ll");
+    assert!(
+        !planned_executable_path.exists(),
+        "LLVM AOT build should not link an executable unless AX_LLVM_AOT_LINK=1"
+    );
+
+    let manifest = read_json_file(&manifest_path, "LLVM AOT build manifest");
+    assert_eq!(manifest["schema_version"], Value::from(6));
+    assert_eq!(manifest["backend"]["kind"], Value::from("llvm-aot"));
+    assert_eq!(manifest["backend"]["status"], Value::from("ir_generated"));
+    assert_eq!(
+        manifest["artifacts"]["llvm_ir"],
+        Value::from("generated/main.ll")
+    );
+    assert!(
+        manifest["artifacts"]["executable"].is_null(),
+        "LLVM AOT build should omit executable artifact when linking is skipped"
+    );
+    assert_eq!(
+        manifest["aot_readiness"]["stage"],
+        Value::from("Build-1 LLVM IR prototype")
+    );
+    assert_eq!(
+        manifest["aot_readiness"]["status"],
+        Value::from("ir_generated")
+    );
+    let blockers = manifest["aot_readiness"]["blockers"]
+        .as_array()
+        .expect("AOT readiness blockers should be an array");
+    assert_eq!(blockers.len(), 1);
+    assert_eq!(blockers[0]["code"], Value::from("AOT1000"));
+
+    let llvm_ir = normalize_text(
+        &fs::read_to_string(&llvm_ir_path).expect("LLVM IR artifact should be readable"),
+    );
+    assert!(llvm_ir.contains("define i32 @ax_add(i32 %arg0, i32 %arg1)"));
+    assert!(llvm_ir.contains("define i32 @main()"));
+    assert!(llvm_ir.contains("call i32 @ax_add(i32 40, i32 2)"));
 }
 
 #[test]

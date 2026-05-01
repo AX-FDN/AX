@@ -874,7 +874,7 @@
 - 大语法面扩张，例如复杂泛型、trait 体系、async、异常系统
 - `AX import -> Cargo crate` 直通桥
 - 通用 FFI、成熟包系统、网络库、并发库
-- AOT、JIT、自举和生态扩张的实现性施工
+- 发布级 AOT、JIT、自举和生态扩张的实现性施工
 - 为了“看起来完整”继续新增第二套路线文档
 - 提前把 `build` 宣传成成熟 native backend
 
@@ -884,8 +884,11 @@
 
 ### `P4` 后端线
 
-- [x] `Q-P4-00` AOT readiness v0：`build-manifest.json` schema v5 与 `context evidence` 输出 `aot_readiness`，把当前语法、runtime host boundary、本地包图、锁文件和项目 source graph 对 native backend 的阻塞项显式化
-- [ ] `Q-P4-01` `Build-1` 单文件 AOT
+- [x] `Q-P4-00` AOT readiness v0：`build-manifest.json` schema v6 与 `context evidence` 输出 `aot_readiness`，把当前语法、runtime host boundary、本地包图、锁文件和项目 source graph 对 native backend 的阻塞项显式化
+- [~] `Q-P4-01` `Build-1` 单文件 AOT：LLVM IR v0 已能为极小单文件 MIR 子集生成 `generated/main.ll`；默认不链接 exe，显式设置 `AX_LLVM_AOT_LINK=1` 后才尝试 clang
+  - 已覆盖：`src/backend/llvm/`、`examples/aot_return.ax`、build manifest schema v6、`artifacts.llvm_ir`、`AOT1000/AOT1001/AOT1002` 工具链 blocker、interface snapshot
+  - 当前边界：只支持 `i32/bool`、简单 locals、return、branch/goto、算术/比较/逻辑运算和同文件直接函数调用；不支持 string、println、struct/enum/match、`?`、泛型、methods、traits、多文件项目或本地包链接
+  - 后续补强：先做 `axc run` 与 LLVM IR 子集语义对照，再补最小 host stdio/string runtime ABI；不要跳到 JIT 或发布级性能宣传
 - [ ] `Q-P4-02` `Build-2` 多文件代表项目 AOT
 - [ ] `Q-P4-03` `Build-3` 发布级 AOT
 - [ ] `Q-P4-04` `JIT-Eval`

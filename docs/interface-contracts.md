@@ -22,7 +22,7 @@ AX 现在的外部契约不是只有 CLI 命令本身。对 agent 和工具链�
 | runtime diagnostics | `axc run --json` | runtime repair benchmark | `run_runtime_error_json_matches_snapshot`, `run_runtime_division_by_zero_json_matches_snapshot` |
 | runtime AI diagnostics | `axc run --json --ai` | runtime repair benchmark, adapters | `run_runtime_error_json_with_ai_matches_snapshot`, `run_runtime_division_by_zero_json_with_ai_matches_snapshot` |
 | AST / HIR / MIR dumps | `axc ast/hir/mir --json` | compiler debugging, external tools | `ast_dump_matches_snapshot`, `hir_dump_matches_snapshot`, `mir_dump_matches_snapshot` |
-| build skeleton manifest | `axc build` | future backend, build tooling | `build_manifest_matches_snapshot`, `project_build_manifest_matches_snapshot` |
+| build manifest / LLVM IR v0 | `axc build` | future backend, build tooling, AOT smoke validation | `build_manifest_matches_snapshot`, `project_build_manifest_matches_snapshot`, `llvm_aot_return_build_emits_ir_artifact_without_linking_by_default` |
 | context overview | `axc context overview --json` | agents, docs, repair context | `context_overview_matches_snapshot` |
 | context boundaries | `axc context boundaries --json` | host-boundary-aware agents | `context_boundaries_matches_snapshot` |
 | context topology | `axc context topology --json` | project navigation agents | `context_topology_matches_snapshot` |
@@ -100,20 +100,22 @@ Stable:
 
 - build emits a machine-readable manifest
 - source/HIR/MIR/build metadata remain available as skeleton artifacts
-- backend status is explicit while native executable output is not yet ready
-- build manifest schema version `5` exposes `aot_readiness` so AOT blockers are machine-readable before native executable emission exists
-- `aot_readiness` records required backend features, blocker codes such as `AOT0001`, `AOT0101`, `AOT0201`, and `AOT0301`, and the next backend stage that must resolve each blocker
+- backend status is explicit while mature native executable output is not yet ready
+- build manifest schema version `6` exposes `aot_readiness` and the optional `artifacts.llvm_ir` field
+- LLVM AOT v0 may emit `generated/main.ll` for the current single-file MIR subset while executable linking remains opt-in
+- `aot_readiness` records required backend features, blocker codes such as `AOT0001`, `AOT0101`, `AOT0201`, `AOT0301`, `AOT1000`, `AOT1001`, and `AOT1002`, and the next backend stage that must resolve each blocker
 
 Allowed to evolve carefully:
 
 - adding backend metadata
-- adding future AOT artifact fields
+- adding future AOT artifact fields after `llvm_ir`
 - adding platform-specific output metadata
 - adding new `AOT****` blocker codes when new syntax, package, runtime, or ABI surfaces become visible to the backend
 
 Not allowed without explicit contract update:
 
 - presenting skeleton output as a finished native executable contract
+- presenting LLVM IR generation as a finished native executable contract
 - removing manifest fields without a migration path
 
 ### Repair Export
@@ -209,7 +211,7 @@ Stable for the current package-interface slice:
 - dependency modules must declare paths under the dependency alias, for example `module config_rules.validate;`
 - `axc build` packages dependency sources under their project-relative paths when they live inside the project tree
 - `axc build` packages dependency sources under `external/<package-root>/...` when the path package lives outside the project tree
-- `build-manifest.json` uses schema version `5` and exposes `local_path_packages` for projects that declare path packages
+- `build-manifest.json` uses schema version `6` and exposes `local_path_packages` for projects that declare path packages
 - each build-manifest package entry includes `alias`, `root`, `manifest`, `source_count`, and sorted `modules`
 - `build-manifest.json` exposes `package_graph_readiness` for local path package projects, including `package_mode`, `reproducible`, `aot_ready`, `lock_status`, `risk_level`, `blocking_reasons`, and `recommended_commands`
 - build package graph readiness must keep `aot_ready = false` until native local package linking semantics exist, even when `AX.lock` is current

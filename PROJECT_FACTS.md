@@ -36,7 +36,7 @@ AX 当前优先服务四类能被仓库直接验证的场景：
 | benchmark | export / run / score / compare / smoke / CI 已落地，context-enabled export 已进入修复输入链 |
 | repair archaeology | v0 已有 artifact schema、最小导出脚本和固定 smoke，并已接入 Windows CI |
 | web workbench | `web/` 已作为独立 Vite + React 前端进入主线，展示 benchmark 指标、same-case repair demo、反馈模式对比和接口契约 |
-| build | 当前仍是 skeleton build，不是成熟 AOT/native backend；`build-manifest.json` 与 `context evidence` 已暴露结构化 `aot_readiness` 阻塞项 |
+| build | 当前仍不是成熟 AOT/native backend；`build-manifest.json` schema v6 与 `context evidence` 已暴露结构化 `aot_readiness`，并且 `axc build` 可为极小单文件 MIR 子集生成 `generated/main.ll` LLVM IR v0 |
 | 平台 | Windows 为 full workflow，Linux 为 core support，macOS 尚未启动 |
 
 ## 当前语法完成度判断
@@ -92,14 +92,14 @@ AX 当前优先服务四类能被仓库直接验证的场景：
 - `import / module`：第一刀已落地，但还在补更多接口回归和边界覆盖
 - host runtime boundary：已开始收紧，但仍是当前最重要的持续硬化方向之一
 - `src/ai.rs` 的规则触发：正在从文案匹配继续迁移到更稳定的内部语义标签
-- `build`：当前仍是 backend 前的构建骨架，不应被表述成成熟 native compiler
+- `build`：当前已启动 LLVM IR v0，但仍不应被表述成成熟 native compiler；默认只保证稳定构建资产和可选 `generated/main.ll`
 - `std/`：当前已启动第一批标准库试点模块，并已由 `project_text_normalize`、`project_directory_index`、`project_release_promote`、`project_command_capture`、`project_command_batch`、`project_option_result`、`project_env_result`、`project_file_result`、`project_process_result`、`project_result_pipeline`、`project_config_validate`、`project_collections_report`、`project_job_runner` 十三组真实样例消费；Std-1 冻结候选清单已在 [`docs/stdlib-minimal-boundary.md`](./docs/stdlib-minimal-boundary.md) 收口，但还不是完整官方标准库
 - `foundation/`：当前仍是 Std-0 孵化层，负责承载尚未迁移的样例和未充分验证的 helper，尤其是搜索、markdown/searchable 文件分类和目录重建策略
 - `Repair Archaeology v0`：artifact schema、最小导出脚本和固定 smoke 已落地；它仍不代表 live-model benchmark 已经完成，也暂不新增 `axc` 命令
 
 ## 当前明确后置、不是主线的方向
 
-- 完整 native backend
+- 发布级 native backend
 - 自举与 AX 重写编译器核心
 - FFI 与包管理系统
 - 成熟 IDE / 调试器生态

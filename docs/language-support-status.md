@@ -3,7 +3,7 @@
 > This page is the AI-readable status sheet for the current AX language surface.
 > It is not a roadmap. Roadmap decisions live in [`../PLAN.md`](../PLAN.md), and active tasks live in [`../WORKLIST.md`](../WORKLIST.md).
 
-AX is growing from an AI-first tool language into a backend-capable language. The current stable execution path is the interpreter. `axc build` is intentionally a skeleton artifact path today: it emits source, HIR, MIR, and a build manifest for future backend work, but it does not emit a native executable yet.
+AX is growing from an AI-first tool language into a backend-capable language. The current stable execution path is the interpreter. `axc build` emits source, HIR, MIR, a build manifest, and now a textual LLVM IR artifact for a very small single-file MIR subset. It still does not guarantee native executable output by default.
 
 ## Status Keys
 
@@ -19,10 +19,10 @@ AX is growing from an AI-first tool language into a backend-capable language. Th
 
 | Feature | parse/fmt | check | run | diagnostics / AI | context | build skeleton | AOT | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `fn`, parameters, explicit return type | stable | stable | stable | stable | stable | stable | not_started | `fn main() -> i32` remains the executable entry convention. |
-| `let`, `let mut`, assignment, `return` | stable | stable | stable | stable | stable | stable | not_started | Explicit local types are part of the AI-first surface. |
-| Primitive types `bool / i32 / f32 / string` | stable | stable | stable | stable | stable | stable | not_started | These are the current core scalar types. |
-| `if / else`, `while`, `for`, `for in` | stable | stable | stable | stable | stable | stable | not_started | Loop control includes `break` and `continue`. |
+| `fn`, parameters, explicit return type | stable | stable | stable | stable | stable | stable | partial | LLVM IR v0 supports a minimal single-file `fn main() -> i32` and same-file direct function calls. |
+| `let`, `let mut`, assignment, `return` | stable | stable | stable | stable | stable | stable | partial | Explicit local types are part of the AI-first surface; LLVM IR v0 lowers simple locals and returns. |
+| Primitive types `bool / i32 / f32 / string` | stable | stable | stable | stable | stable | stable | partial | LLVM IR v0 supports `bool` and `i32`; `f32` and `string` still need native ABI work. |
+| `if / else`, `while`, `for`, `for in` | stable | stable | stable | stable | stable | stable | partial | LLVM IR v0 can lower basic MIR branch/goto flow for supported value types; richer loop/runtime surfaces remain interpreter-first. |
 | Arrays and read-only slices | stable | stable | stable | stable | stable | stable | not_started | Dynamic collections are still represented through dedicated std helpers. |
 | Structs and field access | stable | stable | stable | stable | stable | stable | not_started | Struct literals are supported. |
 | Enum variants without payload | stable | stable | stable | stable | stable | stable | not_started | Mainline enum support is usable. |
@@ -50,7 +50,7 @@ AX is growing from an AI-first tool language into a backend-capable language. Th
 | Local path package v0 | partial | partial | partial | stable | stable | stable | not_started | `[dependencies] alias = { path = "..." }` loads local AX package sources as `alias.*` modules. |
 | `AX.lock` v0 | stable | stable | n/a | stable | stable | n/a | n/a | `axc lock <project>` freezes local path package graphs; `axc lock --check` reports stable `LX****` drift reasons and repair hints; no registry lock solving exists yet. |
 | Registry packages | planned | planned | planned | planned | planned | planned | planned | P5+ work after standard library and AOT are stable enough. |
-| Native AOT executable output | planned | planned | planned | planned | partial | partial | not_started | `build-manifest.json` and `context evidence` expose structured `aot_readiness` blockers so agents can see which language/runtime/package surfaces block native output. |
+| Native AOT executable output | planned | planned | planned | planned | partial | partial | partial | LLVM IR v0 can emit `generated/main.ll` for `examples/aot_return.ax`; executable linking is opt-in with `AX_LLVM_AOT_LINK=1` and depends on clang. |
 | JIT | deferred | deferred | deferred | deferred | deferred | deferred | not_started | Only evaluated after AOT proves whether compile latency is a real bottleneck. |
 | Closures / lambda | planned | planned | planned | planned | planned | planned | planned | Later language expansion; not part of the current stable core. |
 | Async / await | planned | planned | planned | planned | planned | planned | planned | Backend and runtime model must mature first. |
@@ -61,6 +61,6 @@ AX is growing from an AI-first tool language into a backend-capable language. Th
 
 - Prefer explicit types, explicit imports, explicit module paths, and canonical syntax.
 - Use `axc check`, `axc run`, `axc fmt`, `axc context evidence`, and `axc lock --check` as the current validation loop.
-- Do not assume `axc build` produces a native executable. Treat it as a skeleton artifact and backend-readiness contract until AOT starts.
+- Do not assume `axc build` produces a native executable. Treat LLVM IR generation as a Build-1 prototype artifact, not as a mature native backend.
 - Do not generate registry package syntax, direct Rust crate imports, async code, closures, dynamic dispatch, associated types, default trait methods, or generic traits yet.
 - When deciding whether a missing feature is a bug or a roadmap item, check this file first, then [`../WORKLIST.md`](../WORKLIST.md).

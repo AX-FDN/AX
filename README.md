@@ -33,7 +33,7 @@ AX 关注的不只是“模型能不能写出代码”，更关注三件更硬�
 
 仓库已经具备可运行的 `axc check / run / fmt / build`、结构化 `diagnostics`、`--json --ai` 输出、project-backed 多文件组织、第一阶段 `import/module` 模式、AX 侧共享 foundation、第一批 `std.*` 标准库试点模块，以及 repair benchmark 的导出、评分、对比、smoke 与 CI 资产。
 
-当前 `build` 仍处在稳定产物和后端接口骨架阶段；后续会按 `AOT -> 包接口 -> 后端 worker 能力 -> 更完整服务端生态` 的顺序推进，而不是停留在研究原型或一次性脚本语言。
+当前 `build` 已从纯骨架推进到最小 LLVM AOT v0：它稳定导出 source / HIR / MIR / manifest，并能为极小单文件 MIR 子集生成 `generated/main.ll`。默认仍不承诺 native exe；后续会按 `LLVM IR 子集 -> AOT runtime ABI -> 包接口 -> 后端 worker 能力 -> 更完整服务端生态` 的顺序推进，而不是停留在研究原型或一次性脚本语言。
 
 ## 项目导航
 
@@ -48,6 +48,7 @@ AX 关注的不只是“模型能不能写出代码”，更关注三件更硬�
 | 对外怎么准确介绍            | [`docs/public-claims.md`](./docs/public-claims.md)                 |
 | 本机和 CI 应该跑什么        | [`docs/validation-matrix.md`](./docs/validation-matrix.md)         |
 | 外部 JSON / artifact 契约   | [`docs/interface-contracts.md`](./docs/interface-contracts.md)     |
+| LLVM AOT v0 后端边界        | [`docs/llvm-aot.md`](./docs/llvm-aot.md)                           |
 | 语言能力当前支持状态        | [`docs/language-support-status.md`](./docs/language-support-status.md) |
 | 全项目按什么阶段推进        | [`PLAN.md`](./PLAN.md)                                             |
 | 现在具体在做什么            | [`WORKLIST.md`](./WORKLIST.md)                                     |
