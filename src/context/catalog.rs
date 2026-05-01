@@ -3,7 +3,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use crate::ast::{Block, Expr, ExprKind, ItemKind, Program, Stmt, StmtKind, Visibility};
 use crate::source::SourceFile;
 
-use super::{ResolvedUnit, host_boundary_class, normalize_path_text};
+use super::normalize_path_text;
+use super::stats::{ResolvedUnit, host_boundary_class};
 
 #[derive(Debug, Clone)]
 pub(super) struct SymbolCatalog {
