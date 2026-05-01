@@ -196,12 +196,46 @@ fn build_related_examples(
 fn build_related_tests(input: &ResolvedInput, impact_facts: &ImpactFacts) -> Vec<String> {
     let mut related = BTreeSet::new();
     let tokens = build_evidence_search_tokens(input, impact_facts);
-    let test_file = repo_root().join("tests").join("interface_snapshots.rs");
-    if file_matches_tokens(&test_file, &tokens) {
+    if interface_snapshot_tests_match(&tokens) {
         related.insert("tests/interface_snapshots.rs".to_string());
     }
 
     related.into_iter().collect()
+}
+
+fn interface_snapshot_tests_match(tokens: &[String]) -> bool {
+    let root = repo_root();
+    let test_file = root.join("tests").join("interface_snapshots.rs");
+    if file_matches_tokens(&test_file, tokens) {
+        return true;
+    }
+
+    let modules_dir = root.join("tests").join("interface_snapshots");
+    rust_test_module_matches_tokens(&modules_dir, tokens)
+}
+
+fn rust_test_module_matches_tokens(root: &Path, tokens: &[String]) -> bool {
+    let Ok(entries) = fs::read_dir(root) else {
+        return false;
+    };
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            if rust_test_module_matches_tokens(&path, tokens) {
+                return true;
+            }
+            continue;
+        }
+        if path.extension().and_then(|value| value.to_str()) != Some("rs") {
+            continue;
+        }
+        if file_matches_tokens(&path, tokens) {
+            return true;
+        }
+    }
+
+    false
 }
 
 fn build_related_docs(input: &ResolvedInput, impact_facts: &ImpactFacts) -> Vec<String> {
