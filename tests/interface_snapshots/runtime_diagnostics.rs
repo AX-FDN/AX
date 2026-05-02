@@ -204,6 +204,19 @@ fn main() -> i32 {{
             "Pass an existing readable file path before reading file contents or file metadata."
         )
     );
+    assert_eq!(diagnostics[0]["ai"]["layer"], Value::from("interpreter"));
+    assert_eq!(
+        diagnostics[0]["ai"]["ai_action"],
+        Value::from("fix_runtime_input")
+    );
+    assert_eq!(diagnostics[0]["ai"]["safe_to_edit"], Value::from(false));
+    assert_eq!(
+        json_string_array(&diagnostics[0]["ai"]["validation"], "runtime validation"),
+        vec![
+            "axc check <target>".to_string(),
+            "axc run <target>".to_string()
+        ]
+    );
     assert_eq!(
         diagnostics[0]["suggestion"],
         Value::from(

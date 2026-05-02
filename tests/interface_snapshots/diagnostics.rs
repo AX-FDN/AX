@@ -102,6 +102,88 @@ fn diagnostics_json_with_ai_matches_snapshot() {
 }
 
 #[test]
+fn diagnostics_missing_input_json_with_ai_exposes_source_input_contract() {
+    let temp = TempDir::new("diagnostics-missing-input-ai");
+    let input = temp.join("missing.ax");
+
+    let base = run_axc([OsStr::new("check"), input.as_os_str(), OsStr::new("--json")]);
+    assert_eq!(base.status.code(), Some(1));
+    assert_clean_stderr(&base);
+    let base_diagnostics: Value =
+        serde_json::from_slice(&base.stdout).expect("base input error should be JSON");
+    let base_diagnostics = base_diagnostics
+        .as_array()
+        .expect("base input error should be an array");
+    assert_eq!(base_diagnostics.len(), 1);
+    assert_eq!(base_diagnostics[0]["code"], "I0001");
+    assert!(base_diagnostics[0].get("ai").is_none());
+
+    let output = run_axc([
+        OsStr::new("check"),
+        input.as_os_str(),
+        OsStr::new("--json"),
+        OsStr::new("--ai"),
+    ]);
+    assert_eq!(output.status.code(), Some(1));
+    assert_clean_stderr(&output);
+
+    let diagnostics: Value =
+        serde_json::from_slice(&output.stdout).expect("AI input error should be JSON");
+    let diagnostics = diagnostics
+        .as_array()
+        .expect("AI input error should be an array");
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0]["code"], "I0001");
+    assert_eq!(
+        diagnostics[0]["ai"]["rule_id"],
+        "input_target_must_be_readable"
+    );
+    assert_eq!(diagnostics[0]["ai"]["layer"], "source_input");
+    assert_eq!(diagnostics[0]["ai"]["ai_action"], "fix_input_or_config");
+    assert_eq!(diagnostics[0]["ai"]["safe_to_edit"], true);
+    assert_eq!(
+        json_string_array(&diagnostics[0]["ai"]["validation"], "input validation"),
+        vec!["axc check <target>".to_string()]
+    );
+}
+
+#[test]
+fn diagnostics_unexpected_character_json_with_ai_matches_snapshot() {
+    let temp = TempDir::new("diagnostics-lexer-ai");
+    let input = temp.write(
+        "unexpected_character.ax",
+        "fn main() -> i32 {\n    @\n    return 0;\n}\n",
+    );
+
+    let output = run_axc([
+        OsStr::new("check"),
+        input.as_os_str(),
+        OsStr::new("--json"),
+        OsStr::new("--ai"),
+    ]);
+    assert_eq!(output.status.code(), Some(1));
+    assert_clean_stderr(&output);
+
+    let mut diagnostics: Value =
+        serde_json::from_slice(&output.stdout).expect("diagnostics output should be JSON");
+    let placeholder = "<input>/unexpected_character.ax".to_string();
+    for diagnostic in diagnostics
+        .as_array_mut()
+        .expect("diagnostics output should be an array")
+    {
+        diagnostic["file"] = Value::String(placeholder.clone());
+    }
+
+    let rendered = serde_json::to_string_pretty(&diagnostics)
+        .expect("diagnostics JSON should serialize")
+        + "\n";
+    assert_eq!(
+        normalize_text(&rendered),
+        snapshot("diagnostics_unexpected_character_ai.json")
+    );
+}
+
+#[test]
 fn diagnostics_ai_session_escalation_matches_snapshots() {
     let temp = TempDir::new("diagnostics-ai-session");
     let input = temp.write(

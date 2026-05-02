@@ -26,7 +26,7 @@
 | 前端主链 | `[x]` | Lexer / Parser / AST / HIR / MIR / Semantic 已进入主线 |
 | 执行路径 | `[x]` | 解释执行是当前稳定主路径 |
 | 结构化诊断 | `[x]` | 文本、`--json`、`--json --ai` 三层输出已成立 |
-| AI 修复协议 | `[x]` | `rule_id / repair_goal / fixits / context_snippets` 已进入输出层 |
+| AI 修复协议 | `[x]` | `rule_id / layer / ai_action / safe_to_edit / validation / repair_goal / fixits / context_snippets` 已进入输出层 |
 | runtime AI 反馈 | `[~]` | 首批高价值 runtime 误用已接入，仍在扩完整覆盖 |
 | context 协议 | `[x]` | 七个稳定视图已进入 CLI、快照回归与 repair export 输入链 |
 | 多文件项目 | `[x]` | `AX.toml + sources` 已是当前项目组织主路径 |
@@ -48,7 +48,7 @@
 | 执行模型 | `[x]` | 解释执行、基础运行期错误、部分 host builtin | 当前稳定路径是 interpreter，不是 AOT/JIT | `src/interpreter.rs` |
 | CLI | `[x]` | `check / ast / hir / mir / build / run / fmt / context` | 当前优先稳契约，不继续膨胀命令面 | `src/cli.rs` |
 | 诊断协议 | `[x]` | 文本诊断、`--json`、`--json --ai` | AI 增强层是增量，不应污染基础层 | `docs/diagnostics-schema.md` |
-| AI 修复上下文 | `[x]` | `rule_id`、`repair_goal`、`fixits`、`context_snippets`、teaching level | 当前目标是稳定 contract，不是供应商定制 prompt 仓库 | `src/ai.rs` |
+| AI 修复上下文 | `[x]` | `rule_id`、`layer`、`ai_action`、`safe_to_edit`、`validation`、`repair_goal`、`fixits`、`context_snippets`、teaching level | 当前目标是稳定 contract，不是供应商定制 prompt 仓库 | `src/ai.rs` |
 | parser 高频错误稳定化 | `[x]` | 缺分号、缺括号、缺类型名、缺表达式等已接稳定 kind | 仍有少量 heuristic，但主方向已改为内部标签优先 | `src/parser.rs` |
 | semantic 高频错误稳定化 | `[x]` | 模块误用与首批高价值 `S0022` 变体已接稳定 kind | 还会继续扩，但主框架已成立 | `src/diagnostics.rs` `src/ai.rs` |
 | runtime 高频错误稳定化 | `[~]` | 数组越界、除零、可读文件/目录、argv/env/process 一批误用已接 AI 规则 | runtime 还在持续硬化，不代表 host boundary 已完全收口 | `src/interpreter.rs` `src/ai.rs` |

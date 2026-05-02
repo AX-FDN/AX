@@ -41,10 +41,61 @@ pub(in crate::cli) fn render_load_input_error(
             );
             return 1;
         }
+
+        let diagnostic = source_input_error_diagnostic(path, error, ai);
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&vec![diagnostic])
+                .expect("source input diagnostic json should serialize")
+        );
+        return 1;
     }
 
     eprintln!("{error}");
     1
+}
+
+pub(in crate::cli) fn source_input_error_diagnostic(
+    path: &Path,
+    error: &str,
+    ai: bool,
+) -> Diagnostic {
+    let source = source_for_load_error(path);
+    let span = first_source_span(&source);
+    let mut diagnostic = Diagnostic::new("I0001", error.trim(), &source, span)
+        .with_expected("readable AX source file or project manifest")
+        .with_suggestion("pass an existing `.ax` file, project directory, or `AX.toml` path");
+
+    if ai {
+        let contract = AiRepairContract::source_input();
+        diagnostic = diagnostic.with_ai(AiDiagnostic {
+            rule_id: "input_target_must_be_readable".to_string(),
+            layer: contract.layer,
+            ai_action: contract.ai_action,
+            safe_to_edit: contract.safe_to_edit,
+            validation: contract.validation,
+            teaching_level: TeachingLevel::L1,
+            repeat_count: 1,
+            repair_goal:
+                "Point the command at a readable AX source file, project directory, or AX.toml manifest."
+                    .to_string(),
+            focus_item: None,
+            relevant_spans: vec![span],
+            related_symbols: Vec::new(),
+            rule_card: AiRuleCard {
+                summary: "AX commands need a readable input target before lexer, parser, semantic, run, or build stages can start.".to_string(),
+                pattern: Some("axc check examples/hello.ax".to_string()),
+                minimal_example: Some("axc check path/to/project".to_string()),
+                anti_pattern: Some("axc check missing/file.ax".to_string()),
+            },
+            fixits: vec![
+                "pass an existing `.ax` file, project directory, or `AX.toml` path".to_string(),
+            ],
+            context_snippets: Vec::new(),
+        });
+    }
+
+    diagnostic
 }
 
 pub(in crate::cli) fn package_load_error_diagnostic(
@@ -62,8 +113,13 @@ pub(in crate::cli) fn package_load_error_diagnostic(
         .with_suggestion(hint.fixit);
 
     if ai {
+        let contract = AiRepairContract::source_input();
         diagnostic = diagnostic.with_ai(AiDiagnostic {
             rule_id: hint.rule_id.to_string(),
+            layer: contract.layer,
+            ai_action: contract.ai_action,
+            safe_to_edit: contract.safe_to_edit,
+            validation: contract.validation,
             teaching_level: TeachingLevel::L1,
             repeat_count: 1,
             repair_goal: hint.repair_goal.to_string(),

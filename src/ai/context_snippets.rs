@@ -9,7 +9,8 @@ use crate::source::{SourceFile, Span};
 
 use super::rules::{RuleTemplate, is_main_required_rule};
 use super::{
-    AiContextSnippet, AiDiagnostic, AiFocusItem, AiRelatedSymbol, AiRuleCard, TeachingLevel,
+    AiContextSnippet, AiDiagnostic, AiFocusItem, AiRelatedSymbol, AiRepairContract, AiRuleCard,
+    TeachingLevel,
 };
 
 pub(super) struct DiagnosticContext {
@@ -127,8 +128,14 @@ impl DiagnosticContext {
             },
         };
 
+        let contract = AiRepairContract::for_diagnostic(diagnostic);
+
         AiDiagnostic {
             rule_id: rule.rule_id.to_string(),
+            layer: contract.layer,
+            ai_action: contract.ai_action,
+            safe_to_edit: contract.safe_to_edit,
+            validation: contract.validation,
             teaching_level,
             repeat_count,
             repair_goal: rule.repair_goal.to_string(),

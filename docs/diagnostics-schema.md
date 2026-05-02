@@ -26,6 +26,12 @@ It does not document:
 - exit code `2`
   CLI usage error such as missing path or invalid flag combination.
 
+Source/input errors:
+
+- `I0001` means the command target could not be loaded before lexer/parser/semantic analysis started.
+- In JSON mode, ordinary unreadable inputs are emitted as a diagnostic object instead of stderr-only text.
+- With `--json --ai`, `I0001` carries `ai.layer = "source_input"` and `ai.ai_action = "fix_input_or_config"`.
+
 ### `axc check <file> --json --ai`
 
 This keeps the base diagnostic shape intact and may add an optional `ai` field per diagnostic.
@@ -39,7 +45,7 @@ Important compatibility rule:
 Project/package resolver errors:
 
 - `PX****` local path package resolver failures are emitted through the same JSON diagnostic array when `axc check <project> --json` is used.
-- With `--json --ai`, package resolver diagnostics include package-specific `ai.rule_id`, `repair_goal`, `rule_card`, and `fixits` derived from the package repair hint table.
+- With `--json --ai`, package resolver diagnostics include package-specific `ai.rule_id`, `repair_goal`, `rule_card`, `fixits`, and repair-contract fields derived from the package repair hint table.
 - The diagnostic `file` points at the project manifest when the resolver fails before AX source analysis can start.
 
 ### `axc check <file> --json --ai --ai-session <path>`
@@ -95,7 +101,7 @@ Current JSON shape:
 Fields:
 
 - `code: string`
-  Stable compiler diagnostic code such as `L0001`, `P0001`, or `S0022`.
+  Stable compiler diagnostic code such as `I0001`, `L0001`, `P0001`, or `S0022`.
 - `message: string`
   Primary human-readable message.
 - `file: string`
@@ -131,6 +137,10 @@ When `--json --ai` is enabled and a diagnostic matches a registered AI rule, the
 {
   "ai": {
     "rule_id": "type_match_required",
+    "layer": "semantic",
+    "ai_action": "edit_source",
+    "safe_to_edit": true,
+    "validation": ["axc check <target>"],
     "teaching_level": "L1",
     "repeat_count": 1,
     "repair_goal": "Change the expression or the declared type so both sides use the same AX type.",
@@ -148,6 +158,14 @@ Current AI fields:
 
 - `rule_id: string`
   Stable AI rule identifier.
+- `layer: string`
+  Stable failure layer for AI routing. Current values are `source_input`, `lexer`, `parser`, `semantic`, `hir_lowering`, `mir_lowering`, `interpreter`, `build_artifact`, `aot_readiness`, `llvm_lowering`, `toolchain_link`, and `internal_compiler`.
+- `ai_action: string`
+  Suggested agent action. Current values include `edit_source`, `fix_input_or_config`, `fix_runtime_input`, `fix_environment`, `explain_unsupported`, `configure_toolchain`, `inspect_toolchain_failure`, and `report_compiler_bug`.
+- `safe_to_edit: boolean`
+  Whether the agent should treat editing the user-owned source/config as the default safe action. Runtime host input failures such as missing files, missing environment variables, argument-count issues, and process launch failures set this to `false`.
+- `validation: string[]`
+  Ordered command templates the agent should prefer after a repair. Check-time diagnostics currently use `axc check <target>`; runtime diagnostics use `axc check <target>` followed by `axc run <target>`.
 - `teaching_level: "L1" | "L2" | "L3"`
   Session-scoped teaching depth.
 - `repeat_count: integer`
@@ -184,6 +202,23 @@ Current AI fields:
 
 Fields marked with `?` may be omitted from JSON when empty or unavailable.
 
+## AI Repair Contract v1
+
+The `layer / ai_action / safe_to_edit / validation` fields are the first stable slice of the AX diagnostic contract for agent repair loops.
+
+Current routing rules:
+
+| Failure kind | `layer` | `ai_action` | `safe_to_edit` | `validation` |
+| --- | --- | --- | --- | --- |
+| lexer diagnostics such as invalid characters or unterminated strings | `lexer` | `edit_source` | `true` | `["axc check <target>"]` |
+| parser diagnostics such as missing semicolons or brackets | `parser` | `edit_source` | `true` | `["axc check <target>"]` |
+| semantic diagnostics such as type mismatch, undefined variable, or invalid `?` propagation | `semantic` | `edit_source` | `true` | `["axc check <target>"]` |
+| runtime program errors such as array bounds, division by zero, or arithmetic overflow | `interpreter` | `edit_source` | `true` | `["axc check <target>", "axc run <target>"]` |
+| runtime host-input errors such as missing file, missing env var, argv mismatch, or failed process launch | `interpreter` | `fix_runtime_input` | `false` | `["axc check <target>", "axc run <target>"]` |
+| project/package input failures emitted as `PX****` or `LX****` | `source_input` | `fix_input_or_config` | `true` | `["axc check <target>"]` |
+
+The placeholders are intentional in v1. Exporters and adapters that know the original benchmark target or project root should substitute `<target>` with the command target they are already using.
+
 ## Teaching Levels
 
 Current teaching escalation policy:
@@ -219,6 +254,10 @@ The repository currently treats the following as stable public behavior:
 - optional `ai` field addition for `--json --ai`
 - omission of `ai` when no rule matches
 - stable meaning of `rule_id`
+- stable meaning of `layer`
+- stable meaning of `ai_action`
+- stable meaning of `safe_to_edit`
+- stable meaning of `validation`
 - stable meaning of `teaching_level`
 - stable meaning of `repair_goal`
 
@@ -281,7 +320,11 @@ AI-enhanced mode:
     "expected": ["`;`"],
     "suggestion": "insert `;` before the next statement or closing `}`",
     "ai": {
+      "ai_action": "edit_source",
       "rule_id": "statement_terminator_required",
+      "layer": "parser",
+      "safe_to_edit": true,
+      "validation": ["axc check <target>"],
       "teaching_level": "L1",
       "repeat_count": 1,
       "repair_goal": "Insert the missing semicolon so the statement terminates correctly.",

@@ -46,6 +46,7 @@ AX 现在的外部契约不是只有 CLI 命令本身。对 agent 和工具链�
 Stable:
 
 - diagnostic array shape
+- source/input load failures emit `I0001` in JSON mode when the command target cannot be read before frontend analysis starts
 - `code`
 - `message`
 - `file`
@@ -55,6 +56,7 @@ Stable:
 - `expected`
 - `suggestion`
 - optional `ai` object when `--json --ai` is used
+- AI repair-contract routing fields inside `ai`: `layer`, `ai_action`, `safe_to_edit`, and `validation`
 
 Allowed to evolve carefully:
 
@@ -62,6 +64,7 @@ Allowed to evolve carefully:
 - additional `context_snippets`
 - new `rule_id` values for new diagnostics
 - additional optional AI fields, if omitted cleanly when unavailable
+- new `layer` or `ai_action` values after documenting how adapters should route them
 
 Not allowed without explicit contract update:
 
@@ -248,7 +251,7 @@ Stable for the current package-interface slice:
 - context `overview` and `topology` expose `local_path_packages` when a project uses path packages
 - context `evidence` recommends `axc lock <project> --check` for local path package projects
 - `axc check <project> --json --ai` emits `PX****` package resolver failures as normal JSON diagnostics when project loading fails before AX source analysis starts
-- package resolver JSON diagnostics point at `AX.toml`, use `expected = ["valid local path package graph"]`, and expose the same package repair hint as `ai.rule_id`, `ai.repair_goal`, and `ai.fixits`
+- package resolver JSON diagnostics point at `AX.toml`, use `expected = ["valid local path package graph"]`, expose the same package repair hint as `ai.rule_id`, `ai.repair_goal`, and `ai.fixits`, and classify the failure as `ai.layer = "source_input"` with `ai.ai_action = "fix_input_or_config"`
 - repair benchmark package cases currently cover every local path package resolver code from `PX0001` through `PX0007`; they repair `AX.toml` as the target file and keep `LX****` lockfile repair out of the source-repair scorer until a separate artifact type is defined
 
 Allowed to evolve carefully:

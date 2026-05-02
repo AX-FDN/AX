@@ -1,6 +1,7 @@
 [
   {
     "ai": {
+      "ai_action": "edit_source",
       "fixits": [
         "insert `;` before the next statement or closing `}`"
       ],
@@ -13,6 +14,7 @@
           "start": 0
         }
       },
+      "layer": "parser",
       "relevant_spans": [
         {
           "end": 52,
@@ -38,7 +40,11 @@
         "summary": "AX requires `let`, assignment, expression, and `return` statements to end with `;`."
       },
       "rule_id": "statement_terminator_required",
-      "teaching_level": "L2"
+      "safe_to_edit": true,
+      "teaching_level": "L2",
+      "validation": [
+        "axc check <target>"
+      ]
     },
     "code": "P0001",
     "expected": [

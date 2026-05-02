@@ -3,7 +3,7 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 
 use crate::ast::{Program, Visibility};
-use crate::diagnostics::Diagnostic;
+use crate::diagnostics::{Diagnostic, DiagnosticKind};
 use crate::source::{SourceFile, Span};
 
 mod context_snippets;
@@ -14,9 +14,75 @@ use self::context_snippets::DiagnosticContext;
 use self::rules::match_rule;
 use self::session::{load_session, save_session};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DiagnosticLayer {
+    SourceInput,
+    Lexer,
+    Parser,
+    Semantic,
+    HirLowering,
+    MirLowering,
+    Interpreter,
+    BuildArtifact,
+    AotReadiness,
+    LlvmLowering,
+    ToolchainLink,
+    InternalCompiler,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AiAction {
+    EditSource,
+    FixInputOrConfig,
+    FixRuntimeInput,
+    FixEnvironment,
+    ExplainUnsupported,
+    ConfigureToolchain,
+    InspectToolchainFailure,
+    ReportCompilerBug,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AiRepairContract {
+    pub layer: DiagnosticLayer,
+    pub ai_action: AiAction,
+    pub safe_to_edit: bool,
+    pub validation: Vec<String>,
+}
+
+impl AiRepairContract {
+    pub fn for_diagnostic(diagnostic: &Diagnostic) -> Self {
+        let layer = layer_for_diagnostic(diagnostic);
+        let ai_action = action_for_diagnostic(layer, diagnostic);
+        Self {
+            layer,
+            ai_action,
+            safe_to_edit: source_edit_is_safe(ai_action),
+            validation: validation_for_layer(layer),
+        }
+    }
+
+    pub fn source_input() -> Self {
+        let layer = DiagnosticLayer::SourceInput;
+        let ai_action = AiAction::FixInputOrConfig;
+        Self {
+            layer,
+            ai_action,
+            safe_to_edit: source_edit_is_safe(ai_action),
+            validation: validation_for_layer(layer),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct AiDiagnostic {
     pub rule_id: String,
+    pub layer: DiagnosticLayer,
+    pub ai_action: AiAction,
+    pub safe_to_edit: bool,
+    pub validation: Vec<String>,
     pub teaching_level: TeachingLevel,
     pub repeat_count: u32,
     pub repair_goal: String,
@@ -127,6 +193,120 @@ pub fn enhance_diagnostics(
     }
 
     Ok(())
+}
+
+fn layer_for_diagnostic(diagnostic: &Diagnostic) -> DiagnosticLayer {
+    if let Some(kind) = diagnostic.kind() {
+        if is_parser_kind(kind) {
+            return DiagnosticLayer::Parser;
+        }
+        if is_runtime_kind(kind) {
+            return DiagnosticLayer::Interpreter;
+        }
+        return DiagnosticLayer::Semantic;
+    }
+
+    if diagnostic.code.starts_with("PX") || diagnostic.code.starts_with("LX") {
+        return DiagnosticLayer::SourceInput;
+    }
+
+    match diagnostic.code.chars().next() {
+        Some('I') => DiagnosticLayer::SourceInput,
+        Some('L') => DiagnosticLayer::Lexer,
+        Some('P') => DiagnosticLayer::Parser,
+        Some('S') => DiagnosticLayer::Semantic,
+        Some('R') => DiagnosticLayer::Interpreter,
+        _ => DiagnosticLayer::InternalCompiler,
+    }
+}
+
+fn action_for_diagnostic(layer: DiagnosticLayer, diagnostic: &Diagnostic) -> AiAction {
+    match layer {
+        DiagnosticLayer::SourceInput => AiAction::FixInputOrConfig,
+        DiagnosticLayer::Lexer | DiagnosticLayer::Parser | DiagnosticLayer::Semantic => {
+            AiAction::EditSource
+        }
+        DiagnosticLayer::Interpreter => action_for_runtime_diagnostic(diagnostic),
+        DiagnosticLayer::BuildArtifact => AiAction::FixEnvironment,
+        DiagnosticLayer::AotReadiness | DiagnosticLayer::LlvmLowering => {
+            AiAction::ExplainUnsupported
+        }
+        DiagnosticLayer::ToolchainLink => AiAction::ConfigureToolchain,
+        DiagnosticLayer::HirLowering
+        | DiagnosticLayer::MirLowering
+        | DiagnosticLayer::InternalCompiler => AiAction::ReportCompilerBug,
+    }
+}
+
+fn action_for_runtime_diagnostic(diagnostic: &Diagnostic) -> AiAction {
+    match diagnostic.kind() {
+        Some(
+            DiagnosticKind::ArgvIndexNegative
+            | DiagnosticKind::ArgvIndexOutOfBounds
+            | DiagnosticKind::EnvironmentVariableUnavailable
+            | DiagnosticKind::ReadableFilePathRequired
+            | DiagnosticKind::ReadableDirectoryPathRequired
+            | DiagnosticKind::ProcessCommandNotLaunchable
+            | DiagnosticKind::ProcessCaptureNonZeroExit,
+        ) => AiAction::FixRuntimeInput,
+        _ => AiAction::EditSource,
+    }
+}
+
+fn source_edit_is_safe(action: AiAction) -> bool {
+    matches!(action, AiAction::EditSource | AiAction::FixInputOrConfig)
+}
+
+fn validation_for_layer(layer: DiagnosticLayer) -> Vec<String> {
+    match layer {
+        DiagnosticLayer::Interpreter => vec![
+            "axc check <target>".to_string(),
+            "axc run <target>".to_string(),
+        ],
+        DiagnosticLayer::AotReadiness
+        | DiagnosticLayer::LlvmLowering
+        | DiagnosticLayer::ToolchainLink => vec![
+            "axc run <target>".to_string(),
+            "axc build <target>".to_string(),
+        ],
+        DiagnosticLayer::BuildArtifact => vec!["axc build <target>".to_string()],
+        DiagnosticLayer::HirLowering | DiagnosticLayer::MirLowering => {
+            vec!["axc check <target>".to_string()]
+        }
+        DiagnosticLayer::SourceInput
+        | DiagnosticLayer::Lexer
+        | DiagnosticLayer::Parser
+        | DiagnosticLayer::Semantic
+        | DiagnosticLayer::InternalCompiler => vec!["axc check <target>".to_string()],
+    }
+}
+
+fn is_parser_kind(kind: DiagnosticKind) -> bool {
+    matches!(
+        kind,
+        DiagnosticKind::MissingSemicolon
+            | DiagnosticKind::MissingRightParen
+            | DiagnosticKind::MissingRightBracket
+            | DiagnosticKind::MissingRightBrace
+            | DiagnosticKind::TopLevelDeclarationRequired
+            | DiagnosticKind::TypeNameRequired
+            | DiagnosticKind::ExpressionRequired
+    )
+}
+
+fn is_runtime_kind(kind: DiagnosticKind) -> bool {
+    matches!(
+        kind,
+        DiagnosticKind::ArgvIndexNegative
+            | DiagnosticKind::ArgvIndexOutOfBounds
+            | DiagnosticKind::StringListIndexNegative
+            | DiagnosticKind::StringListIndexOutOfBounds
+            | DiagnosticKind::EnvironmentVariableUnavailable
+            | DiagnosticKind::ReadableFilePathRequired
+            | DiagnosticKind::ReadableDirectoryPathRequired
+            | DiagnosticKind::ProcessCommandNotLaunchable
+            | DiagnosticKind::ProcessCaptureNonZeroExit
+    )
 }
 
 #[cfg(test)]

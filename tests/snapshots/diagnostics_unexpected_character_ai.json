@@ -1,0 +1,55 @@
+[
+  {
+    "ai": {
+      "ai_action": "edit_source",
+      "fixits": [
+        "remove the character or replace it with valid AX syntax"
+      ],
+      "focus_item": {
+        "kind": "function",
+        "name": "main",
+        "signature": "fn main() -> i32",
+        "span": {
+          "end": 40,
+          "start": 0
+        }
+      },
+      "layer": "lexer",
+      "relevant_spans": [
+        {
+          "end": 24,
+          "start": 23
+        },
+        {
+          "end": 40,
+          "start": 0
+        },
+        {
+          "end": 40,
+          "start": 17
+        }
+      ],
+      "repair_goal": "Remove or replace the unexpected character with valid AX syntax.",
+      "repeat_count": 1,
+      "rule_card": {
+        "summary": "The current AX prototype only accepts its defined punctuation, operators, keywords, and literals."
+      },
+      "rule_id": "unexpected_character_in_source",
+      "safe_to_edit": true,
+      "teaching_level": "L1",
+      "validation": [
+        "axc check <target>"
+      ]
+    },
+    "code": "L0001",
+    "expected": [],
+    "file": "<input>/unexpected_character.ax",
+    "message": "unexpected character `@`",
+    "notes": [],
+    "span": {
+      "end": 24,
+      "start": 23
+    },
+    "suggestion": "remove the character or replace it with valid AX syntax"
+  }
+]

@@ -1,6 +1,7 @@
 [
   {
     "ai": {
+      "ai_action": "edit_source",
       "fixits": [
         "make the expression produce `i32`, or change the declared type if `bool` is intended"
       ],
@@ -13,6 +14,7 @@
           "start": 49
         }
       },
+      "layer": "semantic",
       "relevant_spans": [
         {
           "end": 88,
@@ -37,7 +39,11 @@
         "summary": "AX checks every call argument against the function signature and does not coerce argument types."
       },
       "rule_id": "function_argument_type_must_match",
-      "teaching_level": "L1"
+      "safe_to_edit": true,
+      "teaching_level": "L1",
+      "validation": [
+        "axc check <target>"
+      ]
     },
     "code": "S0022",
     "expected": [],

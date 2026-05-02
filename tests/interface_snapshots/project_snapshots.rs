@@ -871,6 +871,13 @@ config_rules = { path = \"packages/config_rules\" }
         diagnostics[0]["ai"]["repair_goal"],
         "Point the dependency to an existing local AX package directory."
     );
+    assert_eq!(diagnostics[0]["ai"]["layer"], "source_input");
+    assert_eq!(diagnostics[0]["ai"]["ai_action"], "fix_input_or_config");
+    assert_eq!(diagnostics[0]["ai"]["safe_to_edit"], true);
+    assert_eq!(
+        json_string_array(&diagnostics[0]["ai"]["validation"], "package validation"),
+        vec!["axc check <target>".to_string()]
+    );
     assert_eq!(
         json_string_array(&diagnostics[0]["expected"], "package expected"),
         vec!["valid local path package graph".to_string()]

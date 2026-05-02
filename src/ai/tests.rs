@@ -1,4 +1,4 @@
-use super::{TeachingLevel, enhance_diagnostics, match_rule};
+use super::{AiAction, DiagnosticLayer, TeachingLevel, enhance_diagnostics, match_rule};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -305,6 +305,93 @@ fn base_diagnostics_omit_ai_when_not_enhanced() {
     let analysis = analyze(&source);
     let json = serde_json::to_string(&analysis.diagnostics).expect("diagnostics should serialize");
     assert!(!json.contains("\"ai\""));
+}
+
+#[test]
+fn ai_repair_contract_classifies_parser_semantic_and_runtime_layers() {
+    let source = SourceFile::anonymous("fn main() -> i32 { let value: i32 = 1 return value; }");
+    let mut analysis = analyze(&source);
+    enhance_diagnostics(&source, &analysis.program, &mut analysis.diagnostics, None)
+        .expect("parser diagnostic should enhance");
+    let ai = analysis.diagnostics[0]
+        .ai
+        .as_ref()
+        .expect("parser diagnostic should include ai payload");
+    assert_eq!(ai.layer, DiagnosticLayer::Parser);
+    assert_eq!(ai.ai_action, AiAction::EditSource);
+    assert!(ai.safe_to_edit);
+    assert_eq!(ai.validation, vec!["axc check <target>".to_string()]);
+
+    let source = SourceFile::anonymous("fn main() -> i32 { if (1) { return 1; } return 0; }");
+    let mut analysis = analyze(&source);
+    enhance_diagnostics(&source, &analysis.program, &mut analysis.diagnostics, None)
+        .expect("semantic diagnostic should enhance");
+    let ai = analysis.diagnostics[0]
+        .ai
+        .as_ref()
+        .expect("semantic diagnostic should include ai payload");
+    assert_eq!(ai.layer, DiagnosticLayer::Semantic);
+    assert_eq!(ai.ai_action, AiAction::EditSource);
+    assert!(ai.safe_to_edit);
+    assert_eq!(ai.validation, vec!["axc check <target>".to_string()]);
+
+    let source = SourceFile::anonymous(
+        "fn main() -> i32 { let values: [i32; 2] = [1, 2]; return values[2]; }",
+    );
+    let analysis = analyze(&source);
+    let hir = analysis
+        .hir
+        .as_ref()
+        .expect("HIR should exist for runtime contract case");
+    let runtime_error = run_program(&source, hir).expect_err("runtime contract case should fail");
+    let mut diagnostics = vec![runtime_error];
+    enhance_diagnostics(&source, &analysis.program, &mut diagnostics, None)
+        .expect("runtime diagnostic should enhance");
+    let ai = diagnostics[0]
+        .ai
+        .as_ref()
+        .expect("runtime diagnostic should include ai payload");
+    assert_eq!(ai.layer, DiagnosticLayer::Interpreter);
+    assert_eq!(ai.ai_action, AiAction::EditSource);
+    assert!(ai.safe_to_edit);
+    assert_eq!(
+        ai.validation,
+        vec![
+            "axc check <target>".to_string(),
+            "axc run <target>".to_string()
+        ]
+    );
+
+    let missing_path = unique_session_path("runtime-contract-missing-file").with_extension("txt");
+    let _ = fs::remove_file(&missing_path);
+    let missing_text = missing_path.to_string_lossy().replace('\\', "/");
+    let source = SourceFile::anonymous(&format!(
+        "fn main() -> i32 {{ let text: string = fs_read_to_string(\"{missing_text}\"); println(text); return 0; }}"
+    ));
+    let analysis = analyze(&source);
+    let hir = analysis
+        .hir
+        .as_ref()
+        .expect("HIR should exist for host runtime contract case");
+    let runtime_error =
+        run_program(&source, hir).expect_err("host runtime contract case should fail");
+    let mut diagnostics = vec![runtime_error];
+    enhance_diagnostics(&source, &analysis.program, &mut diagnostics, None)
+        .expect("host runtime diagnostic should enhance");
+    let ai = diagnostics[0]
+        .ai
+        .as_ref()
+        .expect("host runtime diagnostic should include ai payload");
+    assert_eq!(ai.layer, DiagnosticLayer::Interpreter);
+    assert_eq!(ai.ai_action, AiAction::FixRuntimeInput);
+    assert!(!ai.safe_to_edit);
+    assert_eq!(
+        ai.validation,
+        vec![
+            "axc check <target>".to_string(),
+            "axc run <target>".to_string()
+        ]
+    );
 }
 
 #[test]
