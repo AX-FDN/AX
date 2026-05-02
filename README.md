@@ -6,16 +6,16 @@
 ### 面向 Coding Agent 的 AI-first 语言
 
 [![License](https://img.shields.io/github/license/AX-FDN/AX)](./LICENSE)
-[![Prototype](https://img.shields.io/badge/status-prototype-0ea5e9)](./执行路线.md)
+[![Status](https://img.shields.io/badge/status-active%20compiler-0ea5e9)](./执行路线.md)
 [![Benchmark](https://img.shields.io/badge/repair%20benchmark-included-2563eb)](./docs/repair-benchmark.md)
 
 </div>
 
 AX 是一门面向自回归 Coding AI 的 AI-first 语言，也是一套围绕这门语言持续工程化的编译器、运行时与执行工具链。
-它把显式语法、规范化源码形态、结构化诊断、修复反馈契约、架构上下文协议与 benchmark 证据链并入同一套语言系统，目标是让 agent 生成、修复、理解和演进项目时更稳定。
+它不是只提供一套语法，也不是只把源码跑起来；AX 把显式语法、规范化源码形态、结构化诊断、修复反馈契约、架构上下文协议、解释执行、AOT 编译和 benchmark 证据链并入同一套语言系统，目标是让 agent 生成、修复、理解和演进项目时更稳定。
 
-AX 当前从 CLI 工具、自动化脚本、批处理任务、构建辅助和后端 worker 外围工具切入。
-这不是终点，而是起点：项目会在保持 AI-first 约束的前提下，逐步补齐标准库、包系统、AOT 后端、后端 worker 能力、配置 / JSON / 日志等服务端基础设施，并最终成长为一门可以承担后端程序开发的语言。
+AX 当前从 CLI 工具、自动化脚本、批处理任务、构建辅助和后端 worker 外围工具切入，并已经形成“解释器稳定执行 + 编译器持续 AOT 化 + 结构化反馈可验证”的工程闭环。
+这条路线会在保持 AI-first 约束的前提下，继续扩展标准库、包系统、AOT 后端、后端 worker 能力、配置 / JSON / 日志等服务端基础设施，并成长为一门可以承担后端程序开发的语言。
 
 AX 的长期愿景是：
 
@@ -33,18 +33,19 @@ AX 关注的不只是“模型能不能写出代码”，更关注三件更硬�
 
 仓库已经具备可运行的 `axc check / run / fmt / build`、结构化 `diagnostics`、`--json --ai` 输出、project-backed 多文件组织、第一阶段 `import/module` 模式、AX 侧共享 foundation、第一批 `std.*` 标准库试点模块，以及 repair benchmark 的导出、评分、对比、smoke 与 CI 资产。
 
-当前 `build` 已从纯骨架推进到最小 LLVM AOT v0：它稳定导出 source / HIR / MIR / manifest，并能为极小单文件 MIR 子集生成 `generated/main.ll`；在显式开启链接并提供 clang 时，已经可以生成 native executable，并用 parity smoke 对比解释器和 AOT exe 的 `exit code / stdout / stderr`。这仍不是发布级完整 native compiler；后续会按 `LLVM IR 子集 -> AOT runtime ABI -> 包接口 -> 后端 worker 能力 -> 更完整服务端生态` 的顺序推进，而不是停留在研究原型或一次性脚本语言。
+当前 `build` 已经进入 LLVM AOT v0：它稳定导出 source / HIR / MIR / manifest，并能为单文件核心 MIR 子集生成 `generated/main.ll`；在显式开启链接并提供 clang 时，已经可以生成 native executable，并用 parity smoke 对比解释器和 AOT exe 的 `exit code / stdout / stderr`。这让 AX 同时拥有解释执行路径和 native 编译路径，后续会按 `LLVM IR 子集 -> AOT runtime ABI -> 包接口 -> 后端 worker 能力 -> 更完整服务端生态` 的顺序持续扩大覆盖面。
 
-## 当前执行版本
+## 解释器与编译器同步推进
 
-AX 现在有两条执行路径，它们都由同一个 `axc` CLI 提供，但成熟度不同：
+AX 现在有两条执行路径，它们共享同一个 lexer / parser / semantic / HIR / MIR 前端，也都由同一个 `axc` CLI 提供。解释器负责稳定语义落地，编译器负责把同一份 AX 源码逐步编成 native executable；二者不是两套语言，而是同一套语言事实的两种执行形态。
 
 | 路径 | 命令 | 当前定位 | 当前功能 |
 | --- | --- | --- | --- |
-| 解释器版本 | `axc run <file-or-project>` | 当前稳定主路径，也是 AOT 的语义参考 | 支持当前 AX 语言主线：基础类型、函数、控制流、数组 / slice、struct / enum、match、泛型、trait bounds、module/import、project mode、第一批 `std.*` 试点和宿主 builtin |
-| 编译器 / AOT 版本 | `axc build <file-or-project>` | LLVM AOT v0，当前是可验证原型，不是完整发布级 native 后端 | 始终导出 `source.ax`、HIR、MIR、`build-manifest.json`；对单文件 `i32/bool` 核心子集生成 LLVM IR；显式设置 `AX_LLVM_AOT_LINK=1` 且有 clang 时可链接 exe |
+| 解释器版本 | `axc run <file-or-project>` | 稳定语义执行引擎，也是 AOT 的参考实现 | 支持当前 AX 语言主线：基础类型、函数、控制流、数组 / slice、struct / enum、match、泛型、trait bounds、module/import、project mode、第一批 `std.*` 试点和宿主 builtin |
+| 编译器 / AOT 版本 | `axc build <file-or-project>` | 正在快速扩展的 LLVM native 编译路径 | 始终导出 `source.ax`、HIR、MIR、`build-manifest.json`；对单文件 `i32/bool/string/fixed-array` 核心子集生成 LLVM IR；显式设置 `AX_LLVM_AOT_LINK=1` 且有 clang 时可链接 exe |
 
-一句话理解：**解释器版本负责“现在稳定运行 AX 程序”，AOT 编译版本负责“逐步把同一份 AX 源码编成 native exe，并用解释器结果做对照验证”。**
+一句话理解：**AX 不是“只有解释器”或“另起一个编译器”，而是同一前端、同一语义、解释器和 AOT 编译器同步推进。**
+`axc run` 给出稳定执行结果，`axc build` 把当前可编译子集降到 LLVM/native；每新增一包 AOT 能力，都要进入 run vs exe parity 验证。
 
 当前 LLVM AOT v0 已支持的 native 子集：
 
@@ -59,10 +60,16 @@ AX 现在有两条执行路径，它们都由同一个 `axc` CLI 提供，但成
 - `&& ||`
 - `println(i32)` / `println(bool)`
 - 只读 string literal 直接 `println`，例如 `println("hello")`
+- `string` 局部变量 / 参数 / 返回值，当前表示为只读 C 字符串指针
+- `string_len(text)` / `len(text)`，当前按 UTF-8 codepoint 数量返回 `i32`
+- `string == string` / `string != string` 内容比较，当前通过 C ABI `strcmp` 完成
+- `to_string(i32)` / `to_string(bool)` / `to_string(string)`
+- `string + string`，当前通过 process-lifetime `malloc` 分配拼接结果，暂不回收
+- 固定长度数组 v0：非空 array literal、局部变量、函数参数 by value、索引读取、`len(array)`；当前主要验证 `[i32; N]`
 
-当前 AOT parity smoke 默认覆盖 9 个样例：`examples/aot_return.ax`、`examples/aot_math.ax`、`examples/aot_control_flow.ax`、`examples/aot_loop.ax`、`examples/aot_bool_logic.ax`、`examples/aot_comparisons.ax`、`examples/aot_nested_calls.ax`、`examples/aot_print.ax`、`examples/aot_print_string.ax`。这些样例会依次跑 `check -> run -> build --json -> native exe`，并比较解释器和 exe 的退出码、标准输出、标准错误。
+当前 AOT parity smoke 默认覆盖 13 个样例：`examples/aot_return.ax`、`examples/aot_math.ax`、`examples/aot_control_flow.ax`、`examples/aot_loop.ax`、`examples/aot_bool_logic.ax`、`examples/aot_comparisons.ax`、`examples/aot_nested_calls.ax`、`examples/aot_print.ax`、`examples/aot_print_string.ax`、`examples/aot_string_values.ax`、`examples/aot_string_len_compare.ax`、`examples/aot_string_runtime.ax`、`examples/aot_array_read.ax`。这些样例会依次跑 `check -> run -> build --json -> native exe`，并比较解释器和 exe 的退出码、标准输出、标准错误。
 
-当前 AOT 明确还不支持：通用 `string` runtime、字符串局部变量 / 参数 / 返回值、string concat / len / `to_string(...)`、`f32`、数组 / slice native layout、struct / enum native layout、`match` native lowering、`Result` / `Option` / `?`、methods / impl / traits / generics 的 native lowering、多文件 project linking、本地包 native linking 和完整 host runtime ABI。这些缺口会进入 `aot_readiness.blockers`，不会被伪装成用户源码错误。
+AOT 的能力边界也会被结构化管理：`to_string(...)` 作用于 array/slice/struct/enum/f32 等复杂值、`string_contains(...)` 等完整 string runtime、`len(...)` 作用于 slice/string_list、`f32`、数组写入 / slice native layout、struct / enum native layout、`match` native lowering、`Result` / `Option` / `?`、methods / impl / traits / generics 的 native lowering、多文件 project linking、本地包 native linking 和完整 host runtime ABI 会继续按能力包推进。当前不在 AOT 子集里的能力会进入 `aot_readiness.blockers` 或 LLVM lowering blocker，不会被伪装成用户源码错误，也不会让 AI 误改合法业务代码。
 
 ## 项目导航
 
@@ -135,7 +142,7 @@ http://101.37.238.42
 | 关键收益     | 提高一次通过率、提高修复成功率、提高多文件项目中的架构理解效率，并把这些能力带入真实后端开发          |
 | 当前主要场景 | agent 生成 CLI 工具、可修复自动化脚本、后端 worker 辅助、compiler-guided repair benchmark             |
 | 演进方向     | 标准库、包系统、AOT 后端、后端 worker、服务端基础设施、部分自举                                       |
-| 当前形态     | 语言前端 + 稳定解释执行 + LLVM AOT v0 可验证原型 + project mode + structured diagnostics + context + repair benchmark + Repair Workbench 前端 + 标准库试点 |
+| 当前形态     | 语言前端 + 稳定解释执行 + LLVM AOT v0 native 编译路径 + project mode + structured diagnostics + context + repair benchmark + Repair Workbench 前端 + 标准库试点 |
 | 核心价值     | 把语言本体、编译器反馈、AI 消费链路和未来后端生态放进同一个可运行仓库                                 |
 
 ## AX 的核心优势
@@ -146,6 +153,7 @@ http://101.37.238.42
 | 对自回归模型原生友好                | 显式类型、较少等价写法、较少隐式规则、`fmt` 驱动的规范化输出                                                                         | 更容易提高首轮生成的一次通过率                               |
 | 编译器反馈可直接给 Agent 消费       | `rule_id`、`repair_goal`、`fixits`、`context_snippets` 等字段已经进入输出层                                                          | 错误反馈可直接进入自动化修复链                               |
 | 架构上下文可直接给 Agent 消费       | `overview / topology / boundaries / flow / symbol / impact / evidence` 七个稳定视图承载同一套六层语义协议                            | 多文件项目里的结构理解、边界识别和修改落点判断更稳定         |
+| 解释器与编译器共享同一前端          | `axc run` 和 `axc build` 都建立在同一套 lexer / parser / semantic / HIR / MIR 之上，AOT 以解释器语义为参考做 native parity             | 语言不会分裂成两套实现，新增语法可以同时进入检查、解释执行和编译验证 |
 | 修复链不是口头承诺，而是协议闭环    | diagnostics、上下文协议、repair contract、benchmark 共用同一条输入输出链；`-IncludeContext` 已能把 context bundle 导入 repair export | 修复成功率、回归率和上下文价值都可以被实际测量               |
 | 真工具样例已经进入仓库主线          | 仓库里已经有 workspace audit、release snapshot、search report、directory index 等样例                                                | 可以直接观察 AX 在真实工具型任务上的表达能力                 |
 | 多文件工程组织开始成型              | `AX.toml + sources` 已经稳定，第一阶段 `import/module` 已接入主线                                                                    | foundation 代码与项目私有逻辑开始拥有清晰边界                |
@@ -220,7 +228,7 @@ flowchart LR
     C --> D["Structured Diagnostics"]
     D --> E["AI Feedback<br/>rule_id / repair_goal / fixits / context"]
     C --> F["Interpreter / Host Runtime Boundary"]
-    C --> H["Build / LLVM AOT v0<br/>IR artifact / optional native exe"]
+    C --> H["Build / LLVM AOT v0<br/>IR artifact / native exe parity"]
     D --> G["Repair Benchmark / Replay / Compare / Smoke"]
     E --> G
     F --> G
@@ -238,7 +246,7 @@ AX 把一段源码送入编译器后，会同步产出三层结果：
 3. 可回放证据结果  
    repair benchmark、adapter 输出、评分结果、compare 报告、smoke 回归
 
-`axc run` 当前走解释器，是稳定执行路径；`axc build` 当前走构建 / AOT 路径，始终输出稳定构建产物，并在当前 LLVM AOT v0 子集内生成 IR 或可选 native exe。AOT 的正确性不靠口头承诺，而是通过 run vs exe parity smoke 和 snapshot 测试持续验证。
+`axc run` 走解释器，是稳定执行路径；`axc build` 走构建 / AOT 路径，始终输出稳定构建产物，并在当前 LLVM AOT v0 子集内生成 IR 或 native exe。AOT 的正确性不靠口头承诺，而是通过 run vs exe parity smoke 和 snapshot 测试持续验证。
 
 AX 把“源码如何被模型消费、错误如何被模型修复、修复结果如何被验证”一起工程化。
 这也是 AX 和一般实验语言项目最有区分度的地方。
@@ -750,8 +758,8 @@ AX 的六层协议上下文，不只是让模型“更快读懂项目”，更�
 | 方面             | 当前状态                                                                                                                                                                                                  | 仓库位置                                                                                                               |
 | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | 编译器前端       | 已打通 `Lexer -> Parser -> AST -> HIR -> MIR -> Semantic Check` 主链                                                                                                                                      | [`src/`](./src/)                                                                                                       |
-| 执行能力         | 已支持解释执行，能够运行真实 tool-style examples                                                                                                                                                          | [`src/interpreter.rs`](./src/interpreter.rs)                                                                           |
-| AOT 编译         | LLVM AOT v0 已能为 9 个单文件 core/stdout 样例生成 IR、可选链接 native exe，并与解释器比较 `exit code / stdout / stderr`                                                                                | [`src/backend/llvm/`](./src/backend/llvm/) [`docs/llvm-aot.md`](./docs/llvm-aot.md)                                  |
+| 执行能力         | 已支持解释执行，能够运行真实 tool-style examples，并作为 AOT native parity 的语义参考                                                                                                                     | [`src/interpreter.rs`](./src/interpreter.rs)                                                                           |
+| AOT 编译         | LLVM AOT v0 已能为 13 个单文件 core/stdout/string/array-read 样例生成 IR、链接 native exe，并与解释器比较 `exit code / stdout / stderr`                                                                        | [`src/backend/llvm/`](./src/backend/llvm/) [`docs/llvm-aot.md`](./docs/llvm-aot.md)                                  |
 | 诊断输出         | 已支持文本诊断、`--json`、`--json --ai` 三层输出                                                                                                                                                          | [`docs/diagnostics-schema.md`](./docs/diagnostics-schema.md)                                                           |
 | AI 修复反馈      | 已沉淀 `rule_id / repair_goal / fixits / context_snippets`                                                                                                                                                | [`src/ai.rs`](./src/ai.rs)                                                                                             |
 | 项目组织         | 已支持 `AX.toml + sources` 的 project-backed 多文件项目，并启动 `[dependencies] alias = { path = ... }` 本地 AX 包接口 v0                                                                                 | [`src/project.rs`](./src/project.rs)                                                                                   |
@@ -1278,12 +1286,13 @@ AX 希望最终回答的是：
 
 ## 当前阶段的对外理解
 
-AX 现在已经是一门可以检查、运行、格式化、组织项目、输出结构化诊断并进入修复 benchmark 的 AI-first 工具语言原型。
-它正在从“能跑的语言原型”继续收口到“能稳定写工具、能稳定组织项目、能稳定给 agent 反馈”的成熟语言方向。
+AX 现在已经是一门可以检查、运行、格式化、组织项目、输出结构化诊断、生成 LLVM/native 编译产物并进入修复 benchmark 的 AI-first 工具语言。
+它的核心特点不是“多一个解释器”或“多一个后端”，而是把解释执行、AOT 编译、错误分层、上下文协议和验证证据放在同一条语言工具链里持续同步。
 
 对 AX 更准确的理解是：
 
 - 一门面向 Coding AI 的 AI-first 工具语言
+- 一条解释器与编译器共享前端、互相校验的执行链
 - 一条可消费的编译器反馈链
 - 一条把修复、上下文和验证接回语言主线的工程闭环
 

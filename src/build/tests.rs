@@ -144,6 +144,177 @@ return 0;
 }
 
 #[test]
+fn aot_readiness_allows_basic_string_values_without_full_string_runtime() {
+    let readiness = readiness_for(
+        "\
+fn identity(value: string) -> string {
+return value;
+}
+
+fn main() -> i32 {
+let text: string = identity(\"hello\");
+println(text);
+return 0;
+}
+",
+        AotReadinessInput {
+            is_project: false,
+            has_local_path_packages: false,
+            package_lock_status: None,
+        },
+    );
+
+    assert!(readiness.single_file_core_candidate);
+    assert_eq!(
+        readiness.required_backend_features,
+        vec![
+            "functions".to_string(),
+            "host_stdio".to_string(),
+            "i32_values".to_string(),
+            "string_literals".to_string(),
+            "string_values".to_string()
+        ]
+    );
+    assert_eq!(blocker_codes(&readiness), vec!["AOT0001"]);
+}
+
+#[test]
+fn aot_readiness_allows_string_len_without_full_string_runtime() {
+    let readiness = readiness_for(
+        "\
+fn main() -> i32 {
+let text: string = \"hello\";
+if (text == \"hello\") {
+return string_len(text);
+}
+return len(\"fallback\");
+}
+",
+        AotReadinessInput {
+            is_project: false,
+            has_local_path_packages: false,
+            package_lock_status: None,
+        },
+    );
+
+    assert!(readiness.single_file_core_candidate);
+    assert_eq!(
+        readiness.required_backend_features,
+        vec![
+            "control_flow".to_string(),
+            "functions".to_string(),
+            "i32_values".to_string(),
+            "string_len".to_string(),
+            "string_literals".to_string(),
+            "string_values".to_string()
+        ]
+    );
+    assert_eq!(blocker_codes(&readiness), vec!["AOT0001"]);
+}
+
+#[test]
+fn aot_readiness_allows_string_runtime_v0_without_full_string_runtime() {
+    let readiness = readiness_for(
+        "\
+fn main() -> i32 {
+let message: string = \"count=\" + to_string(7) + \", ok=\" + to_string(true);
+println(message);
+return string_len(message);
+}
+",
+        AotReadinessInput {
+            is_project: false,
+            has_local_path_packages: false,
+            package_lock_status: None,
+        },
+    );
+
+    assert!(readiness.single_file_core_candidate);
+    assert_eq!(
+        readiness.required_backend_features,
+        vec![
+            "bool_values".to_string(),
+            "functions".to_string(),
+            "host_stdio".to_string(),
+            "i32_values".to_string(),
+            "string_concat".to_string(),
+            "string_len".to_string(),
+            "string_literals".to_string(),
+            "string_values".to_string(),
+            "to_string_values".to_string()
+        ]
+    );
+    assert_eq!(blocker_codes(&readiness), vec!["AOT0001"]);
+}
+
+#[test]
+fn aot_readiness_allows_fixed_array_read_v0() {
+    let readiness = readiness_for(
+        "\
+fn pick(values: [i32; 4], index: i32) -> i32 {
+return values[index];
+}
+
+fn main() -> i32 {
+let values: [i32; 4] = [3, 5, 8, 13];
+return values[0] + pick(values, len(values) - 1);
+}
+",
+        AotReadinessInput {
+            is_project: false,
+            has_local_path_packages: false,
+            package_lock_status: None,
+        },
+    );
+
+    assert!(readiness.single_file_core_candidate);
+    assert_eq!(
+        readiness.required_backend_features,
+        vec![
+            "arrays".to_string(),
+            "functions".to_string(),
+            "i32_values".to_string()
+        ]
+    );
+    assert_eq!(blocker_codes(&readiness), vec!["AOT0001"]);
+}
+
+#[test]
+fn aot_readiness_blocks_array_write_until_native_write_semantics_exist() {
+    let readiness = readiness_for(
+        "\
+fn main() -> i32 {
+let mut values: [i32; 2] = [1, 2];
+values[0] = 3;
+return values[0];
+}
+",
+        AotReadinessInput {
+            is_project: false,
+            has_local_path_packages: false,
+            package_lock_status: None,
+        },
+    );
+
+    assert!(!readiness.single_file_core_candidate);
+    assert_eq!(
+        readiness.required_backend_features,
+        vec![
+            "array_writes".to_string(),
+            "arrays".to_string(),
+            "functions".to_string(),
+            "i32_values".to_string()
+        ]
+    );
+    assert_eq!(blocker_codes(&readiness), vec!["AOT0001", "AOT0206"]);
+    assert_eq!(
+        readiness.blockers[1].ai.rule_id,
+        "aot_array_write_lowering_pending"
+    );
+    assert!(!readiness.blockers[1].resolution.source_edit_safe);
+}
+
+#[test]
 fn aot_readiness_reports_project_package_and_generic_blockers() {
     let readiness = readiness_for(
         "\

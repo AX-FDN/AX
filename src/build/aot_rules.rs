@@ -18,6 +18,7 @@ pub(super) fn rule_for_blocker(code: &str, category: &str) -> AotBlockerRule {
         "AOT0203" => RULE_METHOD_ABI_PENDING,
         "AOT0204" => RULE_ENUM_MATCH_LOWERING_PENDING,
         "AOT0205" => RULE_RESULT_PROPAGATION_LOWERING_PENDING,
+        "AOT0206" => RULE_ARRAY_WRITE_LOWERING_PENDING,
         "AOT0301" => RULE_HOST_RUNTIME_ABI_PENDING,
         "AOT0302" => RULE_STRING_RUNTIME_ABI_PENDING,
         "AOT1000" => RULE_LINKING_DISABLED,
@@ -115,6 +116,14 @@ const RULE_RESULT_PROPAGATION_LOWERING_PENDING: AotBlockerRule = AotBlockerRule 
     layer: "aot_readiness",
     summary: "result propagation needs explicit native early-return lowering",
     repair_goal: "Do not remove question-mark propagation just to satisfy build; add MIR-to-native lowering for the early-return path.",
+    validation: VALIDATE_RUN_BUILD,
+};
+
+const RULE_ARRAY_WRITE_LOWERING_PENDING: AotBlockerRule = AotBlockerRule {
+    rule_id: "aot_array_write_lowering_pending",
+    layer: "aot_readiness",
+    summary: "array and slice mutation need native write semantics",
+    repair_goal: "Keep array-mutating source valid for axc run and add explicit native layout write lowering before AOT parity.",
     validation: VALIDATE_RUN_BUILD,
 };
 

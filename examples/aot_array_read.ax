@@ -1,0 +1,12 @@
+fn pick(values: [i32; 4], index: i32) -> i32 {
+    return values[index];
+}
+
+fn main() -> i32 {
+    let values: [i32; 4] = [3, 5, 8, 13];
+    let first: i32 = values[0];
+    let last: i32 = pick(values, len(values) - 1);
+    println(first);
+    println(last);
+    return first + last + len(values);
+}

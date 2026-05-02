@@ -74,10 +74,14 @@
           "multi_source_program",
           "project_sources",
           "slices",
+          "string_concat",
+          "string_len",
           "string_list_runtime",
           "string_literals",
           "string_runtime",
-          "structs"
+          "string_values",
+          "structs",
+          "to_string_values"
         ],
         "blockers": [
           {
@@ -149,7 +153,7 @@
           {
             "code": "AOT0302",
             "category": "runtime",
-            "message": "string and string_list values need a native runtime representation and ABI",
+            "message": "full string runtime operations and string_list values need a native runtime representation and ABI",
             "required_stage": "Build-1/Build-2",
             "resolution": {
               "agent_action": "explain_unsupported",

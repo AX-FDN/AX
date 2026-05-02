@@ -36,7 +36,7 @@ AX 当前优先服务四类能被仓库直接验证的场景：
 | benchmark | export / run / score / compare / smoke / CI 已落地，context-enabled export 已进入修复输入链 |
 | repair archaeology | v0 已有 artifact schema、最小导出脚本和固定 smoke，并已接入 Windows CI |
 | web workbench | `web/` 已作为独立 Vite + React 前端进入主线，展示 benchmark 指标、same-case repair demo、反馈模式对比和接口契约 |
-| build | 当前仍不是成熟 AOT/native backend；`build-manifest.json` schema v9 与 `context evidence` 已暴露结构化 `aot_readiness` 和 blocker-level AI 建议，`axc build --json` 会打印同一个 manifest 对象，并且 `axc build` 可为极小单文件 MIR 子集生成 `generated/main.ll` LLVM IR v0；当前 AOT parity 已覆盖 9 个 core/stdout 样例，含 `println(i32/bool)` 与 string literal 直接 `println`，有 clang 时可对比解释器和 AOT exe 的 exit code / stdout / stderr |
+| build | 当前仍不是成熟 AOT/native backend；`build-manifest.json` schema v9 与 `context evidence` 已暴露结构化 `aot_readiness` 和 blocker-level AI 建议，`axc build --json` 会打印同一个 manifest 对象，并且 `axc build` 可为极小单文件 MIR 子集生成 `generated/main.ll` LLVM IR v0；当前 AOT parity 已覆盖 13 个 core/stdout/string/array-read 样例，含 `println(i32/bool)`、string literal 直接 `println`、string 局部变量 / 参数 / 返回值、`string_len` / `len(string)`、字符串 `==` / `!=`、`to_string(i32/bool/string)`、`string + string`、固定长度数组索引读取与 `len(array)`，有 clang 时可对比解释器和 AOT exe 的 exit code / stdout / stderr |
 | 平台 | Windows 为 full workflow，Linux 为 core support，macOS 尚未启动 |
 
 ## 当前语法完成度判断

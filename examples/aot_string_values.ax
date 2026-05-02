@@ -1,0 +1,10 @@
+fn pick(left: string, right: string) -> string {
+    return right;
+}
+
+fn main() -> i32 {
+    let label: string = "string value";
+    let chosen: string = pick("ignored", label);
+    println(chosen);
+    return 8;
+}

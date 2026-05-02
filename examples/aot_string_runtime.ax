@@ -1,0 +1,11 @@
+fn render(count: i32, ok: bool) -> string {
+    let status: string = to_string(ok);
+    return "count=" + to_string(count) + ", ok=" + status;
+}
+
+fn main() -> i32 {
+    let message: string = render(42, true) + ", tag=" + to_string("AX");
+    println(message);
+    println(string_len(message));
+    return string_len(message);
+}

@@ -8,7 +8,11 @@ param(
         "examples/aot_comparisons.ax",
         "examples/aot_nested_calls.ax",
         "examples/aot_print.ax",
-        "examples/aot_print_string.ax"
+        "examples/aot_print_string.ax",
+        "examples/aot_string_values.ax",
+        "examples/aot_string_len_compare.ax",
+        "examples/aot_string_runtime.ax",
+        "examples/aot_array_read.ax"
     ),
     [string] $OutputRoot = ""
 )

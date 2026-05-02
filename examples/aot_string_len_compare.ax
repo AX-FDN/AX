@@ -1,0 +1,15 @@
+fn same(left: string, right: string) -> bool {
+    return left == right;
+}
+
+fn main() -> i32 {
+    let text: string = "hello";
+    let suffix: string = "AX";
+    let total: i32 = string_len(text) + len(suffix);
+    println(text);
+    println(total);
+    if (same(text, "hello") && text != "HELLO") {
+        return total;
+    }
+    return 1;
+}

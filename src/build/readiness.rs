@@ -103,6 +103,14 @@ pub fn assess_aot_readiness(program: &AstProgram, input: AotReadinessInput<'_>) 
             "Build-2",
         ));
     }
+    if features.contains("array_writes") || features.contains("slice_writes") {
+        blockers.push(AotReadinessBlocker::new(
+            "AOT0206",
+            "language",
+            "array and slice mutation need explicit native layout write semantics before AOT can preserve interpreter behavior",
+            "Build-2",
+        ));
+    }
     if features
         .iter()
         .any(|feature| feature.starts_with("host_") && feature != "host_stdio")
@@ -118,7 +126,7 @@ pub fn assess_aot_readiness(program: &AstProgram, input: AotReadinessInput<'_>) 
         blockers.push(AotReadinessBlocker::new(
             "AOT0302",
             "runtime",
-            "string and string_list values need a native runtime representation and ABI",
+            "full string runtime operations and string_list values need a native runtime representation and ABI",
             "Build-1/Build-2",
         ));
     }
@@ -128,14 +136,15 @@ pub fn assess_aot_readiness(program: &AstProgram, input: AotReadinessInput<'_>) 
         && !features.iter().any(|feature| {
             matches!(
                 feature.as_str(),
-                "arrays"
-                    | "slices"
+                "slices"
                     | "structs"
                     | "enums"
                     | "payload_enums"
                     | "match_expressions"
                     | "match_statements"
                     | "result_propagation"
+                    | "array_writes"
+                    | "slice_writes"
                     | "impl_methods"
                     | "traits"
                     | "trait_bounds"
@@ -311,6 +320,7 @@ fn collect_stmt_aot_features(statement: &ast::Stmt, features: &mut BTreeSet<Stri
             collect_expr_aot_features(initializer, features);
         }
         ast::StmtKind::Assign { target, value } => {
+            collect_assignment_target_aot_features(target, features);
             collect_expr_aot_features(target, features);
             collect_expr_aot_features(value, features);
         }
@@ -406,7 +416,12 @@ fn collect_expr_aot_features(expression: &ast::Expr, features: &mut BTreeSet<Str
             features.insert("result_propagation".to_string());
             collect_expr_aot_features(expr, features);
         }
-        ast::ExprKind::Binary { left, right, .. } => {
+        ast::ExprKind::Binary { op, left, right } => {
+            if matches!(op, ast::BinaryOp::Add)
+                && (expr_may_produce_string(left) || expr_may_produce_string(right))
+            {
+                features.insert("string_concat".to_string());
+            }
             collect_expr_aot_features(left, features);
             collect_expr_aot_features(right, features);
         }
@@ -466,6 +481,19 @@ fn collect_expr_aot_features(expression: &ast::Expr, features: &mut BTreeSet<Str
     }
 }
 
+fn collect_assignment_target_aot_features(target: &ast::Expr, features: &mut BTreeSet<String>) {
+    match &target.kind {
+        ast::ExprKind::Index { .. } => {
+            features.insert("array_writes".to_string());
+        }
+        ast::ExprKind::Slice { .. } => {
+            features.insert("slice_writes".to_string());
+        }
+        ast::ExprKind::Field { base, .. } => collect_assignment_target_aot_features(base, features),
+        _ => {}
+    }
+}
+
 fn collect_match_pattern_aot_features(
     pattern: &ast::MatchPattern,
     features: &mut BTreeSet<String>,
@@ -519,7 +547,7 @@ fn collect_type_ref_aot_features(ty: &ast::TypeRef, features: &mut BTreeSet<Stri
                 features.insert("f32_values".to_string());
             }
             "string" => {
-                features.insert("string_runtime".to_string());
+                features.insert("string_values".to_string());
             }
             "string_list" => {
                 features.insert("string_list_runtime".to_string());
@@ -569,12 +597,43 @@ fn collect_call_aot_features(name: &str, features: &mut BTreeSet<String>) {
     if name.starts_with("string_list_") || name.starts_with("std.collections.") {
         features.insert("string_list_runtime".to_string());
     }
-    if name.starts_with("string_")
-        || name == "to_string"
+    if name == "string_len" {
+        features.insert("string_len".to_string());
+    } else if name == "to_string" {
+        features.insert("to_string_values".to_string());
+    } else if name.starts_with("string_")
         || name.starts_with("std.text.")
         || name.starts_with("std.report.")
         || name.starts_with("std.path.")
     {
         features.insert("string_runtime".to_string());
+    }
+}
+
+fn expr_may_produce_string(expression: &ast::Expr) -> bool {
+    match &expression.kind {
+        ast::ExprKind::String { .. } => true,
+        ast::ExprKind::Call { callee, .. } => callee
+            .qualified_name()
+            .is_some_and(|name| name == "to_string" || name.starts_with("string_")),
+        ast::ExprKind::Binary { left, right, .. } => {
+            expr_may_produce_string(left) || expr_may_produce_string(right)
+        }
+        ast::ExprKind::Unary { expr, .. }
+        | ast::ExprKind::Try { expr }
+        | ast::ExprKind::Field { base: expr, .. } => expr_may_produce_string(expr),
+        ast::ExprKind::Block { value, .. } => expr_may_produce_string(value),
+        ast::ExprKind::Match { arms, .. } => {
+            arms.iter().any(|arm| expr_may_produce_string(&arm.value))
+        }
+        ast::ExprKind::Int { .. }
+        | ast::ExprKind::Float { .. }
+        | ast::ExprKind::Bool { .. }
+        | ast::ExprKind::Name { .. }
+        | ast::ExprKind::StructLiteral { .. }
+        | ast::ExprKind::ArrayLiteral { .. }
+        | ast::ExprKind::Index { .. }
+        | ast::ExprKind::Slice { .. }
+        | ast::ExprKind::Error => false,
     }
 }

@@ -11,17 +11,20 @@ struct FunctionSignature {
     symbol: String,
     params: Vec<String>,
     return_type: String,
+    return_ax_type: Type,
 }
 
 #[derive(Clone)]
 struct LocalSlot {
     ptr: String,
     ty: String,
+    ax_ty: Type,
 }
 
 struct LlvmValue {
     ty: String,
     repr: String,
+    ax_ty: Option<Type>,
 }
 
 #[derive(Clone)]
@@ -62,7 +65,7 @@ pub fn render_program(program: &Program) -> Result<String, Vec<String>> {
                 let mut lowered_params = Vec::new();
                 for param in params {
                     match llvm_type(&param.ty) {
-                        Some(ty) => lowered_params.push(ty.to_string()),
+                        Some(ty) => lowered_params.push(ty),
                         None => unsupported.push(format!(
                             "function `{name}` parameter `{}` uses unsupported type {}",
                             param.name,
@@ -71,7 +74,8 @@ pub fn render_program(program: &Program) -> Result<String, Vec<String>> {
                     }
                 }
 
-                let Some(return_type) = llvm_type(return_type) else {
+                let return_ax_type = return_type.clone();
+                let Some(lowered_return_type) = llvm_type(return_type) else {
                     unsupported.push(format!(
                         "function `{name}` returns unsupported type {}",
                         ax_type_name(return_type)
@@ -84,7 +88,8 @@ pub fn render_program(program: &Program) -> Result<String, Vec<String>> {
                     FunctionSignature {
                         symbol: llvm_symbol(name),
                         params: lowered_params,
-                        return_type: return_type.to_string(),
+                        return_type: lowered_return_type,
+                        return_ax_type,
                     },
                 );
             }
@@ -154,7 +159,16 @@ pub fn render_program(program: &Program) -> Result<String, Vec<String>> {
         .expect("writing to string cannot fail");
     }
     writeln!(module, "declare i32 @printf(ptr, ...)").expect("writing to string cannot fail");
+    writeln!(module, "declare void @exit(i32)").expect("writing to string cannot fail");
+    writeln!(module, "declare i32 @strcmp(ptr, ptr)").expect("writing to string cannot fail");
+    writeln!(module, "declare i64 @strlen(ptr)").expect("writing to string cannot fail");
+    writeln!(module, "declare ptr @malloc(i64)").expect("writing to string cannot fail");
+    writeln!(module, "declare ptr @memcpy(ptr, ptr, i64)").expect("writing to string cannot fail");
+    writeln!(module, "declare i32 @snprintf(ptr, i64, ptr, ...)")
+        .expect("writing to string cannot fail");
     writeln!(module).expect("writing to string cannot fail");
+    write_string_len_helper(&mut module);
+    write_string_runtime_helpers(&mut module);
 
     for item in &program.items {
         let ItemKind::Function {
@@ -190,6 +204,112 @@ pub fn render_program(program: &Program) -> Result<String, Vec<String>> {
     } else {
         Err(unsupported)
     }
+}
+
+fn write_string_len_helper(module: &mut String) {
+    writeln!(module, "define private i32 @ax_string_len(ptr %text) {{")
+        .expect("writing to string cannot fail");
+    writeln!(module, "entry:").expect("writing to string cannot fail");
+    writeln!(module, "  br label %loop").expect("writing to string cannot fail");
+    writeln!(module).expect("writing to string cannot fail");
+    writeln!(module, "loop:").expect("writing to string cannot fail");
+    writeln!(
+        module,
+        "  %index = phi i32 [0, %entry], [%next_index, %body]"
+    )
+    .expect("writing to string cannot fail");
+    writeln!(
+        module,
+        "  %count = phi i32 [0, %entry], [%next_count, %body]"
+    )
+    .expect("writing to string cannot fail");
+    writeln!(
+        module,
+        "  %char_ptr = getelementptr i8, ptr %text, i32 %index"
+    )
+    .expect("writing to string cannot fail");
+    writeln!(module, "  %byte = load i8, ptr %char_ptr").expect("writing to string cannot fail");
+    writeln!(module, "  %is_end = icmp eq i8 %byte, 0").expect("writing to string cannot fail");
+    writeln!(module, "  br i1 %is_end, label %done, label %body")
+        .expect("writing to string cannot fail");
+    writeln!(module).expect("writing to string cannot fail");
+    writeln!(module, "body:").expect("writing to string cannot fail");
+    writeln!(module, "  %prefix = and i8 %byte, -64").expect("writing to string cannot fail");
+    writeln!(module, "  %is_continuation = icmp eq i8 %prefix, -128")
+        .expect("writing to string cannot fail");
+    writeln!(
+        module,
+        "  %starts_codepoint = xor i1 %is_continuation, true"
+    )
+    .expect("writing to string cannot fail");
+    writeln!(module, "  %delta = zext i1 %starts_codepoint to i32")
+        .expect("writing to string cannot fail");
+    writeln!(module, "  %next_count = add i32 %count, %delta")
+        .expect("writing to string cannot fail");
+    writeln!(module, "  %next_index = add i32 %index, 1").expect("writing to string cannot fail");
+    writeln!(module, "  br label %loop").expect("writing to string cannot fail");
+    writeln!(module).expect("writing to string cannot fail");
+    writeln!(module, "done:").expect("writing to string cannot fail");
+    writeln!(module, "  ret i32 %count").expect("writing to string cannot fail");
+    writeln!(module, "}}\n").expect("writing to string cannot fail");
+}
+
+fn write_string_runtime_helpers(module: &mut String) {
+    writeln!(
+        module,
+        "define private ptr @ax_string_concat(ptr %left, ptr %right) {{"
+    )
+    .expect("writing to string cannot fail");
+    writeln!(module, "entry:").expect("writing to string cannot fail");
+    writeln!(module, "  %left_len = call i64 @strlen(ptr %left)")
+        .expect("writing to string cannot fail");
+    writeln!(module, "  %right_len = call i64 @strlen(ptr %right)")
+        .expect("writing to string cannot fail");
+    writeln!(module, "  %combined_len = add i64 %left_len, %right_len")
+        .expect("writing to string cannot fail");
+    writeln!(module, "  %total_len = add i64 %combined_len, 1")
+        .expect("writing to string cannot fail");
+    writeln!(module, "  %buffer = call ptr @malloc(i64 %total_len)")
+        .expect("writing to string cannot fail");
+    writeln!(
+        module,
+        "  %copy_left = call ptr @memcpy(ptr %buffer, ptr %left, i64 %left_len)"
+    )
+    .expect("writing to string cannot fail");
+    writeln!(
+        module,
+        "  %right_dest = getelementptr i8, ptr %buffer, i64 %left_len"
+    )
+    .expect("writing to string cannot fail");
+    writeln!(
+        module,
+        "  %copy_right = call ptr @memcpy(ptr %right_dest, ptr %right, i64 %right_len)"
+    )
+    .expect("writing to string cannot fail");
+    writeln!(
+        module,
+        "  %end = getelementptr i8, ptr %buffer, i64 %combined_len"
+    )
+    .expect("writing to string cannot fail");
+    writeln!(module, "  store i8 0, ptr %end").expect("writing to string cannot fail");
+    writeln!(module, "  ret ptr %buffer").expect("writing to string cannot fail");
+    writeln!(module, "}}\n").expect("writing to string cannot fail");
+
+    writeln!(
+        module,
+        "define private ptr @ax_i32_to_string(i32 %value) {{"
+    )
+    .expect("writing to string cannot fail");
+    writeln!(module, "entry:").expect("writing to string cannot fail");
+    writeln!(module, "  %buffer = call ptr @malloc(i64 12)")
+        .expect("writing to string cannot fail");
+    writeln!(
+        module,
+        "  %written = call i32 (ptr, i64, ptr, ...) @snprintf(ptr %buffer, i64 12, ptr @.ax_fmt_i32, i32 %value)"
+    )
+    .expect("writing to string cannot fail");
+    writeln!(module, "  ret ptr %buffer").expect("writing to string cannot fail");
+    writeln!(module, "}}\n").expect("writing to string cannot fail");
 }
 
 fn render_function(
@@ -232,7 +352,8 @@ fn render_function(
             local.id,
             LocalSlot {
                 ptr: format!("%local{}", local.id),
-                ty: ty.to_string(),
+                ty,
+                ax_ty: local.ty.clone(),
             },
         );
     }
@@ -355,10 +476,12 @@ impl<'a> FunctionEmitter<'a> {
             ExprKind::Int { value } => Ok(LlvmValue {
                 ty: "i32".to_string(),
                 repr: value.to_string(),
+                ax_ty: Some(Type::I32),
             }),
             ExprKind::Bool { value } => Ok(LlvmValue {
                 ty: "i1".to_string(),
                 repr: if *value { "1" } else { "0" }.to_string(),
+                ax_ty: Some(Type::Bool),
             }),
             ExprKind::Local { local, .. } => {
                 let slot = self.local_slot(*local)?.clone();
@@ -368,6 +491,7 @@ impl<'a> FunctionEmitter<'a> {
                 Ok(LlvmValue {
                     ty: slot.ty,
                     repr: temp,
+                    ax_ty: Some(slot.ax_ty),
                 })
             }
             ExprKind::Unary { op, expr } => {
@@ -381,6 +505,7 @@ impl<'a> FunctionEmitter<'a> {
                         Ok(LlvmValue {
                             ty: "i32".to_string(),
                             repr: temp,
+                            ax_ty: Some(Type::I32),
                         })
                     }
                     UnaryOp::Not => {
@@ -391,6 +516,7 @@ impl<'a> FunctionEmitter<'a> {
                         Ok(LlvmValue {
                             ty: "i1".to_string(),
                             repr: temp,
+                            ax_ty: Some(Type::Bool),
                         })
                     }
                 }
@@ -413,6 +539,7 @@ impl<'a> FunctionEmitter<'a> {
                 Ok(LlvmValue {
                     ty: "ptr".to_string(),
                     repr: literal.symbol.clone(),
+                    ax_ty: Some(Type::String),
                 })
             }
             ExprKind::Const { name } => Err(format!(
@@ -422,19 +549,143 @@ impl<'a> FunctionEmitter<'a> {
                 "`?` result propagation needs native early-return lowering before LLVM AOT can lower it"
                     .into(),
             ),
+            ExprKind::ArrayLiteral { elements } => self.emit_array_literal(elements, out),
+            ExprKind::Index { base, index } => self.emit_index(base, index, out),
             ExprKind::StructLiteral { .. }
-            | ExprKind::ArrayLiteral { .. }
             | ExprKind::Block { .. }
             | ExprKind::Match { .. }
             | ExprKind::EnumVariant { .. }
             | ExprKind::MatchTest { .. }
             | ExprKind::EnumPayload { .. }
             | ExprKind::Field { .. }
-            | ExprKind::Index { .. }
             | ExprKind::Slice { .. } => {
                 Err("expression requires a native layout or lowering contract outside LLVM AOT v0".into())
             }
         }
+    }
+
+    fn emit_array_literal(
+        &mut self,
+        elements: &[Expr],
+        out: &mut String,
+    ) -> Result<LlvmValue, String> {
+        if elements.is_empty() {
+            return Err(
+                "empty array literals need explicit native array type propagation before LLVM AOT can lower them"
+                    .into(),
+            );
+        }
+
+        let mut rendered_elements = Vec::new();
+        let mut element_ty: Option<String> = None;
+        let mut element_ax_ty: Option<Type> = None;
+        for element in elements {
+            let value = self.emit_expr(element, out)?;
+            if let Some(expected_ty) = &element_ty {
+                ensure_same_type(expected_ty, &value.ty)?;
+            } else {
+                element_ty = Some(value.ty.clone());
+            }
+            if let Some(expected_ax_ty) = &element_ax_ty {
+                if value.ax_ty.as_ref() != Some(expected_ax_ty) {
+                    return Err("array literal elements must have one LLVM AOT type".to_string());
+                }
+            } else {
+                element_ax_ty = value.ax_ty.clone();
+            }
+            rendered_elements.push(format!("{} {}", value.ty, value.repr));
+        }
+
+        let element_ty = element_ty.expect("non-empty array should have an element type");
+        let element_ax_ty = element_ax_ty.ok_or_else(|| {
+            "array literal element type is not representable in LLVM AOT v0".to_string()
+        })?;
+        let length = elements.len();
+        let array_ty = format!("[{length} x {element_ty}]");
+        Ok(LlvmValue {
+            ty: array_ty,
+            repr: format!("[{}]", rendered_elements.join(", ")),
+            ax_ty: Some(Type::Array {
+                element: Box::new(element_ax_ty),
+                length,
+            }),
+        })
+    }
+
+    fn emit_index(
+        &mut self,
+        base: &Expr,
+        index: &Expr,
+        out: &mut String,
+    ) -> Result<LlvmValue, String> {
+        let (array_ptr, array_ty, element_ty, length, element_ax_ty) =
+            self.emit_array_base_ptr(base, out)?;
+        let index = self.emit_expr(index, out)?;
+        ensure_same_type("i32", &index.ty)?;
+        self.emit_array_bounds_check(&index.repr, length, out);
+        let element_ptr = self.next_temp();
+        writeln!(
+            out,
+            "  {element_ptr} = getelementptr {array_ty}, ptr {array_ptr}, i32 0, i32 {}",
+            index.repr
+        )
+        .expect("writing to string cannot fail");
+        let loaded = self.next_temp();
+        writeln!(out, "  {loaded} = load {element_ty}, ptr {element_ptr}")
+            .expect("writing to string cannot fail");
+        Ok(LlvmValue {
+            ty: element_ty,
+            repr: loaded,
+            ax_ty: Some(element_ax_ty),
+        })
+    }
+
+    fn emit_array_base_ptr(
+        &mut self,
+        base: &Expr,
+        out: &mut String,
+    ) -> Result<(String, String, String, usize, Type), String> {
+        if let ExprKind::Local { local, .. } = &base.kind {
+            let slot = self.local_slot(*local)?.clone();
+            let (array_ty, element_ty, length, element_ax_ty) = array_type_parts(&slot.ax_ty)?;
+            ensure_same_type(&array_ty, &slot.ty)?;
+            return Ok((slot.ptr, array_ty, element_ty, length, element_ax_ty));
+        }
+
+        let value = self.emit_expr(base, out)?;
+        let Some(ax_ty) = value.ax_ty.clone() else {
+            return Err("array index base is not a fixed-size array in LLVM AOT v0".to_string());
+        };
+        let (array_ty, element_ty, length, element_ax_ty) = array_type_parts(&ax_ty)?;
+        ensure_same_type(&array_ty, &value.ty)?;
+        let temp_array = self.next_temp();
+        writeln!(out, "  {temp_array} = alloca {array_ty}").expect("writing to string cannot fail");
+        writeln!(out, "  store {array_ty} {}, ptr {temp_array}", value.repr)
+            .expect("writing to string cannot fail");
+        Ok((temp_array, array_ty, element_ty, length, element_ax_ty))
+    }
+
+    fn emit_array_bounds_check(&mut self, index: &str, length: usize, out: &mut String) {
+        let negative = self.next_temp();
+        let too_high = self.next_temp();
+        let out_of_bounds = self.next_temp();
+        let fail_label = self.next_label("array_oob");
+        let ok_label = self.next_label("array_ok");
+        writeln!(out, "  {negative} = icmp slt i32 {index}, 0")
+            .expect("writing to string cannot fail");
+        writeln!(out, "  {too_high} = icmp sge i32 {index}, {length}")
+            .expect("writing to string cannot fail");
+        writeln!(out, "  {out_of_bounds} = or i1 {negative}, {too_high}")
+            .expect("writing to string cannot fail");
+        writeln!(
+            out,
+            "  br i1 {out_of_bounds}, label %{fail_label}, label %{ok_label}"
+        )
+        .expect("writing to string cannot fail");
+        writeln!(out, "{fail_label}:").expect("writing to string cannot fail");
+        writeln!(out, "  call void @exit(i32 1)").expect("writing to string cannot fail");
+        writeln!(out, "  unreachable").expect("writing to string cannot fail");
+        writeln!(out, "{ok_label}:").expect("writing to string cannot fail");
     }
 
     fn emit_binary(
@@ -452,6 +703,25 @@ impl<'a> FunctionEmitter<'a> {
             | BinaryOp::Multiply
             | BinaryOp::Divide
             | BinaryOp::Remainder => {
+                if left.ty == "ptr" {
+                    if matches!(op, BinaryOp::Add) {
+                        writeln!(
+                            out,
+                            "  {temp} = call ptr @ax_string_concat(ptr {}, ptr {})",
+                            left.repr, right.repr
+                        )
+                        .expect("writing to string cannot fail");
+                        return Ok(LlvmValue {
+                            ty: "ptr".to_string(),
+                            repr: temp,
+                            ax_ty: Some(Type::String),
+                        });
+                    }
+                    return Err(format!(
+                        "string values do not support `{}` in LLVM AOT v0",
+                        llvm_binary_op_name(op)
+                    ));
+                }
                 ensure_same_type("i32", &left.ty)?;
                 let instruction = match op {
                     BinaryOp::Add => "add",
@@ -470,6 +740,7 @@ impl<'a> FunctionEmitter<'a> {
                 Ok(LlvmValue {
                     ty: "i32".to_string(),
                     repr: temp,
+                    ax_ty: Some(Type::I32),
                 })
             }
             BinaryOp::LogicalAnd | BinaryOp::LogicalOr => {
@@ -488,9 +759,32 @@ impl<'a> FunctionEmitter<'a> {
                 Ok(LlvmValue {
                     ty: "i1".to_string(),
                     repr: temp,
+                    ax_ty: Some(Type::Bool),
                 })
             }
             BinaryOp::Equal | BinaryOp::NotEqual => {
+                if left.ty == "ptr" {
+                    let compare = temp;
+                    let result = self.next_temp();
+                    writeln!(
+                        out,
+                        "  {compare} = call i32 @strcmp(ptr {}, ptr {})",
+                        left.repr, right.repr
+                    )
+                    .expect("writing to string cannot fail");
+                    let predicate = if matches!(op, BinaryOp::Equal) {
+                        "eq"
+                    } else {
+                        "ne"
+                    };
+                    writeln!(out, "  {result} = icmp {predicate} i32 {compare}, 0")
+                        .expect("writing to string cannot fail");
+                    return Ok(LlvmValue {
+                        ty: "i1".to_string(),
+                        repr: result,
+                        ax_ty: Some(Type::Bool),
+                    });
+                }
                 let predicate = if matches!(op, BinaryOp::Equal) {
                     "eq"
                 } else {
@@ -505,6 +799,7 @@ impl<'a> FunctionEmitter<'a> {
                 Ok(LlvmValue {
                     ty: "i1".to_string(),
                     repr: temp,
+                    ax_ty: Some(Type::Bool),
                 })
             }
             BinaryOp::Less | BinaryOp::LessEqual | BinaryOp::Greater | BinaryOp::GreaterEqual => {
@@ -525,6 +820,7 @@ impl<'a> FunctionEmitter<'a> {
                 Ok(LlvmValue {
                     ty: "i1".to_string(),
                     repr: temp,
+                    ax_ty: Some(Type::Bool),
                 })
             }
         }
@@ -538,6 +834,12 @@ impl<'a> FunctionEmitter<'a> {
     ) -> Result<LlvmValue, String> {
         if function == "println" {
             return self.emit_println(arguments, out);
+        }
+        if function == "string_len" || function == "len" {
+            return self.emit_string_len(function, arguments, out);
+        }
+        if function == "to_string" {
+            return self.emit_to_string(arguments, out);
         }
 
         let signature = self.signatures.get(function).ok_or_else(|| {
@@ -572,7 +874,99 @@ impl<'a> FunctionEmitter<'a> {
         Ok(LlvmValue {
             ty: signature.return_type.clone(),
             repr: temp,
+            ax_ty: Some(signature.return_ax_type.clone()),
         })
+    }
+
+    fn emit_string_len(
+        &mut self,
+        function: &str,
+        arguments: &[Expr],
+        out: &mut String,
+    ) -> Result<LlvmValue, String> {
+        if arguments.len() != 1 {
+            return Err(format!(
+                "call to `{function}` has {} argument(s), but LLVM AOT expected 1",
+                arguments.len()
+            ));
+        }
+        let value = self.emit_expr(&arguments[0], out)?;
+        if function == "len" {
+            if let Some(Type::Array { length, .. }) = value.ax_ty {
+                return Ok(LlvmValue {
+                    ty: "i32".to_string(),
+                    repr: length.to_string(),
+                    ax_ty: Some(Type::I32),
+                });
+            }
+        }
+        if value.ty != "ptr" {
+            return Err(format!(
+                "{function}({}) needs a native layout or runtime ABI before LLVM AOT can lower it",
+                value.ty
+            ));
+        }
+        let temp = self.next_temp();
+        writeln!(
+            out,
+            "  {temp} = call i32 @ax_string_len(ptr {})",
+            value.repr
+        )
+        .expect("writing to string cannot fail");
+        Ok(LlvmValue {
+            ty: "i32".to_string(),
+            repr: temp,
+            ax_ty: Some(Type::I32),
+        })
+    }
+
+    fn emit_to_string(
+        &mut self,
+        arguments: &[Expr],
+        out: &mut String,
+    ) -> Result<LlvmValue, String> {
+        if arguments.len() != 1 {
+            return Err(format!(
+                "call to `to_string` has {} argument(s), but LLVM AOT expected 1",
+                arguments.len()
+            ));
+        }
+        let value = self.emit_expr(&arguments[0], out)?;
+        match value.ty.as_str() {
+            "i32" => {
+                let temp = self.next_temp();
+                writeln!(
+                    out,
+                    "  {temp} = call ptr @ax_i32_to_string(i32 {})",
+                    value.repr
+                )
+                .expect("writing to string cannot fail");
+                Ok(LlvmValue {
+                    ty: "ptr".to_string(),
+                    repr: temp,
+                    ax_ty: Some(Type::String),
+                })
+            }
+            "i1" => {
+                let temp = self.next_temp();
+                writeln!(
+                    out,
+                    "  {temp} = select i1 {}, ptr @.ax_text_true, ptr @.ax_text_false",
+                    value.repr
+                )
+                .expect("writing to string cannot fail");
+                Ok(LlvmValue {
+                    ty: "ptr".to_string(),
+                    repr: temp,
+                    ax_ty: Some(Type::String),
+                })
+            }
+            "ptr" => Ok(value),
+            "void" => Err("to_string cannot format a `<void>` value in LLVM AOT v0".to_string()),
+            other => Err(format!(
+                "to_string({other}) needs a native runtime formatter before LLVM AOT can lower it"
+            )),
+        }
     }
 
     fn emit_println(&mut self, arguments: &[Expr], out: &mut String) -> Result<LlvmValue, String> {
@@ -587,6 +981,7 @@ impl<'a> FunctionEmitter<'a> {
         Ok(LlvmValue {
             ty: "void".to_string(),
             repr: String::new(),
+            ax_ty: None,
         })
     }
 
@@ -660,6 +1055,12 @@ impl<'a> FunctionEmitter<'a> {
         let temp = format!("%t{}", self.temp_index);
         self.temp_index += 1;
         temp
+    }
+
+    fn next_label(&mut self, prefix: &str) -> String {
+        let label = format!("{}_{}", prefix, self.temp_index);
+        self.temp_index += 1;
+        label
     }
 }
 
@@ -831,21 +1232,57 @@ fn ensure_same_type(expected: &str, actual: &str) -> Result<(), String> {
     }
 }
 
-fn llvm_type(ty: &Type) -> Option<&'static str> {
+fn llvm_binary_op_name(op: BinaryOp) -> &'static str {
+    match op {
+        BinaryOp::LogicalOr => "||",
+        BinaryOp::LogicalAnd => "&&",
+        BinaryOp::Add => "+",
+        BinaryOp::Subtract => "-",
+        BinaryOp::Multiply => "*",
+        BinaryOp::Divide => "/",
+        BinaryOp::Remainder => "%",
+        BinaryOp::Equal => "==",
+        BinaryOp::NotEqual => "!=",
+        BinaryOp::Less => "<",
+        BinaryOp::LessEqual => "<=",
+        BinaryOp::Greater => ">",
+        BinaryOp::GreaterEqual => ">=",
+    }
+}
+
+fn llvm_type(ty: &Type) -> Option<String> {
     match ty {
-        Type::Bool => Some("i1"),
-        Type::I32 => Some("i32"),
+        Type::Bool => Some("i1".to_string()),
+        Type::I32 => Some("i32".to_string()),
+        Type::String => Some("ptr".to_string()),
+        Type::Array { element, length } => {
+            let element_ty = llvm_type(element)?;
+            Some(format!("[{length} x {element_ty}]"))
+        }
         Type::F32
-        | Type::String
         | Type::StringList
         | Type::Slice { .. }
-        | Type::Array { .. }
         | Type::Struct { .. }
         | Type::StructInstance { .. }
         | Type::Enum { .. }
         | Type::EnumInstance { .. }
         | Type::TypeParam { .. } => None,
     }
+}
+
+fn array_type_parts(ty: &Type) -> Result<(String, String, usize, Type), String> {
+    let Type::Array { element, length } = ty else {
+        return Err("array index base is not a fixed-size array in LLVM AOT v0".to_string());
+    };
+    let array_ty = llvm_type(ty)
+        .ok_or_else(|| format!("array type {} is outside LLVM AOT v0", ax_type_name(ty)))?;
+    let element_ty = llvm_type(element).ok_or_else(|| {
+        format!(
+            "array element type {} is outside LLVM AOT v0",
+            ax_type_name(element)
+        )
+    })?;
+    Ok((array_ty, element_ty, *length, element.as_ref().clone()))
 }
 
 fn llvm_symbol(name: &str) -> String {
@@ -972,5 +1409,103 @@ fn main() -> i32 {
                 .contains("@.ax_str_1 = private unnamed_addr constant [6 x i8] c\"C:\\5CAX\\00\"")
         );
         assert!(rendered.contains("call i32 (ptr, ...) @printf(ptr @.ax_fmt_str, ptr @.ax_str_0)"));
+    }
+
+    #[test]
+    fn renders_string_locals_params_and_return_values() {
+        let rendered = render(
+            "\
+fn choose(left: string, right: string) -> string {
+    return right;
+}
+
+fn main() -> i32 {
+    let text: string = choose(\"ignored\", \"kept\");
+    println(text);
+    return 0;
+}
+",
+        );
+
+        assert!(rendered.contains("define ptr @ax_choose(ptr %arg0, ptr %arg1)"));
+        assert!(rendered.contains("store ptr %arg0, ptr %local"));
+        assert!(rendered.contains("ret ptr %t"));
+        assert!(rendered.contains("= call ptr @ax_choose(ptr @.ax_str_0, ptr @.ax_str_1)"));
+        assert!(rendered.contains("call i32 (ptr, ...) @printf(ptr @.ax_fmt_str, ptr %t"));
+    }
+
+    #[test]
+    fn renders_string_len_and_content_comparisons() {
+        let rendered = render(
+            "\
+fn same(left: string, right: string) -> bool {
+    return left == right;
+}
+
+fn main() -> i32 {
+    let text: string = \"AX\";
+    if (same(text, \"AX\") && text != \"BY\") {
+        return string_len(text) + len(\"tool\");
+    }
+    return 1;
+}
+",
+        );
+
+        assert!(rendered.contains("declare i32 @strcmp(ptr, ptr)"));
+        assert!(rendered.contains("define private i32 @ax_string_len(ptr %text)"));
+        assert!(rendered.contains("call i32 @strcmp(ptr"));
+        assert!(rendered.contains("icmp eq i32"));
+        assert!(rendered.contains("icmp ne i32"));
+        assert!(rendered.contains("call i32 @ax_string_len(ptr"));
+    }
+
+    #[test]
+    fn renders_string_concat_and_to_string_values() {
+        let rendered = render(
+            "\
+fn describe(value: i32, enabled: bool, label: string) -> string {
+    return label + \"=\" + to_string(value) + \", enabled=\" + to_string(enabled);
+}
+
+fn main() -> i32 {
+    let message: string = describe(7, true, \"count\") + \" done\";
+    println(message);
+    return string_len(message);
+}
+",
+        );
+
+        assert!(rendered.contains("declare ptr @malloc(i64)"));
+        assert!(rendered.contains("declare ptr @memcpy(ptr, ptr, i64)"));
+        assert!(rendered.contains("declare i32 @snprintf(ptr, i64, ptr, ...)"));
+        assert!(rendered.contains("define private ptr @ax_string_concat(ptr %left, ptr %right)"));
+        assert!(rendered.contains("define private ptr @ax_i32_to_string(i32 %value)"));
+        assert!(rendered.contains("call ptr @ax_string_concat(ptr"));
+        assert!(rendered.contains("call ptr @ax_i32_to_string(i32"));
+        assert!(rendered.contains("select i1"));
+    }
+
+    #[test]
+    fn renders_fixed_array_literals_index_reads_and_len() {
+        let rendered = render(
+            "\
+fn pick(values: [i32; 4], index: i32) -> i32 {
+    return values[index];
+}
+
+fn main() -> i32 {
+    let values: [i32; 4] = [3, 5, 8, 13];
+    return values[0] + pick(values, len(values) - 1);
+}
+",
+        );
+
+        assert!(rendered.contains("define i32 @ax_pick([4 x i32] %arg0, i32 %arg1)"));
+        assert!(rendered.contains("store [4 x i32] [i32 3, i32 5, i32 8, i32 13]"));
+        assert!(rendered.contains("getelementptr [4 x i32], ptr %local"));
+        assert!(rendered.contains("icmp slt i32"));
+        assert!(rendered.contains("icmp sge i32"));
+        assert!(rendered.contains("call i32 @ax_pick([4 x i32]"));
     }
 }
