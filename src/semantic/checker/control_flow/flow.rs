@@ -1,0 +1,214 @@
+use super::*;
+
+impl<'a, 'b> TypeChecker<'a, 'b> {
+    pub(in crate::semantic::checker) fn check_break_statement(&mut self, statement: &Stmt) {
+        if self.loop_depth > 0 {
+            return;
+        }
+
+        self.diagnostics.push(
+            Diagnostic::new(
+                "S0036",
+                "`break` may only be used inside `while` or `for` loops",
+                self.info.source,
+                statement.span,
+            )
+            .with_kind(DiagnosticKind::BreakOutsideLoop)
+            .with_note("AX uses `break;` to exit the nearest enclosing loop early")
+            .with_suggestion(
+                "move `break;` into a loop body, or use `return ...;` to exit the function",
+            ),
+        );
+    }
+
+    pub(in crate::semantic::checker) fn check_continue_statement(&mut self, statement: &Stmt) {
+        if self.loop_depth > 0 {
+            return;
+        }
+
+        self.diagnostics.push(
+            Diagnostic::new(
+                "S0044",
+                "`continue` may only be used inside `while` or `for` loops",
+                self.info.source,
+                statement.span,
+            )
+            .with_kind(DiagnosticKind::ContinueOutsideLoop)
+            .with_note("AX uses `continue;` to skip to the next iteration of the nearest loop")
+            .with_suggestion(
+                "move `continue;` into a loop body, or rewrite the control flow with `if` / `else`",
+            ),
+        );
+    }
+
+    pub(in crate::semantic::checker) fn check_return_statement(
+        &mut self,
+        statement: &Stmt,
+        value: Option<&Expr>,
+    ) {
+        let actual_type = match value {
+            Some(expr) => {
+                let expected = self.return_type.clone();
+                self.check_expr_with_expected(expr, &expected)
+            }
+            None => Type::Void,
+        };
+        self.expect_type_match_with_kind(
+            &self.return_type.clone(),
+            &actual_type,
+            statement.span,
+            return_type_message(&self.return_type, &actual_type),
+            DiagnosticKind::ReturnTypeMismatch,
+        );
+    }
+
+    pub(in crate::semantic::checker) fn check_if_statement(
+        &mut self,
+        condition: &Expr,
+        then_branch: &Block,
+        else_branch: Option<&Block>,
+    ) {
+        self.check_condition("if", condition);
+        self.check_block(then_branch);
+        if let Some(block) = else_branch {
+            self.check_block(block);
+        }
+    }
+
+    pub(in crate::semantic::checker) fn check_while_statement(
+        &mut self,
+        condition: &Expr,
+        body: &Block,
+    ) {
+        self.check_condition("while", condition);
+        self.loop_depth += 1;
+        self.check_block(body);
+        self.loop_depth -= 1;
+    }
+
+    pub(in crate::semantic::checker) fn check_for_statement(
+        &mut self,
+        initializer: Option<&Stmt>,
+        condition: Option<&Expr>,
+        step: Option<&Stmt>,
+        body: &Block,
+    ) {
+        self.scopes.push(Default::default());
+
+        if let Some(statement) = initializer {
+            self.check_for_header_statement(statement);
+        }
+
+        if let Some(condition) = condition {
+            self.check_condition("for", condition);
+        }
+
+        self.loop_depth += 1;
+        self.check_block(body);
+        self.loop_depth -= 1;
+
+        if let Some(statement) = step {
+            self.check_for_header_statement(statement);
+        }
+
+        self.scopes.pop();
+    }
+
+    pub(in crate::semantic::checker) fn check_for_in_statement(
+        &mut self,
+        binding: &ForInBinding,
+        iterable: &Expr,
+        body: &Block,
+    ) {
+        let current_unit_path = self.current_unit_path().to_string();
+        let binding_type =
+            self.info
+                .resolve_type_ref(&binding.ty, &current_unit_path, self.diagnostics);
+        let iterable_type = self.check_expr(iterable);
+
+        match &iterable_type {
+            Type::Array { element, .. } | Type::Slice { element } => {
+                self.expect_type_match_with_kind(
+                    element,
+                    &binding_type,
+                    binding.span,
+                    format!(
+                        "`for in` loop variable `{}` must use element type `{}`, found `{}`",
+                        binding.name,
+                        element.describe(),
+                        binding_type.describe()
+                    ),
+                    DiagnosticKind::ForInBindingTypeMismatch,
+                );
+            }
+            Type::Error => {}
+            _ => {
+                self.diagnostics.push(
+                    Diagnostic::new(
+                        "S0052",
+                        format!(
+                            "`for in` currently only supports arrays and slices, found `{}`",
+                            iterable_type.describe()
+                        ),
+                        self.info.source,
+                        iterable.span,
+                    )
+                    .with_kind(DiagnosticKind::ForInIterableTypeMismatch)
+                    .with_note(
+                        "the first `for in` prototype only iterates `[T; N]` arrays and `[T]` slices",
+                    )
+                    .with_suggestion(
+                        "iterate over an array or slice value, or rewrite this loop as an indexed `for (...)`",
+                    ),
+                );
+            }
+        }
+
+        self.scopes.push(Default::default());
+        self.declare(
+            &binding.name,
+            binding_type,
+            binding.mutable,
+            binding.span.start,
+        );
+        self.loop_depth += 1;
+        self.check_block(body);
+        self.loop_depth -= 1;
+        self.scopes.pop();
+    }
+
+    fn check_for_header_statement(&mut self, statement: &Stmt) {
+        match &statement.kind {
+            StmtKind::Let { .. } | StmtKind::Assign { .. } | StmtKind::Expr { .. } => {
+                self.check_statement(statement);
+            }
+            _ => {
+                self.diagnostics.push(
+                    Diagnostic::new(
+                        "S0031",
+                        "`for` headers only support `let`, assignment, or expression clauses",
+                        self.info.source,
+                        statement.span,
+                    )
+                    .with_suggestion(
+                        "use a header like `for (let i: i32 = 0; i < 3; i = i + 1) { ... }`",
+                    ),
+                );
+            }
+        }
+    }
+
+    fn check_condition(&mut self, keyword: &str, condition: &Expr) {
+        let condition_type = self.check_expr(condition);
+        self.expect_type_match_with_kind(
+            &Type::Bool,
+            &condition_type,
+            condition.span,
+            format!(
+                "`{keyword}` condition must be `bool`, found `{}`",
+                condition_type.describe()
+            ),
+            DiagnosticKind::ConditionTypeMismatch,
+        );
+    }
+}
