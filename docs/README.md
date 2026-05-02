@@ -1,5 +1,8 @@
 # AX Docs
 
+- [`architecture.md`](./architecture.md)
+  面向接手者的编译器架构地图：命令入口、前端流水线、解释执行、build/AOT、project/package、诊断/AI/context，以及后续加语法和做规划时应该优先看哪些层。
+
 本目录放 AX 当前稳定、对外可引用的专题文档，服务于 AX 作为一门 AI-first 工具语言的对外说明、编译器护城河文档化和使用入口整理。
 它不承担路线职责；路线只看 [`../PLAN.md`](../PLAN.md)。
 
