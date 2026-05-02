@@ -1,0 +1,120 @@
+use super::*;
+
+pub(in crate::cli) fn usage() -> &'static str {
+    "\
+axc <command> [options]
+
+Commands:
+  check <path> [--json] [--ai] [--ai-session <path>]   Run lexer, parser, and base semantic checks
+  ast <path>               Print stable AST JSON
+  hir <path>               Print stable HIR JSON
+  mir <path>               Print stable MIR JSON
+  build <path> [--out-dir <path>]   Emit the build skeleton artifacts for the native backend stage
+  lock <project> [--check] Generate or validate AX.lock for local path packages
+  run <path> [--json] [--ai] [--ai-session <path>] [-- <args...>]   Execute the minimal interpreter
+  fmt <path>               Rewrite the file or project sources to the canonical AX format
+  context <overview|boundaries|topology|flow> <path> [--json]
+  context <symbol|impact|evidence> <path> <symbol> [--json]   Print stable project/source context JSON
+"
+}
+
+pub(in crate::cli) fn render_check_success(json: bool, display_path: &str) -> String {
+    if json {
+        "[]".to_string()
+    } else {
+        format!("check succeeded: {display_path}")
+    }
+}
+
+pub(in crate::cli) fn render_load_input_error(
+    path: &Path,
+    error: &str,
+    json: bool,
+    ai: bool,
+) -> i32 {
+    if json {
+        if let Some((_source, diagnostic)) = package_load_error_diagnostic(path, error, ai) {
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&vec![diagnostic])
+                    .expect("package load diagnostic json should serialize")
+            );
+            return 1;
+        }
+    }
+
+    eprintln!("{error}");
+    1
+}
+
+pub(in crate::cli) fn package_load_error_diagnostic(
+    path: &Path,
+    error: &str,
+    ai: bool,
+) -> Option<(SourceFile, Diagnostic)> {
+    let base_message = error.split("\nrepair_rule:").next().unwrap_or(error).trim();
+    let code = package_error_code(base_message)?;
+    let hint = package_repair_hint(code)?;
+    let source = source_for_load_error(path);
+    let span = first_source_span(&source);
+    let mut diagnostic = Diagnostic::new(code, base_message, &source, span)
+        .with_expected("valid local path package graph")
+        .with_suggestion(hint.fixit);
+
+    if ai {
+        diagnostic = diagnostic.with_ai(AiDiagnostic {
+            rule_id: hint.rule_id.to_string(),
+            teaching_level: TeachingLevel::L1,
+            repeat_count: 1,
+            repair_goal: hint.repair_goal.to_string(),
+            focus_item: None,
+            relevant_spans: vec![span],
+            related_symbols: Vec::new(),
+            rule_card: AiRuleCard {
+                summary: hint.repair_goal.to_string(),
+                pattern: Some("AX local path package manifests must describe a loadable one-level package graph.".to_string()),
+                minimal_example: Some("[dependencies]\nconfig_rules = { path = \"packages/config_rules\" }".to_string()),
+                anti_pattern: Some("Pointing a dependency alias at a missing directory, invalid manifest, duplicate module root, or transitive package graph.".to_string()),
+            },
+            fixits: vec![hint.fixit.to_string()],
+            context_snippets: Vec::new(),
+        });
+    }
+
+    Some((source, diagnostic))
+}
+
+pub(in crate::cli) fn package_error_code(message: &str) -> Option<&str> {
+    let code = message.get(0..6)?;
+    if code.len() == 6 && code.starts_with("PX") && code[2..].chars().all(|ch| ch.is_ascii_digit())
+    {
+        return Some(code);
+    }
+    None
+}
+
+pub(in crate::cli) fn source_for_load_error(path: &Path) -> SourceFile {
+    let source_path = if path.is_dir() {
+        path.join("AX.toml")
+    } else {
+        path.to_path_buf()
+    };
+    let text = fs::read_to_string(&source_path).unwrap_or_default();
+    SourceFile::new(source_path, text)
+}
+
+pub(in crate::cli) fn first_source_span(source: &SourceFile) -> Span {
+    let start = source
+        .text()
+        .char_indices()
+        .find(|(_, ch)| !ch.is_whitespace())
+        .map(|(index, _)| index)
+        .unwrap_or(0);
+    let end = source
+        .text()
+        .get(start..)
+        .and_then(|rest| rest.chars().next())
+        .map(|ch| start + ch.len_utf8())
+        .unwrap_or(start);
+    Span::new(start, end)
+}
