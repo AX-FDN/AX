@@ -1,4 +1,6 @@
-use super::{AiAction, DiagnosticLayer, TeachingLevel, enhance_diagnostics, match_rule};
+use super::{
+    AiAction, AiRepairContract, DiagnosticLayer, TeachingLevel, enhance_diagnostics, match_rule,
+};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -392,6 +394,59 @@ fn ai_repair_contract_classifies_parser_semantic_and_runtime_layers() {
             "axc run <target>".to_string()
         ]
     );
+}
+
+#[test]
+fn ai_repair_contract_classifies_lowering_and_internal_boundaries() {
+    let source = SourceFile::anonymous("fn main() -> i32 { return 0; }");
+    let analysis = analyze(&source);
+
+    let cases = [
+        (
+            "H0007",
+            "synthetic HIR lowering failure",
+            "hir_lowering_requires_compiler_attention",
+            DiagnosticLayer::HirLowering,
+        ),
+        (
+            "M0001",
+            "synthetic MIR lowering failure",
+            "mir_lowering_requires_compiler_attention",
+            DiagnosticLayer::MirLowering,
+        ),
+    ];
+
+    for (code, message, expected_rule_id, expected_layer) in cases {
+        let diagnostic = Diagnostic::new(code, message, &source, Span::new(0, 0));
+        let rule = match_rule(&source, &diagnostic)
+            .unwrap_or_else(|| panic!("lowering code `{code}` should match a generic AI rule"));
+        assert_eq!(rule.rule_id, expected_rule_id);
+
+        let mut diagnostics = vec![diagnostic];
+        enhance_diagnostics(&source, &analysis.program, &mut diagnostics, None)
+            .expect("lowering diagnostic should enhance");
+        let ai = diagnostics[0]
+            .ai
+            .as_ref()
+            .expect("lowering diagnostic should include ai payload");
+        assert_eq!(ai.rule_id, expected_rule_id);
+        assert_eq!(ai.layer, expected_layer);
+        assert_eq!(ai.ai_action, AiAction::ReportCompilerBug);
+        assert!(!ai.safe_to_edit);
+        assert_eq!(ai.validation, vec!["axc check <target>".to_string()]);
+    }
+
+    let internal = Diagnostic::new(
+        "C0001",
+        "synthetic internal compiler failure",
+        &source,
+        Span::new(0, 0),
+    );
+    let contract = AiRepairContract::for_diagnostic(&internal);
+    assert_eq!(contract.layer, DiagnosticLayer::InternalCompiler);
+    assert_eq!(contract.ai_action, AiAction::ReportCompilerBug);
+    assert!(!contract.safe_to_edit);
+    assert_eq!(contract.validation, vec!["axc check <target>".to_string()]);
 }
 
 #[test]

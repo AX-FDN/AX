@@ -1,0 +1,15 @@
+fn double(value: i32) -> i32 {
+    return value * 2;
+}
+
+fn shift(value: i32) -> i32 {
+    return double(value + 1) - 3;
+}
+
+fn combine(left: i32, right: i32) -> i32 {
+    return shift(left) + double(right);
+}
+
+fn main() -> i32 {
+    return combine(4, 5);
+}

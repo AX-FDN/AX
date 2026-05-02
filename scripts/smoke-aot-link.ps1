@@ -110,6 +110,11 @@ if (-not (Test-Path $buildManifestPath)) {
 
 $manifest = Get-Content $buildManifestPath -Raw -Encoding utf8 | ConvertFrom-Json
 
+Assert-Equal -Label "schema_version" -Actual ([int] $manifest.schema_version) -Expected 9
+Assert-Equal -Label "aot_readiness.schema_version" -Actual ([int] $manifest.aot_readiness.schema_version) -Expected 3
+Assert-Equal -Label "user_code_valid" -Actual ([bool] $manifest.user_code_valid) -Expected $true
+Assert-Equal -Label "interpreter_supported" -Actual ([bool] $manifest.interpreter_supported) -Expected $true
+Assert-Equal -Label "aot_supported" -Actual ([bool] $manifest.aot_supported) -Expected $true
 Assert-Equal -Label "backend.kind" -Actual ([string] $manifest.backend.kind) -Expected "llvm-aot"
 Assert-Equal -Label "backend.status" -Actual ([string] $manifest.backend.status) -Expected "built"
 Assert-Equal -Label "aot_readiness.status" -Actual ([string] $manifest.aot_readiness.status) -Expected "built"

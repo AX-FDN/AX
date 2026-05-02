@@ -101,12 +101,46 @@ return 0;
             "i32_values".to_string()
         ]
     );
-    assert_eq!(blocker_codes(&readiness), vec!["AOT0001", "AOT0301"]);
+    assert_eq!(blocker_codes(&readiness), vec!["AOT0001"]);
     assert_eq!(
         readiness.blockers[0].resolution.agent_action,
         "explain_unsupported"
     );
     assert!(!readiness.blockers[0].resolution.source_edit_safe);
+    assert_eq!(
+        readiness.blockers[0].ai.rule_id,
+        "aot_native_emission_pending"
+    );
+    assert_eq!(readiness.blockers[0].ai.layer, "aot_readiness");
+}
+
+#[test]
+fn aot_readiness_allows_string_literals_without_full_string_runtime() {
+    let readiness = readiness_for(
+        "\
+fn main() -> i32 {
+println(\"hello\");
+return 0;
+}
+",
+        AotReadinessInput {
+            is_project: false,
+            has_local_path_packages: false,
+            package_lock_status: None,
+        },
+    );
+
+    assert!(readiness.single_file_core_candidate);
+    assert_eq!(
+        readiness.required_backend_features,
+        vec![
+            "functions".to_string(),
+            "host_stdio".to_string(),
+            "i32_values".to_string(),
+            "string_literals".to_string()
+        ]
+    );
+    assert_eq!(blocker_codes(&readiness), vec!["AOT0001"]);
 }
 
 #[test]
@@ -147,5 +181,14 @@ return id(1);
     assert_eq!(
         lock_blocker.resolution.recommended_command.as_deref(),
         Some("axc lock <project> --check")
+    );
+    assert_eq!(lock_blocker.ai.rule_id, "aot_package_lock_must_be_current");
+    assert_eq!(lock_blocker.ai.ai_action, "verify_lockfile");
+    assert_eq!(
+        lock_blocker.ai.validation,
+        vec![
+            "axc lock <project> --check".to_string(),
+            "axc build <project> --json".to_string()
+        ]
     );
 }

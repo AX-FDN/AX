@@ -1,0 +1,6 @@
+fn main() -> i32 {
+    println(7);
+    println(true);
+    println(false);
+    return 5;
+}

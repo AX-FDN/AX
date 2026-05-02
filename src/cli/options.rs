@@ -12,6 +12,7 @@ pub(in crate::cli) struct CheckOptions {
 pub(in crate::cli) struct BuildCliOptions {
     pub(in crate::cli) file: PathBuf,
     pub(in crate::cli) out_dir: Option<PathBuf>,
+    pub(in crate::cli) json: bool,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -169,6 +170,7 @@ pub(in crate::cli) fn parse_run_args(args: Vec<String>) -> Result<RunOptions, St
 }
 
 pub(in crate::cli) fn parse_build_args(args: Vec<String>) -> Result<BuildCliOptions, String> {
+    let mut json = false;
     let mut out_dir = None;
     let mut file = None;
     let mut index = 0;
@@ -176,6 +178,9 @@ pub(in crate::cli) fn parse_build_args(args: Vec<String>) -> Result<BuildCliOpti
     while index < args.len() {
         let arg = &args[index];
         match arg.as_str() {
+            "--json" => {
+                json = true;
+            }
             "--out-dir" => {
                 let Some(path) = args.get(index + 1) else {
                     return Err("missing path after `--out-dir`".to_string());
@@ -207,7 +212,11 @@ pub(in crate::cli) fn parse_build_args(args: Vec<String>) -> Result<BuildCliOpti
         return Err("missing input file for `axc build`".to_string());
     };
 
-    Ok(BuildCliOptions { file, out_dir })
+    Ok(BuildCliOptions {
+        file,
+        out_dir,
+        json,
+    })
 }
 
 pub(in crate::cli) fn parse_lock_args(args: Vec<String>) -> Result<LockCliOptions, String> {

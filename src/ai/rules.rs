@@ -1,4 +1,5 @@
 mod lexer;
+mod lowering;
 mod parser;
 mod project;
 mod rule_registry;

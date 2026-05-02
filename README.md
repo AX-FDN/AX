@@ -33,7 +33,36 @@ AX 关注的不只是“模型能不能写出代码”，更关注三件更硬�
 
 仓库已经具备可运行的 `axc check / run / fmt / build`、结构化 `diagnostics`、`--json --ai` 输出、project-backed 多文件组织、第一阶段 `import/module` 模式、AX 侧共享 foundation、第一批 `std.*` 标准库试点模块，以及 repair benchmark 的导出、评分、对比、smoke 与 CI 资产。
 
-当前 `build` 已从纯骨架推进到最小 LLVM AOT v0：它稳定导出 source / HIR / MIR / manifest，并能为极小单文件 MIR 子集生成 `generated/main.ll`。默认仍不承诺 native exe；后续会按 `LLVM IR 子集 -> AOT runtime ABI -> 包接口 -> 后端 worker 能力 -> 更完整服务端生态` 的顺序推进，而不是停留在研究原型或一次性脚本语言。
+当前 `build` 已从纯骨架推进到最小 LLVM AOT v0：它稳定导出 source / HIR / MIR / manifest，并能为极小单文件 MIR 子集生成 `generated/main.ll`；在显式开启链接并提供 clang 时，已经可以生成 native executable，并用 parity smoke 对比解释器和 AOT exe 的 `exit code / stdout / stderr`。这仍不是发布级完整 native compiler；后续会按 `LLVM IR 子集 -> AOT runtime ABI -> 包接口 -> 后端 worker 能力 -> 更完整服务端生态` 的顺序推进，而不是停留在研究原型或一次性脚本语言。
+
+## 当前执行版本
+
+AX 现在有两条执行路径，它们都由同一个 `axc` CLI 提供，但成熟度不同：
+
+| 路径 | 命令 | 当前定位 | 当前功能 |
+| --- | --- | --- | --- |
+| 解释器版本 | `axc run <file-or-project>` | 当前稳定主路径，也是 AOT 的语义参考 | 支持当前 AX 语言主线：基础类型、函数、控制流、数组 / slice、struct / enum、match、泛型、trait bounds、module/import、project mode、第一批 `std.*` 试点和宿主 builtin |
+| 编译器 / AOT 版本 | `axc build <file-or-project>` | LLVM AOT v0，当前是可验证原型，不是完整发布级 native 后端 | 始终导出 `source.ax`、HIR、MIR、`build-manifest.json`；对单文件 `i32/bool` 核心子集生成 LLVM IR；显式设置 `AX_LLVM_AOT_LINK=1` 且有 clang 时可链接 exe |
+
+一句话理解：**解释器版本负责“现在稳定运行 AX 程序”，AOT 编译版本负责“逐步把同一份 AX 源码编成 native exe，并用解释器结果做对照验证”。**
+
+当前 LLVM AOT v0 已支持的 native 子集：
+
+- 单文件 `fn main() -> i32`
+- 同文件普通函数调用
+- `i32` / `bool`
+- `let` / assignment / `return`
+- `if` / `while` 对应的 MIR `branch` / `goto`
+- 一元 `-` / `!`
+- `+ - * / %`
+- `== != < <= > >=`
+- `&& ||`
+- `println(i32)` / `println(bool)`
+- 只读 string literal 直接 `println`，例如 `println("hello")`
+
+当前 AOT parity smoke 默认覆盖 9 个样例：`examples/aot_return.ax`、`examples/aot_math.ax`、`examples/aot_control_flow.ax`、`examples/aot_loop.ax`、`examples/aot_bool_logic.ax`、`examples/aot_comparisons.ax`、`examples/aot_nested_calls.ax`、`examples/aot_print.ax`、`examples/aot_print_string.ax`。这些样例会依次跑 `check -> run -> build --json -> native exe`，并比较解释器和 exe 的退出码、标准输出、标准错误。
+
+当前 AOT 明确还不支持：通用 `string` runtime、字符串局部变量 / 参数 / 返回值、string concat / len / `to_string(...)`、`f32`、数组 / slice native layout、struct / enum native layout、`match` native lowering、`Result` / `Option` / `?`、methods / impl / traits / generics 的 native lowering、多文件 project linking、本地包 native linking 和完整 host runtime ABI。这些缺口会进入 `aot_readiness.blockers`，不会被伪装成用户源码错误。
 
 ## 项目导航
 
@@ -106,7 +135,7 @@ http://101.37.238.42
 | 关键收益     | 提高一次通过率、提高修复成功率、提高多文件项目中的架构理解效率，并把这些能力带入真实后端开发          |
 | 当前主要场景 | agent 生成 CLI 工具、可修复自动化脚本、后端 worker 辅助、compiler-guided repair benchmark             |
 | 演进方向     | 标准库、包系统、AOT 后端、后端 worker、服务端基础设施、部分自举                                       |
-| 当前形态     | 语言前端 + 解释执行 + project mode + structured diagnostics + context + repair benchmark + Repair Workbench 前端 + 标准库试点 |
+| 当前形态     | 语言前端 + 稳定解释执行 + LLVM AOT v0 可验证原型 + project mode + structured diagnostics + context + repair benchmark + Repair Workbench 前端 + 标准库试点 |
 | 核心价值     | 把语言本体、编译器反馈、AI 消费链路和未来后端生态放进同一个可运行仓库                                 |
 
 ## AX 的核心优势
@@ -191,9 +220,11 @@ flowchart LR
     C --> D["Structured Diagnostics"]
     D --> E["AI Feedback<br/>rule_id / repair_goal / fixits / context"]
     C --> F["Interpreter / Host Runtime Boundary"]
+    C --> H["Build / LLVM AOT v0<br/>IR artifact / optional native exe"]
     D --> G["Repair Benchmark / Replay / Compare / Smoke"]
     E --> G
     F --> G
+    H --> G
 ```
 
 AX 把一段源码送入编译器后，会同步产出三层结果：
@@ -206,6 +237,8 @@ AX 把一段源码送入编译器后，会同步产出三层结果：
 
 3. 可回放证据结果  
    repair benchmark、adapter 输出、评分结果、compare 报告、smoke 回归
+
+`axc run` 当前走解释器，是稳定执行路径；`axc build` 当前走构建 / AOT 路径，始终输出稳定构建产物，并在当前 LLVM AOT v0 子集内生成 IR 或可选 native exe。AOT 的正确性不靠口头承诺，而是通过 run vs exe parity smoke 和 snapshot 测试持续验证。
 
 AX 把“源码如何被模型消费、错误如何被模型修复、修复结果如何被验证”一起工程化。
 这也是 AX 和一般实验语言项目最有区分度的地方。
@@ -718,6 +751,7 @@ AX 的六层协议上下文，不只是让模型“更快读懂项目”，更�
 | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | 编译器前端       | 已打通 `Lexer -> Parser -> AST -> HIR -> MIR -> Semantic Check` 主链                                                                                                                                      | [`src/`](./src/)                                                                                                       |
 | 执行能力         | 已支持解释执行，能够运行真实 tool-style examples                                                                                                                                                          | [`src/interpreter.rs`](./src/interpreter.rs)                                                                           |
+| AOT 编译         | LLVM AOT v0 已能为 9 个单文件 core/stdout 样例生成 IR、可选链接 native exe，并与解释器比较 `exit code / stdout / stderr`                                                                                | [`src/backend/llvm/`](./src/backend/llvm/) [`docs/llvm-aot.md`](./docs/llvm-aot.md)                                  |
 | 诊断输出         | 已支持文本诊断、`--json`、`--json --ai` 三层输出                                                                                                                                                          | [`docs/diagnostics-schema.md`](./docs/diagnostics-schema.md)                                                           |
 | AI 修复反馈      | 已沉淀 `rule_id / repair_goal / fixits / context_snippets`                                                                                                                                                | [`src/ai.rs`](./src/ai.rs)                                                                                             |
 | 项目组织         | 已支持 `AX.toml + sources` 的 project-backed 多文件项目，并启动 `[dependencies] alias = { path = ... }` 本地 AX 包接口 v0                                                                                 | [`src/project.rs`](./src/project.rs)                                                                                   |
@@ -739,6 +773,7 @@ AX 的六层协议上下文，不只是让模型“更快读懂项目”，更�
 | 为第一版最小标准库做冻结试点                    | 用 `project_text_normalize`、`project_directory_index`、`project_release_promote`、`project_command_capture`、`project_command_batch` 验证 `std.*` 命名空间、全限定调用、递归工具逻辑、发布型文件操作、命令捕获、命令执行、环境变量检查和项目私有 `lib.*` 的组合成本 | `std/`、`examples/project_text_normalize/`、`examples/project_directory_index/`、`examples/project_release_promote/`、`examples/project_command_capture/`、`examples/project_command_batch/`、`执行路线.md` |
 | 做硬 diagnostics / context / repair / benchmark | 让语言主线自带可消费的编译器反馈和可回放证据链                                                                                                                                                                                                                       | `src/ai.rs`、`benchmarks/`、`scripts/`、`docs/benchmark-showcase.md`                                                                                                                                                   |
 | 用代表性样例反向驱动语言设计                    | 每补一项能力，都要求它能支撑一个更真实的工具样例                                                                                                                                                                                                                     | `examples/`、`tests/interface_snapshots.rs`                                                                                                                                                                            |
+| 推进 AOT + 错误分层 + parity 验证               | 让 `axc build` 的每个失败都能被归类，并让 native exe 与解释器语义对齐；不支持的能力进入 blocker，不让 AI 误改用户源码                                                                                                                                             | `src/backend/llvm/`、`src/build/`、`scripts/smoke-aot-parity.ps1`、`docs/llvm-aot.md`                                                                                                                                    |
 
 这条主线的判断标准很直接：
 新能力需要同时提升可写性、可测性、可修复性，才能进入更高优先级；其中可写性和工程组织能力优先决定语言主线是否继续前进。

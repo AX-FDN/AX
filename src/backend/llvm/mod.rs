@@ -12,6 +12,7 @@ const LLVM_IR_FILE: &str = "main.ll";
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LlvmAotStatus {
     Unsupported,
+    LoweringUnsupported,
     IrGenerated,
     Built,
     LinkSkipped,
@@ -23,6 +24,7 @@ impl LlvmAotStatus {
     pub fn as_manifest_status(self) -> &'static str {
         match self {
             LlvmAotStatus::Unsupported => "unsupported",
+            LlvmAotStatus::LoweringUnsupported => "unsupported",
             LlvmAotStatus::IrGenerated
             | LlvmAotStatus::LinkSkipped
             | LlvmAotStatus::ToolchainMissing
@@ -33,6 +35,7 @@ impl LlvmAotStatus {
 
     pub fn blocker_code(self) -> Option<&'static str> {
         match self {
+            LlvmAotStatus::LoweringUnsupported => Some("AOT2001"),
             LlvmAotStatus::LinkSkipped => Some("AOT1000"),
             LlvmAotStatus::ToolchainMissing => Some("AOT1001"),
             LlvmAotStatus::ToolchainFailed => Some("AOT1002"),
@@ -40,8 +43,21 @@ impl LlvmAotStatus {
         }
     }
 
+    pub fn blocker_category(self) -> Option<&'static str> {
+        match self {
+            LlvmAotStatus::LoweringUnsupported => Some("llvm_lowering"),
+            LlvmAotStatus::LinkSkipped
+            | LlvmAotStatus::ToolchainMissing
+            | LlvmAotStatus::ToolchainFailed => Some("toolchain"),
+            LlvmAotStatus::Unsupported | LlvmAotStatus::IrGenerated | LlvmAotStatus::Built => None,
+        }
+    }
+
     pub fn blocker_message(self) -> Option<&'static str> {
         match self {
+            LlvmAotStatus::LoweringUnsupported => Some(
+                "LLVM IR generation was skipped because the current MIR uses features outside the LLVM AOT v0 subset",
+            ),
             LlvmAotStatus::LinkSkipped => Some(
                 "LLVM IR was generated, but executable linking is disabled; set AX_LLVM_AOT_LINK=1 to let axc build try clang",
             ),
@@ -76,7 +92,7 @@ pub fn build(mir: &MirProgram, options: LlvmAotOptions<'_>) -> Result<LlvmAotRes
         Ok(module) => module,
         Err(reasons) => {
             return Ok(LlvmAotResult {
-                status: LlvmAotStatus::Unsupported,
+                status: LlvmAotStatus::LoweringUnsupported,
                 llvm_ir_artifact: None,
                 executable_artifact: None,
                 notes: reasons

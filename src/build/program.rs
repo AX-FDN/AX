@@ -161,10 +161,13 @@ pub fn build_program(
     );
 
     let manifest = BuildManifest {
-        schema_version: 7,
+        schema_version: 9,
         target_name: input.target_name.clone(),
         entry_file: input.entry_file.clone(),
         output_dir: options.out_dir.display().to_string(),
+        user_code_valid: true,
+        interpreter_supported: true,
+        aot_supported: aot_supported(&aot_readiness),
         backend,
         aot_readiness,
         artifacts,
@@ -189,6 +192,10 @@ pub fn build_program(
     })
 }
 
+fn aot_supported(readiness: &AotReadiness) -> bool {
+    readiness.status == "built" && readiness.executable_emission && readiness.blockers.is_empty()
+}
+
 fn apply_llvm_aot_result(
     result: &LlvmAotResult,
     backend: &mut BuildBackend,
@@ -207,34 +214,43 @@ fn apply_llvm_aot_result(
     artifacts.executable = result.executable_artifact.clone();
 
     readiness.stage = "Build-1 LLVM IR prototype".to_string();
-    readiness.status = if result.status == LlvmAotStatus::Built {
-        "built".to_string()
-    } else {
-        "ir_generated".to_string()
-    };
+    readiness.status = match result.status {
+        LlvmAotStatus::Built => "built",
+        LlvmAotStatus::LoweringUnsupported => "blocked",
+        _ => "ir_generated",
+    }
+    .to_string();
     readiness.executable_emission = result.executable_artifact.is_some();
     readiness
         .blockers
         .retain(|blocker| blocker.code != "AOT0001");
-    if let (Some(code), Some(message)) = (
+    if let (Some(code), Some(category), Some(message)) = (
         result.status.blocker_code(),
+        result.status.blocker_category(),
         result.status.blocker_message(),
     ) {
-        readiness.blockers.push(AotReadinessBlocker::new(
-            code,
-            "toolchain",
-            message,
-            "Build-1",
-        ));
+        readiness
+            .blockers
+            .push(AotReadinessBlocker::new(code, category, message, "Build-1"));
     }
-    readiness.recommended_next_steps = vec![
-        "compare axc run with the generated LLVM AOT artifact for the same minimal MIR subset"
-            .to_string(),
-        "keep unsupported syntax in aot_readiness blockers until its MIR-to-LLVM lowering is explicit"
-            .to_string(),
-        "set AX_LLVM_AOT_LINK=1 and AX_LLVM_CLANG=<path> when validating executable linking"
-            .to_string(),
-    ];
+    readiness.recommended_next_steps = if result.status == LlvmAotStatus::LoweringUnsupported {
+        vec![
+            "keep axc run as the semantic reference for this source".to_string(),
+            "treat AOT2001 as a backend capability gap, not as a user-code repair request"
+                .to_string(),
+            "add explicit MIR-to-LLVM lowering support before enabling executable validation"
+                .to_string(),
+        ]
+    } else {
+        vec![
+            "compare axc run with the generated LLVM AOT artifact for the same minimal MIR subset"
+                .to_string(),
+            "keep unsupported syntax in aot_readiness blockers until its MIR-to-LLVM lowering is explicit"
+                .to_string(),
+            "set AX_LLVM_AOT_LINK=1 and AX_LLVM_CLANG=<path> when validating executable linking"
+                .to_string(),
+        ]
+    };
 
     notes.extend(result.notes.iter().cloned());
 }

@@ -120,7 +120,7 @@ pub(in crate::cli) fn run_build(args: Vec<String>) -> i32 {
     let options = match parse_build_args(args) {
         Ok(options) => options,
         Err(error) => {
-            eprintln!("{error}\nusage: axc build <path> [--out-dir <path>]");
+            eprintln!("{error}\nusage: axc build <path> [--out-dir <path>] [--json]");
             return 2;
         }
     };
@@ -128,15 +128,22 @@ pub(in crate::cli) fn run_build(args: Vec<String>) -> i32 {
     let input = match load_input(&options.file) {
         Ok(input) => input,
         Err(error) => {
-            eprintln!("{error}");
-            return 1;
+            return render_load_input_error(&options.file, &error, options.json, false);
         }
     };
     let source = &input.source;
 
     let output = analyze_with_project(source, input.project.as_ref());
     if !output.diagnostics.is_empty() {
-        eprintln!("{}", render_diagnostics(source, &output.diagnostics));
+        if options.json {
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&output.diagnostics)
+                    .expect("build diagnostics json should serialize")
+            );
+        } else {
+            eprintln!("{}", render_diagnostics(source, &output.diagnostics));
+        }
         return 1;
     }
 
@@ -191,7 +198,15 @@ pub(in crate::cli) fn run_build(args: Vec<String>) -> i32 {
         }
     };
 
-    println!("build succeeded: {}", result.manifest_path.display());
+    if options.json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&result.manifest)
+                .expect("build manifest json should serialize")
+        );
+    } else {
+        println!("build succeeded: {}", result.manifest_path.display());
+    }
     0
 }
 

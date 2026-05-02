@@ -53,6 +53,7 @@ fn parses_build_options_with_explicit_out_dir() {
         "examples/hello.ax".to_string(),
         "--out-dir".to_string(),
         "artifacts/hello".to_string(),
+        "--json".to_string(),
     ])
     .expect("build arguments should parse");
 
@@ -61,6 +62,7 @@ fn parses_build_options_with_explicit_out_dir() {
         BuildCliOptions {
             file: PathBuf::from("examples/hello.ax"),
             out_dir: Some(PathBuf::from("artifacts/hello")),
+            json: true,
         }
     );
 }

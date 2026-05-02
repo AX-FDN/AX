@@ -215,6 +215,8 @@ fn layer_for_diagnostic(diagnostic: &Diagnostic) -> DiagnosticLayer {
         Some('L') => DiagnosticLayer::Lexer,
         Some('P') => DiagnosticLayer::Parser,
         Some('S') => DiagnosticLayer::Semantic,
+        Some('H') => DiagnosticLayer::HirLowering,
+        Some('M') => DiagnosticLayer::MirLowering,
         Some('R') => DiagnosticLayer::Interpreter,
         _ => DiagnosticLayer::InternalCompiler,
     }

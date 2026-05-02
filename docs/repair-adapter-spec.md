@@ -96,7 +96,7 @@ Context-enabled exports add this optional field:
 - `context_bundle`
 
 `diagnostic_command` tells the adapter whether the exported failure came from `axc check --json` or `axc run --json`. Adapters do not need to execute that command themselves, but they may use it to tailor prompts or repair strategy.
-When `diagnostics[].ai.layer / ai_action / safe_to_edit / validation` are present, adapters should use them as routing hints: edit source/config for `edit_source` or `fix_input_or_config`, ask for runtime input/environment changes for `fix_runtime_input`, configure external tools for toolchain actions, and avoid rewriting user logic for unsupported/backend/internal compiler failures.
+When `diagnostics[].ai.layer / ai_action / safe_to_edit / validation` are present, adapters should use them as routing hints: edit source/config for `edit_source` or `fix_input_or_config`, ask for runtime input/environment changes for `fix_runtime_input`, configure external tools for toolchain actions, and avoid rewriting user logic for unsupported/backend/internal compiler failures. In particular, `hir_lowering`, `mir_lowering`, and `internal_compiler` with `report_compiler_bug` mean the adapter should preserve source semantics and report a compiler-boundary reproducer instead of guessing a business-logic rewrite.
 When the optional project fields are present, `source_file` still points to the broken target source copy, while `project_root` points at the exported read-only project snapshot and the relative-path fields describe paths inside that snapshot.
 When `context_bundle` is present, it gives the adapter compiler-produced project/source context that is safe to consume as read-only repair planning input. The first supported bundle shape is:
 

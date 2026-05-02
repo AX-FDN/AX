@@ -163,7 +163,7 @@ Current AI fields:
 - `ai_action: string`
   Suggested agent action. Current values include `edit_source`, `fix_input_or_config`, `fix_runtime_input`, `fix_environment`, `explain_unsupported`, `configure_toolchain`, `inspect_toolchain_failure`, and `report_compiler_bug`.
 - `safe_to_edit: boolean`
-  Whether the agent should treat editing the user-owned source/config as the default safe action. Runtime host input failures such as missing files, missing environment variables, argument-count issues, and process launch failures set this to `false`.
+  Whether the agent should treat editing the user-owned source/config as the default safe action. Runtime host input failures such as missing files, missing environment variables, argument-count issues, process launch failures, lowering failures, and internal compiler failures set this to `false`.
 - `validation: string[]`
   Ordered command templates the agent should prefer after a repair. Check-time diagnostics currently use `axc check <target>`; runtime diagnostics use `axc check <target>` followed by `axc run <target>`.
 - `teaching_level: "L1" | "L2" | "L3"`
@@ -213,6 +213,9 @@ Current routing rules:
 | lexer diagnostics such as invalid characters or unterminated strings | `lexer` | `edit_source` | `true` | `["axc check <target>"]` |
 | parser diagnostics such as missing semicolons or brackets | `parser` | `edit_source` | `true` | `["axc check <target>"]` |
 | semantic diagnostics such as type mismatch, undefined variable, or invalid `?` propagation | `semantic` | `edit_source` | `true` | `["axc check <target>"]` |
+| HIR lowering diagnostics emitted as `H****` after frontend checks | `hir_lowering` | `report_compiler_bug` | `false` | `["axc check <target>"]` |
+| MIR lowering diagnostics emitted as `M****` after HIR construction | `mir_lowering` | `report_compiler_bug` | `false` | `["axc check <target>"]` |
+| internal compiler fallback diagnostics that do not belong to a user-code layer | `internal_compiler` | `report_compiler_bug` | `false` | `["axc check <target>"]` |
 | runtime program errors such as array bounds, division by zero, or arithmetic overflow | `interpreter` | `edit_source` | `true` | `["axc check <target>", "axc run <target>"]` |
 | runtime host-input errors such as missing file, missing env var, argv mismatch, or failed process launch | `interpreter` | `fix_runtime_input` | `false` | `["axc check <target>", "axc run <target>"]` |
 | project/package input failures emitted as `PX****` or `LX****` | `source_input` | `fix_input_or_config` | `true` | `["axc check <target>"]` |

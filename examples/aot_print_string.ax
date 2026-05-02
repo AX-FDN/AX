@@ -1,0 +1,5 @@
+fn main() -> i32 {
+    println("hello from aot");
+    println("path C:\\AX");
+    return 6;
+}

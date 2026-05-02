@@ -23,6 +23,7 @@ AX 现在的外部契约不是只有 CLI 命令本身。对 agent 和工具链�
 | runtime AI diagnostics | `axc run --json --ai` | runtime repair benchmark, adapters | `run_runtime_error_json_with_ai_matches_snapshot`, `run_runtime_division_by_zero_json_with_ai_matches_snapshot` |
 | AST / HIR / MIR dumps | `axc ast/hir/mir --json` | compiler debugging, external tools | `ast_dump_matches_snapshot`, `hir_dump_matches_snapshot`, `mir_dump_matches_snapshot` |
 | build manifest / LLVM IR v0 | `axc build` | future backend, build tooling, AOT smoke validation | `build_manifest_matches_snapshot`, `project_build_manifest_matches_snapshot`, `llvm_aot_return_build_emits_ir_artifact_without_linking_by_default`, `llvm_aot_core_examples_check_run_and_emit_ir_without_linking_by_default`, `llvm_aot_link_reports_missing_clang_as_readiness_blocker` |
+| build manifest stdout JSON | `axc build --json` | CI, repair adapters, build/AOT-aware agents | `build_json_prints_build_manifest_object` |
 | context overview | `axc context overview --json` | agents, docs, repair context | `context_overview_matches_snapshot` |
 | context boundaries | `axc context boundaries --json` | host-boundary-aware agents | `context_boundaries_matches_snapshot` |
 | context topology | `axc context topology --json` | project navigation agents | `context_topology_matches_snapshot` |
@@ -57,6 +58,7 @@ Stable:
 - `suggestion`
 - optional `ai` object when `--json --ai` is used
 - AI repair-contract routing fields inside `ai`: `layer`, `ai_action`, `safe_to_edit`, and `validation`
+- HIR/MIR lowering diagnostics emitted as `H****` or `M****` route to `report_compiler_bug` with `safe_to_edit = false` when an AI rule is attached
 
 Allowed to evolve carefully:
 
@@ -102,11 +104,12 @@ Not allowed without explicit contract update:
 Stable:
 
 - build emits a machine-readable manifest
+- `axc build --json` prints the same manifest object that is written to `build-manifest.json`
 - source/HIR/MIR/build metadata remain available as stable artifacts
 - backend status is explicit while mature native executable output is not yet ready
-- build manifest schema version `7` exposes `aot_readiness` and the optional `artifacts.llvm_ir` field
+- build manifest schema version `9` exposes `user_code_valid`, `interpreter_supported`, `aot_supported`, `aot_readiness`, and the optional `artifacts.llvm_ir` field
 - LLVM AOT v0 may emit `generated/main.ll` for the current single-file MIR subset while executable linking remains opt-in
-- `aot_readiness` schema version `2` records required backend features, blocker codes such as `AOT0001`, `AOT0101`, `AOT0201`, `AOT0301`, `AOT1000`, `AOT1001`, and `AOT1002`, the next backend stage that must resolve each blocker, and a `resolution` object for AI/tooling action selection
+- `aot_readiness` schema version `3` records required backend features, blocker codes such as `AOT0001`, `AOT0101`, `AOT0201`, `AOT0301`, `AOT1000`, `AOT1001`, `AOT1002`, and `AOT2001`, the next backend stage that must resolve each blocker, a `resolution` object for tool action selection, and a blocker-local `ai` object with `rule_id`, `layer`, `ai_action`, `safe_to_edit`, `repair_goal`, and validation commands
 
 Allowed to evolve carefully:
 
@@ -115,6 +118,7 @@ Allowed to evolve carefully:
 - adding platform-specific output metadata
 - adding new `AOT****` blocker codes when new syntax, package, runtime, or ABI surfaces become visible to the backend
 - adding new `resolution.agent_action` values after documenting how AI/tools should treat them
+- adding new `aot_readiness.blockers[].ai.rule_id` values for newly classified build/AOT blockers
 
 Not allowed without explicit contract update:
 
@@ -215,7 +219,7 @@ Stable for the current package-interface slice:
 - dependency modules must declare paths under the dependency alias, for example `module config_rules.validate;`
 - `axc build` packages dependency sources under their project-relative paths when they live inside the project tree
 - `axc build` packages dependency sources under `external/<package-root>/...` when the path package lives outside the project tree
-- `build-manifest.json` uses schema version `7` and exposes `local_path_packages` for projects that declare path packages
+- `build-manifest.json` uses schema version `9` and exposes `local_path_packages` for projects that declare path packages
 - each build-manifest package entry includes `alias`, `root`, `manifest`, `source_count`, and sorted `modules`
 - `build-manifest.json` exposes `package_graph_readiness` for local path package projects, including `package_mode`, `reproducible`, `aot_ready`, `lock_status`, `risk_level`, `blocking_reasons`, and `recommended_commands`
 - build package graph readiness must keep `aot_ready = false` until native local package linking semantics exist, even when `AX.lock` is current

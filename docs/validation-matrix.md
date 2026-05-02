@@ -27,7 +27,7 @@ AX 当前不是所有平台跑完全相同的验证链。仓库采用分层验�
 | Ubuntu CI | Build | `cargo build --locked` | 不发布 Linux binary |
 | Ubuntu CI | Rust unit tests | `cargo test --locked --lib` | 不跑 Windows-only script smoke |
 | Ubuntu CI | Cross-platform interface tests | `cargo test --locked --test interface_snapshots` | PowerShell benchmark tests在非 Windows 上保持 ignore |
-| Ubuntu CI | LLVM AOT executable smoke | `pwsh ./scripts/smoke-aot-link.ps1` after installing `clang` | 只验证极小单文件 core subset，不发布 Linux binary |
+| Ubuntu CI | LLVM AOT parity smoke | `pwsh ./scripts/smoke-aot-parity.ps1` after installing `clang` | 只验证极小单文件 core subset，不发布 Linux binary |
 | Ubuntu CI | Core CLI smoke | `axc fmt/check/run/build` 最小链 | 不覆盖 repair/export/compare `.ps1` 链 |
 | Web CI | Repair Workbench frontend | `cd web && npm ci && npm run build` | 不验证 Rust 编译器、benchmark 脚本或部署发布 |
 
@@ -65,13 +65,13 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test --test interface_snapshots context_
 ```
 
-如果本机或 CI 已安装 clang，再跑 executable smoke：
+如果本机或 CI 已安装 clang，优先跑 run vs AOT executable parity smoke：
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke-aot-link.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke-aot-parity.ps1
 ```
 
-没有 clang 的本机不要求这条通过；必须保证默认 IR-only 路径和缺 clang 的 `AOT1001` blocker 路径稳定。
+这条脚本会对 9 个 core/stdout AOT 样例比较解释器和 native executable 的 `exit code / stdout / stderr`，其中包含 `println(i32/bool)` 和 string literal 直接 `println` 的 stdout parity。如果只想验证单个 executable 链接与退出码，仍可跑 `.\scripts\smoke-aot-link.ps1`。没有 clang 的本机不要求这两条通过；必须保证默认 IR-only 路径和缺 clang 的 `AOT1001` blocker 路径稳定。
 
 ### Std-1 Candidate Change
 

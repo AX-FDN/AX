@@ -55,7 +55,7 @@
         "project `project_workspace_search_report` is build-ready for artifacts, but project AOT linking is not implemented"
       ],
       "aot_readiness": {
-        "schema_version": 2,
+        "schema_version": 3,
         "stage": "Build-0 skeleton",
         "status": "blocked",
         "executable_emission": false,
@@ -75,6 +75,7 @@
           "project_sources",
           "slices",
           "string_list_runtime",
+          "string_literals",
           "string_runtime",
           "structs"
         ],
@@ -87,6 +88,18 @@
             "resolution": {
               "agent_action": "explain_unsupported",
               "source_edit_safe": false
+            },
+            "ai": {
+              "rule_id": "aot_native_emission_pending",
+              "layer": "aot_readiness",
+              "ai_action": "explain_unsupported",
+              "safe_to_edit": false,
+              "summary": "native executable emission is still behind the AOT readiness gate",
+              "repair_goal": "Do not rewrite valid AX source; keep axc run as the semantic reference until native emission is enabled.",
+              "validation": [
+                "axc run <target>",
+                "axc build <target> --json"
+              ]
             }
           },
           {
@@ -97,6 +110,18 @@
             "resolution": {
               "agent_action": "explain_unsupported",
               "source_edit_safe": false
+            },
+            "ai": {
+              "rule_id": "aot_project_linking_pending",
+              "layer": "aot_readiness",
+              "ai_action": "explain_unsupported",
+              "safe_to_edit": false,
+              "summary": "project source graph packaging is not yet native-linkable",
+              "repair_goal": "Preserve the project source layout and add explicit native project linking semantics before treating build as a source repair failure.",
+              "validation": [
+                "axc run <target>",
+                "axc build <target> --json"
+              ]
             }
           },
           {
@@ -107,6 +132,18 @@
             "resolution": {
               "agent_action": "explain_unsupported",
               "source_edit_safe": false
+            },
+            "ai": {
+              "rule_id": "aot_host_runtime_abi_pending",
+              "layer": "aot_readiness",
+              "ai_action": "explain_unsupported",
+              "safe_to_edit": false,
+              "summary": "host boundary builtins need a native runtime ABI",
+              "repair_goal": "Treat the source as valid when check/run pass; add runtime ABI support before native build can preserve host behavior.",
+              "validation": [
+                "axc run <target>",
+                "axc build <target> --json"
+              ]
             }
           },
           {
@@ -117,6 +154,18 @@
             "resolution": {
               "agent_action": "explain_unsupported",
               "source_edit_safe": false
+            },
+            "ai": {
+              "rule_id": "aot_string_runtime_abi_pending",
+              "layer": "aot_readiness",
+              "ai_action": "explain_unsupported",
+              "safe_to_edit": false,
+              "summary": "string values need a native representation and ABI",
+              "repair_goal": "Keep string-using source valid for the interpreter and add a native string ABI before AOT parity.",
+              "validation": [
+                "axc run <target>",
+                "axc build <target> --json"
+              ]
             }
           }
         ],

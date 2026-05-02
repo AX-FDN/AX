@@ -34,7 +34,7 @@
 - [`application-scenarios.md`](./application-scenarios.md)
   定义 AX 的 AI-first 先落在哪些真实场景，以及后端语言方向的实际推进顺序。
 - [`llvm-aot.md`](./llvm-aot.md)
-  记录 `axc build` 当前的 LLVM IR v0 后端原型、manifest schema v7、链接环境变量和不应误读成发布级 native compiler 的边界。
+  记录 `axc build` 当前的 LLVM IR v0 后端原型、manifest schema v9、`--json` 输出、链接环境变量、AOT blocker AI 建议、run vs AOT exe parity smoke 和不应误读成发布级 native compiler 的边界。
 - [`killer-demo.md`](./killer-demo.md)
   给对外演示用的短 demo 脚本。
 - [`../web/`](../web/)

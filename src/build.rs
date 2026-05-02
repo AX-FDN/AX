@@ -4,6 +4,7 @@ const PROJECT_SOURCES_DIR: &str = "project-sources";
 const HIR_FILE: &str = "program.hir.json";
 const MIR_FILE: &str = "program.mir.json";
 
+mod aot_rules;
 mod input;
 mod model;
 mod program;

@@ -2,6 +2,8 @@ use std::path::PathBuf;
 
 use serde::Serialize;
 
+use super::aot_rules;
+
 #[derive(Debug, Clone)]
 pub struct BuildOptions {
     pub out_dir: PathBuf,
@@ -88,6 +90,7 @@ pub struct AotReadinessBlocker {
     pub message: String,
     pub required_stage: String,
     pub resolution: AotBlockerResolution,
+    pub ai: AotBlockerAiAdvice,
 }
 
 impl AotReadinessBlocker {
@@ -98,12 +101,47 @@ impl AotReadinessBlocker {
         required_stage: impl Into<String>,
     ) -> Self {
         let code = code.into();
+        let category = category.into();
+        let message = message.into();
+        let resolution = AotBlockerResolution::for_code(&code);
+        let ai = AotBlockerAiAdvice::for_blocker(&code, &category, &resolution);
         Self {
-            resolution: AotBlockerResolution::for_code(&code),
             code,
-            category: category.into(),
-            message: message.into(),
+            category,
+            message,
             required_stage: required_stage.into(),
+            resolution,
+            ai,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct AotBlockerAiAdvice {
+    pub rule_id: String,
+    pub layer: String,
+    pub ai_action: String,
+    pub safe_to_edit: bool,
+    pub summary: String,
+    pub repair_goal: String,
+    pub validation: Vec<String>,
+}
+
+impl AotBlockerAiAdvice {
+    fn for_blocker(code: &str, category: &str, resolution: &AotBlockerResolution) -> Self {
+        let rule = aot_rules::rule_for_blocker(code, category);
+        Self {
+            rule_id: rule.rule_id.to_string(),
+            layer: rule.layer.to_string(),
+            ai_action: resolution.agent_action.clone(),
+            safe_to_edit: resolution.source_edit_safe,
+            summary: rule.summary.to_string(),
+            repair_goal: rule.repair_goal.to_string(),
+            validation: rule
+                .validation
+                .iter()
+                .map(|command| (*command).to_string())
+                .collect(),
         }
     }
 }
@@ -152,6 +190,9 @@ pub struct BuildManifest {
     pub target_name: String,
     pub entry_file: String,
     pub output_dir: String,
+    pub user_code_valid: bool,
+    pub interpreter_supported: bool,
+    pub aot_supported: bool,
     pub backend: BuildBackend,
     pub aot_readiness: AotReadiness,
     pub artifacts: BuildArtifacts,

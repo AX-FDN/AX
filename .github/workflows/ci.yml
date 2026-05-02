@@ -77,9 +77,9 @@ jobs:
       - name: Run cross-platform interface snapshots
         run: cargo test --locked --test interface_snapshots
 
-      - name: Run LLVM AOT executable smoke
+      - name: Run LLVM AOT parity smoke
         shell: pwsh
-        run: ./scripts/smoke-aot-link.ps1
+        run: ./scripts/smoke-aot-parity.ps1
 
       - name: Run Linux core CLI smoke
         run: |

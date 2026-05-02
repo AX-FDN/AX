@@ -1,0 +1,10 @@
+fn main() -> i32 {
+    let left: i32 = 4;
+    let right: i32 = 9;
+    let ordered: bool = left < right && !(right < left);
+    let distinct: bool = left != right;
+    if (ordered && distinct) {
+        return 7;
+    }
+    return 1;
+}

@@ -103,7 +103,10 @@ pub fn assess_aot_readiness(program: &AstProgram, input: AotReadinessInput<'_>) 
             "Build-2",
         ));
     }
-    if feature_starts_with(&features, "host_") {
+    if features
+        .iter()
+        .any(|feature| feature.starts_with("host_") && feature != "host_stdio")
+    {
         blockers.push(AotReadinessBlocker::new(
             "AOT0301",
             "runtime",
@@ -146,7 +149,7 @@ pub fn assess_aot_readiness(program: &AstProgram, input: AotReadinessInput<'_>) 
         });
 
     AotReadiness {
-        schema_version: 2,
+        schema_version: 3,
         stage: "Build-0 skeleton".to_string(),
         status: "blocked".to_string(),
         executable_emission: false,
@@ -395,7 +398,7 @@ fn collect_expr_aot_features(expression: &ast::Expr, features: &mut BTreeSet<Str
             features.insert("bool_values".to_string());
         }
         ast::ExprKind::String { .. } => {
-            features.insert("string_runtime".to_string());
+            features.insert("string_literals".to_string());
         }
         ast::ExprKind::Name { .. } | ast::ExprKind::Error => {}
         ast::ExprKind::Unary { expr, .. } => collect_expr_aot_features(expr, features),

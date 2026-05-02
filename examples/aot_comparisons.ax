@@ -1,0 +1,13 @@
+fn score(value: i32) -> i32 {
+    let low: bool = value >= 3;
+    let high: bool = value <= 8;
+    let edge: bool = value == 5 || value == 6;
+    if (low && high && edge) {
+        return 11;
+    }
+    return 2;
+}
+
+fn main() -> i32 {
+    return score(6);
+}

@@ -1,7 +1,7 @@
 use crate::diagnostics::{Diagnostic, DiagnosticKind};
 use crate::source::SourceFile;
 
-use super::{RuleTemplate, lexer, parser, project, runtime, semantic};
+use super::{RuleTemplate, lexer, lowering, parser, project, runtime, semantic};
 
 pub(in crate::ai) fn match_rule(
     _source: &SourceFile,
@@ -25,6 +25,7 @@ fn match_rule_by_code(code: &str) -> Option<RuleTemplate> {
         .or_else(|| parser::match_code(code))
         .or_else(|| project::match_code(code))
         .or_else(|| semantic::match_code(code))
+        .or_else(|| lowering::match_code(code))
         .or_else(|| runtime::match_code(code))
 }
 
