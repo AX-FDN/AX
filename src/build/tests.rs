@@ -280,7 +280,7 @@ return values[0] + pick(values, len(values) - 1);
 }
 
 #[test]
-fn aot_readiness_blocks_array_write_until_native_write_semantics_exist() {
+fn aot_readiness_allows_fixed_array_write_v0() {
     let readiness = readiness_for(
         "\
 fn main() -> i32 {
@@ -296,7 +296,7 @@ return values[0];
         },
     );
 
-    assert!(!readiness.single_file_core_candidate);
+    assert!(readiness.single_file_core_candidate);
     assert_eq!(
         readiness.required_backend_features,
         vec![
@@ -306,12 +306,160 @@ return values[0];
             "i32_values".to_string()
         ]
     );
-    assert_eq!(blocker_codes(&readiness), vec!["AOT0001", "AOT0206"]);
-    assert_eq!(
-        readiness.blockers[1].ai.rule_id,
-        "aot_array_write_lowering_pending"
+    assert_eq!(blocker_codes(&readiness), vec!["AOT0001"]);
+}
+
+#[test]
+fn aot_readiness_allows_struct_read_v0() {
+    let readiness = readiness_for(
+        "\
+struct Point {
+x: i32,
+y: i32,
+}
+
+fn main() -> i32 {
+let point: Point = Point { x: 2, y: 5 };
+return point.x + point.y;
+}
+",
+        AotReadinessInput {
+            is_project: false,
+            has_local_path_packages: false,
+            package_lock_status: None,
+        },
     );
-    assert!(!readiness.blockers[1].resolution.source_edit_safe);
+
+    assert!(readiness.single_file_core_candidate);
+    assert_eq!(
+        readiness.required_backend_features,
+        vec![
+            "functions".to_string(),
+            "i32_values".to_string(),
+            "structs".to_string()
+        ]
+    );
+    assert_eq!(blocker_codes(&readiness), vec!["AOT0001"]);
+}
+
+#[test]
+fn aot_readiness_allows_unit_enum_v0() {
+    let readiness = readiness_for(
+        "\
+enum Flag {
+Off,
+On,
+}
+
+fn choose(flag: Flag) -> i32 {
+if (flag == Flag.On) {
+return 9;
+}
+return 2;
+}
+
+fn main() -> i32 {
+let flag: Flag = Flag.On;
+return choose(flag);
+}
+",
+        AotReadinessInput {
+            is_project: false,
+            has_local_path_packages: false,
+            package_lock_status: None,
+        },
+    );
+
+    assert!(readiness.single_file_core_candidate);
+    assert_eq!(
+        readiness.required_backend_features,
+        vec![
+            "control_flow".to_string(),
+            "enums".to_string(),
+            "functions".to_string(),
+            "i32_values".to_string()
+        ]
+    );
+    assert_eq!(blocker_codes(&readiness), vec!["AOT0001"]);
+}
+
+#[test]
+fn aot_readiness_allows_unit_enum_match_v0() {
+    let readiness = readiness_for(
+        "\
+enum Flag {
+Off,
+On,
+}
+
+fn score(flag: Flag) -> i32 {
+match (flag) {
+Flag.On => {
+return 9;
+}
+Flag.Off => {
+return 2;
+}
+}
+}
+
+fn main() -> i32 {
+return score(Flag.On);
+}
+",
+        AotReadinessInput {
+            is_project: false,
+            has_local_path_packages: false,
+            package_lock_status: None,
+        },
+    );
+
+    assert!(readiness.single_file_core_candidate);
+    assert_eq!(
+        readiness.required_backend_features,
+        vec![
+            "enum_patterns".to_string(),
+            "enums".to_string(),
+            "functions".to_string(),
+            "i32_values".to_string(),
+            "match_statements".to_string()
+        ]
+    );
+    assert_eq!(blocker_codes(&readiness), vec!["AOT0001"]);
+}
+
+#[test]
+fn aot_readiness_allows_struct_field_write_v0() {
+    let readiness = readiness_for(
+        "\
+struct Point {
+x: i32,
+}
+
+fn main() -> i32 {
+let mut point: Point = Point { x: 1 };
+point.x = 3;
+return point.x;
+}
+",
+        AotReadinessInput {
+            is_project: false,
+            has_local_path_packages: false,
+            package_lock_status: None,
+        },
+    );
+
+    assert!(readiness.single_file_core_candidate);
+    assert_eq!(
+        readiness.required_backend_features,
+        vec![
+            "functions".to_string(),
+            "i32_values".to_string(),
+            "struct_writes".to_string(),
+            "structs".to_string()
+        ]
+    );
+    assert_eq!(blocker_codes(&readiness), vec!["AOT0001"]);
 }
 
 #[test]

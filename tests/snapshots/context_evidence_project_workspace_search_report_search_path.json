@@ -80,6 +80,7 @@
           "string_literals",
           "string_runtime",
           "string_values",
+          "struct_writes",
           "structs",
           "to_string_values"
         ],
@@ -122,6 +123,28 @@
               "safe_to_edit": false,
               "summary": "project source graph packaging is not yet native-linkable",
               "repair_goal": "Preserve the project source layout and add explicit native project linking semantics before treating build as a source repair failure.",
+              "validation": [
+                "axc run <target>",
+                "axc build <target> --json"
+              ]
+            }
+          },
+          {
+            "code": "AOT0207",
+            "category": "language",
+            "message": "struct field mutation needs explicit native layout write semantics before AOT can preserve interpreter behavior",
+            "required_stage": "Build-2",
+            "resolution": {
+              "agent_action": "explain_unsupported",
+              "source_edit_safe": false
+            },
+            "ai": {
+              "rule_id": "aot_struct_write_lowering_pending",
+              "layer": "aot_readiness",
+              "ai_action": "explain_unsupported",
+              "safe_to_edit": false,
+              "summary": "struct field mutation needs native write semantics",
+              "repair_goal": "Keep struct-mutating source valid for axc run and add explicit native field write lowering before AOT parity.",
               "validation": [
                 "axc run <target>",
                 "axc build <target> --json"

@@ -1,0 +1,26 @@
+enum Flag {
+    Off,
+    On,
+}
+
+fn toggle(flag: Flag) -> Flag {
+    if (flag == Flag.On) {
+        return Flag.Off;
+    }
+    return Flag.On;
+}
+
+fn score(flag: Flag) -> i32 {
+    if (flag == Flag.On) {
+        return 9;
+    }
+    return 2;
+}
+
+fn main() -> i32 {
+    let first: Flag = Flag.Off;
+    let second: Flag = toggle(first);
+    let result: i32 = score(second);
+    println(result);
+    return result;
+}

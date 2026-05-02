@@ -78,12 +78,10 @@ pub fn assess_aot_readiness(program: &AstProgram, input: AotReadinessInput<'_>) 
     }
     if features.contains("payload_enums")
         || features.contains("match_expressions")
-        || features.contains("match_statements")
         || features.contains("struct_patterns")
         || features.contains("or_patterns")
         || features.contains("range_patterns")
         || features.contains("match_guards")
-        || features.contains("enum_patterns")
         || features.contains("payload_enum_patterns")
         || features.contains("result_values")
         || features.contains("option_values")
@@ -91,7 +89,7 @@ pub fn assess_aot_readiness(program: &AstProgram, input: AotReadinessInput<'_>) 
         blockers.push(AotReadinessBlocker::new(
             "AOT0204",
             "language",
-            "enum layout, pattern tests, and match lowering need a native backend contract",
+            "payload enum layout, pattern tests, and match lowering need a native backend contract",
             "Build-2",
         ));
     }
@@ -103,11 +101,11 @@ pub fn assess_aot_readiness(program: &AstProgram, input: AotReadinessInput<'_>) 
             "Build-2",
         ));
     }
-    if features.contains("array_writes") || features.contains("slice_writes") {
+    if features.contains("slice_writes") {
         blockers.push(AotReadinessBlocker::new(
             "AOT0206",
             "language",
-            "array and slice mutation need explicit native layout write semantics before AOT can preserve interpreter behavior",
+            "slice mutation needs explicit native layout write semantics before AOT can preserve interpreter behavior",
             "Build-2",
         ));
     }
@@ -137,13 +135,9 @@ pub fn assess_aot_readiness(program: &AstProgram, input: AotReadinessInput<'_>) 
             matches!(
                 feature.as_str(),
                 "slices"
-                    | "structs"
-                    | "enums"
                     | "payload_enums"
                     | "match_expressions"
-                    | "match_statements"
                     | "result_propagation"
-                    | "array_writes"
                     | "slice_writes"
                     | "impl_methods"
                     | "traits"
@@ -489,7 +483,10 @@ fn collect_assignment_target_aot_features(target: &ast::Expr, features: &mut BTr
         ast::ExprKind::Slice { .. } => {
             features.insert("slice_writes".to_string());
         }
-        ast::ExprKind::Field { base, .. } => collect_assignment_target_aot_features(base, features),
+        ast::ExprKind::Field { base, .. } => {
+            features.insert("struct_writes".to_string());
+            collect_assignment_target_aot_features(base, features);
+        }
         _ => {}
     }
 }

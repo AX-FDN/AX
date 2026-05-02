@@ -1,0 +1,26 @@
+enum Flag {
+    Off,
+    On,
+    Unknown,
+}
+
+fn score(flag: Flag) -> i32 {
+    match (flag) {
+        Flag.On => {
+            return 11;
+        }
+        Flag.Off => {
+            return 3;
+        }
+        Flag.Unknown => {
+            return 1;
+        }
+    }
+}
+
+fn main() -> i32 {
+    let flag: Flag = Flag.On;
+    let result: i32 = score(flag);
+    println(result);
+    return result;
+}

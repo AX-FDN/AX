@@ -1,0 +1,6 @@
+fn main() -> i32 {
+    let mut values: [i32; 3] = [4, 5, 6];
+    values[1] = values[0] + values[2];
+    println(values[1]);
+    return values[1];
+}

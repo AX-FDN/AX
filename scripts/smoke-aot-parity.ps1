@@ -12,7 +12,12 @@ param(
         "examples/aot_string_values.ax",
         "examples/aot_string_len_compare.ax",
         "examples/aot_string_runtime.ax",
-        "examples/aot_array_read.ax"
+        "examples/aot_array_read.ax",
+        "examples/aot_array_write.ax",
+        "examples/aot_struct_read.ax",
+        "examples/aot_struct_write.ax",
+        "examples/aot_enum_unit.ax",
+        "examples/aot_enum_match.ax"
     ),
     [string] $OutputRoot = ""
 )

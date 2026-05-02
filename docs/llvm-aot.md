@@ -53,7 +53,9 @@ LLVM IR v0 只支持足够小的单文件核心：
 - `string == string` / `string != string` 内容比较，当前通过 C ABI `strcmp` 完成
 - `to_string(i32)` / `to_string(bool)` / `to_string(string)`
 - `string + string`，当前通过 process-lifetime `malloc` 分配拼接结果，暂不回收
-- 固定长度数组 v0：非空 array literal、局部变量、函数参数 by value、索引读取、`len(array)`；当前主要验证 `[i32; N]`
+- 固定长度数组 v0：非空 array literal、局部变量、函数参数 by value、索引读取、元素写入、`len(array)`；当前主要验证 `[i32; N]`
+- Struct v0：非泛型 struct 定义、struct literal、局部变量、函数参数 by value、返回值、字段读取和字段写入
+- Unit Enum v0：非泛型无 payload enum、variant 常量、局部变量、函数参数 by value、返回值、`==` / `!=` tag 比较和语句形态 unit enum `match` 判断
 - local `let` / assignment
 - `return`
 - MIR 级 `goto` / `branch`
@@ -81,6 +83,11 @@ axc build examples/aot_string_values.ax
 axc build examples/aot_string_len_compare.ax
 axc build examples/aot_string_runtime.ax
 axc build examples/aot_array_read.ax
+axc build examples/aot_array_write.ax
+axc build examples/aot_struct_read.ax
+axc build examples/aot_struct_write.ax
+axc build examples/aot_enum_unit.ax
+axc build examples/aot_enum_match.ax
 ```
 
 生成：
@@ -104,9 +111,8 @@ build/aot_return/
 - 更完整的通用 `string` ownership / allocation / free 规则
 - 更完整的宿主 IO runtime ABI
 - `f32`
-- array element assignment / slices
-- struct / enum / payload enum
-- `match`
+- slices
+- payload enum / enum formatter / expression match lowering / complex pattern lowering
 - `Result` / `Option`
 - `?` 错误传播
 - methods / impl / traits / generics 的 native lowering
@@ -229,6 +235,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke-aot-parity.p
 - `examples/aot_string_values.ax`
 - `examples/aot_string_len_compare.ax`
 - `examples/aot_string_runtime.ax`
+- `examples/aot_array_read.ax`
+- `examples/aot_array_write.ax`
+- `examples/aot_struct_read.ax`
+- `examples/aot_struct_write.ax`
+- `examples/aot_enum_unit.ax`
+- `examples/aot_enum_match.ax`
 
 有 clang 的 CI 应优先跑 parity smoke，因为它不只证明“能链接 exe”，还证明当前 AOT executable 没有偏离解释器语义。Ubuntu CI 会安装 `clang` 后跑这条验证。没有 clang 的本机不要求这条通过；必须保证默认 IR-only 路径和缺 clang 的 `AOT1001` blocker 路径稳定。
 
@@ -264,9 +276,11 @@ LLVM AOT 后续不能靠“照着解释器抄”推进，而要按契约补齐�
 4. 已完成最小 string value representation：局部变量 / 参数 / 返回值都可按只读 C 字符串指针进入 AOT。
 5. 已完成无 allocator 的 string helper 第一刀：`string_len` / `len(string)` 与字符串内容 `==` / `!=` 可进入 AOT parity。
 6. 已完成 String Runtime v0：`to_string(i32/bool/string)` 与 `string + string` 可进入 AOT parity；当前拼接和 `to_string(i32)` 使用 process-lifetime `malloc`，暂不回收。
-7. 已完成 Array Read v0：固定长度数组 literal / 局部变量 / 参数 by value / 索引读取 / `len(array)` 可进入 AOT parity；当前主要验证 `[i32; N]`，数组写入和 slice 仍未进入 native layout。
-8. 下一步进入 struct layout / field read contract，再谈 enum、`match`、`Result`、`Option`。
-9. 增加 multi-file/project linking contract，再谈本地包和标准库 AOT。
+7. 已完成 Array v0：固定长度数组 literal / 局部变量 / 参数 by value / 索引读取 / 元素写入 / `len(array)` 可进入 AOT parity；当前主要验证 `[i32; N]`，slice 仍未进入 native layout。
+8. 已完成 Struct v0：非泛型 struct 定义 / literal / 局部变量 / 参数 by value / 返回值 / 字段读取 / 字段写入可进入 AOT parity。
+9. 已完成 Unit Enum v0：非泛型无 payload enum 以 `i32 tag` lower，支持 variant 值、参数、返回值、`== !=` 和语句形态 unit enum `match`；payload enum、enum formatter、表达式形态 `match` 与复杂 pattern 仍通过 blocker/LLVM lowering 管理。
+10. 下一步进入 payload enum layout，再谈表达式 `match`、`Result`、`Option`。
+10. 增加 multi-file/project linking contract，再谈本地包和标准库 AOT。
 10. 等 Build-2 代表项目可 AOT 后，才考虑发布级 Build-3。
 
 JIT 不应早于发布级 AOT 评估。当前最重要的是把 AOT 输入契约、IR artifact、toolchain blocker resolution 和解释器语义对照链先做稳。

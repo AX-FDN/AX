@@ -19,6 +19,7 @@ pub(super) fn rule_for_blocker(code: &str, category: &str) -> AotBlockerRule {
         "AOT0204" => RULE_ENUM_MATCH_LOWERING_PENDING,
         "AOT0205" => RULE_RESULT_PROPAGATION_LOWERING_PENDING,
         "AOT0206" => RULE_ARRAY_WRITE_LOWERING_PENDING,
+        "AOT0207" => RULE_STRUCT_WRITE_LOWERING_PENDING,
         "AOT0301" => RULE_HOST_RUNTIME_ABI_PENDING,
         "AOT0302" => RULE_STRING_RUNTIME_ABI_PENDING,
         "AOT1000" => RULE_LINKING_DISABLED,
@@ -106,8 +107,8 @@ const RULE_METHOD_ABI_PENDING: AotBlockerRule = AotBlockerRule {
 const RULE_ENUM_MATCH_LOWERING_PENDING: AotBlockerRule = AotBlockerRule {
     rule_id: "aot_enum_match_lowering_pending",
     layer: "aot_readiness",
-    summary: "enum layout and match lowering need a native backend contract",
-    repair_goal: "Keep semantic behavior under axc run and add native enum layout plus pattern lowering before AOT validation.",
+    summary: "payload enum and match lowering need a native backend contract",
+    repair_goal: "Keep semantic behavior under axc run and add payload enum layout plus pattern lowering before AOT validation.",
     validation: VALIDATE_RUN_BUILD,
 };
 
@@ -122,8 +123,16 @@ const RULE_RESULT_PROPAGATION_LOWERING_PENDING: AotBlockerRule = AotBlockerRule 
 const RULE_ARRAY_WRITE_LOWERING_PENDING: AotBlockerRule = AotBlockerRule {
     rule_id: "aot_array_write_lowering_pending",
     layer: "aot_readiness",
-    summary: "array and slice mutation need native write semantics",
-    repair_goal: "Keep array-mutating source valid for axc run and add explicit native layout write lowering before AOT parity.",
+    summary: "slice mutation still needs native write semantics",
+    repair_goal: "Keep slice-mutating source valid for axc run and add explicit native slice layout write lowering before AOT parity.",
+    validation: VALIDATE_RUN_BUILD,
+};
+
+const RULE_STRUCT_WRITE_LOWERING_PENDING: AotBlockerRule = AotBlockerRule {
+    rule_id: "aot_struct_write_lowering_pending",
+    layer: "aot_readiness",
+    summary: "struct field mutation needs native write semantics",
+    repair_goal: "Keep struct-mutating source valid for axc run and add explicit native field write lowering before AOT parity.",
     validation: VALIDATE_RUN_BUILD,
 };
 

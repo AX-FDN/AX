@@ -71,7 +71,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke-aot-parity.ps1
 ```
 
-这条脚本会对 13 个 core/stdout/string/array-read AOT 样例比较解释器和 native executable 的 `exit code / stdout / stderr`，其中包含 `println(i32/bool)`、string literal 直接 `println`、string 局部变量 / 参数 / 返回值、`string_len` / `len(string)`、字符串 `==` / `!=`、`to_string(i32/bool/string)`、`string + string`、固定长度数组索引读取与 `len(array)` 的 parity。如果只想验证单个 executable 链接与退出码，仍可跑 `.\scripts\smoke-aot-link.ps1`。没有 clang 的本机不要求这两条通过；必须保证默认 IR-only 路径和缺 clang 的 `AOT1001` blocker 路径稳定。
+这条脚本会对 18 个 core/stdout/string/array-read-write/struct-read-write/enum-unit-match AOT 样例比较解释器和 native executable 的 `exit code / stdout / stderr`，其中包含 `println(i32/bool)`、string literal 直接 `println`、string 局部变量 / 参数 / 返回值、`string_len` / `len(string)`、字符串 `==` / `!=`、`to_string(i32/bool/string)`、`string + string`、固定长度数组索引读取 / 元素写入与 `len(array)`、非泛型 struct literal / 参数 by value / 返回值 / 字段读取 / 字段写入，以及非泛型 unit enum tag 值 / 参数 / 返回值 / `== !=` / 语句形态 `match` 的 parity。如果只想验证单个 executable 链接与退出码，仍可跑 `.\scripts\smoke-aot-link.ps1`。没有 clang 的本机不要求这两条通过；必须保证默认 IR-only 路径和缺 clang 的 `AOT1001` blocker 路径稳定。
 
 ### Std-1 Candidate Change
 

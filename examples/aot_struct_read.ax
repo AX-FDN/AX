@@ -1,0 +1,20 @@
+struct Point {
+    x: i32,
+    y: i32,
+}
+
+fn shift(point: Point, dx: i32, dy: i32) -> Point {
+    return Point { x: point.x + dx, y: point.y + dy };
+}
+
+fn score(point: Point) -> i32 {
+    return point.x * 10 + point.y;
+}
+
+fn main() -> i32 {
+    let start: Point = Point { y: 2, x: 1 };
+    let moved: Point = shift(start, 3, 4);
+    let result: i32 = score(moved);
+    println(result);
+    return result;
+}

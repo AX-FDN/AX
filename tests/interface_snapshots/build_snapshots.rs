@@ -1467,6 +1467,36 @@ fn llvm_aot_core_examples_check_run_and_emit_ir_without_linking_by_default() {
             "aot_array_read",
             20,
         ),
+        (
+            "llvm-aot-array-write-build",
+            "examples/aot_array_write.ax",
+            "aot_array_write",
+            10,
+        ),
+        (
+            "llvm-aot-struct-read-build",
+            "examples/aot_struct_read.ax",
+            "aot_struct_read",
+            46,
+        ),
+        (
+            "llvm-aot-struct-write-build",
+            "examples/aot_struct_write.ax",
+            "aot_struct_write",
+            9,
+        ),
+        (
+            "llvm-aot-enum-unit-build",
+            "examples/aot_enum_unit.ax",
+            "aot_enum_unit",
+            9,
+        ),
+        (
+            "llvm-aot-enum-match-build",
+            "examples/aot_enum_match.ax",
+            "aot_enum_match",
+            11,
+        ),
     ] {
         let check_output = run_axc([OsStr::new("check"), OsStr::new(example)]);
         assert_eq!(
