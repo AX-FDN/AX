@@ -65,11 +65,21 @@ jobs:
       - name: Build axc
         run: cargo build --locked
 
+      - name: Install clang for LLVM AOT smoke
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang
+          clang --version
+
       - name: Run Rust unit tests
         run: cargo test --locked --lib
 
       - name: Run cross-platform interface snapshots
         run: cargo test --locked --test interface_snapshots
+
+      - name: Run LLVM AOT executable smoke
+        shell: pwsh
+        run: ./scripts/smoke-aot-link.ps1
 
       - name: Run Linux core CLI smoke
         run: |

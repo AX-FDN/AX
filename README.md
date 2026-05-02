@@ -6,7 +6,7 @@
 ### 面向 Coding Agent 的 AI-first 语言
 
 [![License](https://img.shields.io/github/license/AX-FDN/AX)](./LICENSE)
-[![Prototype](https://img.shields.io/badge/status-prototype-0ea5e9)](./PLAN.md)
+[![Prototype](https://img.shields.io/badge/status-prototype-0ea5e9)](./执行路线.md)
 [![Benchmark](https://img.shields.io/badge/repair%20benchmark-included-2563eb)](./docs/repair-benchmark.md)
 
 </div>
@@ -50,8 +50,8 @@ AX 关注的不只是“模型能不能写出代码”，更关注三件更硬�
 | 外部 JSON / artifact 契约   | [`docs/interface-contracts.md`](./docs/interface-contracts.md)     |
 | LLVM AOT v0 后端边界        | [`docs/llvm-aot.md`](./docs/llvm-aot.md)                           |
 | 语言能力当前支持状态        | [`docs/language-support-status.md`](./docs/language-support-status.md) |
-| 全项目按什么阶段推进        | [`PLAN.md`](./PLAN.md)                                             |
-| 现在具体在做什么            | [`WORKLIST.md`](./WORKLIST.md)                                     |
+| 全项目按什么阶段推进        | [`执行路线.md`](./执行路线.md)                                     |
+| 曾经的计划与旧施工单        | [`曾经的计划/`](./曾经的计划/)                                     |
 | 哪些事情已经做完            | [`ARCHIVE.md`](./ARCHIVE.md)                                       |
 
 ## Web 与社区门户
@@ -95,7 +95,7 @@ http://101.37.238.42
 - `P2` 继续拓展语言内核与代表样例，避免过早把 AX 锁死在“只写小工具”的范围内
 - `P3` 已进入第一批 `std.*` 标准库试点阶段，但尚未全仓冻结
 
-完整的阶段门槛和前置条件看 [`PLAN.md`](./PLAN.md)。
+完整的阶段门槛和前置条件看 [`执行路线.md`](./执行路线.md)。
 
 ## 一眼看懂 AX
 
@@ -736,7 +736,7 @@ AX 的六层协议上下文，不只是让模型“更快读懂项目”，更�
 | 推进语言内核与可写项目能力                      | 继续补最值钱的表达能力、宿主能力和 project-backed 工程组织；短期服务工具/自动化场景，中期面向后端语言能力扩展                                                                                                                                                       | `foundation/`、`examples/project_*`、`SYNTAX.md`                                                                                                                                                                       |
 | 推进显式、确定的模块组织                        | 让 shared foundation 和 project-private logic 有清晰边界                                                                                                                                                                                                             | `AX.toml + sources`、`module`、`import`、全限定名                                                                                                                                                                      |
 | 推进本地 AX 包接口                              | 先让项目可以复用本地 AX 源码包，用户导入的是 AX package/module，而不是 Rust crate 直通桥                                                                                                                                                                             | `AX.toml [dependencies]`、`examples/project_package_config/`、`tests/interface_snapshots.rs`                                                                                                                           |
-| 为第一版最小标准库做冻结试点                    | 用 `project_text_normalize`、`project_directory_index`、`project_release_promote`、`project_command_capture`、`project_command_batch` 验证 `std.*` 命名空间、全限定调用、递归工具逻辑、发布型文件操作、命令捕获、命令执行、环境变量检查和项目私有 `lib.*` 的组合成本 | `std/`、`examples/project_text_normalize/`、`examples/project_directory_index/`、`examples/project_release_promote/`、`examples/project_command_capture/`、`examples/project_command_batch/`、`PLAN.md`、`WORKLIST.md` |
+| 为第一版最小标准库做冻结试点                    | 用 `project_text_normalize`、`project_directory_index`、`project_release_promote`、`project_command_capture`、`project_command_batch` 验证 `std.*` 命名空间、全限定调用、递归工具逻辑、发布型文件操作、命令捕获、命令执行、环境变量检查和项目私有 `lib.*` 的组合成本 | `std/`、`examples/project_text_normalize/`、`examples/project_directory_index/`、`examples/project_release_promote/`、`examples/project_command_capture/`、`examples/project_command_batch/`、`执行路线.md` |
 | 做硬 diagnostics / context / repair / benchmark | 让语言主线自带可消费的编译器反馈和可回放证据链                                                                                                                                                                                                                       | `src/ai.rs`、`benchmarks/`、`scripts/`、`docs/benchmark-showcase.md`                                                                                                                                                   |
 | 用代表性样例反向驱动语言设计                    | 每补一项能力，都要求它能支撑一个更真实的工具样例                                                                                                                                                                                                                     | `examples/`、`tests/interface_snapshots.rs`                                                                                                                                                                            |
 
@@ -749,7 +749,7 @@ AX 的六层协议上下文，不只是让模型“更快读懂项目”，更�
 - 再以 `P2` 继续推进语言内核与可写项目能力，不把当前阶段误读成“工具语言已经完成”
 - 同步推进 `P1` 的编译器护城河闭环
 - 继续推进 `P3` 的官方最小标准库试点与冻结
-- 本地 path package v0 与 `AX.lock` v0 已启动；AOT、registry、自举和生态扩张继续按 [`PLAN.md`](./PLAN.md) 的后续阶段推进
+- 本地 path package v0 与 `AX.lock` v0 已启动；AOT、registry、自举和生态扩张继续按 [`执行路线.md`](./执行路线.md) 的后续阶段推进
 
 ## 快速理解 AX 现在能做什么
 
@@ -1234,10 +1234,10 @@ AX 希望最终回答的是：
   当前 benchmark 展示页
 - [`web/README.md`](./web/README.md)
   Repair Workbench 前端的本地开发和构建入口
-- [`PLAN.md`](./PLAN.md)
-  唯一方向基线，定义 `P0-P7` 闭环阶段、前置条件与退出条件
-- [`WORKLIST.md`](./WORKLIST.md)
-  当前待做细节与执行顺序
+- [`执行路线.md`](./执行路线.md)
+  当前唯一执行路线，定义错误分层、AI 自修复、AOT 验证闭环和阶段出口
+- [`曾经的计划/`](./曾经的计划/)
+  已退役的旧版 `PLAN.md`、`WORKLIST.md` 与 AOT 后端规划
 - [`ARCHIVE.md`](./ARCHIVE.md)
   已完成事项归档
 

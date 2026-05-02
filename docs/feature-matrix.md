@@ -1,7 +1,7 @@
 # AX Feature Matrix
 
 > 阅读提示：本文件只回答“AX 当前到底做到哪了”。  
-> 它不是愿景文档，也不是路线图；未来方向请看 [`../PLAN.md`](../PLAN.md)，当前施工项请看 [`../WORKLIST.md`](../WORKLIST.md)。
+> 它不是愿景文档，也不是路线图；当前执行方向请看 [`../执行路线.md`](../执行路线.md)，旧版计划见 [`../曾经的计划/`](../曾经的计划/)。
 
 状态说明：
 
@@ -17,7 +17,7 @@
 | `P1` 编译器护城河 | `[x]` repair/context/benchmark 已进入主线，context-enabled export、benchmark showcase 与公开口径边界已成立 |
 | `P2` 语言内核 / 可写项目能力 | `[~]` 已进入后段，但不等于“工具语言完成”；当前仍在继续补齐支撑标准库、后端与 AI 生成稳定性的通用语言表面，payload enum 已开始进入 project-backed workload |
 | `P3` 官方最小标准库 | `[~]` 已启动第一批 `std.*` AX 源码模块，已完成十三组 project-backed 迁移/压力试点，并已收口 Std-1 冻结候选清单；尚未全仓冻结 |
-| `P4+` AOT / 包接口 / 自举 / 生态 | `[~]` 本地 path package v0 与 `AX.lock` v0 已启动；LLVM AOT v0 已能为极小单文件 MIR 子集生成文本 IR；registry、自举和生态仍按 `PLAN.md` 后续阶段推进 |
+| `P4+` AOT / 包接口 / 自举 / 生态 | `[~]` 本地 path package v0 与 `AX.lock` v0 已启动；LLVM AOT v0 已能为极小单文件 MIR 子集生成文本 IR；registry、自举和生态仍按 `执行路线.md` 后续阶段推进 |
 
 ## 总览
 
@@ -61,9 +61,9 @@
 | 修复证据展示层 | `[ ]` | `Repair Archaeology v0` 已定义方向 | 当前只是规划与边界，不是 live repair、不是模型客户端、不是新 CLI 契约 | `docs/repair-archaeology.md` |
 | 对外平台支持 | `[~]` | Windows 路径已较完整，Linux 有 quickstart 与核心链路说明 | 仍应按文档与 CI 事实表述，不宜夸成“全平台成熟” | `docs/platform-support.md` |
 | `build` | `[~]` | 可导出构建骨架产物，`context evidence` 会暴露 `build_readiness`；极小单文件 MIR 子集可额外生成 `generated/main.ll` | 当前不是成熟 native compiler，更不是已完成后端 | `src/build.rs` `src/backend/llvm/` `src/context.rs` |
-| AOT / JIT | `[~]` | AOT readiness v0 已进入 `build-manifest.json` schema v6 与 `context evidence`；LLVM AOT v0 可为 `fn main() -> i32` 级别子集生成文本 IR，链接 exe 需显式设置 `AX_LLVM_AOT_LINK=1` | 仍不是发布级 native executable output；JIT 仍不启动 | `src/build.rs` `src/backend/llvm/` `src/context.rs` `docs/llvm-aot.md` |
+| AOT / JIT | `[~]` | AOT readiness v2 已进入 `build-manifest.json` schema v7 与 `context evidence`；LLVM AOT v0 可为 `fn main() -> i32` 级别子集生成文本 IR，链接 exe 需显式设置 `AX_LLVM_AOT_LINK=1` | 仍不是发布级 native executable output；JIT 仍不启动 | `src/build.rs` `src/backend/llvm/` `src/context.rs` `docs/llvm-aot.md` |
 | 包接口 / 第三方库 | `[~]` | 本地 path package v0 已进入主线：`[dependencies] alias = { path = ... }` 会把本地 AX 包源码加载为 `alias.*` 模块；resolver 错误已有 `PX0001~PX0007` 稳定文本码和 `repair_rule / repair_goal / fixit`，context 与 build manifest 可暴露 `local_path_packages`，`axc lock` 可生成/校验 `AX.lock` v0；`axc lock --check` 已有 `LX0001~LX0004` 稳定文本码、package graph drift 详情和 AI-facing repair hints；`context evidence` 和 `build-manifest.json` 都会输出 `package_graph_readiness` 与 `aot_readiness` 说明包图是否可复现、是否阻塞 AOT 前置 | 仍不是 registry、版本求解、host extension ABI 或 `AX import -> Cargo crate` 直通桥 | `src/project.rs` `src/build.rs` `src/lockfile.rs` `src/context.rs` `examples/project_package_config/` `examples/project_job_runner/` |
-| 自举准备 | `[ ]` | 已有长期路线与关卡条件 | 现在不应被当成当前 KPI 或宣传口径 | `PLAN.md` |
+| 自举准备 | `[ ]` | 已有长期路线与关卡条件 | 现在不应被当成当前 KPI 或宣传口径 | `执行路线.md` |
 
 ## 当前语法面矩阵
 
@@ -110,4 +110,4 @@
 2. [`repair-benchmark.md`](./repair-benchmark.md)
 3. [`host-runtime-boundary.md`](./host-runtime-boundary.md)
 4. [`import-module-minimal-design.md`](./import-module-minimal-design.md)
-5. [`../PLAN.md`](../PLAN.md)
+5. [`../执行路线.md`](../执行路线.md)

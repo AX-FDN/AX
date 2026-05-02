@@ -5,13 +5,21 @@
         "category": "backend",
         "code": "AOT0001",
         "message": "native executable emission is not implemented yet",
-        "required_stage": "Build-1"
+        "required_stage": "Build-1",
+        "resolution": {
+          "agent_action": "explain_unsupported",
+          "source_edit_safe": false
+        }
       },
       {
         "category": "runtime",
         "code": "AOT0301",
         "message": "host boundary builtins need a native runtime ABI before AOT can preserve check/run behavior",
-        "required_stage": "Build-2/Build-3"
+        "required_stage": "Build-2/Build-3",
+        "resolution": {
+          "agent_action": "explain_unsupported",
+          "source_edit_safe": false
+        }
       }
     ],
     "executable_emission": false,
@@ -26,7 +34,7 @@
       "host_stdio",
       "i32_values"
     ],
-    "schema_version": 1,
+    "schema_version": 2,
     "single_file_core_candidate": true,
     "stage": "Build-0 skeleton",
     "status": "blocked"
@@ -48,6 +56,6 @@
     "LLVM AOT v0 may emit a textual LLVM IR artifact for the current single-file MIR subset."
   ],
   "output_dir": "<build-out>",
-  "schema_version": 6,
+  "schema_version": 7,
   "target_name": "hello"
 }

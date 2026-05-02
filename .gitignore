@@ -30,6 +30,8 @@ temp/
 
 # Build outputs
 build/
+!src/build/
+!src/build/**
 dist/
 out/
 bin/

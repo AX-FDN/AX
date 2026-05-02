@@ -27,6 +27,7 @@ AX 当前不是所有平台跑完全相同的验证链。仓库采用分层验�
 | Ubuntu CI | Build | `cargo build --locked` | 不发布 Linux binary |
 | Ubuntu CI | Rust unit tests | `cargo test --locked --lib` | 不跑 Windows-only script smoke |
 | Ubuntu CI | Cross-platform interface tests | `cargo test --locked --test interface_snapshots` | PowerShell benchmark tests在非 Windows 上保持 ignore |
+| Ubuntu CI | LLVM AOT executable smoke | `pwsh ./scripts/smoke-aot-link.ps1` after installing `clang` | 只验证极小单文件 core subset，不发布 Linux binary |
 | Ubuntu CI | Core CLI smoke | `axc fmt/check/run/build` 最小链 | 不覆盖 repair/export/compare `.ps1` 链 |
 | Web CI | Repair Workbench frontend | `cd web && npm ci && npm run build` | 不验证 Rust 编译器、benchmark 脚本或部署发布 |
 
@@ -52,6 +53,25 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test
 ```
 
 如果改动影响 examples，还要至少跑对应 example 的 `check / run / build` 回归，或确保它已经在 `interface_snapshots` 覆盖。
+
+### AOT Pivot / LLVM AOT v0 Change
+
+改到 `src/backend/llvm/*`、`src/build/*`、`src/context/evidence.rs`、AOT 样例或 build manifest 契约时，至少跑：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test --lib build::
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test --lib backend::llvm
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test --test interface_snapshots build_snapshots
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test --test interface_snapshots context_
+```
+
+如果本机或 CI 已安装 clang，再跑 executable smoke：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke-aot-link.ps1
+```
+
+没有 clang 的本机不要求这条通过；必须保证默认 IR-only 路径和缺 clang 的 `AOT1001` blocker 路径稳定。
 
 ### Std-1 Candidate Change
 
@@ -179,6 +199,6 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\export-repair-benc
 
 - Linux benchmark/orchestration 开始有非 PowerShell 实现。
 - macOS 进入 core support。
-- AOT backend 从 skeleton 进入真实 executable output。
+- AOT backend 从 LLVM IR prototype 进入更宽的真实 executable output。
 - 包系统或 stdlib contract 进入稳定 public interface。
 - live-model benchmark 开始常驻 CI 或 nightly workflow。

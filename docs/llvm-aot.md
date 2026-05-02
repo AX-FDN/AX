@@ -61,6 +61,8 @@ LLVM IR v0 只支持足够小的单文件核心：
 
 ```powershell
 axc build examples/aot_return.ax
+axc build examples/aot_math.ax
+axc build examples/aot_control_flow.ax
 ```
 
 生成：
@@ -138,7 +140,7 @@ axc build examples/aot_return.ax
 
 ## Build Manifest 契约
 
-LLVM AOT v0 把 `build-manifest.json` 升级到 schema version `6`。
+LLVM AOT v0 把 `build-manifest.json` 升级到 schema version `7`，并把 `aot_readiness.schema_version` 升级到 `2`。
 
 新增或变化的字段重点：
 
@@ -149,14 +151,15 @@ LLVM AOT v0 把 `build-manifest.json` 升级到 schema version `6`。
 - `artifacts.executable`：只有链接成功时才出现
 - `aot_readiness.stage = "Build-1 LLVM IR prototype"`：当前进入 Build-1 原型阶段
 - `aot_readiness.status = "ir_generated"` 或 `"built"`
+- `aot_readiness.blockers[].resolution`：给 AI/工具链说明下一步是解释 unsupported、开启链接、配置 clang，还是检查 toolchain failure
 
 工具链 blocker：
 
-| Code | Meaning |
-| --- | --- |
-| `AOT1000` | LLVM IR 已生成，但链接未开启 |
-| `AOT1001` | 请求链接，但找不到 clang |
-| `AOT1002` | 请求链接，clang 执行失败 |
+| Code | Meaning | `resolution.agent_action` |
+| --- | --- | --- |
+| `AOT1000` | LLVM IR 已生成，但链接未开启 | `enable_linking` |
+| `AOT1001` | 请求链接，但找不到 clang | `configure_toolchain` |
+| `AOT1002` | 请求链接，clang 执行失败 | `inspect_toolchain_failure` |
 
 ## 验证入口
 
@@ -167,11 +170,21 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test --test interface_snapshots
 ```
 
+LLVM executable 链接 smoke：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke-aot-link.ps1
+```
+
+这条 smoke 要求本机能找到 `clang`，会显式设置 `AX_LLVM_AOT_LINK=1`，构建 `examples/aot_return.ax`，要求 manifest 进入 `built` 状态，并运行生成的 executable，验证退出码是 `42`。CI 的 Ubuntu job 会安装 `clang` 后跑这条验证；没有 `clang` 的本地机器仍然可以只跑默认 IR artifact 验证。
+
 关键测试：
 
 - `backend::llvm::ir::tests::renders_minimal_main_return`
 - `backend::llvm::ir::tests::renders_i32_function_calls_and_arithmetic`
 - `llvm_aot_return_build_emits_ir_artifact_without_linking_by_default`
+- `llvm_aot_core_examples_check_run_and_emit_ir_without_linking_by_default`
+- `llvm_aot_link_reports_missing_clang_as_readiness_blocker`
 
 手动检查：
 
@@ -192,4 +205,4 @@ LLVM AOT 后续不能靠“照着解释器抄”推进，而要按契约补齐�
 5. 增加 multi-file/project linking contract，再谈本地包和标准库 AOT。
 6. 等 Build-2 代表项目可 AOT 后，才考虑发布级 Build-3。
 
-JIT 不应早于发布级 AOT 评估。当前最重要的是把 AOT 输入契约、IR artifact、toolchain blocker 和解释器语义对照链先做稳。
+JIT 不应早于发布级 AOT 评估。当前最重要的是把 AOT 输入契约、IR artifact、toolchain blocker resolution 和解释器语义对照链先做稳。

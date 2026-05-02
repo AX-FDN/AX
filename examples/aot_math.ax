@@ -1,0 +1,13 @@
+fn square(value: i32) -> i32 {
+    return value * value;
+}
+
+fn adjust(value: i32) -> i32 {
+    let base: i32 = square(value);
+    let shifted: i32 = base - 4;
+    return shifted / 2 + value % 3;
+}
+
+fn main() -> i32 {
+    return adjust(6);
+}

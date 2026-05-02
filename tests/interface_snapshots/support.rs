@@ -152,6 +152,51 @@ where
     panic!("failed to execute axc after retries: {error}");
 }
 
+pub(crate) fn run_axc_with_env<I, S, E, K, V>(args: I, env_pairs: E) -> Output
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<OsStr>,
+    E: IntoIterator<Item = (K, V)>,
+    K: AsRef<OsStr>,
+    V: AsRef<OsStr>,
+{
+    let args: Vec<OsString> = args
+        .into_iter()
+        .map(|arg| arg.as_ref().to_os_string())
+        .collect();
+    let env_pairs: Vec<(OsString, OsString)> = env_pairs
+        .into_iter()
+        .map(|(name, value)| (name.as_ref().to_os_string(), value.as_ref().to_os_string()))
+        .collect();
+    let binary = invocable_axc_binary();
+    let mut last_busy_error = None;
+    for _ in 0..20 {
+        let mut command = Command::new(&binary);
+        command.args(&args).current_dir(repo_root());
+        for (name, value) in &env_pairs {
+            command.env(name, value);
+        }
+        match command.output() {
+            Ok(output) => {
+                remove_temp_file_best_effort(&binary);
+                return output;
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::ExecutableFileBusy => {
+                last_busy_error = Some(error);
+                thread::sleep(Duration::from_millis(50));
+            }
+            Err(error) => {
+                remove_temp_file_best_effort(&binary);
+                panic!("failed to execute axc: {error}");
+            }
+        }
+    }
+
+    remove_temp_file_best_effort(&binary);
+    let error = last_busy_error.expect("executable file busy retries should record an error");
+    panic!("failed to execute axc after retries: {error}");
+}
+
 pub(crate) fn powershell_executable() -> &'static str {
     if cfg!(windows) {
         "powershell.exe"

@@ -19,9 +19,9 @@
 | 稳定执行路径 | `axc run` 仍然是解释器 |
 | build 基础产物 | `source.ax`、`program.hir.json`、`program.mir.json`、`build-manifest.json` |
 | AOT 原型 | LLVM AOT v0 已能为极小单文件 MIR 子集生成 `generated/main.ll` |
-| manifest | `build-manifest.json` schema version `6` |
+| manifest | `build-manifest.json` schema version `7`，`aot_readiness.schema_version = 2` |
 | exe 链接 | 默认关闭，只有 `AX_LLVM_AOT_LINK=1` 时才尝试 clang |
-| 当前样例 | [`examples/aot_return.ax`](./examples/aot_return.ax) |
+| 当前样例 | [`examples/aot_return.ax`](./examples/aot_return.ax)、[`examples/aot_math.ax`](./examples/aot_math.ax)、[`examples/aot_control_flow.ax`](./examples/aot_control_flow.ax) |
 | 当前后端代码 | [`src/backend/llvm/`](./src/backend/llvm/) |
 | 当前边界文档 | [`docs/llvm-aot.md`](./docs/llvm-aot.md) |
 
@@ -164,6 +164,12 @@ JIT 只能在 `AOT-6` 之后评估，不能抢 AOT 主线。
 | `AOT1001` | 请求链接，但找不到 clang |
 | `AOT1002` | 请求链接，clang 失败 |
 
+每个 blocker 还必须带 `resolution`，至少说明：
+
+- `agent_action`：AI 或外部工具下一步应该解释 unsupported、开启链接、配置 clang、检查 clang 失败，还是验证 lockfile。
+- `source_edit_safe`：当前 blocker 是否适合让 AI 自动改 AX 源码。后端未支持和工具链问题默认都是 `false`。
+- `recommended_command`：只有存在明确命令时才输出，例如 `AOT1000` 建议开启 `AX_LLVM_AOT_LINK`，`AOT0103` 建议 `axc lock <project> --check`。
+
 退出标准：
 
 - readiness 输出能覆盖语言、runtime、package、project 四类阻塞。
@@ -234,7 +240,7 @@ JIT 只能在 `AOT-6` 之后评估，不能抢 AOT 主线。
 | --- | --- |
 | Windows | `AX_LLVM_AOT_LINK=1` 能找到 clang 并生成 `.exe` |
 | Linux | `AX_LLVM_AOT_LINK=1` 能生成无后缀 executable |
-| CI | 可以先只验证 IR；链接测试在 toolchain 稳定后再进 CI |
+| CI | Ubuntu job 安装 `clang` 后运行 `scripts/smoke-aot-link.ps1`，验证 `examples/aot_return.ax` 能生成并运行 executable；Windows 链接验证等目标三元组和 MSVC/MinGW 策略稳定后再常驻 |
 
 退出标准：
 
@@ -529,7 +535,7 @@ git diff --check
    - 对支持子集比较 `axc run` 和 AOT exe/IR 预期。
 
 4. `AOT-2.1` 安装和记录 clang 工具链路径
-   - Windows 不强制，但要有可复现说明。
+   - Ubuntu CI 已安装 `clang` 并运行 `scripts/smoke-aot-link.ps1`；Windows 不强制，但要补 MSVC/MinGW 目标策略说明。
 
 5. `AOT-2.2` 链接成功时写入 executable snapshot
    - 先可选，等 CI toolchain 稳定后常驻。

@@ -4,7 +4,7 @@
   面向接手者的编译器架构地图：命令入口、前端流水线、解释执行、build/AOT、project/package、诊断/AI/context，以及后续加语法和做规划时应该优先看哪些层。
 
 本目录放 AX 当前稳定、对外可引用的专题文档，服务于 AX 作为一门 AI-first 工具语言的对外说明、编译器护城河文档化和使用入口整理。
-它不承担路线职责；路线只看 [`../PLAN.md`](../PLAN.md)。
+它不承担路线职责；路线只看 [`../执行路线.md`](../执行路线.md)。
 
 ## 先看哪几份
 
@@ -12,10 +12,10 @@
   对外介绍、项目价值、入口命令和代表样例。
 - [`../PROJECT_FACTS.md`](../PROJECT_FACTS.md)
   当前事实层：AX 已做到哪、哪些还没做到。
-- [`../PLAN.md`](../PLAN.md)
-  唯一方向基线，定义 `P0-P7` 闭环路线。
-- [`../WORKLIST.md`](../WORKLIST.md)
-  当前施工项。
+- [`../执行路线.md`](../执行路线.md)
+  当前唯一执行路线，定义错误分层、AI 自修复、AOT 验证闭环和阶段出口。
+- [`../曾经的计划/`](../曾经的计划/)
+  已退役的旧版计划和施工单，仅作历史参考。
 - [`../ARCHIVE.md`](../ARCHIVE.md)
   已完成事项归档。
 
@@ -34,7 +34,7 @@
 - [`application-scenarios.md`](./application-scenarios.md)
   定义 AX 的 AI-first 先落在哪些真实场景，以及后端语言方向的实际推进顺序。
 - [`llvm-aot.md`](./llvm-aot.md)
-  记录 `axc build` 当前的 LLVM IR v0 后端原型、manifest schema v6、链接环境变量和不应误读成发布级 native compiler 的边界。
+  记录 `axc build` 当前的 LLVM IR v0 后端原型、manifest schema v7、链接环境变量和不应误读成发布级 native compiler 的边界。
 - [`killer-demo.md`](./killer-demo.md)
   给对外演示用的短 demo 脚本。
 - [`../web/`](../web/)
@@ -112,6 +112,6 @@ GitHub Actions 已有独立 `web` job 验证 `npm ci` 与 `npm run build`。
 
 - 想知道 AX 是什么，看 [`../README.md`](../README.md)
 - 想知道 AX 当前做到哪，看 [`../PROJECT_FACTS.md`](../PROJECT_FACTS.md)
-- 想知道 AX 接下来按什么阶段推进，看 [`../PLAN.md`](../PLAN.md)
-- 想知道现在具体在干什么，看 [`../WORKLIST.md`](../WORKLIST.md)
+- 想知道 AX 接下来按什么阶段推进，看 [`../执行路线.md`](../执行路线.md)
+- 想看旧版计划和施工单，看 [`../曾经的计划/`](../曾经的计划/)
 - 想知道哪些事已经做完，看 [`../ARCHIVE.md`](../ARCHIVE.md)

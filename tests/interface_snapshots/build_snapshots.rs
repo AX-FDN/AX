@@ -1,4 +1,4 @@
-use std::ffi::OsStr;
+use std::ffi::{OsStr, OsString};
 use std::fs;
 
 use serde_json::Value;
@@ -1222,7 +1222,7 @@ fn llvm_aot_return_build_emits_ir_artifact_without_linking_by_default() {
     );
 
     let manifest = read_json_file(&manifest_path, "LLVM AOT build manifest");
-    assert_eq!(manifest["schema_version"], Value::from(6));
+    assert_eq!(manifest["schema_version"], Value::from(7));
     assert_eq!(manifest["backend"]["kind"], Value::from("llvm-aot"));
     assert_eq!(manifest["backend"]["status"], Value::from("ir_generated"));
     assert_eq!(
@@ -1253,6 +1253,153 @@ fn llvm_aot_return_build_emits_ir_artifact_without_linking_by_default() {
     assert!(llvm_ir.contains("define i32 @ax_add(i32 %arg0, i32 %arg1)"));
     assert!(llvm_ir.contains("define i32 @main()"));
     assert!(llvm_ir.contains("call i32 @ax_add(i32 40, i32 2)"));
+}
+
+#[test]
+fn llvm_aot_core_examples_check_run_and_emit_ir_without_linking_by_default() {
+    for (label, example, target_name, expected_exit_code) in [
+        (
+            "llvm-aot-math-build",
+            "examples/aot_math.ax",
+            "aot_math",
+            16,
+        ),
+        (
+            "llvm-aot-control-flow-build",
+            "examples/aot_control_flow.ax",
+            "aot_control_flow",
+            3,
+        ),
+    ] {
+        let check_output = run_axc([OsStr::new("check"), OsStr::new(example)]);
+        assert_eq!(
+            check_output.status.code(),
+            Some(0),
+            "AOT core example `{example}` should check\nstdout:\n{}\nstderr:\n{}",
+            string_output(&check_output.stdout),
+            string_output(&check_output.stderr)
+        );
+        assert_clean_stderr(&check_output);
+
+        let run_output = run_axc([OsStr::new("run"), OsStr::new(example)]);
+        assert_eq!(
+            run_output.status.code(),
+            Some(expected_exit_code),
+            "AOT core example `{example}` should keep interpreter semantics\nstdout:\n{}\nstderr:\n{}",
+            string_output(&run_output.stdout),
+            string_output(&run_output.stderr)
+        );
+        assert_clean_stderr(&run_output);
+
+        let temp = TempDir::new(label);
+        let out_dir = temp.join("build-out");
+        let build_output = run_axc_with_removed_env(
+            [
+                OsStr::new("build"),
+                OsStr::new(example),
+                OsStr::new("--out-dir"),
+                out_dir.as_os_str(),
+            ],
+            ["AX_LLVM_AOT_LINK", "AX_LLVM_CLANG"],
+        );
+        assert_eq!(
+            build_output.status.code(),
+            Some(0),
+            "AOT core example `{example}` should build to LLVM IR\nstdout:\n{}\nstderr:\n{}",
+            string_output(&build_output.stdout),
+            string_output(&build_output.stderr)
+        );
+        assert_clean_stderr(&build_output);
+
+        let manifest = read_json_file(
+            &out_dir.join("build-manifest.json"),
+            "AOT core example build manifest",
+        );
+        assert_eq!(manifest["schema_version"], Value::from(7));
+        assert_eq!(manifest["aot_readiness"]["schema_version"], Value::from(2));
+        assert_eq!(manifest["target_name"], Value::from(target_name));
+        assert_eq!(manifest["backend"]["kind"], Value::from("llvm-aot"));
+        assert_eq!(manifest["backend"]["status"], Value::from("ir_generated"));
+        assert_eq!(
+            manifest["artifacts"]["llvm_ir"],
+            Value::from("generated/main.ll")
+        );
+        assert!(
+            out_dir.join("generated").join("main.ll").exists(),
+            "AOT core example `{example}` should emit LLVM IR"
+        );
+        let blockers = manifest["aot_readiness"]["blockers"]
+            .as_array()
+            .expect("AOT readiness blockers should be an array");
+        assert_eq!(blockers.len(), 1);
+        assert_eq!(blockers[0]["code"], Value::from("AOT1000"));
+        assert_eq!(
+            blockers[0]["resolution"]["agent_action"],
+            Value::from("enable_linking")
+        );
+        assert_eq!(
+            blockers[0]["resolution"]["source_edit_safe"],
+            Value::Bool(false)
+        );
+    }
+}
+
+#[test]
+fn llvm_aot_link_reports_missing_clang_as_readiness_blocker() {
+    let temp = TempDir::new("llvm-aot-missing-clang");
+    let out_dir = temp.join("build-out");
+    let missing_clang = temp.join("missing-clang").join("clang.exe");
+    let env_pairs = vec![
+        (OsString::from("AX_LLVM_AOT_LINK"), OsString::from("1")),
+        (
+            OsString::from("AX_LLVM_CLANG"),
+            missing_clang.as_os_str().to_os_string(),
+        ),
+    ];
+
+    let output = run_axc_with_env(
+        [
+            OsStr::new("build"),
+            OsStr::new("examples/aot_return.ax"),
+            OsStr::new("--out-dir"),
+            out_dir.as_os_str(),
+        ],
+        env_pairs,
+    );
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "LLVM AOT build should report missing clang without failing build\nstdout:\n{}\nstderr:\n{}",
+        string_output(&output.stdout),
+        string_output(&output.stderr)
+    );
+    assert_clean_stderr(&output);
+
+    let manifest = read_json_file(
+        &out_dir.join("build-manifest.json"),
+        "missing clang AOT build manifest",
+    );
+    assert_eq!(manifest["schema_version"], Value::from(7));
+    assert_eq!(manifest["backend"]["kind"], Value::from("llvm-aot"));
+    assert_eq!(manifest["backend"]["status"], Value::from("ir_generated"));
+    assert!(
+        manifest["artifacts"]["executable"].is_null(),
+        "missing clang should not claim an executable artifact"
+    );
+    let blockers = manifest["aot_readiness"]["blockers"]
+        .as_array()
+        .expect("AOT readiness blockers should be an array");
+    assert_eq!(blockers.len(), 1);
+    assert_eq!(blockers[0]["code"], Value::from("AOT1001"));
+    assert_eq!(blockers[0]["category"], Value::from("toolchain"));
+    assert_eq!(
+        blockers[0]["resolution"]["agent_action"],
+        Value::from("configure_toolchain")
+    );
+    assert_eq!(
+        blockers[0]["resolution"]["recommended_command"],
+        Value::from("$env:AX_LLVM_CLANG = \"<path-to-clang>\"")
+    );
 }
 
 #[test]

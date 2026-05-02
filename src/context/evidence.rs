@@ -81,18 +81,19 @@ fn build_build_readiness_fact(
     program: &Program,
     local_package_lock: Option<&ContextPackageLock>,
 ) -> BuildReadiness {
-    let mut blocking_features = vec!["native executable emission is not implemented".to_string()];
+    let mut blocking_features =
+        vec!["LLVM AOT v0 only covers a narrow single-file i32/bool MIR subset".to_string()];
     let mut notes = vec![
-        "axc build currently emits source, HIR, MIR, and build-manifest skeleton artifacts"
+        "axc build emits source, HIR, MIR, build-manifest, and may emit LLVM IR for the current single-file MIR subset"
             .to_string(),
-        "use axc run as the executable behavior path until AOT starts".to_string(),
+        "use axc run as the semantic reference while LLVM AOT v0 is validated".to_string(),
     ];
 
     if let Some(project) = input.project.as_ref() {
         blocking_features
-            .push("project source graph still needs future AOT packaging and linking".to_string());
+            .push("project source graph still needs native AOT packaging and linking".to_string());
         notes.push(format!(
-            "project `{}` is currently build-ready only for skeleton artifacts",
+            "project `{}` is build-ready for artifacts, but project AOT linking is not implemented",
             project.target_name()
         ));
 
@@ -121,8 +122,8 @@ fn build_build_readiness_fact(
     );
 
     BuildReadiness {
-        build_mode: "skeleton_artifacts",
-        aot_status: "not_started",
+        build_mode: "stable_artifacts_with_llvm_ir_v0",
+        aot_status: "llvm_ir_prototype",
         executable_emission: false,
         planned_executable_artifact: true,
         blocking_features,
@@ -140,6 +141,7 @@ pub(super) fn build_evidence_hints(
 ) -> EvidenceHints {
     let mut recommended_commands = vec![
         format!("axc check {command_target}"),
+        format!("axc build {command_target}"),
         format!("axc context impact {command_target} {resolved_symbol} --json"),
         format!("axc context evidence {command_target} {resolved_symbol} --json"),
     ];

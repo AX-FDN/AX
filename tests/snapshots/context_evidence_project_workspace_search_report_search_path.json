@@ -41,21 +41,21 @@
       "tests/snapshots/context_evidence_project_workspace_search_report_search_path.json"
     ],
     "build_readiness": {
-      "build_mode": "skeleton_artifacts",
-      "aot_status": "not_started",
+      "build_mode": "stable_artifacts_with_llvm_ir_v0",
+      "aot_status": "llvm_ir_prototype",
       "executable_emission": false,
       "planned_executable_artifact": true,
       "blocking_features": [
-        "native executable emission is not implemented",
-        "project source graph still needs future AOT packaging and linking"
+        "LLVM AOT v0 only covers a narrow single-file i32/bool MIR subset",
+        "project source graph still needs native AOT packaging and linking"
       ],
       "notes": [
-        "axc build currently emits source, HIR, MIR, and build-manifest skeleton artifacts",
-        "use axc run as the executable behavior path until AOT starts",
-        "project `project_workspace_search_report` is currently build-ready only for skeleton artifacts"
+        "axc build emits source, HIR, MIR, build-manifest, and may emit LLVM IR for the current single-file MIR subset",
+        "use axc run as the semantic reference while LLVM AOT v0 is validated",
+        "project `project_workspace_search_report` is build-ready for artifacts, but project AOT linking is not implemented"
       ],
       "aot_readiness": {
-        "schema_version": 1,
+        "schema_version": 2,
         "stage": "Build-0 skeleton",
         "status": "blocked",
         "executable_emission": false,
@@ -83,25 +83,41 @@
             "code": "AOT0001",
             "category": "backend",
             "message": "native executable emission is not implemented yet",
-            "required_stage": "Build-1"
+            "required_stage": "Build-1",
+            "resolution": {
+              "agent_action": "explain_unsupported",
+              "source_edit_safe": false
+            }
           },
           {
             "code": "AOT0101",
             "category": "project",
             "message": "project source graph packaging exists, but native project linking semantics are not implemented",
-            "required_stage": "Build-2"
+            "required_stage": "Build-2",
+            "resolution": {
+              "agent_action": "explain_unsupported",
+              "source_edit_safe": false
+            }
           },
           {
             "code": "AOT0301",
             "category": "runtime",
             "message": "host boundary builtins need a native runtime ABI before AOT can preserve check/run behavior",
-            "required_stage": "Build-2/Build-3"
+            "required_stage": "Build-2/Build-3",
+            "resolution": {
+              "agent_action": "explain_unsupported",
+              "source_edit_safe": false
+            }
           },
           {
             "code": "AOT0302",
             "category": "runtime",
             "message": "string and string_list values need a native runtime representation and ABI",
-            "required_stage": "Build-1/Build-2"
+            "required_stage": "Build-1/Build-2",
+            "resolution": {
+              "agent_action": "explain_unsupported",
+              "source_edit_safe": false
+            }
           }
         ],
         "recommended_next_steps": [
@@ -115,6 +131,7 @@
   "hints": {
     "recommended_commands": [
       "axc check examples/project_workspace_search_report",
+      "axc build examples/project_workspace_search_report",
       "axc context impact examples/project_workspace_search_report lib.file_search.search_path --json",
       "axc context evidence examples/project_workspace_search_report lib.file_search.search_path --json",
       "axc run examples/project_workspace_search_report -- <args...>",

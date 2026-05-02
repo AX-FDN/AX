@@ -1,0 +1,16 @@
+fn choose(value: i32) -> i32 {
+    if (value > 10) {
+        return 3;
+    } else {
+        return 5;
+    }
+}
+
+fn main() -> i32 {
+    let flag: bool = true;
+    if (flag) {
+        return choose(12);
+    } else {
+        return 1;
+    }
+}

@@ -1,7 +1,7 @@
 # AX Project Facts
 
 > 阅读提示：本文件是 AX 的“当前事实清单”，给外部读者、协作者和 AI 工具快速建立同一套项目认知用。
-> 它不是路线图，不替代 [`PLAN.md`](./PLAN.md)、[`WORKLIST.md`](./WORKLIST.md) 或 [`ARCHIVE.md`](./ARCHIVE.md)。
+> 它不是路线图，不替代 [`执行路线.md`](./执行路线.md) 或 [`ARCHIVE.md`](./ARCHIVE.md)。
 
 ## 一句话定义
 
@@ -36,7 +36,7 @@ AX 当前优先服务四类能被仓库直接验证的场景：
 | benchmark | export / run / score / compare / smoke / CI 已落地，context-enabled export 已进入修复输入链 |
 | repair archaeology | v0 已有 artifact schema、最小导出脚本和固定 smoke，并已接入 Windows CI |
 | web workbench | `web/` 已作为独立 Vite + React 前端进入主线，展示 benchmark 指标、same-case repair demo、反馈模式对比和接口契约 |
-| build | 当前仍不是成熟 AOT/native backend；`build-manifest.json` schema v6 与 `context evidence` 已暴露结构化 `aot_readiness`，并且 `axc build` 可为极小单文件 MIR 子集生成 `generated/main.ll` LLVM IR v0 |
+| build | 当前仍不是成熟 AOT/native backend；`build-manifest.json` schema v7 与 `context evidence` 已暴露结构化 `aot_readiness`，并且 `axc build` 可为极小单文件 MIR 子集生成 `generated/main.ll` LLVM IR v0 |
 | 平台 | Windows 为 full workflow，Linux 为 core support，macOS 尚未启动 |
 
 ## 当前语法完成度判断
@@ -126,8 +126,8 @@ AX 当前优先服务四类能被仓库直接验证的场景：
 6. [`docs/interface-contracts.md`](./docs/interface-contracts.md)：外部契约与快照覆盖
 7. [`docs/repair-benchmark.md`](./docs/repair-benchmark.md)：benchmark 证据链
 8. [`web/README.md`](./web/README.md)：Repair Workbench 前端入口
-9. [`PLAN.md`](./PLAN.md)：全项目闭环计划与阶段门槛
-10. [`WORKLIST.md`](./WORKLIST.md)：当前施工项
+9. [`执行路线.md`](./执行路线.md)：当前唯一执行路线与阶段出口
+10. [`曾经的计划/`](./曾经的计划/)：已退役的旧版计划和施工单
 11. [`ARCHIVE.md`](./ARCHIVE.md)：已完成事项归档
 
 ## 当前一句话判断

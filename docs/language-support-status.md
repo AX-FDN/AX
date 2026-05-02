@@ -1,7 +1,7 @@
 # AX Language Support Status
 
 > This page is the AI-readable status sheet for the current AX language surface.
-> It is not a roadmap. Roadmap decisions live in [`../PLAN.md`](../PLAN.md), and active tasks live in [`../WORKLIST.md`](../WORKLIST.md).
+> It is not a roadmap. Roadmap decisions live in [`../执行路线.md`](../执行路线.md); retired plans live in [`../曾经的计划/`](../曾经的计划/).
 
 AX is growing from an AI-first tool language into a backend-capable language. The current stable execution path is the interpreter. `axc build` emits source, HIR, MIR, a build manifest, and now a textual LLVM IR artifact for a very small single-file MIR subset. It still does not guarantee native executable output by default.
 
@@ -63,4 +63,4 @@ AX is growing from an AI-first tool language into a backend-capable language. Th
 - Use `axc check`, `axc run`, `axc fmt`, `axc context evidence`, and `axc lock --check` as the current validation loop.
 - Do not assume `axc build` produces a native executable. Treat LLVM IR generation as a Build-1 prototype artifact, not as a mature native backend.
 - Do not generate registry package syntax, direct Rust crate imports, async code, closures, dynamic dispatch, associated types, default trait methods, or generic traits yet.
-- When deciding whether a missing feature is a bug or a roadmap item, check this file first, then [`../WORKLIST.md`](../WORKLIST.md).
+- When deciding whether a missing feature is a bug or a roadmap item, check this file first, then [`../执行路线.md`](../执行路线.md).
