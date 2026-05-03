@@ -36,9 +36,12 @@ AX source
 - `src/backend/mod.rs`
 - `src/backend/llvm/mod.rs`
 - `src/backend/llvm/ir.rs`
+- `src/backend/llvm/runtime.rs`
 - `src/backend/llvm/toolchain.rs`
 
 解释器位置仍然是 `src/interpreter.rs`，LLVM AOT v0 不替换解释器，也不把解释器逻辑复制成第二套语义实现。解释器继续作为 `axc run` 的语义参考路径。
+
+`runtime.rs` 是 AOT runtime ABI 的收口点：当前负责内建 format/text globals、libc/clang 可见的外部声明，以及 `ax_string_len` / `ax_string_concat` / `ax_i32_to_string` 这类文本 IR helper。后续补 `string_trim`、`string_replace`、host runtime、slice/string_list runtime 时，都优先在这里扩 ABI，不把 runtime 细节散落回 lowering 主流程。
 
 ## 当前支持的最小子集
 

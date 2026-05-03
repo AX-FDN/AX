@@ -4,6 +4,7 @@ use std::path::Path;
 use crate::mir::Program as MirProgram;
 
 mod ir;
+mod runtime;
 mod toolchain;
 
 const GENERATED_DIR: &str = "generated";
