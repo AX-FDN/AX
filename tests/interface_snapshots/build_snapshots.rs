@@ -1413,6 +1413,33 @@ fn llvm_aot_core_examples_check_run_and_emit_ir_without_linking_by_default() {
             "aot_loop",
             10,
         ),
+        ("llvm-aot-consts-build", "examples/consts.ax", "consts", 7),
+        ("llvm-aot-modulo-build", "examples/modulo.ax", "modulo", 3),
+        (
+            "llvm-aot-for-loop-build",
+            "examples/for_loop.ax",
+            "for_loop",
+            10,
+        ),
+        (
+            "llvm-aot-break-loop-build",
+            "examples/break_loop.ax",
+            "break_loop",
+            0,
+        ),
+        (
+            "llvm-aot-continue-build",
+            "examples/continue.ax",
+            "continue",
+            16,
+        ),
+        ("llvm-aot-for-in-build", "examples/for_in.ax", "for_in", 9),
+        (
+            "llvm-aot-slice-range-build",
+            "examples/aot_slice_range.ax",
+            "aot_slice_range",
+            19,
+        ),
         (
             "llvm-aot-bool-logic-build",
             "examples/aot_bool_logic.ax",
@@ -1462,6 +1489,18 @@ fn llvm_aot_core_examples_check_run_and_emit_ir_without_linking_by_default() {
             25,
         ),
         (
+            "llvm-aot-string-predicates-build",
+            "examples/aot_string_predicates.ax",
+            "aot_string_predicates",
+            7,
+        ),
+        (
+            "llvm-aot-string-match-build",
+            "examples/string_match.ax",
+            "string_match",
+            3,
+        ),
+        (
             "llvm-aot-array-read-build",
             "examples/aot_array_read.ax",
             "aot_array_read",
@@ -1486,6 +1525,12 @@ fn llvm_aot_core_examples_check_run_and_emit_ir_without_linking_by_default() {
             9,
         ),
         (
+            "llvm-aot-struct-pattern-build",
+            "examples/match_struct_pattern.ax",
+            "match_struct_pattern",
+            0,
+        ),
+        (
             "llvm-aot-enum-unit-build",
             "examples/aot_enum_unit.ax",
             "aot_enum_unit",
@@ -1496,6 +1541,54 @@ fn llvm_aot_core_examples_check_run_and_emit_ir_without_linking_by_default() {
             "examples/aot_enum_match.ax",
             "aot_enum_match",
             11,
+        ),
+        (
+            "llvm-aot-payload-enum-build",
+            "examples/aot_payload_enum.ax",
+            "aot_payload_enum",
+            12,
+        ),
+        (
+            "llvm-aot-payload-enum-equality-build",
+            "examples/aot_payload_enum_equality.ax",
+            "aot_payload_enum_equality",
+            63,
+        ),
+        (
+            "llvm-aot-match-expression-build",
+            "examples/aot_match_expression.ax",
+            "aot_match_expression",
+            13,
+        ),
+        (
+            "llvm-aot-match-range-build",
+            "examples/match_range.ax",
+            "match_range",
+            0,
+        ),
+        (
+            "llvm-aot-match-or-build",
+            "examples/match_or.ax",
+            "match_or",
+            2,
+        ),
+        (
+            "llvm-aot-match-guard-build",
+            "examples/match_guard.ax",
+            "match_guard",
+            0,
+        ),
+        (
+            "llvm-aot-result-option-build",
+            "examples/aot_result_option.ax",
+            "aot_result_option",
+            7,
+        ),
+        (
+            "llvm-aot-result-try-build",
+            "examples/aot_result_try.ax",
+            "aot_result_try",
+            10,
         ),
     ] {
         let check_output = run_axc([OsStr::new("check"), OsStr::new(example)]);

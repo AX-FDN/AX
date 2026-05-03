@@ -55,10 +55,14 @@ fn lower_item(item: &hir::Item) -> Result<Item, String> {
                 blocks,
             }
         }
-        hir::ItemKind::Const { name, ty, .. } => ItemKind::Const {
-            name: name.clone(),
-            ty: ty.clone(),
-        },
+        hir::ItemKind::Const { name, ty, value } => {
+            let mut lowerer = FunctionLowerer::new();
+            ItemKind::Const {
+                name: name.clone(),
+                ty: ty.clone(),
+                value: lowerer.lower_expr(value)?,
+            }
+        }
         hir::ItemKind::Struct {
             name,
             type_params,

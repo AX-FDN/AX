@@ -1,0 +1,9 @@
+fn sum_pair(values: [i32]) -> i32 {
+    return values[0] + values[1];
+}
+
+fn main() -> i32 {
+    let values: [i32; 5] = [1, 2, 3, 4, 5];
+    let middle: [i32] = values[1:4];
+    return len(middle) + middle[0] + middle[2] + sum_pair(values[2:4]) + sum_pair(values);
+}

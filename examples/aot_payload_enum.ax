@@ -1,0 +1,23 @@
+enum Maybe {
+    None,
+    Some(i32),
+}
+
+fn score(value: Maybe) -> i32 {
+    match (value) {
+        Maybe.Some(number) => {
+            return number;
+        }
+        Maybe.None => {
+            return 0;
+        }
+    }
+}
+
+fn main() -> i32 {
+    let value: Maybe = Maybe.Some(12);
+    let empty: Maybe = Maybe.None;
+    println(score(value));
+    println(score(empty));
+    return score(value);
+}

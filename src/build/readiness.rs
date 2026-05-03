@@ -49,11 +49,20 @@ pub fn assess_aot_readiness(program: &AstProgram, input: AotReadinessInput<'_>) 
             ));
         }
     }
-    if feature_starts_with(&features, "generic_") || features.contains("generic_type_instances") {
+    if features.iter().any(|feature| {
+        matches!(
+            feature.as_str(),
+            "generic_functions"
+                | "generic_structs"
+                | "generic_impls"
+                | "generic_methods"
+                | "generic_type_aliases"
+        )
+    }) {
         blockers.push(AotReadinessBlocker::new(
             "AOT0201",
             "language",
-            "generic monomorphization and type-argument lowering are not frozen for native backend input",
+            "generic function, struct, impl, and alias lowering are not frozen for native backend input",
             "Build-1/Build-2",
         ));
     }
@@ -73,31 +82,6 @@ pub fn assess_aot_readiness(program: &AstProgram, input: AotReadinessInput<'_>) 
             "AOT0203",
             "language",
             "impl method lowering and method ABI are not frozen for native backend input",
-            "Build-2",
-        ));
-    }
-    if features.contains("payload_enums")
-        || features.contains("match_expressions")
-        || features.contains("struct_patterns")
-        || features.contains("or_patterns")
-        || features.contains("range_patterns")
-        || features.contains("match_guards")
-        || features.contains("payload_enum_patterns")
-        || features.contains("result_values")
-        || features.contains("option_values")
-    {
-        blockers.push(AotReadinessBlocker::new(
-            "AOT0204",
-            "language",
-            "payload enum layout, pattern tests, and match lowering need a native backend contract",
-            "Build-2",
-        ));
-    }
-    if features.contains("result_propagation") {
-        blockers.push(AotReadinessBlocker::new(
-            "AOT0205",
-            "language",
-            "`?` result propagation needs explicit native lowering for early-return control flow",
             "Build-2",
         ));
     }
@@ -134,11 +118,7 @@ pub fn assess_aot_readiness(program: &AstProgram, input: AotReadinessInput<'_>) 
         && !features.iter().any(|feature| {
             matches!(
                 feature.as_str(),
-                "slices"
-                    | "payload_enums"
-                    | "match_expressions"
-                    | "result_propagation"
-                    | "slice_writes"
+                "slice_writes"
                     | "impl_methods"
                     | "traits"
                     | "trait_bounds"
@@ -147,8 +127,12 @@ pub fn assess_aot_readiness(program: &AstProgram, input: AotReadinessInput<'_>) 
                     | "string_list_runtime"
                     | "project_sources"
                     | "local_path_packages"
-            ) || feature.starts_with("generic_")
-                || (feature.starts_with("host_") && feature != "host_stdio")
+                    | "generic_functions"
+                    | "generic_structs"
+                    | "generic_impls"
+                    | "generic_methods"
+                    | "generic_type_aliases"
+            ) || (feature.starts_with("host_") && feature != "host_stdio")
         });
 
     AotReadiness {
@@ -167,10 +151,6 @@ pub fn assess_aot_readiness(program: &AstProgram, input: AotReadinessInput<'_>) 
                 .to_string(),
         ],
     }
-}
-
-fn feature_starts_with(features: &BTreeSet<String>, prefix: &str) -> bool {
-    features.iter().any(|feature| feature.starts_with(prefix))
 }
 
 fn collect_aot_features(program: &AstProgram, features: &mut BTreeSet<String>) {
@@ -596,6 +576,11 @@ fn collect_call_aot_features(name: &str, features: &mut BTreeSet<String>) {
     }
     if name == "string_len" {
         features.insert("string_len".to_string());
+    } else if matches!(
+        name,
+        "string_contains" | "string_starts_with" | "string_ends_with"
+    ) {
+        features.insert("string_predicates".to_string());
     } else if name == "to_string" {
         features.insert("to_string_values".to_string());
     } else if name.starts_with("string_")

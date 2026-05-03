@@ -42,7 +42,7 @@ AX 现在有两条执行路径，它们共享同一个 lexer / parser / semantic
 | 路径 | 命令 | 当前定位 | 当前功能 |
 | --- | --- | --- | --- |
 | 解释器版本 | `axc run <file-or-project>` | 稳定语义执行引擎，也是 AOT 的参考实现 | 支持当前 AX 语言主线：基础类型、函数、控制流、数组 / slice、struct / enum、match、泛型、trait bounds、module/import、project mode、第一批 `std.*` 试点和宿主 builtin |
-| 编译器 / AOT 版本 | `axc build <file-or-project>` | 正在快速扩展的 LLVM native 编译路径 | 始终导出 `source.ax`、HIR、MIR、`build-manifest.json`；对单文件 `i32/bool/string/fixed-array-read-write/struct-read-write/enum-unit-match` 核心子集生成 LLVM IR；显式设置 `AX_LLVM_AOT_LINK=1` 且有 clang 时可链接 exe |
+| 编译器 / AOT 版本 | `axc build <file-or-project>` | 正在快速扩展的 LLVM native 编译路径 | 始终导出 `source.ax`、HIR、MIR、`build-manifest.json`；对单文件 `i32/bool/string/consts/modulo/for/for-in-readonly-slice/slice-range-read/break-continue/string-pattern/fixed-array-read-write/struct-read-write/struct-pattern/enum-unit/payload-enum/payload-enum-equality/expression-match/range-pattern/or-pattern/match-guard/concrete-Result-Option/result-try` 核心子集生成 LLVM IR；显式设置 `AX_LLVM_AOT_LINK=1` 且有 clang 时可链接 exe |
 
 一句话理解：**AX 不是“只有解释器”或“另起一个编译器”，而是同一前端、同一语义、解释器和 AOT 编译器同步推进。**
 `axc run` 给出稳定执行结果，`axc build` 把当前可编译子集降到 LLVM/native；每新增一包 AOT 能力，都要进入 run vs exe parity 验证。
@@ -53,7 +53,9 @@ AX 现在有两条执行路径，它们共享同一个 lexer / parser / semantic
 - 同文件普通函数调用
 - `i32` / `bool`
 - `let` / assignment / `return`
-- `if` / `while` 对应的 MIR `branch` / `goto`
+- top-level `const` v0：支持当前 AOT 类型子集内的 `i32/bool/string` 常量引用
+- `if` / `while` / `for` 对应的 MIR `branch` / `goto`
+- `break` / `continue`
 - 一元 `-` / `!`
 - `+ - * / %`
 - `== != < <= > >=`
@@ -64,26 +66,37 @@ AX 现在有两条执行路径，它们共享同一个 lexer / parser / semantic
 - `string_len(text)` / `len(text)`，当前按 UTF-8 codepoint 数量返回 `i32`
 - `string == string` / `string != string` 内容比较，当前通过 C ABI `strcmp` 完成
 - `to_string(i32)` / `to_string(bool)` / `to_string(string)`
+- `string_contains(text, needle)` / `string_starts_with(text, prefix)` / `string_ends_with(text, suffix)` 字符串谓词 v0
 - `string + string`，当前通过 process-lifetime `malloc` 分配拼接结果，暂不回收
 - 固定长度数组 v0：非空 array literal、局部变量、函数参数 by value、索引读取、元素写入、`len(array)`；当前主要验证 `[i32; N]`
+- 只读 Slice v0：固定数组可借出 `{ ptr, len }` slice，支持 `values[start:end]` 半开区间、`len(slice)`、`slice[index]` 读取、同文件 slice 参数调用，并让 `for (let value: T in values)` over fixed array 进入 native parity；slice 写入、host/runtime 返回 slice、跨项目 slice ABI 和完整 ownership/lifetime contract 仍按后续能力包推进
 - Struct v0：非泛型 struct 定义、struct literal、局部变量、函数参数 by value、返回值、字段读取和字段写入
+- Struct Pattern v0：非泛型 struct 的全字段 shorthand 解构 pattern，例如 `Point { x, y }`，可在 `match` 中绑定字段并进入 native lowering；字段别名、partial/nested destructuring 仍走前端诊断或后续能力包
 - Unit Enum v0：非泛型无 payload enum、variant 常量、局部变量、函数参数 by value、返回值、`==` / `!=` tag 比较和语句形态 unit enum `match` 判断
+- Payload Enum v0：非泛型单 payload variant、unit variant、payload constructor、payload read 和语句形态 payload enum `match` 判断；当前 payload 重点验证 `i32/bool/string` 这类已进入 AOT 的值类型
+- Payload Enum Equality v0：payload enum 的 `==` / `!=` 会先比较 tag，再对 `i32/bool/string` payload 做 native equality；不同 variant 直接按不相等处理，复杂 payload 类型继续保持 unsupported blocker
+- Match Expression v0：表达式形态 `match`、简单 binding pattern、payload binding、block-valued arm 已进入 native lowering，可用于 `return match (...) { ... }` 和 `let x = match (...) { ... }`
+- String Pattern v0：`match` 中的 string literal pattern 已通过 native `strcmp` lower，并进入 executable parity
+- Range Pattern v0：`i32` inclusive range pattern，例如 `200..=299`，已 lower 成 native 比较并进入 executable parity
+- Or Pattern v0：无绑定 alternative 的 `A | B` pattern 已 lower 成 native boolean 合并；当前重点验证 unit enum variant 组合
+- Match Guard v0：guarded arm 的 bool guard 已进入 native branch lowering；pattern binding / payload binding 会先绑定再计算 guard，guard 为 false 时继续尝试后续 arm
+- Concrete Generic Enum Instance v0：同文件非泛型函数内的 `Option<i32>` 与 `Result<i32,string>` 可以以具体实例进入 native layout，支持构造、传参、返回和 `match` 读取；这不是完整泛型函数 / impl / std project linking 的 monomorphization 承诺
+- Result Try v0：`Result<T,E>` 形状的 `expr?` 可以在 AOT 中生成 Ok 解包与 Err early return；当前重点验证同文件、非泛型函数、具体 `Result<i32,string>` / `Result<string,string>` 实例和 string 错误类型
 
-当前 AOT parity smoke 默认覆盖 18 个样例：`examples/aot_return.ax`、`examples/aot_math.ax`、`examples/aot_control_flow.ax`、`examples/aot_loop.ax`、`examples/aot_bool_logic.ax`、`examples/aot_comparisons.ax`、`examples/aot_nested_calls.ax`、`examples/aot_print.ax`、`examples/aot_print_string.ax`、`examples/aot_string_values.ax`、`examples/aot_string_len_compare.ax`、`examples/aot_string_runtime.ax`、`examples/aot_array_read.ax`、`examples/aot_array_write.ax`、`examples/aot_struct_read.ax`、`examples/aot_struct_write.ax`、`examples/aot_enum_unit.ax`、`examples/aot_enum_match.ax`。这些样例会依次跑 `check -> run -> build --json -> native exe`，并比较解释器和 exe 的退出码、标准输出、标准错误。
+当前 AOT parity smoke 默认覆盖 36 个样例：`examples/aot_return.ax`、`examples/aot_math.ax`、`examples/aot_control_flow.ax`、`examples/aot_loop.ax`、`examples/consts.ax`、`examples/modulo.ax`、`examples/for_loop.ax`、`examples/break_loop.ax`、`examples/continue.ax`、`examples/for_in.ax`、`examples/aot_slice_range.ax`、`examples/aot_bool_logic.ax`、`examples/aot_comparisons.ax`、`examples/aot_nested_calls.ax`、`examples/aot_print.ax`、`examples/aot_print_string.ax`、`examples/aot_string_values.ax`、`examples/aot_string_len_compare.ax`、`examples/aot_string_runtime.ax`、`examples/aot_string_predicates.ax`、`examples/string_match.ax`、`examples/aot_array_read.ax`、`examples/aot_array_write.ax`、`examples/aot_struct_read.ax`、`examples/aot_struct_write.ax`、`examples/match_struct_pattern.ax`、`examples/aot_enum_unit.ax`、`examples/aot_enum_match.ax`、`examples/aot_payload_enum.ax`、`examples/aot_payload_enum_equality.ax`、`examples/aot_match_expression.ax`、`examples/match_range.ax`、`examples/match_or.ax`、`examples/match_guard.ax`、`examples/aot_result_option.ax`、`examples/aot_result_try.ax`。这些样例会依次跑 `check -> run -> build --json -> native exe`，并比较解释器和 exe 的退出码、标准输出、标准错误。
 
-AOT 的能力边界也会被结构化管理：`to_string(...)` 作用于 array/slice/struct/enum/f32 等复杂值、`string_contains(...)` 等完整 string runtime、`len(...)` 作用于 slice/string_list、`f32`、slice native layout、payload enum native layout、表达式形态 `match` 与复杂 pattern native lowering、`Result` / `Option` / `?`、methods / impl / traits / generics 的 native lowering、多文件 project linking、本地包 native linking 和完整 host runtime ABI 会继续按能力包推进。当前不在 AOT 子集里的能力会进入 `aot_readiness.blockers` 或 LLVM lowering blocker，不会被伪装成用户源码错误，也不会让 AI 误改合法业务代码。
+AOT 的能力边界也会被结构化管理：`to_string(...)` 作用于 array/slice/struct/enum/f32 等复杂值、`string_replace(...)` / `string_trim(...)` / `string_split_lines(...)` 等更完整 string runtime、slice 写入、host/runtime slice 来源、跨项目 slice ABI、`string_list`、`f32`、完整 slice ownership/lifetime、partial / nested struct destructuring、带绑定的 or pattern、methods / impl / traits / full generics 的 native lowering、`std.option` / `std.result` project linking、本地包 native linking 和完整 host runtime ABI 会继续按能力包推进。当前不在 AOT 子集里的能力会进入 `aot_readiness.blockers` 或 LLVM lowering blocker，不会被伪装成用户源码错误，也不会让 AI 误改合法业务代码。
 
 ### AOT 当前水位与下一步
 
-以当前 `G3 Core AOT Parity` 目标衡量，AX AOT 已经完成第一批核心 native 能力的大半段：基础值类型、函数调用、控制流、循环、stdout、string v0、固定数组 read/write、struct read/write、unit enum 和语句形态 unit enum `match` 都已经进入 run vs executable parity。更直白地说，AOT 已经从“能不能做”的证明阶段，进入了“按能力包快速扩张”的阶段。
+以当前 `G3 Core AOT Parity` 目标衡量，AX AOT 已经完成第一批核心 native 能力的大半段：基础值类型、函数调用、top-level `const`、控制流、循环、`for`、`for in` over fixed array、`break`、`continue`、stdout、string v0、string predicate v0、string literal pattern、固定数组 read/write、只读 slice read/range/param v0、struct read/write、struct pattern、unit enum、payload enum v0、payload-aware equality、语句形态 enum `match`、表达式形态 `match`、`i32` range pattern、无绑定 or pattern、guarded match arm、具体 `Option<i32>` / `Result<i32,string>` enum 实例，以及 `Result` 的 `?` early return 都已经进入 run vs executable parity。更直白地说，AOT 已经从“能不能做”的证明阶段，进入了“按能力包快速扩张”的阶段。
 
-现在最关键的下一组能力不是再补几个零散运算符，而是把 AX 的显式错误处理模型编进 native 路径。短期 AOT 收口顺序是：
+现在最关键的下一组能力不是再补几个零散运算符，而是把 AX 的结构化数据和错误模型继续向真实项目推进。短期 AOT 收口顺序是：
 
-1. Payload Enum Layout v0：先定义带 payload enum 的 native 表示。
-2. Payload constructor / payload read：让 `Maybe.Some(7)`、`Result.Ok(value)` 这类值能被构造和读取。
-3. Payload enum pattern match：支持 `Result.Ok(value)` / `Result.Err(_)` 进入 native match。
-4. `Result` / `Option` parity：让解释器里已经成型的显式成功 / 失败返回模型进入 AOT 验证。
-5. 表达式形态 `match`、slice layout、host runtime ABI 和 project native linking 再按包推进。
+1. 更完整的 payload enum contract：继续补 enum formatter 和复杂 payload 类型。
+2. 复杂 pattern lowering：带绑定的 or pattern、partial / nested struct destructuring 继续按能力包进入 AOT。
+3. slice layout 与更完整 runtime ABI：让集合、字符串和宿主边界继续靠近真实工具程序。
+4. project native linking 和 std/native package linking：把单文件 AOT 扩成 project-backed AOT。
 
 这条顺序服务的是 AX 的核心思想：**同一份源码，解释器能跑，AOT 能编；失败时能分清是用户源码错误、AOT 子集缺口、toolchain 问题，还是编译器内部问题。** 这样 AI 才能知道什么时候应该改源码，什么时候应该解释后端限制，什么时候应该提示安装或配置工具链。
 
@@ -775,7 +788,7 @@ AX 的六层协议上下文，不只是让模型“更快读懂项目”，更�
 | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | 编译器前端       | 已打通 `Lexer -> Parser -> AST -> HIR -> MIR -> Semantic Check` 主链                                                                                                                                      | [`src/`](./src/)                                                                                                       |
 | 执行能力         | 已支持解释执行，能够运行真实 tool-style examples，并作为 AOT native parity 的语义参考                                                                                                                     | [`src/interpreter.rs`](./src/interpreter.rs)                                                                           |
-| AOT 编译         | LLVM AOT v0 已能为 18 个单文件 core/stdout/string/array-read-write/struct-read-write/enum-unit-match 样例生成 IR、链接 native exe，并与解释器比较 `exit code / stdout / stderr`                                                                        | [`src/backend/llvm/`](./src/backend/llvm/) [`docs/llvm-aot.md`](./docs/llvm-aot.md)                                  |
+| AOT 编译         | LLVM AOT v0 已能为 36 个单文件 core/control-flow/consts/for-in-readonly-slice/slice-range-read/stdout/string/string-predicate/string-pattern/array-read-write/struct-read-write/struct-pattern/enum-unit/payload-enum/payload-enum-equality/expression-match/range-pattern/or-pattern/match-guard/concrete-Result-Option/result-try 样例生成 IR、链接 native exe，并与解释器比较 `exit code / stdout / stderr`          | [`src/backend/llvm/`](./src/backend/llvm/) [`docs/llvm-aot.md`](./docs/llvm-aot.md)                                  |
 | 诊断输出         | 已支持文本诊断、`--json`、`--json --ai` 三层输出                                                                                                                                                          | [`docs/diagnostics-schema.md`](./docs/diagnostics-schema.md)                                                           |
 | AI 修复反馈      | 已沉淀 `rule_id / repair_goal / fixits / context_snippets`                                                                                                                                                | [`src/ai.rs`](./src/ai.rs)                                                                                             |
 | 项目组织         | 已支持 `AX.toml + sources` 的 project-backed 多文件项目，并启动 `[dependencies] alias = { path = ... }` 本地 AX 包接口 v0                                                                                 | [`src/project.rs`](./src/project.rs)                                                                                   |

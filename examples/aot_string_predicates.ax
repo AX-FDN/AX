@@ -1,0 +1,14 @@
+fn main() -> i32 {
+    let text: string = "AX compiler";
+    let mut score: i32 = 0;
+    if (string_contains(text, "comp")) {
+        score = score + 1;
+    }
+    if (string_starts_with(text, "AX")) {
+        score = score + 2;
+    }
+    if (string_ends_with(text, "iler")) {
+        score = score + 4;
+    }
+    return score;
+}

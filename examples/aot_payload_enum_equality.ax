@@ -1,0 +1,41 @@
+enum Status {
+    Code(i32),
+    Label(string),
+    Done,
+}
+
+fn score() -> i32 {
+    let code: Status = Status.Code(7);
+    let same_code: Status = Status.Code(7);
+    let other_code: Status = Status.Code(8);
+    let label: Status = Status.Label("ok");
+    let same_label: Status = Status.Label("ok");
+    let other_label: Status = Status.Label("bad");
+    let mut total: i32 = 0;
+
+    if (code == same_code) {
+        total = total + 1;
+    }
+    if (code != other_code) {
+        total = total + 2;
+    }
+    if (label == same_label) {
+        total = total + 4;
+    }
+    if (label != other_label) {
+        total = total + 8;
+    }
+    if (Status.Done == Status.Done) {
+        total = total + 16;
+    }
+    if (code != Status.Done) {
+        total = total + 32;
+    }
+
+    return total;
+}
+
+fn main() -> i32 {
+    println(score());
+    return score();
+}

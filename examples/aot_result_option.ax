@@ -1,0 +1,34 @@
+enum Option<T> {
+    None,
+    Some(T),
+}
+
+enum Result<T, E> {
+    Ok(T),
+    Err(E),
+}
+
+fn option_or(value: Option<i32>, fallback: i32) -> i32 {
+    return match (value) { Option.Some(found) => found, Option.None => fallback };
+}
+
+fn value_or_zero(result: Result<i32, string>) -> i32 {
+    return match (result) { Result.Ok(value) => value, Result.Err(_) => 0 };
+}
+
+fn label(result: Result<i32, string>) -> string {
+    return match (result) { Result.Ok(_) => "ok", Result.Err(message) => message };
+}
+
+fn main() -> i32 {
+    let present: Option<i32> = Option.Some(5);
+    let missing: Option<i32> = Option.None;
+    let ok: Result<i32, string> = Result.Ok(7);
+    let err: Result<i32, string> = Result.Err("bad");
+    println(option_or(present, 0));
+    println(option_or(missing, 3));
+    println(value_or_zero(ok));
+    println(value_or_zero(err));
+    println(label(err));
+    return value_or_zero(ok);
+}

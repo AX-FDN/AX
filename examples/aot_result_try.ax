@@ -1,0 +1,28 @@
+enum Result<T, E> {
+    Ok(T),
+    Err(E),
+}
+
+fn parse(text: string) -> Result<i32, string> {
+    if (text == "ok") {
+        return Result.Ok(7);
+    }
+    return Result.Err("bad");
+}
+
+fn render_score(text: string) -> Result<string, string> {
+    let score: i32 = parse(text)?;
+    return Result.Ok("score=" + to_string(score));
+}
+
+fn length_or_error_length(result: Result<string, string>) -> i32 {
+    return match (result) { Result.Ok(text) => string_len(text), Result.Err(message) => string_len(message) };
+}
+
+fn main() -> i32 {
+    let ok: Result<string, string> = render_score("ok");
+    let err: Result<string, string> = render_score("no");
+    println(length_or_error_length(ok));
+    println(length_or_error_length(err));
+    return length_or_error_length(ok) + length_or_error_length(err);
+}

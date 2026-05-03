@@ -17,7 +17,6 @@ pub(super) fn rule_for_blocker(code: &str, category: &str) -> AotBlockerRule {
         "AOT0202" => RULE_TRAIT_LOWERING_PENDING,
         "AOT0203" => RULE_METHOD_ABI_PENDING,
         "AOT0204" => RULE_ENUM_MATCH_LOWERING_PENDING,
-        "AOT0205" => RULE_RESULT_PROPAGATION_LOWERING_PENDING,
         "AOT0206" => RULE_ARRAY_WRITE_LOWERING_PENDING,
         "AOT0207" => RULE_STRUCT_WRITE_LOWERING_PENDING,
         "AOT0301" => RULE_HOST_RUNTIME_ABI_PENDING,
@@ -83,8 +82,8 @@ const RULE_PACKAGE_LOCK_REQUIRED: AotBlockerRule = AotBlockerRule {
 const RULE_GENERIC_LOWERING_PENDING: AotBlockerRule = AotBlockerRule {
     rule_id: "aot_generic_lowering_pending",
     layer: "aot_readiness",
-    summary: "generic lowering is outside the current AOT subset",
-    repair_goal: "Do not erase generics from user code; add monomorphization and type argument lowering before native validation.",
+    summary: "generic functions, structs, impls, and aliases are outside the current AOT subset",
+    repair_goal: "Do not erase generics from user code; add monomorphization for function, struct, impl, and alias lowering before native validation.",
     validation: VALIDATE_RUN_BUILD,
 };
 
@@ -107,16 +106,8 @@ const RULE_METHOD_ABI_PENDING: AotBlockerRule = AotBlockerRule {
 const RULE_ENUM_MATCH_LOWERING_PENDING: AotBlockerRule = AotBlockerRule {
     rule_id: "aot_enum_match_lowering_pending",
     layer: "aot_readiness",
-    summary: "payload enum and match lowering need a native backend contract",
-    repair_goal: "Keep semantic behavior under axc run and add payload enum layout plus pattern lowering before AOT validation.",
-    validation: VALIDATE_RUN_BUILD,
-};
-
-const RULE_RESULT_PROPAGATION_LOWERING_PENDING: AotBlockerRule = AotBlockerRule {
-    rule_id: "aot_result_propagation_lowering_pending",
-    layer: "aot_readiness",
-    summary: "result propagation needs explicit native early-return lowering",
-    repair_goal: "Do not remove question-mark propagation just to satisfy build; add MIR-to-native lowering for the early-return path.",
+    summary: "advanced pattern lowering needs a native backend contract",
+    repair_goal: "Keep semantic behavior under axc run and add struct destructuring plus complex pattern lowering before AOT validation.",
     validation: VALIDATE_RUN_BUILD,
 };
 

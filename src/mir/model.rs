@@ -37,6 +37,7 @@ pub enum ItemKind {
     Const {
         name: String,
         ty: Type,
+        value: Expr,
     },
     Struct {
         name: String,
