@@ -1,0 +1,12 @@
+enum Packet {
+    Values([i32; 3]),
+    Empty,
+}
+
+fn main() -> i32 {
+    let packet: Packet = Packet.Values([1, 2, 3]);
+
+    println(packet);
+
+    return string_len(to_string(packet));
+}

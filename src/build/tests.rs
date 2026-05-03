@@ -622,6 +622,43 @@ return len(middle) + middle[0] + middle[2] + sum_pair(values[2:4]) + sum_pair(va
 }
 
 #[test]
+fn aot_readiness_allows_slice_formatter_v0() {
+    let readiness = readiness_for(
+        "\
+fn main() -> i32 {
+let values: [i32; 5] = [1, 2, 3, 4, 5];
+let middle: [i32] = values[1:4];
+println(middle);
+return string_len(to_string(middle));
+}
+",
+        AotReadinessInput {
+            is_project: false,
+            has_local_path_packages: false,
+            package_lock_status: None,
+        },
+    );
+
+    assert!(readiness.single_file_core_candidate);
+    assert!(
+        readiness
+            .required_backend_features
+            .contains(&"slices".to_string())
+    );
+    assert!(
+        readiness
+            .required_backend_features
+            .contains(&"host_stdio".to_string())
+    );
+    assert!(
+        readiness
+            .required_backend_features
+            .contains(&"to_string_values".to_string())
+    );
+    assert_eq!(blocker_codes(&readiness), vec!["AOT0001"]);
+}
+
+#[test]
 fn aot_readiness_allows_struct_read_v0() {
     let readiness = readiness_for(
         "\
@@ -917,6 +954,96 @@ return 58;
             "payload_enums".to_string(),
             "string_literals".to_string(),
             "string_values".to_string()
+        ]
+    );
+    assert_eq!(blocker_codes(&readiness), vec!["AOT0001"]);
+}
+
+#[test]
+fn aot_readiness_allows_enum_array_payload_formatter_v0() {
+    let readiness = readiness_for(
+        "\
+enum Packet {
+Values([i32; 3]),
+Empty,
+}
+
+fn main() -> i32 {
+let packet: Packet = Packet.Values([1, 2, 3]);
+println(packet);
+return string_len(to_string(packet));
+}
+",
+        AotReadinessInput {
+            is_project: false,
+            has_local_path_packages: false,
+            package_lock_status: None,
+        },
+    );
+
+    assert!(readiness.single_file_core_candidate);
+    assert_eq!(
+        readiness.required_backend_features,
+        vec![
+            "arrays".to_string(),
+            "enums".to_string(),
+            "functions".to_string(),
+            "host_stdio".to_string(),
+            "i32_values".to_string(),
+            "payload_enums".to_string(),
+            "string_len".to_string(),
+            "to_string_values".to_string()
+        ]
+    );
+    assert_eq!(blocker_codes(&readiness), vec!["AOT0001"]);
+}
+
+#[test]
+fn aot_readiness_allows_enum_struct_and_slice_payload_formatter_v0() {
+    let readiness = readiness_for(
+        "\
+struct Summary {
+count: i32,
+label: string,
+}
+
+enum Packet {
+Summary(Summary),
+Lines([string]),
+Empty,
+}
+
+fn main() -> i32 {
+let summary: Packet = Packet.Summary(Summary { count: 3, label: \"ok\" });
+let lines: Packet = Packet.Lines(string_split_lines(\"alpha\\nbeta\\n\"));
+println(summary);
+println(lines);
+return string_len(to_string(summary)) + string_len(to_string(lines));
+}
+",
+        AotReadinessInput {
+            is_project: false,
+            has_local_path_packages: false,
+            package_lock_status: None,
+        },
+    );
+
+    assert!(readiness.single_file_core_candidate);
+    assert_eq!(
+        readiness.required_backend_features,
+        vec![
+            "enums".to_string(),
+            "functions".to_string(),
+            "host_stdio".to_string(),
+            "i32_values".to_string(),
+            "payload_enums".to_string(),
+            "slices".to_string(),
+            "string_len".to_string(),
+            "string_literals".to_string(),
+            "string_split_lines".to_string(),
+            "string_values".to_string(),
+            "structs".to_string(),
+            "to_string_values".to_string()
         ]
     );
     assert_eq!(blocker_codes(&readiness), vec!["AOT0001"]);

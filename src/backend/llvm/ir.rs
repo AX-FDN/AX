@@ -3229,10 +3229,7 @@ impl<'a> FunctionEmitter<'a> {
                 return self.emit_struct_to_string(value, &name, out);
             }
             Some(Type::Slice { element }) => {
-                return Err(format!(
-                    "to_string([]{}) needs a native slice formatter before LLVM AOT can lower it",
-                    ax_type_name(&element)
-                ));
+                return self.emit_slice_to_string(value, &element, out);
             }
             _ => {}
         }
@@ -3333,6 +3330,130 @@ impl<'a> FunctionEmitter<'a> {
         })
     }
 
+    fn emit_slice_to_string(
+        &mut self,
+        value: LlvmValue,
+        element: &Type,
+        out: &mut String,
+    ) -> Result<LlvmValue, String> {
+        ensure_same_type(&slice_llvm_type(), &value.ty)?;
+        let element_ty = llvm_type(element, self.layouts, self.enum_layouts).ok_or_else(|| {
+            format!(
+                "slice element type {} needs a native formatter before to_string(slice) can lower in LLVM AOT v0",
+                ax_type_name(element)
+            )
+        })?;
+
+        let data_ptr = self.next_temp();
+        writeln!(
+            out,
+            "  {data_ptr} = extractvalue {} {}, 0",
+            value.ty, value.repr
+        )
+        .expect("writing to string cannot fail");
+        let len = self.next_temp();
+        writeln!(out, "  {len} = extractvalue {} {}, 1", value.ty, value.repr)
+            .expect("writing to string cannot fail");
+
+        let index_slot = self.next_temp();
+        let current_slot = self.next_temp();
+        let open = self.string_literal_symbol("[")?;
+        writeln!(out, "  {index_slot} = alloca i32").expect("writing to string cannot fail");
+        writeln!(out, "  {current_slot} = alloca ptr").expect("writing to string cannot fail");
+        writeln!(out, "  store i32 0, ptr {index_slot}").expect("writing to string cannot fail");
+        writeln!(out, "  store ptr {open}, ptr {current_slot}")
+            .expect("writing to string cannot fail");
+
+        let loop_label = self.next_label("slice_to_string_loop");
+        let body_label = self.next_label("slice_to_string_body");
+        let separator_label = self.next_label("slice_to_string_separator");
+        let element_label = self.next_label("slice_to_string_element");
+        let done_label = self.next_label("slice_to_string_done");
+
+        writeln!(out, "  br label %{loop_label}").expect("writing to string cannot fail");
+        writeln!(out, "{loop_label}:").expect("writing to string cannot fail");
+        let index = self.next_temp();
+        writeln!(out, "  {index} = load i32, ptr {index_slot}")
+            .expect("writing to string cannot fail");
+        let has_item = self.next_temp();
+        writeln!(out, "  {has_item} = icmp slt i32 {index}, {len}")
+            .expect("writing to string cannot fail");
+        writeln!(
+            out,
+            "  br i1 {has_item}, label %{body_label}, label %{done_label}"
+        )
+        .expect("writing to string cannot fail");
+
+        writeln!(out, "{body_label}:").expect("writing to string cannot fail");
+        let needs_separator = self.next_temp();
+        writeln!(out, "  {needs_separator} = icmp ne i32 {index}, 0")
+            .expect("writing to string cannot fail");
+        writeln!(
+            out,
+            "  br i1 {needs_separator}, label %{separator_label}, label %{element_label}"
+        )
+        .expect("writing to string cannot fail");
+
+        writeln!(out, "{separator_label}:").expect("writing to string cannot fail");
+        let current_before_separator = self.next_temp();
+        writeln!(
+            out,
+            "  {current_before_separator} = load ptr, ptr {current_slot}"
+        )
+        .expect("writing to string cannot fail");
+        let separator = self.string_literal_symbol(", ")?;
+        let with_separator = self.emit_string_concat(&current_before_separator, &separator, out);
+        writeln!(out, "  store ptr {with_separator}, ptr {current_slot}")
+            .expect("writing to string cannot fail");
+        writeln!(out, "  br label %{element_label}").expect("writing to string cannot fail");
+
+        writeln!(out, "{element_label}:").expect("writing to string cannot fail");
+        let prefix = self.next_temp();
+        writeln!(out, "  {prefix} = load ptr, ptr {current_slot}")
+            .expect("writing to string cannot fail");
+        let element_ptr = self.next_temp();
+        writeln!(
+            out,
+            "  {element_ptr} = getelementptr {element_ty}, ptr {data_ptr}, i32 {index}"
+        )
+        .expect("writing to string cannot fail");
+        let element_value = self.next_temp();
+        writeln!(
+            out,
+            "  {element_value} = load {element_ty}, ptr {element_ptr}"
+        )
+        .expect("writing to string cannot fail");
+        let element_text = self.emit_value_to_string(
+            LlvmValue {
+                ty: element_ty,
+                repr: element_value,
+                ax_ty: Some(element.clone()),
+            },
+            out,
+        )?;
+        let next_current = self.emit_string_concat(&prefix, &element_text.repr, out);
+        writeln!(out, "  store ptr {next_current}, ptr {current_slot}")
+            .expect("writing to string cannot fail");
+        let next_index = self.next_temp();
+        writeln!(out, "  {next_index} = add i32 {index}, 1")
+            .expect("writing to string cannot fail");
+        writeln!(out, "  store i32 {next_index}, ptr {index_slot}")
+            .expect("writing to string cannot fail");
+        writeln!(out, "  br label %{loop_label}").expect("writing to string cannot fail");
+
+        writeln!(out, "{done_label}:").expect("writing to string cannot fail");
+        let current = self.next_temp();
+        writeln!(out, "  {current} = load ptr, ptr {current_slot}")
+            .expect("writing to string cannot fail");
+        let close = self.string_literal_symbol("]")?;
+        let result = self.emit_string_concat(&current, &close, out);
+        Ok(LlvmValue {
+            ty: "ptr".to_string(),
+            repr: result,
+            ax_ty: Some(Type::String),
+        })
+    }
+
     fn emit_struct_to_string(
         &mut self,
         value: LlvmValue,
@@ -3417,6 +3538,7 @@ impl<'a> FunctionEmitter<'a> {
             tag
         };
 
+        let result_slot = self.next_temp();
         let done_label = self.next_label("enum_to_string_done");
         let variant_blocks = layout
             .variants
@@ -3435,9 +3557,9 @@ impl<'a> FunctionEmitter<'a> {
         } else {
             &variant_blocks[0].1
         };
+        writeln!(out, "  {result_slot} = alloca ptr").expect("writing to string cannot fail");
         writeln!(out, "  br label %{first_label}").expect("writing to string cannot fail");
 
-        let mut incoming = Vec::new();
         for (index, (variant, test_label, variant_label)) in variant_blocks.iter().enumerate() {
             if variant_blocks.len() > 1 {
                 writeln!(out, "{test_label}:").expect("writing to string cannot fail");
@@ -3459,18 +3581,15 @@ impl<'a> FunctionEmitter<'a> {
 
             writeln!(out, "{variant_label}:").expect("writing to string cannot fail");
             let formatted = self.emit_enum_variant_to_string(&layout, variant, &value, out)?;
-            incoming.push((formatted, variant_label.clone()));
+            writeln!(out, "  store ptr {formatted}, ptr {result_slot}")
+                .expect("writing to string cannot fail");
             writeln!(out, "  br label %{done_label}").expect("writing to string cannot fail");
         }
 
         writeln!(out, "{done_label}:").expect("writing to string cannot fail");
         let result = self.next_temp();
-        let phi_values = incoming
-            .iter()
-            .map(|(text, label)| format!("[ {text}, %{label} ]"))
-            .collect::<Vec<_>>()
-            .join(", ");
-        writeln!(out, "  {result} = phi ptr {phi_values}").expect("writing to string cannot fail");
+        writeln!(out, "  {result} = load ptr, ptr {result_slot}")
+            .expect("writing to string cannot fail");
         Ok(LlvmValue {
             ty: "ptr".to_string(),
             repr: result,
@@ -3550,33 +3669,15 @@ impl<'a> FunctionEmitter<'a> {
         payload: &str,
         out: &mut String,
     ) -> Result<String, String> {
-        match payload_ax_ty {
-            Type::I32 => {
-                ensure_same_type("i32", payload_ty)?;
-                let text = self.next_temp();
-                writeln!(out, "  {text} = call ptr @ax_i32_to_string(i32 {payload})")
-                    .expect("writing to string cannot fail");
-                Ok(text)
-            }
-            Type::Bool => {
-                ensure_same_type("i1", payload_ty)?;
-                let text = self.next_temp();
-                writeln!(
-                    out,
-                    "  {text} = select i1 {payload}, ptr @.ax_text_true, ptr @.ax_text_false"
-                )
-                .expect("writing to string cannot fail");
-                Ok(text)
-            }
-            Type::String => {
-                ensure_same_type("ptr", payload_ty)?;
-                Ok(payload.to_string())
-            }
-            other => Err(format!(
-                "enum payload type {} needs a native formatter before to_string(enum) can lower in LLVM AOT v0",
-                ax_type_name(other)
-            )),
-        }
+        let rendered = self.emit_value_to_string(
+            LlvmValue {
+                ty: payload_ty.to_string(),
+                repr: payload.to_string(),
+                ax_ty: Some(payload_ax_ty.clone()),
+            },
+            out,
+        )?;
+        Ok(rendered.repr)
     }
 
     fn emit_println(&mut self, arguments: &[Expr], out: &mut String) -> Result<LlvmValue, String> {
@@ -3600,6 +3701,7 @@ impl<'a> FunctionEmitter<'a> {
             value.ax_ty.as_ref(),
             Some(
                 Type::Array { .. }
+                    | Type::Slice { .. }
                     | Type::Struct { .. }
                     | Type::Enum { .. }
                     | Type::EnumInstance { .. }
@@ -4635,23 +4737,52 @@ fn llvm_alloc_size(
     layouts: &BTreeMap<String, StructLayout>,
     enum_layouts: &BTreeMap<String, EnumLayout>,
 ) -> Option<usize> {
+    llvm_alloc_layout(ty, layouts, enum_layouts).map(|(size, _align)| size)
+}
+
+fn llvm_alloc_layout(
+    ty: &Type,
+    layouts: &BTreeMap<String, StructLayout>,
+    enum_layouts: &BTreeMap<String, EnumLayout>,
+) -> Option<(usize, usize)> {
     match ty {
-        Type::Bool => Some(1),
-        Type::I32 => Some(4),
-        Type::String => Some(8),
+        Type::Bool => Some((1, 1)),
+        Type::I32 => Some((4, 4)),
+        Type::String => Some((8, 8)),
+        Type::Slice { element } => {
+            llvm_alloc_layout(element, layouts, enum_layouts)?;
+            Some((16, 8))
+        }
         Type::Enum { .. } | Type::EnumInstance { .. } => enum_layouts
             .get(&enum_layout_key(ty))
-            .and_then(|layout| if layout.ty == "i32" { Some(4) } else { None }),
+            .map(|layout| if layout.ty == "i32" { (4, 4) } else { (16, 8) }),
         Type::Array { element, length } => {
-            llvm_alloc_size(element, layouts, enum_layouts).map(|size| size * length)
+            let (element_size, element_align) = llvm_alloc_layout(element, layouts, enum_layouts)?;
+            let stride = align_to(element_size, element_align);
+            Some((stride * length, element_align))
         }
-        Type::Struct { .. } => None,
-        Type::F32
-        | Type::StringList
-        | Type::Slice { .. }
-        | Type::StructInstance { .. }
-        | Type::TypeParam { .. } => None,
+        Type::Struct { name } => {
+            let layout = layouts.get(name)?;
+            let mut size = 0;
+            let mut max_align = 1;
+            for field in &layout.fields {
+                let (field_size, field_align) =
+                    llvm_alloc_layout(&field.ax_ty, layouts, enum_layouts)?;
+                size = align_to(size, field_align);
+                size += field_size;
+                max_align = max_align.max(field_align);
+            }
+            Some((align_to(size, max_align), max_align))
+        }
+        Type::F32 | Type::StringList | Type::StructInstance { .. } | Type::TypeParam { .. } => None,
     }
+}
+
+fn align_to(size: usize, align: usize) -> usize {
+    if align == 0 {
+        return size;
+    }
+    size.div_ceil(align) * align
 }
 
 fn llvm_struct_type_name(name: &str) -> String {
@@ -5094,6 +5225,27 @@ fn main() -> i32 {
 
         assert!(rendered.contains("extractvalue [3 x i32]"));
         assert!(rendered.contains("call ptr @ax_i32_to_string(i32"));
+        assert!(rendered.contains("call ptr @ax_string_concat(ptr"));
+        assert!(rendered.contains("call i32 (ptr, ...) @printf(ptr @.ax_fmt_str, ptr %"));
+    }
+
+    #[test]
+    fn renders_slice_formatter_and_direct_print_v0() {
+        let rendered = render(
+            "\
+fn main() -> i32 {
+    let values: [i32; 4] = [1, 2, 3, 4];
+    let middle: [i32] = values[1:4];
+    println(middle);
+    println(values[0:2]);
+    return string_len(to_string(middle));
+}
+",
+        );
+
+        assert!(rendered.contains("slice_to_string_loop"));
+        assert!(rendered.contains("slice_to_string_separator"));
+        assert!(rendered.contains("getelementptr i32, ptr"));
         assert!(rendered.contains("call ptr @ax_string_concat(ptr"));
         assert!(rendered.contains("call i32 (ptr, ...) @printf(ptr @.ax_fmt_str, ptr %"));
     }
@@ -5549,7 +5701,8 @@ fn main() -> i32 {
         assert!(rendered.contains("call ptr @ax_i32_to_string(i32"));
         assert!(rendered.contains("select i1 %t"));
         assert!(rendered.contains("call ptr @ax_string_concat(ptr"));
-        assert!(rendered.contains("phi ptr"));
+        assert!(rendered.contains("alloca ptr"));
+        assert!(rendered.contains("load ptr, ptr"));
     }
 
     #[test]
@@ -5582,6 +5735,62 @@ fn main() -> i32 {
         assert!(rendered.contains("select i1 %t"));
         assert!(rendered.contains("call ptr @ax_string_concat(ptr"));
         assert!(rendered.contains("call i32 (ptr, ...) @printf(ptr @.ax_fmt_str, ptr %t"));
+    }
+
+    #[test]
+    fn renders_enum_array_payload_formatter_v0() {
+        let rendered = render(
+            "\
+enum Packet {
+    Values([i32; 3]),
+    Empty,
+}
+
+fn main() -> i32 {
+    let packet: Packet = Packet.Values([1, 2, 3]);
+    println(packet);
+    return string_len(to_string(packet));
+}
+",
+        );
+
+        assert!(rendered.contains("c\"Packet.Values\\00\""));
+        assert!(rendered.contains("extractvalue [3 x i32]"));
+        assert!(rendered.contains("call ptr @ax_i32_to_string(i32"));
+        assert!(rendered.contains("call i32 (ptr, ...) @printf(ptr @.ax_fmt_str, ptr %t"));
+    }
+
+    #[test]
+    fn renders_enum_struct_and_slice_payload_formatter_v0() {
+        let rendered = render(
+            "\
+struct Summary {
+    count: i32,
+    label: string,
+}
+
+enum Packet {
+    Summary(Summary),
+    Lines([string]),
+    Empty,
+}
+
+fn main() -> i32 {
+    let summary: Packet = Packet.Summary(Summary { count: 3, label: \"ok\" });
+    let lines: Packet = Packet.Lines(string_split_lines(\"alpha\\nbeta\\n\"));
+    println(summary);
+    println(lines);
+    return string_len(to_string(summary)) + string_len(to_string(lines));
+}
+",
+        );
+
+        assert!(rendered.contains("c\"Packet.Summary\\00\""));
+        assert!(rendered.contains("c\"Packet.Lines\\00\""));
+        assert!(rendered.contains("call ptr @malloc(i64 16)"));
+        assert!(rendered.contains("call { ptr, i32 } @ax_string_split_lines(ptr"));
+        assert!(rendered.contains("extractvalue %ax_struct_Summary"));
+        assert!(rendered.contains("slice_to_string_loop"));
     }
 
     #[test]

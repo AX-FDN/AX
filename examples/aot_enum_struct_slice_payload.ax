@@ -1,0 +1,20 @@
+struct Summary {
+    count: i32,
+    label: string,
+}
+
+enum Packet {
+    Summary(Summary),
+    Lines([string]),
+    Empty,
+}
+
+fn main() -> i32 {
+    let summary: Packet = Packet.Summary(Summary { count: 3, label: "ok" });
+    let lines: Packet = Packet.Lines(string_split_lines("alpha\nbeta\n"));
+
+    println(summary);
+    println(lines);
+
+    return string_len(to_string(summary)) + string_len(to_string(lines));
+}

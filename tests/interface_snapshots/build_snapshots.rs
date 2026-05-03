@@ -1447,6 +1447,12 @@ fn llvm_aot_core_examples_check_run_and_emit_ir_without_linking_by_default() {
             9,
         ),
         (
+            "llvm-aot-slice-to-string-build",
+            "examples/aot_slice_to_string.ax",
+            "aot_slice_to_string",
+            22,
+        ),
+        (
             "llvm-aot-bool-logic-build",
             "examples/aot_bool_logic.ax",
             "aot_bool_logic",
@@ -1607,6 +1613,18 @@ fn llvm_aot_core_examples_check_run_and_emit_ir_without_linking_by_default() {
             "examples/aot_enum_print.ax",
             "aot_enum_print",
             58,
+        ),
+        (
+            "llvm-aot-enum-array-payload-build",
+            "examples/aot_enum_array_payload.ax",
+            "aot_enum_array_payload",
+            24,
+        ),
+        (
+            "llvm-aot-enum-struct-slice-payload-build",
+            "examples/aot_enum_struct_slice_payload.ax",
+            "aot_enum_struct_slice_payload",
+            74,
         ),
         (
             "llvm-aot-generic-enum-print-build",
