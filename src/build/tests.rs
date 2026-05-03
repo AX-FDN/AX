@@ -282,6 +282,145 @@ return 1;
 }
 
 #[test]
+fn aot_readiness_allows_string_trim_v0_without_full_string_runtime() {
+    let readiness = readiness_for(
+        "\
+fn main() -> i32 {
+let text: string = string_trim(\"  AX compiler\\n\");
+println(text);
+return string_len(text);
+}
+",
+        AotReadinessInput {
+            is_project: false,
+            has_local_path_packages: false,
+            package_lock_status: None,
+        },
+    );
+
+    assert!(readiness.single_file_core_candidate);
+    assert_eq!(
+        readiness.required_backend_features,
+        vec![
+            "functions".to_string(),
+            "host_stdio".to_string(),
+            "i32_values".to_string(),
+            "string_len".to_string(),
+            "string_literals".to_string(),
+            "string_trim".to_string(),
+            "string_values".to_string()
+        ]
+    );
+    assert_eq!(blocker_codes(&readiness), vec!["AOT0001"]);
+}
+
+#[test]
+fn aot_readiness_allows_string_replace_v0_without_full_string_runtime() {
+    let readiness = readiness_for(
+        "\
+fn main() -> i32 {
+let text: string = string_replace(\"AX compiler AX\", \"AX\", \"A\");
+println(text);
+return string_len(text);
+}
+",
+        AotReadinessInput {
+            is_project: false,
+            has_local_path_packages: false,
+            package_lock_status: None,
+        },
+    );
+
+    assert!(readiness.single_file_core_candidate);
+    assert_eq!(
+        readiness.required_backend_features,
+        vec![
+            "functions".to_string(),
+            "host_stdio".to_string(),
+            "i32_values".to_string(),
+            "string_len".to_string(),
+            "string_literals".to_string(),
+            "string_replace".to_string(),
+            "string_values".to_string()
+        ]
+    );
+    assert_eq!(blocker_codes(&readiness), vec!["AOT0001"]);
+}
+
+#[test]
+fn aot_readiness_allows_string_split_lines_v0_without_full_string_runtime() {
+    let readiness = readiness_for(
+        "\
+fn main() -> i32 {
+let lines: [string] = string_split_lines(\"alpha\\nbeta\\ngamma\\n\");
+println(lines[1]);
+return len(lines);
+}
+",
+        AotReadinessInput {
+            is_project: false,
+            has_local_path_packages: false,
+            package_lock_status: None,
+        },
+    );
+
+    assert!(readiness.single_file_core_candidate);
+    assert_eq!(
+        readiness.required_backend_features,
+        vec![
+            "arrays".to_string(),
+            "functions".to_string(),
+            "host_stdio".to_string(),
+            "i32_values".to_string(),
+            "slices".to_string(),
+            "string_literals".to_string(),
+            "string_split_lines".to_string(),
+            "string_values".to_string()
+        ]
+    );
+    assert_eq!(blocker_codes(&readiness), vec!["AOT0001"]);
+}
+
+#[test]
+fn aot_readiness_allows_for_in_over_string_split_lines_v0() {
+    let readiness = readiness_for(
+        "\
+fn main() -> i32 {
+let lines: [string] = string_split_lines(\"alpha\\nbeta\\ngamma\\n\");
+let mut total: i32 = 0;
+for (let line: string in lines) {
+println(line);
+total = total + string_len(line);
+}
+return total;
+}
+",
+        AotReadinessInput {
+            is_project: false,
+            has_local_path_packages: false,
+            package_lock_status: None,
+        },
+    );
+
+    assert!(readiness.single_file_core_candidate);
+    assert_eq!(
+        readiness.required_backend_features,
+        vec![
+            "for_in".to_string(),
+            "functions".to_string(),
+            "host_stdio".to_string(),
+            "i32_values".to_string(),
+            "slices".to_string(),
+            "string_len".to_string(),
+            "string_literals".to_string(),
+            "string_split_lines".to_string(),
+            "string_values".to_string()
+        ]
+    );
+    assert_eq!(blocker_codes(&readiness), vec!["AOT0001"]);
+}
+
+#[test]
 fn aot_readiness_allows_fixed_array_read_v0() {
     let readiness = readiness_for(
         "\
@@ -344,6 +483,42 @@ return values[0];
 }
 
 #[test]
+fn aot_readiness_allows_fixed_array_formatter_v0() {
+    let readiness = readiness_for(
+        "\
+fn main() -> i32 {
+let values: [i32; 3] = [1, 2, 3];
+println(values);
+return string_len(to_string(values));
+}
+",
+        AotReadinessInput {
+            is_project: false,
+            has_local_path_packages: false,
+            package_lock_status: None,
+        },
+    );
+
+    assert!(readiness.single_file_core_candidate);
+    assert!(
+        readiness
+            .required_backend_features
+            .contains(&"arrays".to_string())
+    );
+    assert!(
+        readiness
+            .required_backend_features
+            .contains(&"host_stdio".to_string())
+    );
+    assert!(
+        readiness
+            .required_backend_features
+            .contains(&"to_string_values".to_string())
+    );
+    assert_eq!(blocker_codes(&readiness), vec!["AOT0001"]);
+}
+
+#[test]
 fn aot_readiness_allows_fixed_array_for_in_v0() {
     let readiness = readiness_for(
         "\
@@ -373,6 +548,40 @@ return total;
         readiness
             .required_backend_features
             .contains(&"arrays".to_string())
+    );
+    assert_eq!(blocker_codes(&readiness), vec!["AOT0001"]);
+}
+
+#[test]
+fn aot_readiness_allows_slice_range_for_in_v0() {
+    let readiness = readiness_for(
+        "\
+fn main() -> i32 {
+let values: [i32; 5] = [1, 2, 3, 4, 5];
+let mut total: i32 = 0;
+for (let value: i32 in values[1:4]) {
+total = total + value;
+}
+return total;
+}
+",
+        AotReadinessInput {
+            is_project: false,
+            has_local_path_packages: false,
+            package_lock_status: None,
+        },
+    );
+
+    assert!(readiness.single_file_core_candidate);
+    assert!(
+        readiness
+            .required_backend_features
+            .contains(&"for_in".to_string())
+    );
+    assert!(
+        readiness
+            .required_backend_features
+            .contains(&"slices".to_string())
     );
     assert_eq!(blocker_codes(&readiness), vec!["AOT0001"]);
 }
@@ -441,6 +650,48 @@ return point.x + point.y;
             "i32_values".to_string(),
             "structs".to_string()
         ]
+    );
+    assert_eq!(blocker_codes(&readiness), vec!["AOT0001"]);
+}
+
+#[test]
+fn aot_readiness_allows_struct_formatter_v0() {
+    let readiness = readiness_for(
+        "\
+struct Summary {
+count: i32,
+ready: bool,
+label: string,
+}
+
+fn main() -> i32 {
+let summary: Summary = Summary { ready: true, label: \"ok\", count: 3 };
+println(summary);
+return string_len(to_string(summary));
+}
+",
+        AotReadinessInput {
+            is_project: false,
+            has_local_path_packages: false,
+            package_lock_status: None,
+        },
+    );
+
+    assert!(readiness.single_file_core_candidate);
+    assert!(
+        readiness
+            .required_backend_features
+            .contains(&"structs".to_string())
+    );
+    assert!(
+        readiness
+            .required_backend_features
+            .contains(&"host_stdio".to_string())
+    );
+    assert!(
+        readiness
+            .required_backend_features
+            .contains(&"to_string_values".to_string())
     );
     assert_eq!(blocker_codes(&readiness), vec!["AOT0001"]);
 }
@@ -581,6 +832,97 @@ return score(value);
 }
 
 #[test]
+fn aot_readiness_allows_enum_to_string_v0() {
+    let readiness = readiness_for(
+        "\
+enum Status {
+Code(i32),
+Flag(bool),
+Label(string),
+Done,
+}
+
+fn main() -> i32 {
+let code: Status = Status.Code(7);
+let flag: Status = Status.Flag(true);
+let label: Status = Status.Label(\"ok\");
+let done: Status = Status.Done;
+return string_len(to_string(code)) + string_len(to_string(flag)) + string_len(to_string(label)) + string_len(to_string(done));
+}
+",
+        AotReadinessInput {
+            is_project: false,
+            has_local_path_packages: false,
+            package_lock_status: None,
+        },
+    );
+
+    assert!(readiness.single_file_core_candidate);
+    assert_eq!(
+        readiness.required_backend_features,
+        vec![
+            "bool_values".to_string(),
+            "enums".to_string(),
+            "functions".to_string(),
+            "i32_values".to_string(),
+            "payload_enums".to_string(),
+            "string_len".to_string(),
+            "string_literals".to_string(),
+            "string_values".to_string(),
+            "to_string_values".to_string()
+        ]
+    );
+    assert_eq!(blocker_codes(&readiness), vec!["AOT0001"]);
+}
+
+#[test]
+fn aot_readiness_allows_direct_enum_print_v0() {
+    let readiness = readiness_for(
+        "\
+enum Status {
+Code(i32),
+Flag(bool),
+Label(string),
+Done,
+}
+
+fn main() -> i32 {
+let code: Status = Status.Code(7);
+let flag: Status = Status.Flag(true);
+let label: Status = Status.Label(\"ok\");
+let done: Status = Status.Done;
+println(code);
+println(flag);
+println(label);
+println(done);
+return 58;
+}
+",
+        AotReadinessInput {
+            is_project: false,
+            has_local_path_packages: false,
+            package_lock_status: None,
+        },
+    );
+
+    assert!(readiness.single_file_core_candidate);
+    assert_eq!(
+        readiness.required_backend_features,
+        vec![
+            "bool_values".to_string(),
+            "enums".to_string(),
+            "functions".to_string(),
+            "host_stdio".to_string(),
+            "i32_values".to_string(),
+            "payload_enums".to_string(),
+            "string_literals".to_string(),
+            "string_values".to_string()
+        ]
+    );
+    assert_eq!(blocker_codes(&readiness), vec!["AOT0001"]);
+}
+
+#[test]
 fn aot_readiness_allows_match_expression_v0() {
     let readiness = readiness_for(
         "\
@@ -665,6 +1007,68 @@ return option_or(present, 0) + value_or_zero(ok);
         readiness
             .required_backend_features
             .contains(&"option_values".to_string())
+    );
+    assert_eq!(blocker_codes(&readiness), vec!["AOT0001"]);
+}
+
+#[test]
+fn aot_readiness_allows_generic_enum_formatter_and_print_v0() {
+    let readiness = readiness_for(
+        "\
+enum Option<T> {
+None,
+Some(T),
+}
+
+enum Result<T, E> {
+Ok(T),
+Err(E),
+}
+
+fn main() -> i32 {
+let present: Option<i32> = Option.Some(5);
+let missing: Option<i32> = Option.None;
+let ok: Result<i32, string> = Result.Ok(7);
+let err: Result<i32, string> = Result.Err(\"bad\");
+println(to_string(present));
+println(missing);
+println(to_string(ok));
+println(err);
+return string_len(to_string(present)) + string_len(to_string(missing)) + string_len(to_string(ok)) + string_len(to_string(err));
+}
+",
+        AotReadinessInput {
+            is_project: false,
+            has_local_path_packages: false,
+            package_lock_status: None,
+        },
+    );
+
+    assert!(readiness.single_file_core_candidate);
+    assert!(
+        readiness
+            .required_backend_features
+            .contains(&"generic_enums".to_string())
+    );
+    assert!(
+        readiness
+            .required_backend_features
+            .contains(&"generic_type_instances".to_string())
+    );
+    assert!(
+        readiness
+            .required_backend_features
+            .contains(&"option_values".to_string())
+    );
+    assert!(
+        readiness
+            .required_backend_features
+            .contains(&"result_values".to_string())
+    );
+    assert!(
+        readiness
+            .required_backend_features
+            .contains(&"to_string_values".to_string())
     );
     assert_eq!(blocker_codes(&readiness), vec!["AOT0001"]);
 }

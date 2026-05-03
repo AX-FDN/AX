@@ -1,0 +1,11 @@
+fn main() -> i32 {
+    let base: string = string_replace("AX compiler AX", "AX", "A");
+    let spaced: string = string_replace(base, " ", "_");
+    let inserted: string = string_replace("Go", "", ".");
+    println(spaced);
+    println(inserted);
+    if (string_len(spaced) == 12 && string_len(inserted) == 5) {
+        return 17;
+    }
+    return 1;
+}

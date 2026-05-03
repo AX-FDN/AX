@@ -1,0 +1,23 @@
+enum Option<T> {
+    None,
+    Some(T),
+}
+
+enum Result<T, E> {
+    Ok(T),
+    Err(E),
+}
+
+fn main() -> i32 {
+    let present: Option<i32> = Option.Some(5);
+    let missing: Option<i32> = Option.None;
+    let ok: Result<i32, string> = Result.Ok(7);
+    let err: Result<i32, string> = Result.Err("bad");
+
+    println(to_string(present));
+    println(missing);
+    println(to_string(ok));
+    println(err);
+
+    return string_len(to_string(present)) + string_len(to_string(missing)) + string_len(to_string(ok)) + string_len(to_string(err));
+}

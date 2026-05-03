@@ -1,0 +1,9 @@
+fn main() -> i32 {
+    let values: [i32; 3] = [1, 2, 3];
+    let flags: [bool; 2] = [true, false];
+
+    println(values);
+    println(to_string(flags));
+
+    return string_len(to_string(values)) + string_len(to_string(flags));
+}

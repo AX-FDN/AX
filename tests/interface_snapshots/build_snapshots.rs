@@ -1441,6 +1441,12 @@ fn llvm_aot_core_examples_check_run_and_emit_ir_without_linking_by_default() {
             19,
         ),
         (
+            "llvm-aot-slice-for-in-build",
+            "examples/aot_slice_for_in.ax",
+            "aot_slice_for_in",
+            9,
+        ),
+        (
             "llvm-aot-bool-logic-build",
             "examples/aot_bool_logic.ax",
             "aot_bool_logic",
@@ -1495,6 +1501,30 @@ fn llvm_aot_core_examples_check_run_and_emit_ir_without_linking_by_default() {
             7,
         ),
         (
+            "llvm-aot-string-replace-build",
+            "examples/aot_string_replace.ax",
+            "aot_string_replace",
+            17,
+        ),
+        (
+            "llvm-aot-string-split-lines-build",
+            "examples/aot_string_split_lines.ax",
+            "aot_string_split_lines",
+            17,
+        ),
+        (
+            "llvm-aot-string-split-lines-for-in-build",
+            "examples/aot_string_split_lines_for_in.ax",
+            "aot_string_split_lines_for_in",
+            14,
+        ),
+        (
+            "llvm-aot-string-trim-build",
+            "examples/aot_string_trim.ax",
+            "aot_string_trim",
+            11,
+        ),
+        (
             "llvm-aot-string-match-build",
             "examples/string_match.ax",
             "string_match",
@@ -1513,6 +1543,12 @@ fn llvm_aot_core_examples_check_run_and_emit_ir_without_linking_by_default() {
             10,
         ),
         (
+            "llvm-aot-array-to-string-build",
+            "examples/aot_array_to_string.ax",
+            "aot_array_to_string",
+            22,
+        ),
+        (
             "llvm-aot-struct-read-build",
             "examples/aot_struct_read.ax",
             "aot_struct_read",
@@ -1523,6 +1559,12 @@ fn llvm_aot_core_examples_check_run_and_emit_ir_without_linking_by_default() {
             "examples/aot_struct_write.ax",
             "aot_struct_write",
             9,
+        ),
+        (
+            "llvm-aot-struct-to-string-build",
+            "examples/aot_struct_to_string.ax",
+            "aot_struct_to_string",
+            44,
         ),
         (
             "llvm-aot-struct-pattern-build",
@@ -1553,6 +1595,24 @@ fn llvm_aot_core_examples_check_run_and_emit_ir_without_linking_by_default() {
             "examples/aot_payload_enum_equality.ax",
             "aot_payload_enum_equality",
             63,
+        ),
+        (
+            "llvm-aot-enum-to-string-build",
+            "examples/aot_enum_to_string.ax",
+            "aot_enum_to_string",
+            58,
+        ),
+        (
+            "llvm-aot-enum-print-build",
+            "examples/aot_enum_print.ax",
+            "aot_enum_print",
+            58,
+        ),
+        (
+            "llvm-aot-generic-enum-print-build",
+            "examples/aot_generic_enum_print.ax",
+            "aot_generic_enum_print",
+            52,
         ),
         (
             "llvm-aot-match-expression-build",

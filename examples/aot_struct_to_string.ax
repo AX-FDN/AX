@@ -1,0 +1,13 @@
+struct Summary {
+    count: i32,
+    ready: bool,
+    label: string,
+}
+
+fn main() -> i32 {
+    let summary: Summary = Summary { ready: true, label: "ok", count: 3 };
+
+    println(summary);
+
+    return string_len(to_string(summary));
+}

@@ -581,6 +581,12 @@ fn collect_call_aot_features(name: &str, features: &mut BTreeSet<String>) {
         "string_contains" | "string_starts_with" | "string_ends_with"
     ) {
         features.insert("string_predicates".to_string());
+    } else if name == "string_replace" {
+        features.insert("string_replace".to_string());
+    } else if name == "string_split_lines" {
+        features.insert("string_split_lines".to_string());
+    } else if name == "string_trim" {
+        features.insert("string_trim".to_string());
     } else if name == "to_string" {
         features.insert("to_string_values".to_string());
     } else if name.starts_with("string_")
@@ -595,9 +601,12 @@ fn collect_call_aot_features(name: &str, features: &mut BTreeSet<String>) {
 fn expr_may_produce_string(expression: &ast::Expr) -> bool {
     match &expression.kind {
         ast::ExprKind::String { .. } => true,
-        ast::ExprKind::Call { callee, .. } => callee
-            .qualified_name()
-            .is_some_and(|name| name == "to_string" || name.starts_with("string_")),
+        ast::ExprKind::Call { callee, .. } => callee.qualified_name().is_some_and(|name| {
+            matches!(
+                name.as_str(),
+                "to_string" | "string_replace" | "string_trim"
+            )
+        }),
         ast::ExprKind::Binary { left, right, .. } => {
             expr_may_produce_string(left) || expr_may_produce_string(right)
         }

@@ -1,0 +1,20 @@
+enum Status {
+    Code(i32),
+    Flag(bool),
+    Label(string),
+    Done,
+}
+
+fn main() -> i32 {
+    let code: Status = Status.Code(7);
+    let flag: Status = Status.Flag(true);
+    let label: Status = Status.Label("ok");
+    let done: Status = Status.Done;
+
+    println(to_string(code));
+    println(to_string(flag));
+    println(to_string(label));
+    println(to_string(done));
+
+    return string_len(to_string(code)) + string_len(to_string(flag)) + string_len(to_string(label)) + string_len(to_string(done));
+}

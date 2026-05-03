@@ -1,0 +1,11 @@
+fn main() -> i32 {
+    let lines: [string] = string_split_lines("alpha\nbeta\ngamma\n");
+    let mut total: i32 = 0;
+
+    for (let line: string in lines) {
+        println(line);
+        total = total + string_len(line);
+    }
+
+    return total;
+}
