@@ -22,24 +22,6 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             return;
         }
 
-        if place.through_slice {
-            self.diagnostics.push(
-                Diagnostic::new(
-                    "S0035",
-                    format!(
-                        "cannot assign through slice variable `{}` because slices are read-only",
-                        place.root_name
-                    ),
-                    self.info.source,
-                    target.span,
-                )
-                .with_suggestion(
-                    "assign through the original mutable array instead of a slice view",
-                ),
-            );
-            return;
-        }
-
         self.expect_type_match(
             &place.ty,
             value_type,
@@ -73,7 +55,6 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     root_name: value.clone(),
                     root_mutable: binding.mutable,
                     root_start: binding.start,
-                    through_slice: false,
                 })
             }
             ExprKind::Field { base, field } => {
@@ -177,7 +158,6 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     }),
                     Type::Slice { element } => Some(ResolvedAssignmentPlace {
                         ty: element.as_ref().clone(),
-                        through_slice: true,
                         ..base_place
                     }),
                     Type::Error => None,
@@ -309,5 +289,4 @@ struct ResolvedAssignmentPlace {
     root_name: String,
     root_mutable: bool,
     root_start: usize,
-    through_slice: bool,
 }

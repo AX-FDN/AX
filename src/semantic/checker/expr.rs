@@ -379,6 +379,18 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
         match ty {
             Type::Bool | Type::I32 | Type::F32 | Type::String => true,
             Type::Array { element, .. } => self.type_is_equality_comparable(element),
+            Type::Slice { element } => self.type_is_equality_comparable(element),
+            Type::Struct(struct_name) => self
+                .info
+                .structs
+                .get(struct_name)
+                .map(|struct_info| {
+                    struct_info
+                        .fields
+                        .values()
+                        .all(|field| self.type_is_equality_comparable(&field.ty))
+                })
+                .unwrap_or(false),
             Type::StructInstance { .. } => false,
             Type::Enum(enum_name) => self
                 .info

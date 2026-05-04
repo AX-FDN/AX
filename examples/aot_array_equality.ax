@@ -1,0 +1,24 @@
+fn main() -> i32 {
+    let left: [i32; 3] = [1, 2, 3];
+    let same: [i32; 3] = [1, 2, 3];
+    let other: [i32; 3] = [1, 2, 4];
+    let names: [string; 2] = ["ax", "lang"];
+    let same_names: [string; 2] = ["ax", "lang"];
+    let other_names: [string; 2] = ["ax", "tool"];
+    let mut total: i32 = 0;
+
+    if (left == same) {
+        total = total + 1;
+    }
+    if (left != other) {
+        total = total + 2;
+    }
+    if (names == same_names) {
+        total = total + 4;
+    }
+    if (names != other_names) {
+        total = total + 8;
+    }
+
+    return total;
+}

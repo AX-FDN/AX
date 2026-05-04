@@ -8,6 +8,11 @@ pub(super) fn write_builtin_globals(module: &mut String) {
     .expect("writing to string cannot fail");
     writeln!(
         module,
+        "@.ax_fmt_f32 = private unnamed_addr constant [3 x i8] c\"%g\\00\""
+    )
+    .expect("writing to string cannot fail");
+    writeln!(
+        module,
         "@.ax_fmt_str = private unnamed_addr constant [3 x i8] c\"%s\\00\""
     )
     .expect("writing to string cannot fail");
@@ -257,6 +262,90 @@ fn write_string_runtime_helpers(module: &mut String) {
         "  %written = call i32 (ptr, i64, ptr, ...) @snprintf(ptr %buffer, i64 12, ptr @.ax_fmt_i32, i32 %value)"
     )
     .expect("writing to string cannot fail");
+    writeln!(module, "  ret ptr %buffer").expect("writing to string cannot fail");
+    writeln!(module, "}}\n").expect("writing to string cannot fail");
+
+    writeln!(
+        module,
+        "define private ptr @ax_f32_to_string(float %value) {{"
+    )
+    .expect("writing to string cannot fail");
+    writeln!(module, "entry:").expect("writing to string cannot fail");
+    writeln!(module, "  %buffer = call ptr @malloc(i64 40)")
+        .expect("writing to string cannot fail");
+    writeln!(module, "  %wide = fpext float %value to double")
+        .expect("writing to string cannot fail");
+    writeln!(
+        module,
+        "  %written = call i32 (ptr, i64, ptr, ...) @snprintf(ptr %buffer, i64 40, ptr @.ax_fmt_f32, double %wide)"
+    )
+    .expect("writing to string cannot fail");
+    writeln!(module, "  br label %scan").expect("writing to string cannot fail");
+    writeln!(module).expect("writing to string cannot fail");
+    writeln!(module, "scan:").expect("writing to string cannot fail");
+    writeln!(
+        module,
+        "  %index = phi i32 [0, %entry], [%next_index, %scan_continue]"
+    )
+    .expect("writing to string cannot fail");
+    writeln!(module, "  %scan_done = icmp sge i32 %index, %written")
+        .expect("writing to string cannot fail");
+    writeln!(
+        module,
+        "  br i1 %scan_done, label %append_decimal, label %scan_byte"
+    )
+    .expect("writing to string cannot fail");
+    writeln!(module).expect("writing to string cannot fail");
+    writeln!(module, "scan_byte:").expect("writing to string cannot fail");
+    writeln!(
+        module,
+        "  %byte_ptr = getelementptr i8, ptr %buffer, i32 %index"
+    )
+    .expect("writing to string cannot fail");
+    writeln!(module, "  %byte = load i8, ptr %byte_ptr").expect("writing to string cannot fail");
+    writeln!(module, "  %is_dot = icmp eq i8 %byte, 46").expect("writing to string cannot fail");
+    writeln!(module, "  %is_lower_exp = icmp eq i8 %byte, 101")
+        .expect("writing to string cannot fail");
+    writeln!(module, "  %is_upper_exp = icmp eq i8 %byte, 69")
+        .expect("writing to string cannot fail");
+    writeln!(module, "  %has_exp = or i1 %is_lower_exp, %is_upper_exp")
+        .expect("writing to string cannot fail");
+    writeln!(module, "  %has_marker = or i1 %is_dot, %has_exp")
+        .expect("writing to string cannot fail");
+    writeln!(
+        module,
+        "  br i1 %has_marker, label %done, label %scan_continue"
+    )
+    .expect("writing to string cannot fail");
+    writeln!(module).expect("writing to string cannot fail");
+    writeln!(module, "scan_continue:").expect("writing to string cannot fail");
+    writeln!(module, "  %next_index = add i32 %index, 1").expect("writing to string cannot fail");
+    writeln!(module, "  br label %scan").expect("writing to string cannot fail");
+    writeln!(module).expect("writing to string cannot fail");
+    writeln!(module, "append_decimal:").expect("writing to string cannot fail");
+    writeln!(
+        module,
+        "  %dot_ptr = getelementptr i8, ptr %buffer, i32 %written"
+    )
+    .expect("writing to string cannot fail");
+    writeln!(module, "  store i8 46, ptr %dot_ptr").expect("writing to string cannot fail");
+    writeln!(module, "  %zero_index = add i32 %written, 1").expect("writing to string cannot fail");
+    writeln!(
+        module,
+        "  %zero_ptr = getelementptr i8, ptr %buffer, i32 %zero_index"
+    )
+    .expect("writing to string cannot fail");
+    writeln!(module, "  store i8 48, ptr %zero_ptr").expect("writing to string cannot fail");
+    writeln!(module, "  %nul_index = add i32 %written, 2").expect("writing to string cannot fail");
+    writeln!(
+        module,
+        "  %nul_ptr = getelementptr i8, ptr %buffer, i32 %nul_index"
+    )
+    .expect("writing to string cannot fail");
+    writeln!(module, "  store i8 0, ptr %nul_ptr").expect("writing to string cannot fail");
+    writeln!(module, "  br label %done").expect("writing to string cannot fail");
+    writeln!(module).expect("writing to string cannot fail");
+    writeln!(module, "done:").expect("writing to string cannot fail");
     writeln!(module, "  ret ptr %buffer").expect("writing to string cannot fail");
     writeln!(module, "}}\n").expect("writing to string cannot fail");
 }
@@ -543,5 +632,7 @@ mod tests {
         assert!(module.contains("define private { ptr, i32 } @ax_string_split_lines(ptr %text)"));
         assert!(module.contains("define private ptr @ax_string_trim(ptr %text)"));
         assert!(module.contains("define private ptr @ax_i32_to_string(i32 %value)"));
+        assert!(module.contains("define private ptr @ax_f32_to_string(float %value)"));
+        assert!(module.contains("append_decimal:"));
     }
 }

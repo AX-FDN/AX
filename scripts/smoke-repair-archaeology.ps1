@@ -115,7 +115,7 @@ Assert-Equal -Label "comparison.ai_passed" -Actual ([int] $comparison.comparison
 $caseIds = @(
     "missing_semicolon_basic",
     "type_mismatch_bool_from_int",
-    "slice_assignment_read_only"
+    "slice_assignment_requires_mutable_binding"
 )
 
 & $archaeologyScript `

@@ -1,0 +1,80 @@
+const SCALE: f32 = 2.0;
+
+enum Metric {
+    Value(f32),
+    Series([f32; 3]),
+    Window([f32]),
+    Empty,
+}
+
+fn classify(metric: Metric) -> i32 {
+    let mut result: i32 = 0;
+
+    match (metric) {
+        Metric.Value(number) => {
+            if ((number * SCALE) == 5.0) {
+                result = 5;
+            }
+        }
+        Metric.Series(values) => {
+            result = len(values);
+        }
+        Metric.Window(values) => {
+            result = len(values);
+        }
+        Metric.Empty => {
+            result = 0;
+        }
+    }
+
+    return result;
+}
+
+fn main() -> i32 {
+    let value: Metric = Metric.Value(2.5);
+    let same_value: Metric = Metric.Value(2.5);
+    let other_value: Metric = Metric.Value(3.5);
+    let series: Metric = Metric.Series([1.5, 2.5, 3.5]);
+    let same_series: Metric = Metric.Series([1.5, 2.5, 3.5]);
+    let other_series: Metric = Metric.Series([1.5, 2.5, 4.5]);
+    let base: [f32; 3] = [1.5, 2.5, 3.5];
+    let other_base: [f32; 3] = [1.5, 2.5, 4.5];
+    let window: Metric = Metric.Window(base[1:3]);
+    let same_window: Metric = Metric.Window(base[1:3]);
+    let other_window: Metric = Metric.Window(other_base[1:3]);
+    let mut total: i32 = 0;
+
+    if (value == same_value) {
+        total = total + 1;
+    }
+    if (value != other_value) {
+        total = total + 2;
+    }
+    if (series == same_series) {
+        total = total + 4;
+    }
+    if (series != other_series) {
+        total = total + 8;
+    }
+    if (window == same_window) {
+        total = total + 16;
+    }
+    if (window != other_window) {
+        total = total + 32;
+    }
+    if (classify(value) == 5) {
+        total = total + 64;
+    }
+    if (classify(series) == 3) {
+        total = total + 128;
+    }
+    if (classify(window) == 2) {
+        total = total + 256;
+    }
+
+    println(value);
+    println(series);
+    println(window);
+
+    return total;
+}

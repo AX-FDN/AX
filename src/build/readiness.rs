@@ -50,53 +50,8 @@ pub fn assess_aot_readiness(program: &AstProgram, input: AotReadinessInput<'_>) 
         }
     }
     if features.iter().any(|feature| {
-        matches!(
-            feature.as_str(),
-            "generic_functions"
-                | "generic_structs"
-                | "generic_impls"
-                | "generic_methods"
-                | "generic_type_aliases"
-        )
+        feature.starts_with("host_") && !matches!(feature.as_str(), "host_stdio" | "host_argv")
     }) {
-        blockers.push(AotReadinessBlocker::new(
-            "AOT0201",
-            "language",
-            "generic function, struct, impl, and alias lowering are not frozen for native backend input",
-            "Build-1/Build-2",
-        ));
-    }
-    if features.contains("traits")
-        || features.contains("trait_bounds")
-        || features.contains("trait_impls")
-    {
-        blockers.push(AotReadinessBlocker::new(
-            "AOT0202",
-            "language",
-            "trait/interface lowering, bound dispatch, and trait impl layout are not frozen for native backend input",
-            "Build-2",
-        ));
-    }
-    if features.contains("impl_methods") || features.contains("generic_methods") {
-        blockers.push(AotReadinessBlocker::new(
-            "AOT0203",
-            "language",
-            "impl method lowering and method ABI are not frozen for native backend input",
-            "Build-2",
-        ));
-    }
-    if features.contains("slice_writes") {
-        blockers.push(AotReadinessBlocker::new(
-            "AOT0206",
-            "language",
-            "slice mutation needs explicit native layout write semantics before AOT can preserve interpreter behavior",
-            "Build-2",
-        ));
-    }
-    if features
-        .iter()
-        .any(|feature| feature.starts_with("host_") && feature != "host_stdio")
-    {
         blockers.push(AotReadinessBlocker::new(
             "AOT0301",
             "runtime",
@@ -118,21 +73,12 @@ pub fn assess_aot_readiness(program: &AstProgram, input: AotReadinessInput<'_>) 
         && !features.iter().any(|feature| {
             matches!(
                 feature.as_str(),
-                "slice_writes"
-                    | "impl_methods"
-                    | "traits"
-                    | "trait_bounds"
-                    | "trait_impls"
-                    | "string_runtime"
+                "string_runtime"
                     | "string_list_runtime"
                     | "project_sources"
                     | "local_path_packages"
-                    | "generic_functions"
-                    | "generic_structs"
-                    | "generic_impls"
-                    | "generic_methods"
-                    | "generic_type_aliases"
-            ) || (feature.starts_with("host_") && feature != "host_stdio")
+            ) || (feature.starts_with("host_")
+                && !matches!(feature.as_str(), "host_stdio" | "host_argv"))
         });
 
     AotReadiness {

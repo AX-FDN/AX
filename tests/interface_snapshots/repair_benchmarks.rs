@@ -1583,7 +1583,7 @@ fn repair_feedback_comparison_keeps_smoke_contract_without_rebuild() {
             "type_mismatch_bool_from_int".to_string(),
             "missing_struct_literal_field".to_string(),
             "match_struct_pattern_missing_field".to_string(),
-            "slice_assignment_read_only".to_string(),
+            "slice_assignment_requires_mutable_binding".to_string(),
             "index_out_of_bounds_runtime".to_string(),
             "division_by_zero_runtime".to_string(),
         ]
@@ -1649,7 +1649,7 @@ fn repair_feedback_comparison_keeps_smoke_contract_without_rebuild() {
             "type_mismatch_bool_from_int".to_string(),
             "missing_struct_literal_field".to_string(),
             "match_struct_pattern_missing_field".to_string(),
-            "slice_assignment_read_only".to_string(),
+            "slice_assignment_requires_mutable_binding".to_string(),
         ]
     );
     assert_eq!(
@@ -1897,7 +1897,7 @@ fn repair_mode_comparison_keeps_smoke_contract_without_rebuild() {
             "type_mismatch_bool_from_int".to_string(),
             "missing_struct_literal_field".to_string(),
             "match_struct_pattern_missing_field".to_string(),
-            "slice_assignment_read_only".to_string(),
+            "slice_assignment_requires_mutable_binding".to_string(),
             "index_out_of_bounds_runtime".to_string(),
             "division_by_zero_runtime".to_string(),
         ]
@@ -1913,7 +1913,7 @@ fn repair_mode_comparison_keeps_smoke_contract_without_rebuild() {
             "missing_struct_literal_field".to_string(),
             "match_struct_pattern_missing_field".to_string(),
             "len_builtin_non_countable_value".to_string(),
-            "slice_assignment_read_only".to_string(),
+            "slice_assignment_requires_mutable_binding".to_string(),
             "index_out_of_bounds_runtime".to_string(),
             "division_by_zero_runtime".to_string(),
         ]

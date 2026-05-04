@@ -685,24 +685,6 @@ fn enhances_non_slice_base_with_specific_rule_card() {
 }
 
 #[test]
-fn enhances_slice_assignment_with_specific_rule_card() {
-    let source = SourceFile::anonymous(
-        "fn main() -> i32 { let values: [i32; 3] = [1, 2, 3]; let mut view: [i32] = values[0:2]; view[0] = 9; return 0; }",
-    );
-    let mut analysis = analyze(&source);
-    enhance_diagnostics(&source, &analysis.program, &mut analysis.diagnostics, None)
-        .expect("ai enhancement should succeed");
-
-    let diagnostic = analysis
-        .diagnostics
-        .iter()
-        .find(|diagnostic| diagnostic.code == "S0035")
-        .expect("slice assignment diagnostic should exist");
-    let ai = diagnostic.ai.as_ref().expect("ai payload should exist");
-    assert_eq!(ai.rule_id, "slice_values_are_read_only");
-}
-
-#[test]
 fn adds_module_declaration_guidance_for_support_sources() {
     let project_root = unique_project_root("missing-module-declaration");
     let _ = fs::remove_dir_all(&project_root);
@@ -1431,13 +1413,6 @@ fn high_value_diagnostics_keep_stable_rule_ids() {
             diagnostic_code: "S0034",
             message_fragment: "slice expression expects an array or slice value",
             expected_rule_id: "slice_base_must_be_array_or_slice",
-        },
-        RuleCase {
-            name: "slice_assignment",
-            source: "fn main() -> i32 { let values: [i32; 3] = [1, 2, 3]; let mut view: [i32] = values[0:2]; view[0] = 9; return 0; }",
-            diagnostic_code: "S0035",
-            message_fragment: "slices are read-only",
-            expected_rule_id: "slice_values_are_read_only",
         },
     ];
 

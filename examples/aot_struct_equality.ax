@@ -1,0 +1,34 @@
+struct Summary {
+    count: i32,
+    label: string,
+}
+
+enum Packet {
+    Summary(Summary),
+    Empty,
+}
+
+fn main() -> i32 {
+    let left: Summary = Summary { count: 3, label: "ok" };
+    let same: Summary = Summary { count: 3, label: "ok" };
+    let other: Summary = Summary { count: 4, label: "ok" };
+    let packet: Packet = Packet.Summary(left);
+    let same_packet: Packet = Packet.Summary(same);
+    let other_packet: Packet = Packet.Summary(other);
+    let mut total: i32 = 0;
+
+    if (left == same) {
+        total = total + 1;
+    }
+    if (left != other) {
+        total = total + 2;
+    }
+    if (packet == same_packet) {
+        total = total + 4;
+    }
+    if (packet != other_packet) {
+        total = total + 8;
+    }
+
+    return total;
+}

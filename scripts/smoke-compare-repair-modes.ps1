@@ -153,7 +153,7 @@ Assert-StringArray -Label "base_to_ai.improved_cases" -Actual @($comparison.summ
     "type_mismatch_bool_from_int",
     "missing_struct_literal_field",
     "match_struct_pattern_missing_field",
-    "slice_assignment_read_only",
+    "slice_assignment_requires_mutable_binding",
     "index_out_of_bounds_runtime",
     "division_by_zero_runtime"
 )
@@ -163,7 +163,7 @@ Assert-StringArray -Label "cold_to_ai.improved_cases" -Actual @($comparison.summ
     "missing_struct_literal_field",
     "match_struct_pattern_missing_field",
     "len_builtin_non_countable_value",
-    "slice_assignment_read_only",
+    "slice_assignment_requires_mutable_binding",
     "index_out_of_bounds_runtime",
     "division_by_zero_runtime"
 )

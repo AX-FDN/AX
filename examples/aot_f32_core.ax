@@ -1,0 +1,29 @@
+fn calc(value: f32) -> f32 {
+    return ((value + 2.5) * 2.0) - (1.0 / 2.0);
+}
+
+fn main() -> i32 {
+    let result: f32 = calc(1.5);
+    let negated: f32 = -result;
+    let text: string = to_string(result);
+    let mut total: i32 = 0;
+
+    if (result > 7.4) {
+        total = total + 1;
+    }
+    if (result == 7.5) {
+        total = total + 2;
+    }
+    if (result != 7.0) {
+        total = total + 4;
+    }
+    if (negated < 0.0) {
+        total = total + 8;
+    }
+    if (string_len(text) == 3) {
+        total = total + 16;
+    }
+
+    println(result);
+    return total;
+}

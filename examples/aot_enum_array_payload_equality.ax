@@ -1,0 +1,23 @@
+enum Packet {
+    Values([i32; 3]),
+    Empty,
+}
+
+fn main() -> i32 {
+    let left: Packet = Packet.Values([1, 2, 3]);
+    let same: Packet = Packet.Values([1, 2, 3]);
+    let other: Packet = Packet.Values([1, 2, 4]);
+    let mut total: i32 = 0;
+
+    if (left == same) {
+        total = total + 1;
+    }
+    if (left != other) {
+        total = total + 2;
+    }
+    if (left != Packet.Empty) {
+        total = total + 4;
+    }
+
+    return total;
+}

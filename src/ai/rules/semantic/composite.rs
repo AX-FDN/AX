@@ -147,8 +147,8 @@ pub(super) const RULE_NON_EMPTY_ARRAY_LITERAL_REQUIRED: RuleTemplate = RuleTempl
 pub(super) const RULE_INDEX_BASE_MUST_BE_ARRAY: RuleTemplate = RuleTemplate {
     rule_id: "index_base_must_be_array",
     normalized_pattern: "index_base_must_be_array",
-    repair_goal: "Use `expr[index]` only when the base expression evaluates to an array or slice for reads, or to a mutable array for writes.",
-    summary: "AX indexing with `[]` reads from arrays and slice views, but only mutable arrays can be write targets.",
+    repair_goal: "Use `expr[index]` only when the base expression evaluates to an array or slice; writes require a mutable binding.",
+    summary: "AX indexing with `[]` reads from arrays and slices, and assignment through an index requires the indexed root binding to be `mut`.",
     pattern: "let value: i32 = values[0];",
     minimal_example: "let mut values: [i32; 2] = [1, 2]; values[1] = values[0];",
     anti_pattern: Some("let value: i32 = number[0];"),
@@ -170,22 +170,11 @@ pub(super) const RULE_SLICE_BASE_MUST_BE_ARRAY_OR_SLICE: RuleTemplate = RuleTemp
     rule_id: "slice_base_must_be_array_or_slice",
     normalized_pattern: "slice_base_must_be_array_or_slice",
     repair_goal: "Use `base[start:end]` only when `base` is already an array or slice value.",
-    summary: "AX slice expressions create read-only views from arrays or existing slices; scalars and structs cannot be sliced.",
+    summary: "AX slice expressions create slice values from arrays or existing slices; scalars and structs cannot be sliced.",
     pattern: "let window: [i32] = values[1:3];",
     minimal_example: "let values: [i32; 4] = [1, 2, 3, 4]; let head: [i32] = values[0:2];",
     anti_pattern: Some("let window: [i32] = count[0:1];"),
     default_fixit: "slice an array or slice value instead of a scalar or struct",
-};
-
-pub(super) const RULE_SLICE_VALUES_ARE_READ_ONLY: RuleTemplate = RuleTemplate {
-    rule_id: "slice_values_are_read_only",
-    normalized_pattern: "slice_values_are_read_only",
-    repair_goal: "Write through the original mutable array instead of trying to assign through a slice view.",
-    summary: "Current AX slices are read-only views, so `slice[index] = expr;` is not allowed even if the slice binding itself is `mut`.",
-    pattern: "let window: [i32] = values[0:2]; println(window[0]);",
-    minimal_example: "let mut values: [i32; 3] = [1, 2, 3]; values[0] = 9;",
-    anti_pattern: Some("let mut window: [i32] = values[0:2]; window[0] = 9;"),
-    default_fixit: "rewrite the assignment to target the original mutable array",
 };
 
 pub(super) const RULE_LEN_BUILTIN_REQUIRES_COUNTABLE_VALUE: RuleTemplate = RuleTemplate {

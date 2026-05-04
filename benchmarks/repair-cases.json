@@ -385,13 +385,13 @@
       "notes": "Covers a common traversal mistake where a non-sequence value is sliced."
     },
     {
-      "id": "slice_assignment_read_only",
-      "file": "examples/slice_assignment.ax",
+      "id": "slice_assignment_requires_mutable_binding",
+      "file": "examples/slice_assignment_requires_mut.ax",
       "category": "semantic",
-      "expected_codes": ["S0035"],
-      "expected_ai_rule_ids": ["slice_values_are_read_only"],
-      "repair_goal": "Rewrite the write to target the original mutable array instead of the slice view.",
-      "notes": "Covers the current prototype rule that slices are read-only views."
+      "expected_codes": ["S0003"],
+      "expected_ai_rule_ids": ["mutable_binding_required"],
+      "repair_goal": "Declare the slice binding with `let mut` before assigning through an indexed slice element.",
+      "notes": "Covers mutable slice assignment while preserving the rule that assignment roots must be declared with `let mut`."
     },
     {
       "id": "match_struct_pattern_missing_field",

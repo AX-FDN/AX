@@ -99,18 +99,15 @@ impl<'a> Interpreter<'a> {
                         )?;
                         Ok(&mut elements[resolved_index])
                     }
-                    Value::Slice(_) => Err(self
-                        .runtime_error(
-                            "R0036",
-                            format!(
-                                "cannot assign through slice variable `{}` because slices are read-only",
-                                place_root_name(base)
-                            ),
+                    Value::Slice(elements) => {
+                        let resolved_index = self.resolve_array_index(
+                            index_value,
+                            index.span,
+                            elements.len(),
                             place.span,
-                        )
-                        .with_suggestion(
-                            "assign through the original mutable array instead of a slice view",
-                        )),
+                        )?;
+                        Ok(&mut elements[resolved_index])
+                    }
                     other => Err(self.runtime_error(
                         "R0028",
                         format!(

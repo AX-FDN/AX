@@ -1,0 +1,26 @@
+enum Packet {
+    Window([i32]),
+    Empty,
+}
+
+fn main() -> i32 {
+    let left_values: [i32; 4] = [1, 2, 3, 4];
+    let same_values: [i32; 4] = [0, 2, 3, 9];
+    let other_values: [i32; 4] = [0, 2, 4, 9];
+    let left: Packet = Packet.Window(left_values[1:3]);
+    let same: Packet = Packet.Window(same_values[1:3]);
+    let other: Packet = Packet.Window(other_values[1:3]);
+    let mut total: i32 = 0;
+
+    if (left == same) {
+        total = total + 1;
+    }
+    if (left != other) {
+        total = total + 2;
+    }
+    if (left != Packet.Empty) {
+        total = total + 4;
+    }
+
+    return total;
+}

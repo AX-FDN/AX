@@ -1,0 +1,10 @@
+fn main() -> i32 {
+    if (argv_len() == 0) {
+        println("no args");
+        return 0;
+    }
+
+    let first: string = argv_get(0);
+    println(first);
+    return string_len(first);
+}

@@ -140,7 +140,7 @@ Assert-StringArray -Label "comparison.improved_cases" -Actual @($comparison.comp
     "type_mismatch_bool_from_int",
     "missing_struct_literal_field",
     "match_struct_pattern_missing_field",
-    "slice_assignment_read_only",
+    "slice_assignment_requires_mutable_binding",
     "index_out_of_bounds_runtime",
     "division_by_zero_runtime"
 )

@@ -1,0 +1,69 @@
+struct Point {
+    x: i32,
+    y: i32,
+}
+
+impl Point {
+    fn make(x: i32, y: i32) -> Point {
+        return Point { x: x, y: y };
+    }
+
+    fn sum(self: Point) -> i32 {
+        return self.x + self.y;
+    }
+
+    fn offset_sum(self: Point, delta: i32) -> i32 {
+        return self.sum() + delta;
+    }
+
+    fn move_by(self: Point, dx: i32, dy: i32) -> Point {
+        return Point { x: self.x + dx, y: self.y + dy };
+    }
+}
+
+enum Status {
+    Code(i32),
+    Empty,
+}
+
+impl Status {
+    fn score(self: Status) -> i32 {
+        return match (self) {
+            Status.Code(value) => value,
+            Status.Empty => 0,
+        };
+    }
+}
+
+fn main() -> i32 {
+    let point: Point = Point.make(4, 5);
+    let moved: Point = point.move_by(1, 2);
+    let status: Status = Status.Code(moved.sum());
+    let empty: Status = Status.Empty;
+    let mut total: i32 = 0;
+
+    if (point.sum() == 9) {
+        total = total + 1;
+    }
+    if (point.offset_sum(3) == 12) {
+        total = total + 2;
+    }
+    if (moved.sum() == 12) {
+        total = total + 4;
+    }
+    if (status.score() == 12) {
+        total = total + 8;
+    }
+    if (empty.score() == 0) {
+        total = total + 16;
+    }
+    if (string_len(to_string(moved)) > 0) {
+        total = total + 32;
+    }
+
+    println(point.sum());
+    println(moved);
+    println(status.score());
+
+    return total;
+}

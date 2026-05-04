@@ -86,13 +86,13 @@
       "notes": "CI smoke slice-base case."
     },
     {
-      "id": "slice_assignment_read_only",
-      "file": "examples/slice_assignment.ax",
+      "id": "slice_assignment_requires_mutable_binding",
+      "file": "examples/slice_assignment_requires_mut.ax",
       "category": "semantic",
-      "expected_codes": ["S0035"],
-      "expected_ai_rule_ids": ["slice_values_are_read_only"],
-      "repair_goal": "Rewrite the write to target the original mutable array instead of the slice view.",
-      "notes": "CI smoke read-only slice assignment case."
+      "expected_codes": ["S0003"],
+      "expected_ai_rule_ids": ["mutable_binding_required"],
+      "repair_goal": "Declare the slice binding with `let mut` before assigning through an indexed slice element.",
+      "notes": "CI smoke mutable slice assignment case."
     },
     {
       "id": "index_out_of_bounds_runtime",

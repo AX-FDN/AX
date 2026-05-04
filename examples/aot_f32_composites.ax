@@ -1,0 +1,61 @@
+const SCALE: f32 = 2.0;
+
+struct Reading {
+    label: string,
+    value: f32,
+}
+
+fn slice_sum(values: [f32]) -> f32 {
+    let mut total: f32 = 0.0;
+
+    for (let value: f32 in values) {
+        total = total + value;
+    }
+
+    return total;
+}
+
+fn main() -> i32 {
+    let values: [f32; 3] = [1.5, 2.5, 3.5];
+    let same: [f32; 3] = [1.5, 2.5, 3.5];
+    let other: [f32; 3] = [1.5, 2.5, 4.5];
+    let left: [f32] = values[1:3];
+    let same_slice: [f32] = same[1:3];
+    let other_slice: [f32] = other[1:3];
+    let reading: Reading = Reading { label: "ok", value: values[1] * SCALE };
+    let same_reading: Reading = Reading { label: "ok", value: 5.0 };
+    let other_reading: Reading = Reading { label: "ok", value: values[2] * SCALE };
+    let mut total: i32 = 0;
+
+    if (values == same) {
+        total = total + 1;
+    }
+    if (values != other) {
+        total = total + 2;
+    }
+    if (left == same_slice) {
+        total = total + 4;
+    }
+    if (left != other_slice) {
+        total = total + 8;
+    }
+    if (reading == same_reading) {
+        total = total + 16;
+    }
+    if (reading != other_reading) {
+        total = total + 32;
+    }
+    if (slice_sum(values) == 7.5) {
+        total = total + 64;
+    }
+    if (string_len(to_string(reading)) > 0) {
+        total = total + 128;
+    }
+
+    println(values);
+    println(left);
+    println(reading);
+    println(slice_sum(left));
+
+    return total;
+}
