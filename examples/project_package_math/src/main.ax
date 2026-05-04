@@ -1,0 +1,7 @@
+import math_rules.core;
+
+fn main() -> i32 {
+    let base: i32 = math_rules.core.double(3);
+    let adjusted: i32 = math_rules.core.add_bonus(base);
+    return math_rules.core.clamp_score(adjusted);
+}

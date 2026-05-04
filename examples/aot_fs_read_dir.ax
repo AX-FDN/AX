@@ -1,0 +1,31 @@
+const BASE_DIR: string = "build/aot_fs_read_dir_core";
+const NESTED_DIR: string = "build/aot_fs_read_dir_core/nested";
+const ENTRY_PATH: string = "build/aot_fs_read_dir_core/nested/item.txt";
+
+fn main() -> i32 {
+    if (fs_is_dir(BASE_DIR)) {
+        fs_remove_dir_all(BASE_DIR);
+    }
+
+    fs_create_dir_all(NESTED_DIR);
+    fs_write_string(ENTRY_PATH, "read-dir-marker\n");
+
+    let entries: [string] = fs_read_dir(NESTED_DIR);
+    let count: i32 = len(entries);
+    println("entries=" + to_string(count));
+
+    if (count != 1) {
+        fs_remove_dir_all(BASE_DIR);
+        return 10;
+    }
+    if (!string_contains(entries[0], "item.txt")) {
+        fs_remove_dir_all(BASE_DIR);
+        return 11;
+    }
+
+    fs_remove_dir_all(BASE_DIR);
+    if (fs_exists(BASE_DIR)) {
+        return 12;
+    }
+    return 0;
+}

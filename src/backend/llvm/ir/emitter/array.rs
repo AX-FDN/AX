@@ -395,7 +395,8 @@ impl<'a> FunctionEmitter<'a> {
         )
         .expect("writing to string cannot fail");
         writeln!(out, "{fail_label}:").expect("writing to string cannot fail");
-        writeln!(out, "  call void @exit(i32 1)").expect("writing to string cannot fail");
+        writeln!(out, "  call void @ax_runtime_error(ptr @.ax_rt_index_oob)")
+            .expect("writing to string cannot fail");
         writeln!(out, "  unreachable").expect("writing to string cannot fail");
         writeln!(out, "{ok_label}:").expect("writing to string cannot fail");
     }
@@ -418,7 +419,11 @@ impl<'a> FunctionEmitter<'a> {
         )
         .expect("writing to string cannot fail");
         writeln!(out, "{fail_label}:").expect("writing to string cannot fail");
-        writeln!(out, "  call void @exit(i32 1)").expect("writing to string cannot fail");
+        writeln!(
+            out,
+            "  call void @ax_runtime_error(ptr @.ax_rt_slice_bound_oob)"
+        )
+        .expect("writing to string cannot fail");
         writeln!(out, "  unreachable").expect("writing to string cannot fail");
         writeln!(out, "{ok_label}:").expect("writing to string cannot fail");
     }
@@ -435,7 +440,11 @@ impl<'a> FunctionEmitter<'a> {
         )
         .expect("writing to string cannot fail");
         writeln!(out, "{fail_label}:").expect("writing to string cannot fail");
-        writeln!(out, "  call void @exit(i32 1)").expect("writing to string cannot fail");
+        writeln!(
+            out,
+            "  call void @ax_runtime_error(ptr @.ax_rt_slice_order_invalid)"
+        )
+        .expect("writing to string cannot fail");
         writeln!(out, "  unreachable").expect("writing to string cannot fail");
         writeln!(out, "{ok_label}:").expect("writing to string cannot fail");
     }

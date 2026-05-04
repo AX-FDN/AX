@@ -60,7 +60,7 @@ impl LlvmAotStatus {
                 "LLVM IR generation was skipped because the current MIR uses features outside the LLVM AOT v0 subset",
             ),
             LlvmAotStatus::LinkSkipped => Some(
-                "LLVM IR was generated, but executable linking is disabled; set AX_LLVM_AOT_LINK=1 to let axc build try clang",
+                "LLVM IR was generated, but executable linking is disabled; use --emit exe or set AX_LLVM_AOT_LINK=1 to let axc build try clang",
             ),
             LlvmAotStatus::ToolchainMissing => {
                 Some("LLVM IR was generated, but clang was not found for executable linking")
@@ -73,11 +73,19 @@ impl LlvmAotStatus {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LlvmAotLinkMode {
+    Environment,
+    Force,
+    Skip,
+}
+
 #[derive(Debug, Clone)]
 pub struct LlvmAotOptions<'a> {
     pub out_dir: &'a Path,
     pub target_name: &'a str,
     pub executable_suffix: &'a str,
+    pub link_mode: LlvmAotLinkMode,
 }
 
 #[derive(Debug, Clone)]
@@ -127,10 +135,29 @@ pub fn build(mir: &MirProgram, options: LlvmAotOptions<'_>) -> Result<LlvmAotRes
         "LLVM AOT v0 generated textual LLVM IR for the current single-file MIR subset.".to_string(),
     ];
 
-    match toolchain::link_if_enabled(&llvm_ir_path, &executable_path) {
+    if options.link_mode == LlvmAotLinkMode::Skip {
+        notes.push(
+            "LLVM executable linking was not requested; --emit ir/--no-link keeps IR as the build artifact."
+                .to_string(),
+        );
+        return Ok(LlvmAotResult {
+            status: LlvmAotStatus::IrGenerated,
+            llvm_ir_artifact: Some(llvm_ir_artifact),
+            executable_artifact: None,
+            notes,
+        });
+    }
+
+    let link_outcome = match options.link_mode {
+        LlvmAotLinkMode::Environment => toolchain::link_if_enabled(&llvm_ir_path, &executable_path),
+        LlvmAotLinkMode::Force => toolchain::link_executable(&llvm_ir_path, &executable_path),
+        LlvmAotLinkMode::Skip => unreachable!("skip mode returned before linking"),
+    };
+
+    match link_outcome {
         toolchain::LinkOutcome::Skipped => {
             notes.push(
-                "LLVM executable linking was skipped; set AX_LLVM_AOT_LINK=1 to try clang."
+                "LLVM executable linking was skipped; use --emit exe or set AX_LLVM_AOT_LINK=1 to try clang."
                     .to_string(),
             );
             Ok(LlvmAotResult {

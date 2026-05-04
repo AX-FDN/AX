@@ -2,6 +2,7 @@ use super::{
     BuildCliOptions, CheckOptions, ContextOptions, LockCliOptions, RunOptions, parse_build_args,
     parse_check_args, parse_context_args, parse_lock_args, parse_run_args, render_check_success,
 };
+use crate::build::BuildEmit;
 use crate::context::ContextView;
 use std::path::PathBuf;
 
@@ -62,9 +63,61 @@ fn parses_build_options_with_explicit_out_dir() {
         BuildCliOptions {
             file: PathBuf::from("examples/hello.ax"),
             out_dir: Some(PathBuf::from("artifacts/hello")),
+            emit: BuildEmit::Default,
             json: true,
         }
     );
+}
+
+#[test]
+fn parses_build_emit_exe_options() {
+    let options = parse_build_args(vec![
+        "examples/hello.ax".to_string(),
+        "--emit".to_string(),
+        "exe".to_string(),
+    ])
+    .expect("build arguments should parse");
+
+    assert_eq!(
+        options,
+        BuildCliOptions {
+            file: PathBuf::from("examples/hello.ax"),
+            out_dir: None,
+            emit: BuildEmit::Exe,
+            json: false,
+        }
+    );
+}
+
+#[test]
+fn parses_build_no_link_as_ir_emit() {
+    let options = parse_build_args(vec![
+        "examples/hello.ax".to_string(),
+        "--no-link".to_string(),
+    ])
+    .expect("build arguments should parse");
+
+    assert_eq!(
+        options,
+        BuildCliOptions {
+            file: PathBuf::from("examples/hello.ax"),
+            out_dir: None,
+            emit: BuildEmit::Ir,
+            json: false,
+        }
+    );
+}
+
+#[test]
+fn rejects_conflicting_build_emit_and_no_link() {
+    let error = parse_build_args(vec![
+        "examples/hello.ax".to_string(),
+        "--emit".to_string(),
+        "exe".to_string(),
+        "--no-link".to_string(),
+    ])
+    .expect_err("build arguments should be rejected");
+    assert!(error.contains("`--no-link` cannot be combined"));
 }
 
 #[test]

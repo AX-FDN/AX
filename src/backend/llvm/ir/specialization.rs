@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, VecDeque};
 
 use super::*;
 
@@ -16,6 +16,11 @@ pub(super) struct FunctionSource<'a> {
     pub(super) locals: &'a [Local],
     pub(super) entry_block: &'a u32,
     pub(super) blocks: &'a [BasicBlock],
+}
+
+pub(super) struct ReachableFunctions {
+    pub(super) functions: BTreeSet<String>,
+    pub(super) specializations: BTreeSet<String>,
 }
 
 pub(super) fn find_function_source<'a>(
@@ -51,6 +56,76 @@ pub(super) fn find_function_source<'a>(
     })
 }
 
+pub(super) fn collect_reachable_functions(
+    program: &Program,
+) -> Result<(ReachableFunctions, BTreeMap<String, FunctionSpecialization>), Vec<String>> {
+    let mut reachable = ReachableFunctions {
+        functions: BTreeSet::new(),
+        specializations: BTreeSet::new(),
+    };
+    let mut specializations: BTreeMap<String, FunctionSpecialization> = BTreeMap::new();
+    let mut unsupported = Vec::new();
+    let mut pending = VecDeque::new();
+
+    reachable.functions.insert("main".to_string());
+    pending.push_back("main".to_string());
+
+    while let Some(signature_name) = pending.pop_front() {
+        let (source_name, substitutions) =
+            if let Some(specialization) = specializations.get(&signature_name) {
+                (
+                    specialization.source_name.clone(),
+                    Some(specialization.substitutions.clone()),
+                )
+            } else {
+                (signature_name.clone(), None)
+            };
+        let substitutions = substitutions.as_ref();
+        let Some(FunctionSource {
+            params,
+            return_type,
+            locals,
+            blocks,
+            ..
+        }) = find_function_source(program, &source_name)
+        else {
+            continue;
+        };
+
+        collect_function_body_specializations(
+            program,
+            params,
+            return_type,
+            locals,
+            blocks,
+            substitutions,
+            &mut specializations,
+            &mut unsupported,
+        );
+        for key in specializations.keys().cloned().collect::<Vec<_>>() {
+            if reachable.specializations.insert(key.clone()) {
+                pending.push_back(key);
+            }
+        }
+
+        collect_function_body_reachable_calls(
+            program,
+            params,
+            locals,
+            blocks,
+            substitutions,
+            &mut reachable,
+            &mut pending,
+        );
+    }
+
+    if unsupported.is_empty() {
+        Ok((reachable, specializations))
+    } else {
+        Err(unsupported)
+    }
+}
+
 pub(super) fn substitute_params(
     params: &[Param],
     substitutions: &BTreeMap<String, Type>,
@@ -81,87 +156,6 @@ pub(super) fn substitute_locals(
             span: local.span,
         })
         .collect()
-}
-
-pub(super) fn collect_function_specializations(
-    program: &Program,
-) -> Result<BTreeMap<String, FunctionSpecialization>, Vec<String>> {
-    let mut specializations = BTreeMap::new();
-    let mut unsupported = Vec::new();
-
-    for item in &program.items {
-        let ItemKind::Function {
-            type_params,
-            type_param_bounds,
-            params,
-            return_type,
-            locals,
-            blocks,
-            ..
-        } = &item.kind
-        else {
-            continue;
-        };
-        if !type_params.is_empty() || !type_param_bounds.is_empty() {
-            continue;
-        }
-        collect_function_body_specializations(
-            program,
-            params,
-            return_type,
-            locals,
-            blocks,
-            None,
-            &mut specializations,
-            &mut unsupported,
-        );
-    }
-
-    let mut scanned_specializations = BTreeSet::new();
-    loop {
-        let pending = specializations
-            .values()
-            .filter(|specialization| !scanned_specializations.contains(&specialization.key))
-            .cloned()
-            .collect::<Vec<_>>();
-        if pending.is_empty() {
-            break;
-        }
-
-        for specialization in pending {
-            scanned_specializations.insert(specialization.key.clone());
-            let Some(FunctionSource {
-                params,
-                return_type,
-                locals,
-                blocks,
-                ..
-            }) = find_function_source(program, &specialization.source_name)
-            else {
-                unsupported.push(format!(
-                    "generic function specialization `{}` has no source function `{}`",
-                    specialization.key, specialization.source_name
-                ));
-                continue;
-            };
-            collect_function_body_specializations(
-                program,
-                params,
-                return_type,
-                locals,
-                blocks,
-                Some(&specialization.substitutions),
-                &mut specializations,
-                &mut unsupported,
-            );
-        }
-    }
-
-    if unsupported.is_empty() {
-        Ok(specializations)
-    } else {
-        Err(unsupported)
-    }
 }
 
 fn collect_function_body_specializations(
@@ -208,6 +202,45 @@ fn collect_function_body_specializations(
     }
 }
 
+fn collect_function_body_reachable_calls(
+    program: &Program,
+    params: &[Param],
+    locals: &[Local],
+    blocks: &[BasicBlock],
+    substitutions: Option<&BTreeMap<String, Type>>,
+    reachable: &mut ReachableFunctions,
+    pending: &mut VecDeque<String>,
+) {
+    let params = substitutions
+        .map(|substitutions| substitute_params(params, substitutions))
+        .unwrap_or_else(|| params.to_vec());
+    let locals = substitutions
+        .map(|substitutions| substitute_locals(locals, substitutions))
+        .unwrap_or_else(|| locals.to_vec());
+    let local_types = function_static_local_types(&params, &locals);
+    let overrides = BTreeMap::new();
+    for block in blocks {
+        for statement in &block.statements {
+            collect_statement_reachable_calls(
+                program,
+                statement,
+                &local_types,
+                &overrides,
+                reachable,
+                pending,
+            );
+        }
+        collect_terminator_reachable_calls(
+            program,
+            &block.terminator.kind,
+            &local_types,
+            &overrides,
+            reachable,
+            pending,
+        );
+    }
+}
+
 fn function_static_local_types(params: &[Param], locals: &[Local]) -> BTreeMap<u32, Type> {
     let mut local_types = BTreeMap::new();
     for param in params {
@@ -217,6 +250,322 @@ fn function_static_local_types(params: &[Param], locals: &[Local]) -> BTreeMap<u
         local_types.insert(local.id, local.ty.clone());
     }
     local_types
+}
+
+fn collect_statement_reachable_calls(
+    program: &Program,
+    statement: &Statement,
+    local_types: &BTreeMap<u32, Type>,
+    overrides: &BTreeMap<u32, Type>,
+    reachable: &mut ReachableFunctions,
+    pending: &mut VecDeque<String>,
+) {
+    match &statement.kind {
+        StatementKind::Let { initializer, .. } | StatementKind::Eval { expr: initializer } => {
+            collect_expr_reachable_calls(
+                program,
+                initializer,
+                local_types,
+                overrides,
+                reachable,
+                pending,
+            );
+        }
+        StatementKind::Assign { target, value } => {
+            collect_place_reachable_calls(
+                program,
+                target,
+                local_types,
+                overrides,
+                reachable,
+                pending,
+            );
+            collect_expr_reachable_calls(
+                program,
+                value,
+                local_types,
+                overrides,
+                reachable,
+                pending,
+            );
+        }
+    }
+}
+
+fn collect_terminator_reachable_calls(
+    program: &Program,
+    terminator: &TerminatorKind,
+    local_types: &BTreeMap<u32, Type>,
+    overrides: &BTreeMap<u32, Type>,
+    reachable: &mut ReachableFunctions,
+    pending: &mut VecDeque<String>,
+) {
+    match terminator {
+        TerminatorKind::Branch { condition, .. } | TerminatorKind::Return { value: condition } => {
+            collect_expr_reachable_calls(
+                program,
+                condition,
+                local_types,
+                overrides,
+                reachable,
+                pending,
+            );
+        }
+        TerminatorKind::Goto { .. } | TerminatorKind::Unreachable => {}
+    }
+}
+
+fn collect_place_reachable_calls(
+    program: &Program,
+    place: &Place,
+    local_types: &BTreeMap<u32, Type>,
+    overrides: &BTreeMap<u32, Type>,
+    reachable: &mut ReachableFunctions,
+    pending: &mut VecDeque<String>,
+) {
+    match &place.kind {
+        PlaceKind::Local { .. } => {}
+        PlaceKind::Field { base, .. } => {
+            collect_place_reachable_calls(program, base, local_types, overrides, reachable, pending)
+        }
+        PlaceKind::Index { base, index } => {
+            collect_place_reachable_calls(
+                program,
+                base,
+                local_types,
+                overrides,
+                reachable,
+                pending,
+            );
+            collect_expr_reachable_calls(
+                program,
+                index,
+                local_types,
+                overrides,
+                reachable,
+                pending,
+            );
+        }
+    }
+}
+
+fn collect_expr_reachable_calls(
+    program: &Program,
+    expr: &Expr,
+    local_types: &BTreeMap<u32, Type>,
+    overrides: &BTreeMap<u32, Type>,
+    reachable: &mut ReachableFunctions,
+    pending: &mut VecDeque<String>,
+) {
+    match &expr.kind {
+        ExprKind::Call {
+            function,
+            arguments,
+        } => {
+            collect_call_reachable_function(
+                program,
+                function,
+                arguments,
+                local_types,
+                overrides,
+                reachable,
+                pending,
+            );
+            for argument in arguments {
+                collect_expr_reachable_calls(
+                    program,
+                    argument,
+                    local_types,
+                    overrides,
+                    reachable,
+                    pending,
+                );
+            }
+        }
+        ExprKind::Unary { expr, .. }
+        | ExprKind::Try { expr }
+        | ExprKind::EnumPayload { value: expr }
+        | ExprKind::Field { base: expr, .. } => {
+            collect_expr_reachable_calls(program, expr, local_types, overrides, reachable, pending)
+        }
+        ExprKind::Binary { left, right, .. } => {
+            collect_expr_reachable_calls(program, left, local_types, overrides, reachable, pending);
+            collect_expr_reachable_calls(
+                program,
+                right,
+                local_types,
+                overrides,
+                reachable,
+                pending,
+            );
+        }
+        ExprKind::ArrayLiteral { elements } => {
+            for element in elements {
+                collect_expr_reachable_calls(
+                    program,
+                    element,
+                    local_types,
+                    overrides,
+                    reachable,
+                    pending,
+                );
+            }
+        }
+        ExprKind::StructLiteral { fields, .. } => {
+            for field in fields {
+                collect_expr_reachable_calls(
+                    program,
+                    &field.value,
+                    local_types,
+                    overrides,
+                    reachable,
+                    pending,
+                );
+            }
+        }
+        ExprKind::Block { statements, value } => {
+            for statement in statements {
+                collect_statement_reachable_calls(
+                    program,
+                    statement,
+                    local_types,
+                    overrides,
+                    reachable,
+                    pending,
+                );
+            }
+            collect_expr_reachable_calls(
+                program,
+                value,
+                local_types,
+                overrides,
+                reachable,
+                pending,
+            );
+        }
+        ExprKind::Match { scrutinee, arms } => {
+            collect_expr_reachable_calls(
+                program,
+                scrutinee,
+                local_types,
+                overrides,
+                reachable,
+                pending,
+            );
+            for arm in arms {
+                if let Some(guard) = &arm.guard {
+                    collect_expr_reachable_calls(
+                        program,
+                        guard,
+                        local_types,
+                        overrides,
+                        reachable,
+                        pending,
+                    );
+                }
+                collect_expr_reachable_calls(
+                    program,
+                    &arm.value,
+                    local_types,
+                    overrides,
+                    reachable,
+                    pending,
+                );
+            }
+        }
+        ExprKind::EnumVariant { payload, .. } => {
+            if let Some(payload) = payload {
+                collect_expr_reachable_calls(
+                    program,
+                    payload,
+                    local_types,
+                    overrides,
+                    reachable,
+                    pending,
+                );
+            }
+        }
+        ExprKind::MatchTest { scrutinee, .. } => collect_expr_reachable_calls(
+            program,
+            scrutinee,
+            local_types,
+            overrides,
+            reachable,
+            pending,
+        ),
+        ExprKind::Index { base, index } => {
+            collect_expr_reachable_calls(program, base, local_types, overrides, reachable, pending);
+            collect_expr_reachable_calls(
+                program,
+                index,
+                local_types,
+                overrides,
+                reachable,
+                pending,
+            );
+        }
+        ExprKind::Slice { base, start, end } => {
+            collect_expr_reachable_calls(program, base, local_types, overrides, reachable, pending);
+            collect_expr_reachable_calls(
+                program,
+                start,
+                local_types,
+                overrides,
+                reachable,
+                pending,
+            );
+            collect_expr_reachable_calls(program, end, local_types, overrides, reachable, pending);
+        }
+        ExprKind::Int { .. }
+        | ExprKind::Float { .. }
+        | ExprKind::Bool { .. }
+        | ExprKind::String { .. }
+        | ExprKind::Local { .. }
+        | ExprKind::Const { .. } => {}
+    }
+}
+
+fn collect_call_reachable_function(
+    program: &Program,
+    function: &str,
+    arguments: &[Expr],
+    local_types: &BTreeMap<u32, Type>,
+    overrides: &BTreeMap<u32, Type>,
+    reachable: &mut ReachableFunctions,
+    pending: &mut VecDeque<String>,
+) {
+    if let Some(method) = function.strip_prefix("<method>.") {
+        let Some(receiver) = arguments.first() else {
+            return;
+        };
+        let Some(receiver_ty) = static_expr_type(receiver, local_types, overrides) else {
+            return;
+        };
+        let Some(method_function) = method_function_name(method, &receiver_ty) else {
+            return;
+        };
+        enqueue_non_generic_function(program, &method_function, reachable, pending);
+        return;
+    }
+
+    enqueue_non_generic_function(program, function, reachable, pending);
+}
+
+fn enqueue_non_generic_function(
+    program: &Program,
+    function: &str,
+    reachable: &mut ReachableFunctions,
+    pending: &mut VecDeque<String>,
+) {
+    let Some(source) = find_function_source(program, function) else {
+        return;
+    };
+    if !source.type_params.is_empty() {
+        return;
+    }
+    if reachable.functions.insert(function.to_string()) {
+        pending.push_back(function.to_string());
+    }
 }
 
 fn collect_statement_function_specializations(

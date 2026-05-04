@@ -1,0 +1,8 @@
+manifest_version = 1
+
+[package]
+name = "project_package_math"
+entry = "src/main.ax"
+
+[dependencies]
+math_rules = { path = "packages/math_rules" }

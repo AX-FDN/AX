@@ -12,6 +12,7 @@ pub(in crate::cli) struct CheckOptions {
 pub(in crate::cli) struct BuildCliOptions {
     pub(in crate::cli) file: PathBuf,
     pub(in crate::cli) out_dir: Option<PathBuf>,
+    pub(in crate::cli) emit: BuildEmit,
     pub(in crate::cli) json: bool,
 }
 
@@ -172,6 +173,9 @@ pub(in crate::cli) fn parse_run_args(args: Vec<String>) -> Result<RunOptions, St
 pub(in crate::cli) fn parse_build_args(args: Vec<String>) -> Result<BuildCliOptions, String> {
     let mut json = false;
     let mut out_dir = None;
+    let mut emit = BuildEmit::Default;
+    let mut emit_set = false;
+    let mut no_link = false;
     let mut file = None;
     let mut index = 0;
 
@@ -180,6 +184,49 @@ pub(in crate::cli) fn parse_build_args(args: Vec<String>) -> Result<BuildCliOpti
         match arg.as_str() {
             "--json" => {
                 json = true;
+            }
+            "--no-link" => {
+                if emit_set && emit != BuildEmit::Ir {
+                    return Err(
+                        "`--no-link` cannot be combined with `--emit exe` or `--emit all`"
+                            .to_string(),
+                    );
+                }
+                no_link = true;
+                emit = BuildEmit::Ir;
+            }
+            "--emit" => {
+                let Some(value) = args.get(index + 1) else {
+                    return Err("missing value after `--emit`".to_string());
+                };
+                let parsed = parse_build_emit(value)?;
+                if no_link && parsed != BuildEmit::Ir {
+                    return Err(
+                        "`--emit exe` and `--emit all` cannot be combined with `--no-link`"
+                            .to_string(),
+                    );
+                }
+                emit = parsed;
+                emit_set = true;
+                index += 1;
+            }
+            _ if arg.starts_with("--emit=") => {
+                let value = arg
+                    .split_once('=')
+                    .map(|(_, value)| value)
+                    .unwrap_or_default();
+                if value.is_empty() {
+                    return Err("missing value after `--emit=`".to_string());
+                }
+                let parsed = parse_build_emit(value)?;
+                if no_link && parsed != BuildEmit::Ir {
+                    return Err(
+                        "`--emit exe` and `--emit all` cannot be combined with `--no-link`"
+                            .to_string(),
+                    );
+                }
+                emit = parsed;
+                emit_set = true;
             }
             "--out-dir" => {
                 let Some(path) = args.get(index + 1) else {
@@ -215,8 +262,20 @@ pub(in crate::cli) fn parse_build_args(args: Vec<String>) -> Result<BuildCliOpti
     Ok(BuildCliOptions {
         file,
         out_dir,
+        emit,
         json,
     })
+}
+
+fn parse_build_emit(value: &str) -> Result<BuildEmit, String> {
+    match value {
+        "ir" | "llvm-ir" => Ok(BuildEmit::Ir),
+        "exe" | "executable" => Ok(BuildEmit::Exe),
+        "all" => Ok(BuildEmit::All),
+        other => Err(format!(
+            "unknown build emit `{other}`; expected `ir`, `exe`, or `all`"
+        )),
+    }
 }
 
 pub(in crate::cli) fn parse_lock_args(args: Vec<String>) -> Result<LockCliOptions, String> {

@@ -1,0 +1,18 @@
+import std.collections;
+
+fn make_labels() -> string_list {
+    let mut labels: string_list = std.collections.string_list_empty();
+    labels = std.collections.string_list_append(labels, "api");
+    labels = std.collections.string_list_append(labels, "worker");
+    labels = std.collections.string_list_append(labels, "scheduler");
+    return labels;
+}
+
+fn main() -> i32 {
+    let labels: string_list = make_labels();
+    println(std.collections.string_list_join_with(labels, "|"));
+    println(std.collections.string_list_at(labels, 1));
+    println(to_string(std.collections.string_list_contains(labels, "worker")));
+    println(to_string(std.collections.string_list_index_of(labels, "scheduler")));
+    return std.collections.string_list_count(labels);
+}

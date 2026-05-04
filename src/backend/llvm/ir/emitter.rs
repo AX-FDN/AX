@@ -41,7 +41,7 @@ impl<'a> FunctionEmitter<'a> {
                     ExprKind::ArrayLiteral { elements } => {
                         self.emit_array_literal(elements, Some(&slot.ax_ty), out)?
                     }
-                    _ => self.emit_expr(initializer, out)?,
+                    _ => self.emit_expr_with_expected(initializer, Some(&slot.ax_ty), out)?,
                 };
                 ensure_same_type(&slot.ty, &value.ty)?;
                 writeln!(out, "  store {} {}, ptr {}", value.ty, value.repr, slot.ptr)
@@ -57,7 +57,7 @@ impl<'a> FunctionEmitter<'a> {
                     ExprKind::ArrayLiteral { elements } => {
                         self.emit_array_literal(elements, Some(&slot.ax_ty), out)?
                     }
-                    _ => self.emit_expr(value, out)?,
+                    _ => self.emit_expr_with_expected(value, Some(&slot.ax_ty), out)?,
                 };
                 ensure_same_type(&slot.ty, &value.ty)?;
                 writeln!(out, "  store {} {}, ptr {}", value.ty, value.repr, slot.ptr)
@@ -120,7 +120,10 @@ impl<'a> FunctionEmitter<'a> {
                         let return_ax_ty = self.return_ax_ty.clone();
                         self.emit_array_literal(elements, Some(&return_ax_ty), out)?
                     }
-                    _ => self.emit_expr(value, out)?,
+                    _ => {
+                        let return_ax_ty = self.return_ax_ty.clone();
+                        self.emit_expr_with_expected(value, Some(&return_ax_ty), out)?
+                    }
                 };
                 writeln!(out, "  ret {} {}", value.ty, value.repr)
                     .expect("writing to string cannot fail");
@@ -168,6 +171,19 @@ impl<'a> FunctionEmitter<'a> {
                         let temp = self.next_temp();
                         match value.ty.as_str() {
                             "i32" => {
+                                let overflow = self.next_temp();
+                                writeln!(
+                                    out,
+                                    "  {overflow} = icmp eq i32 {}, -2147483648",
+                                    value.repr
+                                )
+                                .expect("writing to string cannot fail");
+                                self.emit_runtime_error_if(
+                                    &overflow,
+                                    "i32_neg_overflow",
+                                    "@.ax_rt_neg_overflow",
+                                    out,
+                                );
                                 writeln!(out, "  {temp} = sub i32 0, {}", value.repr)
                                     .expect("writing to string cannot fail");
                                 Ok(LlvmValue {
@@ -204,6 +220,9 @@ impl<'a> FunctionEmitter<'a> {
                 }
             }
             ExprKind::Binary { op, left, right } => {
+                if matches!(op, BinaryOp::LogicalAnd | BinaryOp::LogicalOr) {
+                    return self.emit_short_circuit_logical(*op, left, right, out);
+                }
                 let left = self.emit_expr(left, out)?;
                 let right = self.emit_expr(right, out)?;
                 self.emit_binary(*op, left, right, out)
@@ -211,7 +230,7 @@ impl<'a> FunctionEmitter<'a> {
             ExprKind::Call {
                 function,
                 arguments,
-            } => self.emit_call(function, arguments, out),
+            } => self.emit_call(function, arguments, None, out),
             ExprKind::String { value } => {
                 let literal = self
                     .strings
@@ -246,16 +265,121 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
+    fn emit_expr_with_expected(
+        &mut self,
+        expr: &Expr,
+        expected_ax_ty: Option<&Type>,
+        out: &mut String,
+    ) -> Result<LlvmValue, String> {
+        match &expr.kind {
+            ExprKind::Call {
+                function,
+                arguments,
+            } => self.emit_call(function, arguments, expected_ax_ty, out),
+            ExprKind::EnumPayload { value } => self.emit_enum_payload(value, expected_ax_ty, out),
+            ExprKind::EnumVariant {
+                enum_name,
+                variant,
+                payload,
+            } => {
+                self.emit_enum_variant(enum_name, variant, payload.as_deref(), expected_ax_ty, out)
+            }
+            ExprKind::StructLiteral { name, fields } => {
+                self.emit_struct_literal(name, fields, expected_ax_ty, out)
+            }
+            ExprKind::ArrayLiteral { elements } => {
+                self.emit_array_literal(elements, expected_ax_ty, out)
+            }
+            ExprKind::Block { statements, value } => {
+                self.emit_block_expr_with_expected(statements, value, expected_ax_ty, out)
+            }
+            ExprKind::Match { scrutinee, arms } => {
+                self.emit_match_expr_with_expected(scrutinee, arms, expected_ax_ty, out)
+            }
+            _ => self.emit_expr(expr, out),
+        }
+    }
+
+    fn emit_short_circuit_logical(
+        &mut self,
+        op: BinaryOp,
+        left: &Expr,
+        right: &Expr,
+        out: &mut String,
+    ) -> Result<LlvmValue, String> {
+        let left = self.emit_expr(left, out)?;
+        ensure_same_type("i1", &left.ty)?;
+
+        let result_slot = self.next_temp();
+        let rhs_label = self.next_label("logical_rhs");
+        let done_label = self.next_label("logical_done");
+        let default_value = if matches!(op, BinaryOp::LogicalAnd) {
+            "0"
+        } else {
+            "1"
+        };
+
+        writeln!(out, "  {result_slot} = alloca i1").expect("writing to string cannot fail");
+        writeln!(out, "  store i1 {default_value}, ptr {result_slot}")
+            .expect("writing to string cannot fail");
+        match op {
+            BinaryOp::LogicalAnd => {
+                writeln!(
+                    out,
+                    "  br i1 {}, label %{rhs_label}, label %{done_label}",
+                    left.repr
+                )
+                .expect("writing to string cannot fail");
+            }
+            BinaryOp::LogicalOr => {
+                writeln!(
+                    out,
+                    "  br i1 {}, label %{done_label}, label %{rhs_label}",
+                    left.repr
+                )
+                .expect("writing to string cannot fail");
+            }
+            _ => unreachable!("short-circuit lowering only handles logical operators"),
+        }
+
+        writeln!(out, "{rhs_label}:").expect("writing to string cannot fail");
+        let right = self.emit_expr(right, out)?;
+        ensure_same_type("i1", &right.ty)?;
+        writeln!(out, "  store i1 {}, ptr {result_slot}", right.repr)
+            .expect("writing to string cannot fail");
+        writeln!(out, "  br label %{done_label}").expect("writing to string cannot fail");
+
+        writeln!(out, "{done_label}:").expect("writing to string cannot fail");
+        let result = self.next_temp();
+        writeln!(out, "  {result} = load i1, ptr {result_slot}")
+            .expect("writing to string cannot fail");
+        Ok(LlvmValue {
+            ty: "i1".to_string(),
+            repr: result,
+            ax_ty: Some(Type::Bool),
+        })
+    }
+
     fn emit_block_expr(
         &mut self,
         statements: &[Statement],
         value: &Expr,
         out: &mut String,
     ) -> Result<LlvmValue, String> {
+        self.emit_block_expr_with_expected(statements, value, None, out)
+    }
+
+    fn emit_block_expr_with_expected(
+        &mut self,
+        statements: &[Statement],
+        value: &Expr,
+        expected_ax_ty: Option<&Type>,
+        out: &mut String,
+    ) -> Result<LlvmValue, String> {
         for statement in statements {
             self.emit_statement(statement, out)?;
         }
-        self.emit_expr(value, out)
+        self.emit_expr_with_expected(value, expected_ax_ty, out)
     }
 
     fn emit_const(&mut self, name: &str, out: &mut String) -> Result<LlvmValue, String> {
@@ -271,7 +395,7 @@ impl<'a> FunctionEmitter<'a> {
         }
 
         self.const_stack.push(name.to_string());
-        let value = self.emit_expr(&binding.value, out);
+        let value = self.emit_expr_with_expected(&binding.value, Some(&binding.ty), out);
         self.const_stack.pop();
 
         let mut value = value?;
@@ -292,14 +416,36 @@ impl<'a> FunctionEmitter<'a> {
         arms: &[MatchExprArm],
         out: &mut String,
     ) -> Result<LlvmValue, String> {
+        self.emit_match_expr_with_expected(scrutinee, arms, None, out)
+    }
+
+    fn emit_match_expr_with_expected(
+        &mut self,
+        scrutinee: &Expr,
+        arms: &[MatchExprArm],
+        expected_ax_ty: Option<&Type>,
+        out: &mut String,
+    ) -> Result<LlvmValue, String> {
         if arms.is_empty() {
             return Err("match expression has no arms in LLVM AOT v0".to_string());
         }
-        let (result_ty, result_ax_ty) = self.infer_expr_value_type(&arms[0].value)?;
-        for arm in &arms[1..] {
-            let (arm_ty, _) = self.infer_expr_value_type(&arm.value)?;
-            ensure_same_type(&result_ty, &arm_ty)?;
-        }
+        let (result_ty, result_ax_ty) = if let Some(expected_ax_ty) = expected_ax_ty {
+            let ty =
+                llvm_type(expected_ax_ty, self.layouts, self.enum_layouts).ok_or_else(|| {
+                    format!(
+                        "match expression expected type {} is outside LLVM AOT v0",
+                        ax_type_name(expected_ax_ty)
+                    )
+                })?;
+            (ty, expected_ax_ty.clone())
+        } else {
+            let (result_ty, result_ax_ty) = self.infer_expr_value_type(&arms[0].value)?;
+            for arm in &arms[1..] {
+                let (arm_ty, _) = self.infer_expr_value_type(&arm.value)?;
+                ensure_same_type(&result_ty, &arm_ty)?;
+            }
+            (result_ty, result_ax_ty)
+        };
 
         let scrutinee_value = self.emit_expr(scrutinee, out)?;
         let result_slot = self.next_temp();
@@ -354,7 +500,7 @@ impl<'a> FunctionEmitter<'a> {
             if arm.guard.is_none() {
                 self.emit_match_bindings(&scrutinee_value, arm, out)?;
             }
-            let value = self.emit_expr(&arm.value, out)?;
+            let value = self.emit_expr_with_expected(&arm.value, Some(&result_ax_ty), out)?;
             ensure_same_type(&result_ty, &value.ty)?;
             writeln!(
                 out,
@@ -436,6 +582,34 @@ impl<'a> FunctionEmitter<'a> {
                 if function == "string_len" || function == "len" {
                     return Ok(("i32".to_string(), Type::I32));
                 }
+                if function == "env_has" {
+                    return Ok(("i1".to_string(), Type::Bool));
+                }
+                if function == "env_get" {
+                    return Ok(("ptr".to_string(), Type::String));
+                }
+                if matches!(function.as_str(), "fs_exists" | "fs_is_file" | "fs_is_dir") {
+                    return Ok(("i1".to_string(), Type::Bool));
+                }
+                if function == "fs_file_size" {
+                    return Ok(("i32".to_string(), Type::I32));
+                }
+                if function == "fs_read_to_string" {
+                    return Ok(("ptr".to_string(), Type::String));
+                }
+                if function == "fs_read_dir" {
+                    let ax_ty = Type::Slice {
+                        element: Box::new(Type::String),
+                    };
+                    let ty =
+                        llvm_type(&ax_ty, self.layouts, self.enum_layouts).ok_or_else(|| {
+                            "fs_read_dir return slice is outside LLVM AOT v0".to_string()
+                        })?;
+                    return Ok((ty, ax_ty));
+                }
+                if function == "fs_copy_file" {
+                    return Ok(("i32".to_string(), Type::I32));
+                }
                 if matches!(
                     function.as_str(),
                     "string_contains" | "string_starts_with" | "string_ends_with"
@@ -458,10 +632,19 @@ impl<'a> FunctionEmitter<'a> {
                 if function == "string_trim" {
                     return Ok(("ptr".to_string(), Type::String));
                 }
+                if function == "string_list_new" {
+                    return Ok(("ptr".to_string(), Type::StringList));
+                }
+                if function == "string_list_push" {
+                    return Ok(("ptr".to_string(), Type::StringList));
+                }
+                if function == "string_list_get" || function == "string_list_join" {
+                    return Ok(("ptr".to_string(), Type::String));
+                }
                 if function == "to_string" {
                     return Ok(("ptr".to_string(), Type::String));
                 }
-                let resolved = self.resolve_call_signature(function, arguments)?;
+                let resolved = self.resolve_call_signature(function, arguments, None)?;
                 let signature = resolved.signature;
                 if signature.params.len() != arguments.len() {
                     return Err(format!(

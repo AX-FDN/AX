@@ -25,32 +25,20 @@ pub fn assess_aot_readiness(program: &AstProgram, input: AotReadinessInput<'_>) 
         "Build-1",
     )];
 
-    if input.is_project {
+    if input.has_local_path_packages && input.package_lock_status != Some("current") {
         blockers.push(AotReadinessBlocker::new(
-            "AOT0101",
-            "project",
-            "project source graph packaging exists, but native project linking semantics are not implemented",
-            "Build-2",
-        ));
-    }
-    if input.has_local_path_packages {
-        blockers.push(AotReadinessBlocker::new(
-            "AOT0102",
+            "AOT0103",
             "package",
-            "local path package sources are loadable, but native package linking semantics are not implemented",
-            "Build-2/P5",
+            "local package graph must have a current AX.lock before it can be treated as reproducible AOT input",
+            "P5",
         ));
-        if input.package_lock_status != Some("current") {
-            blockers.push(AotReadinessBlocker::new(
-                "AOT0103",
-                "package",
-                "local package graph must have a current AX.lock before it can be treated as reproducible AOT input",
-                "P5",
-            ));
-        }
     }
     if features.iter().any(|feature| {
-        feature.starts_with("host_") && !matches!(feature.as_str(), "host_stdio" | "host_argv")
+        feature.starts_with("host_")
+            && !matches!(
+                feature.as_str(),
+                "host_stdio" | "host_argv" | "host_env" | "host_fs_read" | "host_fs_write"
+            )
     }) {
         blockers.push(AotReadinessBlocker::new(
             "AOT0301",
@@ -68,17 +56,14 @@ pub fn assess_aot_readiness(program: &AstProgram, input: AotReadinessInput<'_>) 
         ));
     }
 
-    let single_file_core_candidate = !input.is_project
-        && !input.has_local_path_packages
+    let single_file_core_candidate = !input.has_local_path_packages
         && !features.iter().any(|feature| {
-            matches!(
-                feature.as_str(),
-                "string_runtime"
-                    | "string_list_runtime"
-                    | "project_sources"
-                    | "local_path_packages"
-            ) || (feature.starts_with("host_")
-                && !matches!(feature.as_str(), "host_stdio" | "host_argv"))
+            matches!(feature.as_str(), "string_runtime" | "string_list_runtime")
+                || (feature.starts_with("host_")
+                    && !matches!(
+                        feature.as_str(),
+                        "host_stdio" | "host_argv" | "host_env" | "host_fs_read" | "host_fs_write"
+                    ))
         });
 
     AotReadiness {
@@ -511,7 +496,11 @@ fn collect_call_aot_features(name: &str, features: &mut BTreeSet<String>) {
     if name.starts_with("env_") || name.starts_with("std.env.") {
         features.insert("host_env".to_string());
     }
-    if name.starts_with("fs_") || name.starts_with("std.fs.") {
+    if is_aot_supported_fs_read_call(name) {
+        features.insert("host_fs_read".to_string());
+    } else if is_aot_supported_fs_write_call(name) {
+        features.insert("host_fs_write".to_string());
+    } else if name.starts_with("fs_") || name.starts_with("std.fs.") {
         features.insert("host_fs".to_string());
     }
     if name.starts_with("process_") || name.starts_with("std.process.") {
@@ -542,6 +531,45 @@ fn collect_call_aot_features(name: &str, features: &mut BTreeSet<String>) {
     {
         features.insert("string_runtime".to_string());
     }
+}
+
+fn is_aot_supported_fs_read_call(name: &str) -> bool {
+    matches!(
+        name,
+        "fs_exists"
+            | "fs_is_file"
+            | "fs_is_dir"
+            | "fs_file_size"
+            | "fs_read_to_string"
+            | "fs_read_dir"
+            | "std.fs.exists"
+            | "std.fs.is_file"
+            | "std.fs.is_dir"
+            | "std.fs.file_size"
+            | "std.fs.try_file_size"
+            | "std.fs.read_to_string"
+            | "std.fs.try_read_to_string"
+            | "std.fs.read_dir"
+            | "std.fs.try_read_dir"
+    )
+}
+
+fn is_aot_supported_fs_write_call(name: &str) -> bool {
+    matches!(
+        name,
+        "fs_write_string"
+            | "fs_remove_file"
+            | "fs_rename"
+            | "fs_copy_file"
+            | "fs_create_dir_all"
+            | "fs_remove_dir_all"
+            | "std.fs.write_string"
+            | "std.fs.remove_file"
+            | "std.fs.remove_dir_all"
+            | "std.fs.rename"
+            | "std.fs.copy_file"
+            | "std.fs.create_dir_all"
+    )
 }
 
 fn expr_may_produce_string(expression: &ast::Expr) -> bool {

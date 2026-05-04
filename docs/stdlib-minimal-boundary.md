@@ -49,7 +49,7 @@ P3 的目标不是一次性做完整标准库，而是先把第一版官方标�
 | 文件 | 模块 | 当前职责 | 迁移状态 |
 | --- | --- | --- | --- |
 | [`../std/cli.ax`](../std/cli.ax) | `std.cli` | CLI 参数校验、usage、错误退出消息、输入文本校验 | 第一、第三、第四、第五、第十试点已用 |
-| [`../std/collections.ax`](../std/collections.ax) | `std.collections` | `string_list_empty / string_list_append / string_list_count / string_list_join_with / string_list_at / string_list_contains / string_list_index_of` | 第十二集合试点已用 |
+| [`../std/collections.ax`](../std/collections.ax) | `std.collections` | `string_list_empty / string_list_append / string_list_count / string_list_join_with / string_list_at / string_list_contains / string_list_index_of` | 第十二集合试点与 `project_collections_core` AOT smoke 已用 |
 | [`../std/env.ax`](../std/env.ax) | `std.env` | 环境变量存在性判断、读取与 `try_get` 安全读取 | 第四、第五、第七、第十试点已用 |
 | [`../std/fs.ax`](../std/fs.ax) | `std.fs` | 文件读取、文件写入、目录创建、目录枚举、文件大小、文件/目录存在性判断、删除文件、重命名、读侧 `try_*` 安全接口 | 第一、第二、第三、第四、第五、第八、第十试点已用 |
 | [`../std/option.ax`](../std/option.ax) | `std.option` | `Option<T>`、`Some(T)`、`None`、静态构造 `Option.some / Option.none`、`is_some / is_none / unwrap_or` | `project_option_result` 已用 |
@@ -62,14 +62,14 @@ P3 的目标不是一次性做完整标准库，而是先把第一版官方标�
 
 ## Std-1 冻结候选清单
 
-十三组迁移/压力试点完成后，第一版 Std-1 不再继续按“看到 helper 就迁移”的方式扩张。
+十四组迁移/压力试点完成后，第一版 Std-1 不再继续按“看到 helper 就迁移”的方式扩张。
 当前冻结候选只包括已经被 project-backed workload 消费、并进入 `check / run / build` 或 interface snapshots 回归的接口。
 
 | 模块 | 冻结候选接口 | 已验证 workload | 冻结口径 |
 | --- | --- | --- | --- |
 | `std.cli` | `usage_error / require_min_args / exit_with_message / require_file / require_directory / require_non_empty_text / ensure_output_parent` | text normalize、directory index、release promote、command capture、command batch、result pipeline、job runner | 只冻结入口校验与输出父目录准备，不冻结目录重建策略 |
-| `std.collections` | `string_list_empty / string_list_append / string_list_count / string_list_join_with / string_list_at / string_list_contains / string_list_index_of` | collections report smoke | 冻结 `string_list` 的官方包装入口和最小查询能力；不冻结泛型 list/map/set、iterator、排序或高阶函数 |
-| `std.env` | `has / get / try_get` | command capture、command batch、env/result smoke、result pipeline、job runner | `get` 必须优先配合 `has` 使用；`try_get` 是第一条 Result 风格宿主边界接口，并可被 `?` 消费；本轮不设计默认值 |
+| `std.collections` | `string_list_empty / string_list_append / string_list_count / string_list_join_with / string_list_at / string_list_contains / string_list_index_of` | collections report smoke 与 collections core AOT smoke | 冻结 `string_list` 的官方包装入口和最小查询能力；不冻结泛型 list/map/set、iterator、排序或高阶函数 |
+| `std.env` | `has / get / try_get` | command capture、command batch、env/result smoke、result pipeline、job runner、env AOT smoke | `get` 必须优先配合 `has` 使用；`try_get` 是第一条 Result 风格宿主边界接口，并可被 `?` 消费；本轮不设计默认值 |
 | `std.fs` | `read_to_string / try_read_to_string / write_string / create_dir_all / exists / remove_file / rename / read_dir / try_read_dir / file_size / try_file_size / is_file / is_dir` | file result、result pipeline 与五组迁移试点 | 冻结同步文件系统薄接口与读侧 Result 安全接口；写入、删除和重命名仍不伪装成可捕获异常的 Result 接口 |
 | `std.option` | `Option<T> / Some(T) / None / Option.some / Option.none / is_some / is_none / unwrap_or` | option/result smoke | 冻结显式缺失值约定；不引入隐式 null |
 | `std.path` | `join / parent / file_name / stem / extension / resolve / classify_file_kind / is_text_file` | text normalize、directory index、release promote、command batch、result pipeline | 路径拼接与轻量分类可冻结；分类规则是工具语言默认策略，不等于完整 MIME / 文件类型系统 |
@@ -80,11 +80,11 @@ P3 的目标不是一次性做完整标准库，而是先把第一版官方标�
 | `std.workspace` | `display_label / depth_prefix / append_workspace_line` | directory index、command batch | 只冻结 workspace 展示辅助，不冻结递归扫描、索引策略或搜索策略 |
 
 当前 `std.collections` 只冻结 `string_list` 的最小源码级包装，不进入泛型 collections。
-原因是仓库目前只有宿主 `string_list_*` builtin 和一个 project-backed workload；泛型 list/map/set 需要等更多集合 workload 或泛型路线明确后再启动。
+原因是仓库目前只有宿主 `string_list_*` builtin、一个 host-backed collections report workload，以及一个不依赖 fs/env/process 的 collections core AOT smoke；泛型 list/map/set 需要等更多集合 workload 或泛型路线明确后再启动。
 
 ## Std-1 候选验证入口
 
-Std-1 当前不是靠“文档声明”冻结，而是靠十三组 project-backed 样例和 interface snapshots 共同保护。
+Std-1 当前不是靠“文档声明”冻结，而是靠十四组 project-backed 样例和 interface snapshots/AOT smoke 共同保护。
 验证入口固定为下面三层：
 
 ```powershell
@@ -96,7 +96,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test
 三层含义分别是：
 
 - `representative_project_examples_check_cleanly`
-  快速确认十三组 Std-1 试点/压力项目都还能 `check`。
+  快速确认十四组 Std-1 试点/压力项目都还能 `check`。
 - 单个 `project_*` filter
   局部确认某个试点的 `run` 夹具和 `build` source tree 快照。
 - 完整 `interface_snapshots`
@@ -108,7 +108,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test
 | --- | --- | --- |
 | `std.cli` | text normalize、directory index、release promote、command capture、command batch、file result、process result、result pipeline、job runner | 多组样例的 `check`，对应运行夹具，以及 `*_build_copies_real_example_source_tree` |
 | `std.collections` | collections report | `project_collections_report_runs_on_controlled_fixture` 覆盖 `string_list_empty / append / count / join_with / at / contains / index_of`；build source tree 确认 `std/collections.ax` 被复制 |
-| `std.env` | command capture、command batch、env/result smoke、result pipeline、job runner | `project_command_capture_runs_on_controlled_fixture`、`project_command_batch_runs_on_controlled_fixture`、`project_env_result_runs`、`project_result_pipeline_runs_on_controlled_fixture`、`project_job_runner_runs_on_controlled_fixture`、多组 build source tree |
+| `std.env` | command capture、command batch、env/result smoke、result pipeline、job runner、env AOT smoke | `project_command_capture_runs_on_controlled_fixture`、`project_command_batch_runs_on_controlled_fixture`、`project_env_result_runs`、`project_result_pipeline_runs_on_controlled_fixture`、`project_job_runner_runs_on_controlled_fixture`、`project_env_result` AOT smoke、多组 build source tree |
 | `std.fs` | file result、result pipeline 与五组迁移试点 | `project_file_result_runs_on_controlled_fixture` 覆盖 `try_read_to_string / try_read_dir / try_file_size`；`project_result_pipeline_runs_on_controlled_fixture` 覆盖读侧 `Result` 与报告写入组合；五组运行夹具覆盖传统读写、目录创建、目录枚举、文件大小、存在性、删除和重命名；build source tree 确认 `std/fs.ax` 被复制 |
 | `std.option` | option/result smoke | `project_option_result_runs` 覆盖 `Option.some / Option.none / is_none / unwrap_or`；build source tree 确认 `std/option.ax` 被复制 |
 | `std.path` | text normalize、directory index、release promote、command batch、file result、result pipeline | 对应运行夹具覆盖 join、parent、file name、extension、resolve 与轻量分类；build source tree 确认 `std/path.ax` 被复制 |
@@ -246,7 +246,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test
 - `AX.toml` 使用 `sources = ["../../std"]`。
 - `src/main.ax` 通过 `import std.option / std.result` 消费官方约定类型。
 - semantic test 已覆盖泛型 enum unit variant 在期望实例类型下的归入，例如 `let missing: Option<i32> = Option.None;`。
-- interface snapshots 已覆盖该项目的 `check / run / build source tree`。
+- interface snapshots 已覆盖该项目的 `check / run / build source tree`；`project_env_result` 也已进入 AOT parity，验证 `std.env.try_get` 在解释器和 native exe 下保持一致。
 - 本轮没有引入异常系统、泛型 trait 或完整错误模型；`?` 由后续独立语法任务落地，并复用该返回值约定。
 
 第七迁移试点：[`../examples/project_env_result/`](../examples/project_env_result/)
@@ -356,7 +356,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test
 - `AX.lock` v0 固定 `job_rules.jobs` 与 `job_rules.report` 两个依赖模块，并可通过 `axc lock examples/project_job_runner --check` 校验。
 - `src/main.ax` 通过 `std.process.try_status_in`、`std.env.has` 和 `std.report` 生成确定性的 `JOB-RUNNER.txt`。
 - interface snapshots 覆盖该项目的 `check / run / build source tree / lock / context evidence`。
-- 当前边界：它不是 registry、版本求解、transitive dependency 或 AOT local package linking；`build-manifest.json` 仍会把本地包图标记为 `aot_ready = false`，直到后端实现包链接语义。
+- 当前边界：它不是 registry、版本求解或 transitive dependency；纯函数 local path package 已有 AOT parity 第一刀，但带 host runtime 的 worker package 仍等待更完整 native runtime ABI。
 
 ## Rust 宿主边界
 

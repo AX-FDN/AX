@@ -7,6 +7,30 @@ use super::aot_rules;
 #[derive(Debug, Clone)]
 pub struct BuildOptions {
     pub out_dir: PathBuf,
+    pub emit: BuildEmit,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BuildEmit {
+    Default,
+    Ir,
+    Exe,
+    All,
+}
+
+impl BuildEmit {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            BuildEmit::Default => "default",
+            BuildEmit::Ir => "ir",
+            BuildEmit::Exe => "exe",
+            BuildEmit::All => "all",
+        }
+    }
+
+    pub fn requires_executable(self) -> bool {
+        matches!(self, BuildEmit::Exe | BuildEmit::All)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -161,7 +185,7 @@ impl AotBlockerResolution {
             "AOT1000" => (
                 "enable_linking",
                 false,
-                Some("$env:AX_LLVM_AOT_LINK = \"1\""),
+                Some("axc build <target> --emit exe"),
             ),
             "AOT1001" => (
                 "configure_toolchain",
@@ -171,7 +195,7 @@ impl AotBlockerResolution {
             "AOT1002" => (
                 "inspect_toolchain_failure",
                 false,
-                Some("rerun axc build with AX_LLVM_AOT_LINK=1 and inspect clang stderr"),
+                Some("rerun axc build <target> --emit exe and inspect clang stderr"),
             ),
             _ => ("explain_unsupported", false, None),
         };
@@ -190,6 +214,7 @@ pub struct BuildManifest {
     pub target_name: String,
     pub entry_file: String,
     pub output_dir: String,
+    pub requested_emit: String,
     pub user_code_valid: bool,
     pub interpreter_supported: bool,
     pub aot_supported: bool,

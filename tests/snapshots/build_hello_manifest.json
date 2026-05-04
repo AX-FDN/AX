@@ -5,23 +5,22 @@
         "ai": {
           "ai_action": "enable_linking",
           "layer": "toolchain_link",
-          "repair_goal": "Enable linking with AX_LLVM_AOT_LINK=1 when executable validation is intended; do not edit user source.",
+          "repair_goal": "Run `axc build <target> --emit exe` when executable validation is intended; do not edit user source.",
           "rule_id": "aot_linking_must_be_enabled",
           "safe_to_edit": false,
           "summary": "LLVM IR was generated but executable linking is disabled",
           "validation": [
-            "$env:AX_LLVM_AOT_LINK = \"1\"",
             "$env:AX_LLVM_CLANG = \"<path-to-clang>\"",
-            "axc build <target> --json"
+            "axc build <target> --emit exe --json"
           ]
         },
         "category": "toolchain",
         "code": "AOT1000",
-        "message": "LLVM IR was generated, but executable linking is disabled; set AX_LLVM_AOT_LINK=1 to let axc build try clang",
+        "message": "LLVM IR was generated, but executable linking is disabled; use --emit exe or set AX_LLVM_AOT_LINK=1 to let axc build try clang",
         "required_stage": "Build-1",
         "resolution": {
           "agent_action": "enable_linking",
-          "recommended_command": "$env:AX_LLVM_AOT_LINK = \"1\"",
+          "recommended_command": "axc build <target> --emit exe",
           "source_edit_safe": false
         }
       }
@@ -31,7 +30,7 @@
     "recommended_next_steps": [
       "compare axc run with the generated LLVM AOT artifact for the same minimal MIR subset",
       "keep unsupported syntax in aot_readiness blockers until its MIR-to-LLVM lowering is explicit",
-      "set AX_LLVM_AOT_LINK=1 and AX_LLVM_CLANG=<path> when validating executable linking"
+      "use axc build <target> --emit exe and AX_LLVM_CLANG=<path> when validating executable linking"
     ],
     "required_backend_features": [
       "functions",
@@ -62,10 +61,11 @@
     "This build currently emits frontend and midend stable artifacts.",
     "LLVM AOT v0 may emit a textual LLVM IR artifact for the current single-file MIR subset.",
     "LLVM AOT v0 generated textual LLVM IR for the current single-file MIR subset.",
-    "LLVM executable linking was skipped; set AX_LLVM_AOT_LINK=1 to try clang."
+    "LLVM executable linking was skipped; use --emit exe or set AX_LLVM_AOT_LINK=1 to try clang."
   ],
   "output_dir": "<build-out>",
-  "schema_version": 9,
+  "requested_emit": "default",
+  "schema_version": 10,
   "target_name": "hello",
   "user_code_valid": true
 }

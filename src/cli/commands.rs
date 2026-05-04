@@ -120,7 +120,9 @@ pub(in crate::cli) fn run_build(args: Vec<String>) -> i32 {
     let options = match parse_build_args(args) {
         Ok(options) => options,
         Err(error) => {
-            eprintln!("{error}\nusage: axc build <path> [--out-dir <path>] [--json]");
+            eprintln!(
+                "{error}\nusage: axc build <path> [--emit <ir|exe|all>] [--no-link] [--out-dir <path>] [--json]"
+            );
             return 2;
         }
     };
@@ -189,7 +191,10 @@ pub(in crate::cli) fn run_build(args: Vec<String>) -> i32 {
         hir,
         mir,
         &build_input,
-        &BuildOptions { out_dir },
+        &BuildOptions {
+            out_dir,
+            emit: options.emit,
+        },
     ) {
         Ok(result) => result,
         Err(error) => {
@@ -198,14 +203,29 @@ pub(in crate::cli) fn run_build(args: Vec<String>) -> i32 {
         }
     };
 
+    let missing_requested_executable =
+        options.emit.requires_executable() && result.manifest.artifacts.executable.is_none();
+
     if options.json {
         println!(
             "{}",
             serde_json::to_string_pretty(&result.manifest)
                 .expect("build manifest json should serialize")
         );
+    } else if missing_requested_executable {
+        eprintln!(
+            "build emitted artifacts but did not produce requested --emit {}; inspect {} for AOT/toolchain blockers",
+            options.emit.as_str(),
+            result.manifest_path.display()
+        );
     } else {
         println!("build succeeded: {}", result.manifest_path.display());
+        if let Some(executable) = &result.manifest.artifacts.executable {
+            println!("executable: {executable}");
+        }
+    }
+    if missing_requested_executable {
+        return 1;
     }
     0
 }

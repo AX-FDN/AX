@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write;
 
 use crate::hir::{EnumVariant, EnumVariantPayloadPattern, StructField};
@@ -120,11 +120,17 @@ pub fn render_program(program: &Program) -> Result<String, Vec<String>> {
             BTreeMap::new()
         }
     };
-    let specializations = match collect_function_specializations(program) {
-        Ok(specializations) => specializations,
+    let (reachable, specializations) = match collect_reachable_functions(program) {
+        Ok(reachable) => reachable,
         Err(reasons) => {
             unsupported.extend(reasons);
-            BTreeMap::new()
+            (
+                ReachableFunctions {
+                    functions: BTreeSet::new(),
+                    specializations: BTreeSet::new(),
+                },
+                BTreeMap::new(),
+            )
         }
     };
 
@@ -140,6 +146,9 @@ pub fn render_program(program: &Program) -> Result<String, Vec<String>> {
                 ..
             } => {
                 if !type_params.is_empty() {
+                    continue;
+                }
+                if !reachable.functions.contains(name) {
                     continue;
                 }
                 if !type_param_bounds.is_empty() {
@@ -203,7 +212,10 @@ pub fn render_program(program: &Program) -> Result<String, Vec<String>> {
         }
     }
 
-    for specialization in specializations.values() {
+    for specialization in specializations
+        .values()
+        .filter(|specialization| reachable.specializations.contains(&specialization.key))
+    {
         let Some(FunctionSource {
             type_params,
             params,
@@ -321,7 +333,9 @@ pub fn render_program(program: &Program) -> Result<String, Vec<String>> {
     }
     runtime::write_external_declarations(&mut module);
     writeln!(module).expect("writing to string cannot fail");
+    runtime::write_runtime_error_helper(&mut module);
     runtime::write_string_helpers(&mut module);
+    runtime::write_host_helpers(&mut module);
 
     for item in &program.items {
         let ItemKind::Function {
@@ -340,6 +354,9 @@ pub fn render_program(program: &Program) -> Result<String, Vec<String>> {
         };
 
         if !type_params.is_empty() || !type_param_bounds.is_empty() {
+            continue;
+        }
+        if !reachable.functions.contains(name) {
             continue;
         }
 
@@ -363,7 +380,10 @@ pub fn render_program(program: &Program) -> Result<String, Vec<String>> {
         }
     }
 
-    for specialization in specializations.values() {
+    for specialization in specializations
+        .values()
+        .filter(|specialization| reachable.specializations.contains(&specialization.key))
+    {
         let Some(FunctionSource {
             params,
             return_type,
@@ -859,6 +879,11 @@ fn static_expr_type_with_signatures(
                 return Some(Type::String);
             }
             if function == "string_split_lines" {
+                return Some(Type::Slice {
+                    element: Box::new(Type::String),
+                });
+            }
+            if function == "fs_read_dir" {
                 return Some(Type::Slice {
                     element: Box::new(Type::String),
                 });

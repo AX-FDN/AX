@@ -42,9 +42,8 @@ fn fallback_rule_for_category(category: &str) -> AotBlockerRule {
 const VALIDATE_RUN_BUILD: &[&str] = &["axc run <target>", "axc build <target> --json"];
 const VALIDATE_LOCK_BUILD: &[&str] = &["axc lock <project> --check", "axc build <project> --json"];
 const VALIDATE_LINKING: &[&str] = &[
-    "$env:AX_LLVM_AOT_LINK = \"1\"",
     "$env:AX_LLVM_CLANG = \"<path-to-clang>\"",
-    "axc build <target> --json",
+    "axc build <target> --emit exe --json",
 ];
 
 const RULE_NATIVE_EMISSION_PENDING: AotBlockerRule = AotBlockerRule {
@@ -147,7 +146,7 @@ const RULE_LINKING_DISABLED: AotBlockerRule = AotBlockerRule {
     rule_id: "aot_linking_must_be_enabled",
     layer: "toolchain_link",
     summary: "LLVM IR was generated but executable linking is disabled",
-    repair_goal: "Enable linking with AX_LLVM_AOT_LINK=1 when executable validation is intended; do not edit user source.",
+    repair_goal: "Run `axc build <target> --emit exe` when executable validation is intended; do not edit user source.",
     validation: VALIDATE_LINKING,
 };
 

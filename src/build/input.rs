@@ -117,6 +117,7 @@ pub fn build_input_from_project(
 fn build_package_graph_readiness(project: &Project) -> BuildPackageGraphReadiness {
     let lock_report = check_lockfile(project);
     let reproducible = lock_report.status.as_str() == "current";
+    let aot_ready = reproducible;
     let mut blocking_reasons = Vec::new();
     if !reproducible {
         blocking_reasons.push(format!(
@@ -124,15 +125,13 @@ fn build_package_graph_readiness(project: &Project) -> BuildPackageGraphReadines
             lock_report.status.as_str()
         ));
     }
-    blocking_reasons
-        .push("native backend has not implemented local path package linking".to_string());
 
     BuildPackageGraphReadiness {
         package_mode: "local_path_v0".to_string(),
         reproducible,
-        aot_ready: false,
+        aot_ready,
         lock_status: lock_report.status.as_str().to_string(),
-        risk_level: if reproducible { "medium" } else { "high" }.to_string(),
+        risk_level: if reproducible { "low" } else { "high" }.to_string(),
         blocking_reasons,
         recommended_commands: vec![
             "axc lock <project> --check".to_string(),

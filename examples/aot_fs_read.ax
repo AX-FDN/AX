@@ -1,0 +1,30 @@
+const SAMPLE_PATH: string = "examples/aot_fs_read.ax";
+const MARKER: string = "fs-read-aot-marker";
+
+fn main() -> i32 {
+    let path: string = SAMPLE_PATH;
+
+    if (!fs_exists(path)) {
+        return 10;
+    }
+    if (!fs_is_file(path)) {
+        return 11;
+    }
+    if (fs_is_dir(path)) {
+        return 12;
+    }
+
+    let text: string = fs_read_to_string(path);
+    let has_marker: bool = string_contains(text, MARKER);
+
+    println("exists=" + to_string(fs_exists(path)));
+    println("file=" + to_string(fs_is_file(path)));
+    println("dir=" + to_string(fs_is_dir(path)));
+    println("size=" + to_string(fs_file_size(path)));
+    println("marker=" + to_string(has_marker));
+
+    if (has_marker) {
+        return 0;
+    }
+    return 13;
+}

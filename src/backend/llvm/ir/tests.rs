@@ -30,6 +30,24 @@ return 0;
 }
 
 #[test]
+fn skips_unreachable_unsupported_function_signatures_v0() {
+    let rendered = render(
+        "\
+fn unused(items: string_list) -> string_list {
+return items;
+}
+
+fn main() -> i32 {
+return 0;
+}
+",
+    );
+
+    assert!(rendered.contains("define i32 @main(i32 %argc, ptr %argv)"));
+    assert!(!rendered.contains("@ax_unused"));
+}
+
+#[test]
 fn renders_i32_function_calls_and_arithmetic() {
     let rendered = render(
         "\
@@ -44,8 +62,80 @@ return add(1, 2);
     );
 
     assert!(rendered.contains("define i32 @ax_add(i32 %arg0, i32 %arg1)"));
-    assert!(rendered.contains("= add i32"));
+    assert!(rendered.contains("call { i32, i1 } @llvm.sadd.with.overflow.i32"));
     assert!(rendered.contains("= call i32 @ax_add(i32 1, i32 2)"));
+}
+
+#[test]
+fn renders_i32_overflow_guards_v0() {
+    let rendered = render(
+        "\
+fn ops(left: i32, right: i32) -> i32 {
+let negated: i32 = -left;
+return negated + (left + right) + (left - right) + (left * right) + (left / right) + (left % right);
+}
+
+fn main() -> i32 {
+return ops(8, 2);
+}
+",
+    );
+
+    assert!(rendered.contains("declare { i32, i1 } @llvm.sadd.with.overflow.i32(i32, i32)"));
+    assert!(rendered.contains("declare { i32, i1 } @llvm.ssub.with.overflow.i32(i32, i32)"));
+    assert!(rendered.contains("declare { i32, i1 } @llvm.smul.with.overflow.i32(i32, i32)"));
+    assert!(rendered.contains("call { i32, i1 } @llvm.sadd.with.overflow.i32"));
+    assert!(rendered.contains("call { i32, i1 } @llvm.ssub.with.overflow.i32"));
+    assert!(rendered.contains("call { i32, i1 } @llvm.smul.with.overflow.i32"));
+    assert!(rendered.contains("i32_neg_overflow"));
+    assert!(rendered.contains("i32_add_overflow"));
+    assert!(rendered.contains("i32_sub_overflow"));
+    assert!(rendered.contains("i32_mul_overflow"));
+    assert!(rendered.contains("i32_div_overflow"));
+    assert!(rendered.contains("i32_rem_overflow"));
+    assert!(rendered.contains("@.ax_rt_neg_overflow"));
+    assert!(rendered.contains("@.ax_rt_add_overflow"));
+    assert!(rendered.contains("@.ax_rt_sub_overflow"));
+    assert!(rendered.contains("@.ax_rt_mul_overflow"));
+    assert!(rendered.contains("@.ax_rt_div_overflow"));
+    assert!(rendered.contains("@.ax_rt_rem_overflow"));
+}
+
+#[test]
+fn renders_division_by_zero_guards_v0() {
+    let rendered = render(
+        "\
+fn div_i32(left: i32, right: i32) -> i32 {
+return left / right;
+}
+
+fn rem_i32(left: i32, right: i32) -> i32 {
+return left % right;
+}
+
+fn div_f32(left: f32, right: f32) -> f32 {
+return left / right;
+}
+
+fn main() -> i32 {
+println(div_f32(1.0, 2.0));
+return div_i32(8, 2) + rem_i32(9, 4);
+}
+",
+    );
+
+    assert!(rendered.contains("icmp eq i32"));
+    assert!(rendered.contains("fcmp oeq float"));
+    assert!(rendered.contains("i32_div_zero"));
+    assert!(rendered.contains("f32_div_zero"));
+    assert!(rendered.contains("@.ax_rt_div_zero"));
+    assert!(rendered.contains("@.ax_rt_mod_zero"));
+    assert!(rendered.contains("define private void @ax_runtime_error(ptr %message)"));
+    assert!(rendered.contains("call i32 @fputs(ptr %message"));
+    assert!(rendered.contains("call void @exit(i32 1)"));
+    assert!(rendered.contains("sdiv i32"));
+    assert!(rendered.contains("srem i32"));
+    assert!(rendered.contains("fdiv float"));
 }
 
 #[test]
@@ -184,6 +274,32 @@ return 0;
 }
 
 #[test]
+fn renders_short_circuit_logical_ops_v0() {
+    let rendered = render(
+        "\
+fn main() -> i32 {
+let ready: bool = true;
+let has_input: bool = false;
+let should_run: bool = ready && !has_input || false;
+if (false && 8 / 0 == 0) {
+return 1;
+}
+if (should_run || true) {
+return 7;
+}
+return 0;
+}
+",
+    );
+
+    assert!(rendered.contains("logical_rhs"));
+    assert!(rendered.contains("logical_done"));
+    assert!(rendered.contains("alloca i1"));
+    assert!(rendered.contains("br i1 0, label %logical_rhs"));
+    assert!(rendered.contains("br i1 %"));
+}
+
+#[test]
 fn renders_string_literal_println_calls() {
     let rendered = render(
         "\
@@ -303,6 +419,140 @@ return string_len(first);
 }
 
 #[test]
+fn renders_env_builtins_from_native_environment_v0() {
+    let rendered = render(
+        "\
+fn main() -> i32 {
+if (env_has(\"PATH\")) {
+    println(env_get(\"PATH\"));
+    return 0;
+}
+return 1;
+}
+",
+    );
+
+    assert!(rendered.contains("declare ptr @getenv(ptr)"));
+    assert!(rendered.contains("call ptr @getenv(ptr"));
+    assert!(rendered.contains("icmp ne ptr"));
+    assert!(rendered.contains("icmp eq ptr"));
+    assert!(rendered.contains("call void @ax_runtime_error(ptr @.ax_rt_env_missing)"));
+}
+
+#[test]
+fn renders_fs_read_builtins_from_native_filesystem_v0() {
+    let rendered = render(
+        "\
+fn main() -> i32 {
+let path: string = \"examples/aot_fs_read.ax\";
+if (fs_exists(path) && fs_is_file(path) && !fs_is_dir(path)) {
+    let text: string = fs_read_to_string(path);
+    println(text);
+    return fs_file_size(path);
+}
+return 0;
+}
+",
+    );
+
+    assert!(rendered.contains("define private i1 @ax_fs_exists(ptr %path)"));
+    assert!(rendered.contains("define private i1 @ax_fs_is_file(ptr %path)"));
+    assert!(rendered.contains("define private i1 @ax_fs_is_dir(ptr %path)"));
+    assert!(rendered.contains("define private i32 @ax_fs_file_size(ptr %path)"));
+    assert!(rendered.contains("define private ptr @ax_fs_read_to_string(ptr %path)"));
+    assert!(rendered.contains("declare ptr @fopen(ptr, ptr)"));
+    assert!(rendered.contains("declare i32 @fgetc(ptr)"));
+    assert!(rendered.contains("declare void @rewind(ptr)"));
+    if cfg!(windows) {
+        assert!(rendered.contains("declare i32 @GetFileAttributesA(ptr)"));
+    } else {
+        assert!(rendered.contains("declare i32 @access(ptr, i32)"));
+        assert!(rendered.contains("declare ptr @opendir(ptr)"));
+    }
+    assert!(rendered.contains("call i1 @ax_fs_exists(ptr"));
+    assert!(rendered.contains("call i1 @ax_fs_is_file(ptr"));
+    assert!(rendered.contains("call i1 @ax_fs_is_dir(ptr"));
+    assert!(rendered.contains("call ptr @ax_fs_read_to_string(ptr"));
+    assert!(rendered.contains("call i32 @ax_fs_file_size(ptr"));
+}
+
+#[test]
+fn renders_fs_read_dir_as_native_string_slice_v0() {
+    let rendered = render(
+        "\
+fn main() -> i32 {
+let entries: [string] = fs_read_dir(\"examples\");
+println(entries[0]);
+return len(entries);
+}
+",
+    );
+
+    assert!(rendered.contains("define private { ptr, i32 } @ax_fs_read_dir(ptr %path)"));
+    assert!(rendered.contains("define private void @ax_sort_string_ptrs(ptr %data, i32 %len)"));
+    assert!(rendered.contains("call { ptr, i32 } @ax_fs_read_dir(ptr"));
+    assert!(rendered.contains("extractvalue { ptr, i32 }"));
+    assert!(rendered.contains("getelementptr ptr, ptr"));
+}
+
+#[test]
+fn renders_fs_write_builtins_from_native_filesystem_v0() {
+    let rendered = render(
+        "\
+fn main() -> i32 {
+let source: string = \"examples/.aot_fs_write_source.tmp\";
+let copied: string = \"examples/.aot_fs_write_copied.tmp\";
+let renamed: string = \"examples/.aot_fs_write_renamed.tmp\";
+let nested: string = \"build/aot_fs_create_dir_all_test/nested\";
+fs_create_dir_all(nested);
+if (fs_is_file(source)) {
+    fs_remove_file(source);
+}
+if (fs_is_file(copied)) {
+    fs_remove_file(copied);
+}
+fs_write_string(source, \"hello\");
+let bytes: i32 = fs_copy_file(source, copied);
+fs_rename(copied, renamed);
+fs_remove_file(renamed);
+fs_remove_file(source);
+fs_remove_dir_all(\"build/aot_fs_create_dir_all_test\");
+return 0;
+}
+",
+    );
+
+    assert!(rendered.contains("@.ax_fs_mode_write_binary"));
+    assert!(rendered.contains("declare i32 @remove(ptr)"));
+    assert!(rendered.contains("declare i32 @rename(ptr, ptr)"));
+    assert!(rendered.contains("declare i32 @fputc(i32, ptr)"));
+    if cfg!(windows) {
+        assert!(rendered.contains("declare i32 @CreateDirectoryA(ptr, ptr)"));
+        assert!(rendered.contains("declare i32 @DeleteFileA(ptr)"));
+        assert!(rendered.contains("declare i32 @RemoveDirectoryA(ptr)"));
+        assert!(rendered.contains("declare ptr @FindFirstFileA(ptr, ptr)"));
+        assert!(rendered.contains("declare i32 @FindNextFileA(ptr, ptr)"));
+    } else {
+        assert!(rendered.contains("declare i32 @mkdir(ptr, i32)"));
+        assert!(rendered.contains("declare i32 @nftw(ptr, ptr, i32, i32)"));
+    }
+    assert!(rendered.contains("define private void @ax_fs_write_string(ptr %path, ptr %text)"));
+    assert!(rendered.contains("define private void @ax_fs_remove_file(ptr %path)"));
+    assert!(rendered.contains("define private void @ax_fs_rename(ptr %from, ptr %to)"));
+    assert!(
+        rendered.contains("define private i32 @ax_fs_copy_file(ptr %source, ptr %destination)")
+    );
+    assert!(rendered.contains("define private void @ax_fs_create_dir_all(ptr %path)"));
+    assert!(rendered.contains("define private void @ax_fs_remove_dir_all(ptr %path)"));
+    assert!(rendered.contains("call void @ax_fs_write_string(ptr"));
+    assert!(rendered.contains("call i32 @ax_fs_copy_file(ptr"));
+    assert!(rendered.contains("call void @ax_fs_create_dir_all(ptr"));
+    assert!(rendered.contains("call void @ax_fs_remove_dir_all(ptr"));
+    assert!(rendered.contains("call void @ax_fs_rename(ptr"));
+    assert!(rendered.contains("call void @ax_fs_remove_file(ptr"));
+}
+
+#[test]
 fn renders_string_concat_and_to_string_values() {
     let rendered = render(
         "\
@@ -407,6 +657,35 @@ return len(lines);
     assert!(rendered.contains("call { ptr, i32 } @ax_string_split_lines(ptr"));
     assert!(rendered.contains("extractvalue { ptr, i32 }"));
     assert!(rendered.contains("load ptr, ptr"));
+}
+
+#[test]
+fn renders_string_list_runtime_helpers_v0() {
+    let rendered = render(
+        "\
+fn main() -> i32 {
+let mut items: string_list = string_list_new();
+items = string_list_push(items, \"alpha\");
+items = string_list_push(items, \"beta\");
+println(string_list_join(items, \", \"));
+println(string_list_get(items, 1));
+return len(items);
+}
+",
+    );
+
+    assert!(rendered.contains("define private ptr @ax_string_list_new()"));
+    assert!(rendered.contains("define private i32 @ax_string_list_len(ptr %list)"));
+    assert!(rendered.contains("define private ptr @ax_string_list_push(ptr %list, ptr %value)"));
+    assert!(rendered.contains("define private ptr @ax_string_list_get(ptr %list, i32 %index)"));
+    assert!(
+        rendered.contains("define private ptr @ax_string_list_join(ptr %list, ptr %separator)")
+    );
+    assert!(rendered.contains("call ptr @ax_string_list_new()"));
+    assert!(rendered.contains("call ptr @ax_string_list_push(ptr"));
+    assert!(rendered.contains("call ptr @ax_string_list_join(ptr"));
+    assert!(rendered.contains("call ptr @ax_string_list_get(ptr"));
+    assert!(rendered.contains("call i32 @ax_string_list_len(ptr"));
 }
 
 #[test]
@@ -1817,6 +2096,62 @@ return 0;
             .contains("define %ax_enum_Result_i32__string_ @ax_Result_err_i32__string_(ptr %arg0)")
     );
     assert!(rendered.contains("call %ax_enum_Result_i32__string_ @ax_Result_ok_i32__string_"));
+    assert!(rendered.contains("call %ax_enum_Result_i32__string_ @ax_Result_err_i32__string_"));
+}
+
+#[test]
+fn renders_generic_result_err_specialization_by_return_type_v0() {
+    let rendered = render(
+        "\
+enum Result<T, E> {
+Ok(T),
+Err(E),
+}
+
+impl<T, E> Result<T, E> {
+fn ok(value: T) -> Result<T, E> {
+    return Result.Ok(value);
+}
+
+fn err(error: E) -> Result<T, E> {
+    return Result.Err(error);
+}
+}
+
+fn parse_text(flag: bool) -> Result<string, string> {
+if (flag) {
+    return Result.ok(\"text\");
+}
+return Result.err(\"text missing\");
+}
+
+fn parse_count(flag: bool) -> Result<i32, string> {
+if (flag) {
+    return Result.ok(7);
+}
+return Result.err(\"count missing\");
+}
+
+fn main() -> i32 {
+let text: Result<string, string> = parse_text(false);
+let count: Result<i32, string> = parse_count(false);
+println(match (text) { Result.Ok(value) => value, Result.Err(message) => message });
+println(match (count) { Result.Ok(value) => to_string(value), Result.Err(message) => message });
+return 0;
+}
+",
+    );
+
+    assert!(rendered.contains(
+        "define %ax_enum_Result_string__string_ @ax_Result_err_string__string_(ptr %arg0)"
+    ));
+    assert!(
+        rendered
+            .contains("define %ax_enum_Result_i32__string_ @ax_Result_err_i32__string_(ptr %arg0)")
+    );
+    assert!(
+        rendered.contains("call %ax_enum_Result_string__string_ @ax_Result_err_string__string_")
+    );
     assert!(rendered.contains("call %ax_enum_Result_i32__string_ @ax_Result_err_i32__string_"));
 }
 

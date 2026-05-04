@@ -1,0 +1,63 @@
+import std.fs;
+
+const BASE_DIR: string = "build/project_fs_write_core";
+const NESTED_DIR: string = "build/project_fs_write_core/nested";
+const SOURCE_PATH: string = "build/project_fs_write_core/source.tmp";
+const COPY_PATH: string = "build/project_fs_write_core/copy.tmp";
+const RENAMED_PATH: string = "build/project_fs_write_core/renamed.tmp";
+const NESTED_PATH: string = "build/project_fs_write_core/nested/note.tmp";
+const MARKER: string = "project-fs-write-core-marker";
+
+fn main() -> i32 {
+    if (std.fs.is_dir(BASE_DIR)) {
+        std.fs.remove_dir_all(BASE_DIR);
+    }
+
+    std.fs.create_dir_all(NESTED_DIR);
+
+    std.fs.write_string(SOURCE_PATH, "project-fs-write-core-marker\n");
+    std.fs.write_string(NESTED_PATH, "nested-file\n");
+
+    if (!std.fs.is_file(SOURCE_PATH)) {
+        return 10;
+    }
+    if (!string_contains(std.fs.read_to_string(SOURCE_PATH), MARKER)) {
+        std.fs.remove_file(SOURCE_PATH);
+        return 11;
+    }
+
+    let copied: i32 = std.fs.copy_file(SOURCE_PATH, COPY_PATH);
+    if (copied != std.fs.file_size(SOURCE_PATH)) {
+        std.fs.remove_file(SOURCE_PATH);
+        std.fs.remove_file(COPY_PATH);
+        return 12;
+    }
+    if (!string_contains(std.fs.read_to_string(COPY_PATH), MARKER)) {
+        std.fs.remove_file(SOURCE_PATH);
+        std.fs.remove_file(COPY_PATH);
+        return 13;
+    }
+
+    std.fs.rename(COPY_PATH, RENAMED_PATH);
+
+    if (std.fs.exists(COPY_PATH)) {
+        std.fs.remove_file(SOURCE_PATH);
+        std.fs.remove_file(RENAMED_PATH);
+        return 14;
+    }
+    if (!std.fs.is_file(RENAMED_PATH)) {
+        std.fs.remove_file(SOURCE_PATH);
+        return 15;
+    }
+
+    let text: string = std.fs.read_to_string(RENAMED_PATH);
+    println("renamed=" + to_string(string_contains(text, MARKER)));
+    println("size=" + to_string(std.fs.file_size(RENAMED_PATH)));
+
+    std.fs.remove_dir_all(BASE_DIR);
+
+    if (std.fs.exists(BASE_DIR)) {
+        return 16;
+    }
+    return 0;
+}

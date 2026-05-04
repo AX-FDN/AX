@@ -13,7 +13,7 @@ axc run <file-or-project>
 `axc build` 现在有两层职责：
 
 - 始终导出稳定构建资产：`source.ax`、`program.hir.json`、`program.mir.json`、`build-manifest.json`
-- 对持续扩展的单文件 MIR 子集尝试生成文本 LLVM IR：`generated/main.ll`
+- 对持续扩展的 MIR 子集尝试生成文本 LLVM IR：`generated/main.ll`，当前已包含单入口、多文件、`module/import` 与 `std.option/std.result` 与纯函数 local path package `AX.toml` project-backed AOT
 
 这意味着 AOT 已经从“只有 readiness 规划”进入“可观察、可链接、可和解释器对照的 IR artifact v0”，但还没有变成成熟 native executable 输出链。
 
@@ -41,15 +41,16 @@ AX source
 
 解释器位置仍然是 `src/interpreter.rs`，LLVM AOT v0 不替换解释器，也不把解释器逻辑复制成第二套语义实现。解释器继续作为 `axc run` 的语义参考路径。
 
-`runtime.rs` 是 AOT runtime ABI 的收口点：当前负责内建 format/text globals、libc/clang 可见的外部声明，以及 `ax_string_len` / `ax_string_concat` / `ax_string_replace` / `ax_string_split_lines` / `ax_string_trim` / `ax_i32_to_string` / `ax_f32_to_string` 这类文本 IR helper。后续补 host runtime、slice/string_list runtime 时，都优先在这里扩 ABI，不把 runtime 细节散落回 lowering 主流程。
+`runtime.rs` 是 AOT runtime ABI 的收口点：当前负责内建 format/text globals、libc/clang 可见的外部声明、`ax_runtime_error` 最小 stderr 错误出口，以及 `ax_string_len` / `ax_string_concat` / `ax_string_replace` / `ax_string_split_lines` / `ax_string_trim` / `ax_string_list_new` / `ax_string_list_push` / `ax_string_list_get` / `ax_string_list_join` / `ax_i32_to_string` / `ax_f32_to_string` 这类文本 IR helper。后续补 host runtime、slice runtime 与更完整 string_list runtime 时，都优先在这里扩 ABI，不把 runtime 细节散落回 lowering 主流程。
 
 ## 当前支持的最小子集
 
-LLVM IR v0 先支持单文件核心子集，并按 parity 样例逐包扩展：
+LLVM IR v0 先支持核心子集，并按 parity 样例逐包扩展：
 
 - `fn main() -> i32`
+- Project-backed AOT：当前已经覆盖单入口 [`examples/project_hello`](../examples/project_hello/)、多文件 [`examples/project_split`](../examples/project_split/)、`module/import` [`examples/project_module_smoke`](../examples/project_module_smoke/) 、`std.option/std.result` [`examples/project_option_result`](../examples/project_option_result/)、`std.collections` [`examples/project_collections_core`](../examples/project_collections_core/)、`std.env` [`examples/project_env_result`](../examples/project_env_result/) 和纯函数 local path package [`examples/project_package_math`](../examples/project_package_math/) native parity；更完整 local path package ABI 仍按后续 package linking 推进
 - 同文件普通函数
-- `i32`
+- `i32`，包含 negation/add/sub/mul/div/rem overflow、除零和取余零的最小 runtime error guard
 - `bool`
 - `f32` core v0：字面量、局部变量、函数参数 / 返回值、`+ - * /`、一元 `-`、`== != < <= > >=`、`println(f32)` 和 `to_string(f32)`
 - `string` 局部变量 / 参数 / 返回值，当前表示为只读 C 字符串指针
@@ -60,8 +61,10 @@ LLVM IR v0 先支持单文件核心子集，并按 parity 样例逐包扩展：
 - `string_replace(text, from, to)` 全量替换 v0，包含 `from == ""` 时按 UTF-8 字符边界插入的解释器一致语义
 - `string_split_lines(text)` LF / CRLF 行切分 v0，返回只读 `[string]` slice，可配合 `len(lines)`、`lines[i]` 和 `for in` 遍历
 - `string_trim(text)` ASCII whitespace v0，当前分配返回新字符串，使用 process-lifetime `malloc`，暂不回收
+- `string_list_new()` / `string_list_push(items, value)` / `string_list_get(items, index)` / `string_list_join(items, separator)` / `len(items)`，当前以 opaque native list pointer 表达，使用 process-lifetime `malloc`，暂不回收
 - `string + string`，当前通过 process-lifetime `malloc` 分配拼接结果，暂不回收
 - `argv_len()` / `argv_get(index)` v0：native `main(argc, argv)` 会把 CLI 参数暴露给 AX，`argv_get(0)` 对应用户传入的第一个参数
+- `env_has(name)` / `env_get(name)` v0：当前通过 C ABI `getenv` 读取宿主环境变量；`env_get` 缺失时输出 `R0053` runtime error，`std.env.try_get` 可通过 `env_has` 避免失败路径
 - 固定长度数组 v0：非空 array literal、显式零长度 array literal（例如 `let values: [i32; 0] = []`）、局部变量、函数参数 by value、索引读取、元素写入、`len(array)`、`to_string(array)`、直接 `println(array)` 与 element-wise `==` / `!=`；当前主要验证 `[i32; N]` / `[bool; N]` / `[string; N]`
 - Slice v0：固定数组可形成 `{ ptr, i32 len }` slice，支持 `values[start:end]` 半开区间、`len(slice)`、`slice[index]` 读取、mutable slice element assignment、`to_string(slice)`、直接 `println(slice)`、同文件 slice 参数调用和 element-wise `==` / `!=`，并支撑 `for in` over fixed array 与 `values[start:end]` slice range 直接遍历；`string_split_lines(text)` 返回的 `[string]` slice 也已支持 `len(lines)`、`lines[i]` 和 `for in`；当前 range slice 是 copy-backed value，除 `string_split_lines` 外的 host/runtime slice 来源和跨项目 slice ABI 仍未进入完整 native contract
 - Struct v0：非泛型 struct 定义、struct literal、局部变量、函数参数 by value、返回值、字段读取、字段写入、字段级 `==` / `!=`、`to_string(struct)` 与直接 `println(struct)`
@@ -90,6 +93,10 @@ LLVM IR v0 先支持单文件核心子集，并按 parity 样例逐包扩展：
 
 ```powershell
 axc build examples/aot_return.ax
+axc build examples/project_hello
+axc build examples/project_split
+axc build examples/project_collections_core
+axc build examples/project_env_result
 axc build examples/aot_math.ax
 axc build examples/aot_control_flow.ax
 axc build examples/aot_loop.ax
@@ -117,6 +124,7 @@ axc build examples/aot_string_replace.ax
 axc build examples/aot_string_split_lines.ax
 axc build examples/aot_string_split_lines_for_in.ax
 axc build examples/aot_string_trim.ax
+axc build examples/string_list.ax
 axc build examples/aot_argv.ax
 axc build examples/string_match.ax
 axc build examples/aot_array_read.ax
@@ -163,17 +171,17 @@ build/aot_return/
 
 下面这些内容仍然由 `aot_readiness.blockers` 和 LLVM AOT v0 的 unsupported notes 暴露，不会被假装成已支持：
 
-- `to_string(...)` 作用于 string_list 或尚未具备 native formatter / native layout 的值
+- `to_string(string_list)` 或直接 `println(string_list)` 这类尚未具备 native formatter 的值
 - 除 `string_split_lines` 外的 host/runtime slice 来源、跨项目 slice ABI 和更完整的 slice ownership / lifetime contract
-- `len(...)` 作用于 string_list，或作用于尚未由 AOT slice v0 表达的复杂 slice 来源
+- `len(...)` 作用于尚未由 AOT slice v0 表达的复杂 slice 来源
 - 更完整的通用 `string` ownership / allocation / free 规则
 - 更完整的宿主 IO runtime ABI
 - 除 `string_split_lines` 外的 host/runtime slice 来源、跨项目 slice ABI 和完整 slice ownership / lifetime contract
 - 更深层组合 enum payload formatter / 更深层组合 payload equality / binding-bearing or pattern lowering
 - 跨项目 methods / impl / traits / generics native linking，以及完整 project/std monomorphization
-- `std.option` / `std.result` project import、静态 helper 方法和跨模块 native linking
+- 更完整 `std`/native package monomorphization 与 helper native linking
 - multi-file project linking
-- local path package native linking
+- 更完整 local path package native linking（纯函数 path package 已有第一刀 parity）
 - registry package
 - host extension ABI
 
@@ -223,13 +231,14 @@ axc build examples/aot_return.ax
 
 ## Build Manifest 契约
 
-LLVM AOT v0 把 `build-manifest.json` 升级到 schema version `9`，并把 `aot_readiness.schema_version` 升级到 `3`。
+LLVM AOT v0 把 `build-manifest.json` 升级到 schema version `10`，并把 `aot_readiness.schema_version` 升级到 `3`。
 
 新增或变化的字段重点：
 
 - `backend.kind = "llvm-aot"`：当前输入进入 LLVM AOT v0 子集
 - `backend.status = "ir_generated"`：已生成 LLVM IR，但未生成 exe
 - `backend.status = "built"`：已生成 LLVM IR，并且 clang 链接成功
+- `requested_emit`：记录本次 `axc build` 请求的产物模式，当前为 `default`、`ir`、`exe` 或 `all`
 - `user_code_valid = true`：`axc build` 已经通过 frontend check；如果前端失败，build 不会写 manifest
 - `interpreter_supported = true`：当前输入仍以解释器语义作为参考路径
 - `aot_supported`：只有 native executable 已生成、没有 AOT blocker 时才为 `true`
@@ -305,6 +314,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke-aot-parity.p
 - `examples/aot_string_split_lines.ax`
 - `examples/aot_string_split_lines_for_in.ax`
 - `examples/aot_string_trim.ax`
+- `examples/string_list.ax`
+- `examples/project_collections_core`
+- `examples/project_env_result`
 - `examples/string_match.ax`
 - `examples/aot_array_read.ax`
 - `examples/aot_array_write.ax`
@@ -368,27 +380,28 @@ LLVM AOT 后续不能靠“照着解释器抄”推进，而要按契约补齐�
 3. 已完成 string literal 的只读全局表示，并支持直接 `println("...")`。
 4. 已完成最小 string value representation：局部变量 / 参数 / 返回值都可按只读 C 字符串指针进入 AOT。
 5. 已完成无 allocator 的 string helper 第一刀：`string_len` / `len(string)` 与字符串内容 `==` / `!=` 可进入 AOT parity。
-6. 已完成 String Runtime v0：`to_string(i32/bool/string/array/slice/struct/enum)`、直接 `println(array/slice/struct/enum)`、`string + string`、`string_contains`、`string_starts_with`、`string_ends_with`、`string_replace` 全量替换 v0、`string_split_lines` LF/CRLF 行切分 v0 和 `string_trim` ASCII whitespace v0 可进入 AOT parity；当前拼接、formatter、`string_replace`、`string_split_lines`、`string_trim` 和 `to_string(i32)` 使用 process-lifetime `malloc`，暂不回收。
+6. 已完成 String Runtime v0：`to_string(i32/bool/string/array/slice/struct/enum)`、直接 `println(array/slice/struct/enum)`、`string + string`、`string_contains`、`string_starts_with`、`string_ends_with`、`string_replace` 全量替换 v0、`string_split_lines` LF/CRLF 行切分 v0、`string_trim` ASCII whitespace v0，以及 `string_list_new/push/get/join` 与 `len(string_list)` 可进入 AOT parity；当前拼接、formatter、`string_replace`、`string_split_lines`、`string_trim`、`string_list` 和 `to_string(i32)` 使用 process-lifetime `malloc`，暂不回收。
 7. 已完成 CLI argv v0：native `main(argc, argv)` 会记录宿主参数，`argv_len()` 与 `argv_get(index)` 可进入 AOT；`examples/aot_argv.ax` 已验证无参数 parity，并手工验证带参数时解释器与 native exe 的输出 / 退出码一致。
-8. 已完成 Array + Slice v0：固定长度数组 literal（含显式零长度 `[]`）/ 局部变量 / 参数 by value / 索引读取 / 元素写入 / `len(array)` / `to_string(array)` / 直接 `println(array)` 可进入 AOT parity；固定数组可形成 `{ ptr, len }` slice，支持 `values[start:end]` / `len(slice)` / `slice[index]` / mutable slice element assignment / `to_string(slice)` / 直接 `println(slice)` / 同文件 slice 参数调用，并让 `for in` over fixed array 与 slice range 直接遍历进入 parity；`string_split_lines(text)` 返回的 runtime `[string]` slice 也已支持 `len(lines)` / `lines[i]` / `for in`；除 `string_split_lines` 外的 host/runtime slice 来源和跨项目 slice ABI 仍未进入完整 native layout。
-9. 已完成 Struct v0：非泛型 struct 定义 / literal / 局部变量 / 参数 by value / 返回值 / 字段读取 / 字段写入 / `to_string(struct)` / 直接 `println(struct)` 可进入 AOT parity。
-10. 已完成 Unit Enum v0：非泛型无 payload enum 以 `i32 tag` lower，支持 variant 值、参数、返回值、`== !=` 和语句形态 unit enum `match`。
-11. 已完成 Payload Enum v0：非泛型 payload enum 以 `{ i32 tag, ptr payload }` lower，支持 constructor、payload read、参数 / 返回值和语句形态 payload enum `match`。
-12. 已完成 Match Expression v0：表达式形态 `match`、简单 binding pattern、payload binding 和 block-valued arm 已进入 AOT parity。
-13. 已完成 Concrete Generic Enum Instance v0：同文件非泛型函数内的 `Option<i32>` / `Result<i32,string>` constructor、match、参数、返回值、formatter 和 direct print 可进入 AOT parity。
-14. 已把 `%`、C-style `for`、固定数组 / slice range / runtime `[string]` slice `for in`、`break`、`continue` 纳入默认 executable parity，不再只是“能生成 IR”的隐性能力。
-15. 已完成 top-level Const v0：MIR 保留 const initializer，LLVM AOT 可在函数中内联 lower 当前 AOT 类型子集内的 `i32/bool/string` const 引用。
-16. 已完成 Range Pattern v0：`i32` inclusive range pattern 已 lower 成 native 比较链，并验证 `examples/match_range.ax`。
-17. 已完成 Result Static Constructor / Try v0：同文件 `Result.ok(...)` / `Result.err(...)` 可从上下文推断缺失类型参数，`expr?` 可 lower 成 Ok 解包与 Err early return，并验证 `Result<i32,string>` 传播到 `Result<string,string>` 的错误重包路径。
-18. 已完成 Or Pattern v0：无绑定 alternative 的 `A | B` pattern 已 lower 成 native boolean 合并，并验证 `examples/match_or.ax`；带绑定的 or pattern 仍需要 binding merge semantics，当前保持 blocker。
-19. 已完成 Match Guard v0：guarded arm 的 bool guard 已进入 native branch lowering，pattern binding / payload binding 会先绑定再计算 guard，guard 为 false 时继续尝试后续 arm，并验证 `examples/match_guard.ax`。
-20. 已把 String Pattern v0 纳入默认 parity：`match` 中的 string literal pattern 使用 native `strcmp` 比较，并验证 `examples/string_match.ax`。
-21. 已完成 Payload Enum Equality v0：payload enum 的 `== !=` 先比较 tag，再比较当前 AOT 可比较的 `i32/bool/string` payload，并验证 `examples/aot_payload_enum_equality.ax`。
-22. 已完成 Struct Pattern v0：非泛型 struct 的全字段 shorthand 解构 pattern 可 lower 成 native field extract，并验证 `examples/match_struct_pattern.ax`。
-23. 已完成 Composite Formatter v0：固定数组和非泛型 struct 的 `to_string(...)` 与直接 `println(...)` 会按解释器显示格式生成文本，并验证 `examples/aot_array_to_string.ax` 与 `examples/aot_struct_to_string.ax`。
-24. 已完成 Enum Formatter v0：`to_string(enum)` 与直接 `println(enum)` 可格式化 unit variant、`i32/bool/string` payload variant、固定数组 payload、struct payload、slice payload 和当前 AOT concrete generic enum 实例，并验证 `examples/aot_enum_to_string.ax`、`examples/aot_enum_print.ax`、`examples/aot_enum_array_payload.ax`、`examples/aot_enum_struct_slice_payload.ax` 与 `examples/aot_generic_enum_print.ax`。
-25. 下一步补更深层组合 payload formatter、复杂 payload equality、partial/nested struct destructuring、带绑定 or pattern、完整 slice layout 和 runtime ABI。
-26. 增加 multi-file/project linking contract，再谈本地包和标准库 AOT。
-27. 等 Build-2 代表项目可 AOT 后，才考虑发布级 Build-3。
+8. 已完成 Host Env v0：`env_has/env_get` 通过 `getenv` 进入 native AOT，`std.env.try_get` 已在 `examples/project_env_result` 中通过 project-backed parity；缺失变量的裸 `env_get` 会走 `R0053` native runtime error。
+9. 已完成 Array + Slice v0：固定长度数组 literal（含显式零长度 `[]`）/ 局部变量 / 参数 by value / 索引读取 / 元素写入 / `len(array)` / `to_string(array)` / 直接 `println(array)` 可进入 AOT parity；固定数组可形成 `{ ptr, len }` slice，支持 `values[start:end]` / `len(slice)` / `slice[index]` / mutable slice element assignment / `to_string(slice)` / 直接 `println(slice)` / 同文件 slice 参数调用，并让 `for in` over fixed array 与 slice range 直接遍历进入 parity；`string_split_lines(text)` 返回的 runtime `[string]` slice 也已支持 `len(lines)` / `lines[i]` / `for in`；除 `string_split_lines` 外的 host/runtime slice 来源和跨项目 slice ABI 仍未进入完整 native layout。
+10. 已完成 Struct v0：非泛型 struct 定义 / literal / 局部变量 / 参数 by value / 返回值 / 字段读取 / 字段写入 / `to_string(struct)` / 直接 `println(struct)` 可进入 AOT parity。
+11. 已完成 Unit Enum v0：非泛型无 payload enum 以 `i32 tag` lower，支持 variant 值、参数、返回值、`== !=` 和语句形态 unit enum `match`。
+12. 已完成 Payload Enum v0：非泛型 payload enum 以 `{ i32 tag, ptr payload }` lower，支持 constructor、payload read、参数 / 返回值和语句形态 payload enum `match`。
+13. 已完成 Match Expression v0：表达式形态 `match`、简单 binding pattern、payload binding 和 block-valued arm 已进入 AOT parity。
+14. 已完成 Concrete Generic Enum Instance v0：同文件非泛型函数内的 `Option<i32>` / `Result<i32,string>` constructor、match、参数、返回值、formatter 和 direct print 可进入 AOT parity。
+15. 已把 `%`、C-style `for`、固定数组 / slice range / runtime `[string]` slice `for in`、`break`、`continue` 纳入默认 executable parity，不再只是“能生成 IR”的隐性能力。
+16. 已完成 top-level Const v0：MIR 保留 const initializer，LLVM AOT 可在函数中内联 lower 当前 AOT 类型子集内的 `i32/bool/string` const 引用。
+17. 已完成 Range Pattern v0：`i32` inclusive range pattern 已 lower 成 native 比较链，并验证 `examples/match_range.ax`。
+18. 已完成 Result Static Constructor / Try v0：同文件 `Result.ok(...)` / `Result.err(...)` 可从上下文推断缺失类型参数，`expr?` 可 lower 成 Ok 解包与 Err early return，并验证 `Result<i32,string>` 传播到 `Result<string,string>` 的错误重包路径。
+19. 已完成 Or Pattern v0：无绑定 alternative 的 `A | B` pattern 已 lower 成 native boolean 合并，并验证 `examples/match_or.ax`；带绑定的 or pattern 仍需要 binding merge semantics，当前保持 blocker。
+20. 已完成 Match Guard v0：guarded arm 的 bool guard 已进入 native branch lowering，pattern binding / payload binding 会先绑定再计算 guard，guard 为 false 时继续尝试后续 arm，并验证 `examples/match_guard.ax`。
+21. 已把 String Pattern v0 纳入默认 parity：`match` 中的 string literal pattern 使用 native `strcmp` 比较，并验证 `examples/string_match.ax`。
+22. 已完成 Payload Enum Equality v0：payload enum 的 `== !=` 先比较 tag，再比较当前 AOT 可比较的 `i32/bool/string` payload，并验证 `examples/aot_payload_enum_equality.ax`。
+23. 已完成 Struct Pattern v0：非泛型 struct 的全字段 shorthand 解构 pattern 可 lower 成 native field extract，并验证 `examples/match_struct_pattern.ax`。
+24. 已完成 Composite Formatter v0：固定数组和非泛型 struct 的 `to_string(...)` 与直接 `println(...)` 会按解释器显示格式生成文本，并验证 `examples/aot_array_to_string.ax` 与 `examples/aot_struct_to_string.ax`。
+25. 已完成 Enum Formatter v0：`to_string(enum)` 与直接 `println(enum)` 可格式化 unit variant、`i32/bool/string` payload variant、固定数组 payload、struct payload、slice payload 和当前 AOT concrete generic enum 实例，并验证 `examples/aot_enum_to_string.ax`、`examples/aot_enum_print.ax`、`examples/aot_enum_array_payload.ax`、`examples/aot_enum_struct_slice_payload.ax` 与 `examples/aot_generic_enum_print.ax`。
+26. 下一步补更深层组合 payload formatter、复杂 payload equality、partial/nested struct destructuring、带绑定 or pattern、完整 slice layout 和 runtime ABI。
+27. 增加 multi-file/project linking contract，再谈本地包和标准库 AOT。
+28. 等 Build-2 代表项目可 AOT 后，才考虑发布级 Build-3。
 
 JIT 不应早于发布级 AOT 评估。当前最重要的是把 AOT 输入契约、IR artifact、toolchain blocker resolution 和解释器语义对照链先做稳。

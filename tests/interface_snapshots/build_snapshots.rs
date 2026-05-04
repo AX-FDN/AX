@@ -473,17 +473,16 @@ fn project_package_config_build_manifest_exposes_local_path_package() {
     let package_graph = &manifest["package_graph_readiness"];
     assert_eq!(package_graph["package_mode"], "local_path_v0");
     assert_eq!(package_graph["reproducible"], Value::Bool(true));
-    assert_eq!(package_graph["aot_ready"], Value::Bool(false));
+    assert_eq!(package_graph["aot_ready"], Value::Bool(true));
     assert_eq!(package_graph["lock_status"], "current");
-    assert_eq!(package_graph["risk_level"], "medium");
+    assert_eq!(package_graph["risk_level"], "low");
     assert!(
         json_string_array(
             &package_graph["blocking_reasons"],
             "build package graph blocking reasons"
         )
-        .iter()
-        .any(|reason| reason.contains("local path package linking")),
-        "build manifest should keep package graph out of AOT-ready state"
+        .is_empty(),
+        "current local package graph should not carry package-level AOT blockers"
     );
 }
 
@@ -564,16 +563,15 @@ fn project_job_runner_lock_and_context_expose_package_graph() {
     );
     assert_eq!(
         evidence["facts"]["package_graph_readiness"]["aot_ready"],
-        Value::Bool(false)
+        Value::Bool(true)
     );
     assert!(
         json_string_array(
             &evidence["facts"]["package_graph_readiness"]["blocking_reasons"],
             "package graph readiness blocking reasons"
         )
-        .iter()
-        .any(|reason| reason.contains("AOT")),
-        "context evidence should keep local packages out of AOT-ready state"
+        .is_empty(),
+        "current local package graph should be package-AOT-ready"
     );
 }
 
@@ -911,11 +909,11 @@ sources = [\"src\"]
     );
     assert_eq!(
         evidence["facts"]["package_graph_readiness"]["aot_ready"],
-        Value::Bool(false)
+        Value::Bool(true)
     );
     assert_eq!(
         evidence["facts"]["package_graph_readiness"]["risk_level"],
-        "medium"
+        "low"
     );
     assert!(
         json_string_array(
@@ -1218,7 +1216,8 @@ fn main() -> i32 {
     );
 
     assert_eq!(printed, manifest);
-    assert_eq!(printed["schema_version"], Value::from(9));
+    assert_eq!(printed["schema_version"], Value::from(10));
+    assert_eq!(printed["requested_emit"], Value::from("default"));
     assert_eq!(printed["user_code_valid"], Value::Bool(true));
     assert_eq!(printed["interpreter_supported"], Value::Bool(true));
     assert!(
@@ -1268,7 +1267,8 @@ fn llvm_aot_return_build_emits_ir_artifact_without_linking_by_default() {
     );
 
     let manifest = read_json_file(&manifest_path, "LLVM AOT build manifest");
-    assert_eq!(manifest["schema_version"], Value::from(9));
+    assert_eq!(manifest["schema_version"], Value::from(10));
+    assert_eq!(manifest["requested_emit"], Value::from("default"));
     assert_eq!(manifest["user_code_valid"], Value::Bool(true));
     assert_eq!(manifest["interpreter_supported"], Value::Bool(true));
     assert_eq!(manifest["aot_supported"], Value::Bool(false));
@@ -1310,19 +1310,64 @@ fn llvm_aot_return_build_emits_ir_artifact_without_linking_by_default() {
         &fs::read_to_string(&llvm_ir_path).expect("LLVM IR artifact should be readable"),
     );
     assert!(llvm_ir.contains("define i32 @ax_add(i32 %arg0, i32 %arg1)"));
-    assert!(llvm_ir.contains("define i32 @main()"));
+    assert!(llvm_ir.contains("define i32 @main(i32 %argc, ptr %argv)"));
     assert!(llvm_ir.contains("call i32 @ax_add(i32 40, i32 2)"));
 }
 
 #[test]
+fn llvm_aot_emit_ir_records_requested_emit_without_link_blocker() {
+    let temp = TempDir::new("llvm-aot-emit-ir");
+    let out_dir = temp.join("build-out");
+
+    let output = run_axc_with_removed_env(
+        [
+            OsStr::new("build"),
+            OsStr::new("examples/aot_return.ax"),
+            OsStr::new("--emit"),
+            OsStr::new("ir"),
+            OsStr::new("--out-dir"),
+            out_dir.as_os_str(),
+            OsStr::new("--json"),
+        ],
+        ["AX_LLVM_AOT_LINK", "AX_LLVM_CLANG"],
+    );
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "LLVM AOT --emit ir should succeed without clang\nstdout:\n{}\nstderr:\n{}",
+        string_output(&output.stdout),
+        string_output(&output.stderr)
+    );
+    assert_clean_stderr(&output);
+
+    let manifest: Value = serde_json::from_str(&string_output(&output.stdout))
+        .expect("--emit ir stdout should be a manifest JSON object");
+    assert_eq!(manifest["schema_version"], Value::from(10));
+    assert_eq!(manifest["requested_emit"], Value::from("ir"));
+    assert_eq!(manifest["backend"]["status"], Value::from("ir_generated"));
+    assert_eq!(
+        manifest["artifacts"]["llvm_ir"],
+        Value::from("generated/main.ll")
+    );
+    assert!(manifest["artifacts"]["executable"].is_null());
+    assert_eq!(
+        manifest["aot_readiness"]["blockers"]
+            .as_array()
+            .expect("AOT blockers should be an array")
+            .len(),
+        0
+    );
+}
+
+#[test]
 fn llvm_aot_lowering_unsupported_is_readiness_blocker() {
-    let temp = TempDir::new("llvm-aot-f32-unsupported");
+    let temp = TempDir::new("llvm-aot-string-list-unsupported");
     let input = temp.write(
-        "aot_f32.ax",
+        "aot_read_dir.ax",
         "\
 fn main() -> i32 {
-    let value: f32 = 1.5;
-    return 0;
+    let entries: [string] = fs_read_dir(\"examples\");
+    return len(entries);
 }
 ",
     );
@@ -1350,7 +1395,8 @@ fn main() -> i32 {
         &out_dir.join("build-manifest.json"),
         "LLVM AOT unsupported lowering manifest",
     );
-    assert_eq!(manifest["schema_version"], Value::from(9));
+    assert_eq!(manifest["schema_version"], Value::from(10));
+    assert_eq!(manifest["requested_emit"], Value::from("default"));
     assert_eq!(manifest["user_code_valid"], Value::Bool(true));
     assert_eq!(manifest["interpreter_supported"], Value::Bool(true));
     assert_eq!(manifest["aot_supported"], Value::Bool(false));
@@ -1387,7 +1433,7 @@ fn main() -> i32 {
         .collect::<Vec<_>>()
         .join("\n");
     assert!(
-        notes.contains("unsupported type f32"),
+        notes.contains("call to `fs_read_dir` is outside LLVM AOT v0"),
         "unsupported LLVM lowering notes should retain the concrete reason: {notes}"
     );
 }
@@ -1713,7 +1759,8 @@ fn llvm_aot_core_examples_check_run_and_emit_ir_without_linking_by_default() {
             &out_dir.join("build-manifest.json"),
             "AOT core example build manifest",
         );
-        assert_eq!(manifest["schema_version"], Value::from(9));
+        assert_eq!(manifest["schema_version"], Value::from(10));
+        assert_eq!(manifest["requested_emit"], Value::from("default"));
         assert_eq!(manifest["aot_readiness"]["schema_version"], Value::from(3));
         assert_eq!(manifest["user_code_valid"], Value::Bool(true));
         assert_eq!(manifest["interpreter_supported"], Value::Bool(true));
@@ -1780,7 +1827,8 @@ fn llvm_aot_link_reports_missing_clang_as_readiness_blocker() {
         &out_dir.join("build-manifest.json"),
         "missing clang AOT build manifest",
     );
-    assert_eq!(manifest["schema_version"], Value::from(9));
+    assert_eq!(manifest["schema_version"], Value::from(10));
+    assert_eq!(manifest["requested_emit"], Value::from("default"));
     assert_eq!(manifest["user_code_valid"], Value::Bool(true));
     assert_eq!(manifest["interpreter_supported"], Value::Bool(true));
     assert_eq!(manifest["aot_supported"], Value::Bool(false));
@@ -1813,6 +1861,54 @@ fn llvm_aot_link_reports_missing_clang_as_readiness_blocker() {
     assert_eq!(
         blockers[0]["resolution"]["recommended_command"],
         Value::from("$env:AX_LLVM_CLANG = \"<path-to-clang>\"")
+    );
+}
+
+#[test]
+fn llvm_aot_emit_exe_requires_toolchain_and_records_requested_emit() {
+    let temp = TempDir::new("llvm-aot-emit-exe-missing-clang");
+    let out_dir = temp.join("build-out");
+    let missing_clang = temp.join("missing-clang").join("clang.exe");
+    let env_pairs = vec![(
+        OsString::from("AX_LLVM_CLANG"),
+        missing_clang.as_os_str().to_os_string(),
+    )];
+
+    let output = run_axc_with_env(
+        [
+            OsStr::new("build"),
+            OsStr::new("examples/aot_return.ax"),
+            OsStr::new("--emit"),
+            OsStr::new("exe"),
+            OsStr::new("--out-dir"),
+            out_dir.as_os_str(),
+            OsStr::new("--json"),
+        ],
+        env_pairs,
+    );
+    assert_eq!(
+        output.status.code(),
+        Some(1),
+        "LLVM AOT --emit exe should fail when clang is missing\nstdout:\n{}\nstderr:\n{}",
+        string_output(&output.stdout),
+        string_output(&output.stderr)
+    );
+    assert_clean_stderr(&output);
+
+    let manifest: Value = serde_json::from_str(&string_output(&output.stdout))
+        .expect("--emit exe failure stdout should still be a manifest JSON object");
+    assert_eq!(manifest["schema_version"], Value::from(10));
+    assert_eq!(manifest["requested_emit"], Value::from("exe"));
+    assert_eq!(manifest["backend"]["status"], Value::from("ir_generated"));
+    assert!(manifest["artifacts"]["executable"].is_null());
+    let blockers = manifest["aot_readiness"]["blockers"]
+        .as_array()
+        .expect("AOT readiness blockers should be an array");
+    assert_eq!(blockers.len(), 1);
+    assert_eq!(blockers[0]["code"], Value::from("AOT1001"));
+    assert_eq!(
+        blockers[0]["resolution"]["agent_action"],
+        Value::from("configure_toolchain")
     );
 }
 

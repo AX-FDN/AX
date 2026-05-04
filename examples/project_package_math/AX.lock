@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "package": {
+    "name": "project_package_math"
+  },
+  "dependencies": [
+    {
+      "alias": "math_rules",
+      "kind": "path",
+      "package": "math_rules",
+      "path": "packages/math_rules",
+      "manifest": "packages/math_rules/AX.toml",
+      "source_count": 1,
+      "modules": [
+        "math_rules.core"
+      ]
+    }
+  ]
+}

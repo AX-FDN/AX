@@ -1,7 +1,7 @@
 use std::fs;
 
 use crate::ast::Program as AstProgram;
-use crate::backend::llvm::{self, LlvmAotOptions, LlvmAotResult, LlvmAotStatus};
+use crate::backend::llvm::{self, LlvmAotLinkMode, LlvmAotOptions, LlvmAotResult, LlvmAotStatus};
 use crate::hir::Program as HirProgram;
 use crate::mir::Program as MirProgram;
 use crate::source::SourceFile;
@@ -135,13 +135,18 @@ pub fn build_program(
             .to_string(),
     ];
 
-    let llvm_result = if input.project_manifest.is_none() && program.source_units.len() == 1 {
+    let aot_candidate = input
+        .package_graph_readiness
+        .as_ref()
+        .map_or(true, |readiness| readiness.aot_ready);
+    let llvm_result = if aot_candidate {
         llvm::build(
             mir,
             LlvmAotOptions {
                 out_dir: &options.out_dir,
                 target_name: &input.target_name,
                 executable_suffix: executable_suffix(),
+                link_mode: llvm_link_mode(options.emit),
             },
         )?
     } else {
@@ -161,10 +166,11 @@ pub fn build_program(
     );
 
     let manifest = BuildManifest {
-        schema_version: 9,
+        schema_version: 10,
         target_name: input.target_name.clone(),
         entry_file: input.entry_file.clone(),
         output_dir: options.out_dir.display().to_string(),
+        requested_emit: options.emit.as_str().to_string(),
         user_code_valid: true,
         interpreter_supported: true,
         aot_supported: aot_supported(&aot_readiness),
@@ -214,6 +220,24 @@ fn apply_llvm_aot_result(
     artifacts.executable = result.executable_artifact.clone();
 
     readiness.stage = "Build-1 LLVM IR prototype".to_string();
+    if matches!(
+        result.status,
+        LlvmAotStatus::IrGenerated
+            | LlvmAotStatus::Built
+            | LlvmAotStatus::LinkSkipped
+            | LlvmAotStatus::ToolchainMissing
+            | LlvmAotStatus::ToolchainFailed
+    ) {
+        readiness
+            .blockers
+            .retain(|blocker| !matches!(blocker.code.as_str(), "AOT0301" | "AOT0302"));
+        readiness.required_backend_features.retain(|feature| {
+            !matches!(
+                feature.as_str(),
+                "host_env" | "host_fs" | "host_process" | "string_list_runtime"
+            )
+        });
+    }
     readiness.status = match result.status {
         LlvmAotStatus::Built => "built",
         LlvmAotStatus::LoweringUnsupported => "blocked",
@@ -247,7 +271,7 @@ fn apply_llvm_aot_result(
                 .to_string(),
             "keep unsupported syntax in aot_readiness blockers until its MIR-to-LLVM lowering is explicit"
                 .to_string(),
-            "set AX_LLVM_AOT_LINK=1 and AX_LLVM_CLANG=<path> when validating executable linking"
+            "use axc build <target> --emit exe and AX_LLVM_CLANG=<path> when validating executable linking"
                 .to_string(),
         ]
     };
@@ -257,4 +281,12 @@ fn apply_llvm_aot_result(
 
 fn executable_suffix() -> &'static str {
     if cfg!(windows) { ".exe" } else { "" }
+}
+
+fn llvm_link_mode(emit: BuildEmit) -> LlvmAotLinkMode {
+    match emit {
+        BuildEmit::Default => LlvmAotLinkMode::Environment,
+        BuildEmit::Ir => LlvmAotLinkMode::Skip,
+        BuildEmit::Exe | BuildEmit::All => LlvmAotLinkMode::Force,
+    }
 }

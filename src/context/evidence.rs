@@ -57,14 +57,12 @@ fn build_package_graph_readiness_fact(
             "local package graph is not reproducible because AX.lock status is `{lock_status}`"
         ));
     }
-    blocking_reasons
-        .push("future AOT still needs explicit local package linking semantics".to_string());
 
-    let risk_level = if reproducible { "medium" } else { "high" };
+    let risk_level = if reproducible { "low" } else { "high" };
     Some(PackageGraphReadiness {
         package_mode: "local_path_v0",
         reproducible,
-        aot_ready: false,
+        aot_ready: reproducible,
         lock_status,
         risk_level,
         blocking_reasons,

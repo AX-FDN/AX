@@ -1,0 +1,35 @@
+import std.fs;
+import std.result;
+
+const SAMPLE_PATH: string = "examples/project_fs_read_core/src/main.ax";
+const MARKER: string = "project-fs-read-core-marker";
+
+fn main() -> i32 {
+    let path: string = SAMPLE_PATH;
+    let text_result: std.result.Result<string, string> = std.fs.try_read_to_string(path);
+
+    if (!std.result.is_ok(text_result)) {
+        println(std.result.error_or(text_result, "missing"));
+        return 10;
+    }
+
+    let text: string = std.result.unwrap_or(text_result, "");
+    let size_result: std.result.Result<i32, string> = std.fs.try_file_size(path);
+
+    if (!std.result.is_ok(size_result)) {
+        println(std.result.error_or(size_result, "missing"));
+        return 11;
+    }
+
+    let has_marker: bool = string_contains(text, MARKER);
+    println("exists=" + to_string(std.fs.exists(path)));
+    println("file=" + to_string(std.fs.is_file(path)));
+    println("dir=" + to_string(std.fs.is_dir(path)));
+    println("size=" + to_string(std.result.unwrap_or(size_result, 0)));
+    println("marker=" + to_string(has_marker));
+
+    if (has_marker) {
+        return 0;
+    }
+    return 12;
+}

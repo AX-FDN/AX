@@ -1,0 +1,61 @@
+const BASE_DIR: string = "build/aot_fs_write_core";
+const NESTED_DIR: string = "build/aot_fs_write_core/nested";
+const SOURCE_PATH: string = "build/aot_fs_write_core/source.tmp";
+const COPY_PATH: string = "build/aot_fs_write_core/copy.tmp";
+const RENAMED_PATH: string = "build/aot_fs_write_core/renamed.tmp";
+const NESTED_PATH: string = "build/aot_fs_write_core/nested/note.tmp";
+const MARKER: string = "fs-write-aot-marker";
+
+fn main() -> i32 {
+    if (fs_is_dir(BASE_DIR)) {
+        fs_remove_dir_all(BASE_DIR);
+    }
+
+    fs_create_dir_all(NESTED_DIR);
+
+    fs_write_string(SOURCE_PATH, "fs-write-aot-marker\n");
+    fs_write_string(NESTED_PATH, "nested-file\n");
+
+    if (!fs_is_file(SOURCE_PATH)) {
+        return 10;
+    }
+    if (!string_contains(fs_read_to_string(SOURCE_PATH), MARKER)) {
+        fs_remove_file(SOURCE_PATH);
+        return 11;
+    }
+
+    let copied: i32 = fs_copy_file(SOURCE_PATH, COPY_PATH);
+    if (copied != fs_file_size(SOURCE_PATH)) {
+        fs_remove_file(SOURCE_PATH);
+        fs_remove_file(COPY_PATH);
+        return 12;
+    }
+    if (!string_contains(fs_read_to_string(COPY_PATH), MARKER)) {
+        fs_remove_file(SOURCE_PATH);
+        fs_remove_file(COPY_PATH);
+        return 13;
+    }
+
+    fs_rename(COPY_PATH, RENAMED_PATH);
+
+    if (fs_exists(COPY_PATH)) {
+        fs_remove_file(SOURCE_PATH);
+        fs_remove_file(RENAMED_PATH);
+        return 14;
+    }
+    if (!fs_is_file(RENAMED_PATH)) {
+        fs_remove_file(SOURCE_PATH);
+        return 15;
+    }
+
+    let text: string = fs_read_to_string(RENAMED_PATH);
+    println("renamed=" + to_string(string_contains(text, MARKER)));
+    println("size=" + to_string(fs_file_size(RENAMED_PATH)));
+
+    fs_remove_dir_all(BASE_DIR);
+
+    if (fs_exists(BASE_DIR)) {
+        return 16;
+    }
+    return 0;
+}

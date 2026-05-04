@@ -1,0 +1,16 @@
+module math_rules.core;
+
+fn double(value: i32) -> i32 {
+    return value * 2;
+}
+
+fn add_bonus(value: i32) -> i32 {
+    return value + 5;
+}
+
+fn clamp_score(value: i32) -> i32 {
+    if (value > 10) {
+        return 10;
+    }
+    return value;
+}

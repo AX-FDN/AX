@@ -355,6 +355,20 @@ pub(super) fn ensure_string_argument(
     }
 }
 
+pub(super) fn ensure_string_list_argument(
+    function: &str,
+    name: &str,
+    value: &LlvmValue,
+) -> Result<(), String> {
+    if value.ty == "ptr" && matches!(value.ax_ty.as_ref(), Some(Type::StringList)) {
+        Ok(())
+    } else {
+        Err(format!(
+            "`{function}` argument `{name}` must be `string_list` in LLVM AOT v0"
+        ))
+    }
+}
+
 pub(super) fn is_enum_value(value: &LlvmValue) -> bool {
     matches!(
         value.ax_ty.as_ref(),
@@ -445,7 +459,7 @@ pub(super) fn llvm_type(
         Type::Bool => Some("i1".to_string()),
         Type::I32 => Some("i32".to_string()),
         Type::F32 => Some("float".to_string()),
-        Type::String => Some("ptr".to_string()),
+        Type::String | Type::StringList => Some("ptr".to_string()),
         Type::Array { element, length } => {
             let element_ty = llvm_type(element, layouts, enum_layouts)?;
             Some(format!("[{length} x {element_ty}]"))
@@ -461,7 +475,7 @@ pub(super) fn llvm_type(
         Type::Enum { .. } | Type::EnumInstance { .. } => enum_layouts
             .get(&enum_layout_key(ty))
             .map(|layout| layout.ty.clone()),
-        Type::StringList | Type::TypeParam { .. } => None,
+        Type::TypeParam { .. } => None,
     }
 }
 
@@ -515,7 +529,7 @@ pub(super) fn llvm_alloc_layout(
         Type::Bool => Some((1, 1)),
         Type::I32 => Some((4, 4)),
         Type::F32 => Some((4, 4)),
-        Type::String => Some((8, 8)),
+        Type::String | Type::StringList => Some((8, 8)),
         Type::Slice { element } => {
             llvm_alloc_layout(element, layouts, enum_layouts)?;
             Some((16, 8))
@@ -554,7 +568,7 @@ pub(super) fn llvm_alloc_layout(
             }
             Some((align_to(size, max_align), max_align))
         }
-        Type::StringList | Type::TypeParam { .. } => None,
+        Type::TypeParam { .. } => None,
     }
 }
 

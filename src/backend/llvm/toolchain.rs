@@ -16,11 +16,19 @@ pub enum LinkOutcome {
     },
 }
 
+pub fn link_executable(llvm_ir_path: &Path, executable_path: &Path) -> LinkOutcome {
+    link_with_clang(llvm_ir_path, executable_path)
+}
+
 pub fn link_if_enabled(llvm_ir_path: &Path, executable_path: &Path) -> LinkOutcome {
     if !linking_enabled() {
         return LinkOutcome::Skipped;
     }
 
+    link_with_clang(llvm_ir_path, executable_path)
+}
+
+fn link_with_clang(llvm_ir_path: &Path, executable_path: &Path) -> LinkOutcome {
     let compiler = std::env::var("AX_LLVM_CLANG")
         .ok()
         .filter(|value| !value.trim().is_empty())

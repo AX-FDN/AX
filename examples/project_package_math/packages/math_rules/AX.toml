@@ -1,0 +1,5 @@
+manifest_version = 1
+
+[package]
+name = "math_rules"
+sources = ["src"]

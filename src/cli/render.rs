@@ -9,7 +9,7 @@ Commands:
   ast <path>               Print stable AST JSON
   hir <path>               Print stable HIR JSON
   mir <path>               Print stable MIR JSON
-  build <path> [--out-dir <path>] [--json]   Emit build artifacts and optionally print the manifest JSON
+  build <path> [--emit <ir|exe|all>] [--no-link] [--out-dir <path>] [--json]   Emit build artifacts, LLVM IR, or a native executable
   lock <project> [--check] Generate or validate AX.lock for local path packages
   run <path> [--json] [--ai] [--ai-session <path>] [-- <args...>]   Execute the minimal interpreter
   fmt <path>               Rewrite the file or project sources to the canonical AX format

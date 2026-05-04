@@ -802,6 +802,9 @@ impl<'a> FunctionEmitter<'a> {
                         }
                         _ => unreachable!(),
                     };
+                    if matches!(op, BinaryOp::Divide) {
+                        self.emit_float_zero_divisor_check(&right.repr, out);
+                    }
                     writeln!(
                         out,
                         "  {temp} = {instruction} float {}, {}",
@@ -823,6 +826,32 @@ impl<'a> FunctionEmitter<'a> {
                     BinaryOp::Remainder => "srem",
                     _ => unreachable!(),
                 };
+                match op {
+                    BinaryOp::Add | BinaryOp::Subtract | BinaryOp::Multiply => {
+                        return Ok(self.emit_checked_i32_arithmetic(op, &left, &right, out));
+                    }
+                    BinaryOp::Divide => {
+                        self.emit_i32_zero_divisor_check(&right.repr, "@.ax_rt_div_zero", out);
+                        self.emit_i32_signed_min_overflow_check(
+                            &left.repr,
+                            &right.repr,
+                            "i32_div_overflow",
+                            "@.ax_rt_div_overflow",
+                            out,
+                        );
+                    }
+                    BinaryOp::Remainder => {
+                        self.emit_i32_zero_divisor_check(&right.repr, "@.ax_rt_mod_zero", out);
+                        self.emit_i32_signed_min_overflow_check(
+                            &left.repr,
+                            &right.repr,
+                            "i32_rem_overflow",
+                            "@.ax_rt_rem_overflow",
+                            out,
+                        );
+                    }
+                    _ => {}
+                }
                 writeln!(
                     out,
                     "  {temp} = {instruction} i32 {}, {}",
@@ -904,6 +933,114 @@ impl<'a> FunctionEmitter<'a> {
                 })
             }
         }
+    }
+
+    fn emit_checked_i32_arithmetic(
+        &mut self,
+        op: BinaryOp,
+        left: &LlvmValue,
+        right: &LlvmValue,
+        out: &mut String,
+    ) -> LlvmValue {
+        let (intrinsic, label_prefix, message) = match op {
+            BinaryOp::Add => (
+                "@llvm.sadd.with.overflow.i32",
+                "i32_add_overflow",
+                "@.ax_rt_add_overflow",
+            ),
+            BinaryOp::Subtract => (
+                "@llvm.ssub.with.overflow.i32",
+                "i32_sub_overflow",
+                "@.ax_rt_sub_overflow",
+            ),
+            BinaryOp::Multiply => (
+                "@llvm.smul.with.overflow.i32",
+                "i32_mul_overflow",
+                "@.ax_rt_mul_overflow",
+            ),
+            _ => unreachable!("checked i32 arithmetic only handles add/sub/mul"),
+        };
+        let checked = self.next_temp();
+        writeln!(
+            out,
+            "  {checked} = call {{ i32, i1 }} {intrinsic}(i32 {}, i32 {})",
+            left.repr, right.repr
+        )
+        .expect("writing to string cannot fail");
+        let value = self.next_temp();
+        writeln!(out, "  {value} = extractvalue {{ i32, i1 }} {checked}, 0")
+            .expect("writing to string cannot fail");
+        let overflow = self.next_temp();
+        writeln!(
+            out,
+            "  {overflow} = extractvalue {{ i32, i1 }} {checked}, 1"
+        )
+        .expect("writing to string cannot fail");
+        self.emit_runtime_error_if(&overflow, label_prefix, message, out);
+        LlvmValue {
+            ty: "i32".to_string(),
+            repr: value,
+            ax_ty: Some(Type::I32),
+        }
+    }
+
+    fn emit_i32_zero_divisor_check(&mut self, divisor: &str, message: &str, out: &mut String) {
+        let is_zero = self.next_temp();
+        writeln!(out, "  {is_zero} = icmp eq i32 {divisor}, 0")
+            .expect("writing to string cannot fail");
+        self.emit_runtime_error_if(&is_zero, "i32_div_zero", message, out);
+    }
+
+    fn emit_i32_signed_min_overflow_check(
+        &mut self,
+        left: &str,
+        right: &str,
+        label_prefix: &str,
+        message: &str,
+        out: &mut String,
+    ) {
+        let is_min = self.next_temp();
+        let is_neg_one = self.next_temp();
+        let overflow = self.next_temp();
+        writeln!(out, "  {is_min} = icmp eq i32 {left}, -2147483648")
+            .expect("writing to string cannot fail");
+        writeln!(out, "  {is_neg_one} = icmp eq i32 {right}, -1")
+            .expect("writing to string cannot fail");
+        writeln!(out, "  {overflow} = and i1 {is_min}, {is_neg_one}")
+            .expect("writing to string cannot fail");
+        self.emit_runtime_error_if(&overflow, label_prefix, message, out);
+    }
+
+    fn emit_float_zero_divisor_check(&mut self, divisor: &str, out: &mut String) {
+        let is_zero = self.next_temp();
+        writeln!(
+            out,
+            "  {is_zero} = fcmp oeq float {divisor}, {}",
+            llvm_float_literal(0.0)
+        )
+        .expect("writing to string cannot fail");
+        self.emit_runtime_error_if(&is_zero, "f32_div_zero", "@.ax_rt_div_zero", out);
+    }
+
+    pub(super) fn emit_runtime_error_if(
+        &mut self,
+        condition: &str,
+        label_prefix: &str,
+        message: &str,
+        out: &mut String,
+    ) {
+        let fail_label = self.next_label(label_prefix);
+        let ok_label = self.next_label(&format!("{label_prefix}_ok"));
+        writeln!(
+            out,
+            "  br i1 {condition}, label %{fail_label}, label %{ok_label}"
+        )
+        .expect("writing to string cannot fail");
+        writeln!(out, "{fail_label}:").expect("writing to string cannot fail");
+        writeln!(out, "  call void @ax_runtime_error(ptr {message})")
+            .expect("writing to string cannot fail");
+        writeln!(out, "  unreachable").expect("writing to string cannot fail");
+        writeln!(out, "{ok_label}:").expect("writing to string cannot fail");
     }
 
     pub(super) fn emit_enum_equality(

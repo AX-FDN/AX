@@ -18,6 +18,10 @@ fn write_string(path: string, contents: string) -> i32 {
     return 0;
 }
 
+fn copy_file(source_path: string, destination_path: string) -> i32 {
+    return fs_copy_file(source_path, destination_path);
+}
+
 fn create_dir_all(path: string) -> i32 {
     fs_create_dir_all(path);
     return 0;
@@ -29,6 +33,11 @@ fn exists(path: string) -> bool {
 
 fn remove_file(path: string) -> i32 {
     fs_remove_file(path);
+    return 0;
+}
+
+fn remove_dir_all(path: string) -> i32 {
+    fs_remove_dir_all(path);
     return 0;
 }
 

@@ -107,7 +107,7 @@ Stable:
 - `axc build --json` prints the same manifest object that is written to `build-manifest.json`
 - source/HIR/MIR/build metadata remain available as stable artifacts
 - backend status is explicit while mature native executable output is not yet ready
-- build manifest schema version `9` exposes `user_code_valid`, `interpreter_supported`, `aot_supported`, `aot_readiness`, and the optional `artifacts.llvm_ir` field
+- build manifest schema version `10` exposes `requested_emit`, `user_code_valid`, `interpreter_supported`, `aot_supported`, `aot_readiness`, and the optional `artifacts.llvm_ir` field
 - LLVM AOT v0 may emit `generated/main.ll` for the current single-file MIR subset while executable linking remains opt-in
 - `aot_readiness` schema version `3` records required backend features, blocker codes such as `AOT0001`, `AOT0101`, `AOT0201`, `AOT0301`, `AOT1000`, `AOT1001`, `AOT1002`, and `AOT2001`, the next backend stage that must resolve each blocker, a `resolution` object for tool action selection, and a blocker-local `ai` object with `rule_id`, `layer`, `ai_action`, `safe_to_edit`, `repair_goal`, and validation commands
 
@@ -219,10 +219,10 @@ Stable for the current package-interface slice:
 - dependency modules must declare paths under the dependency alias, for example `module config_rules.validate;`
 - `axc build` packages dependency sources under their project-relative paths when they live inside the project tree
 - `axc build` packages dependency sources under `external/<package-root>/...` when the path package lives outside the project tree
-- `build-manifest.json` uses schema version `9` and exposes `local_path_packages` for projects that declare path packages
+- `build-manifest.json` uses schema version `10` and exposes `requested_emit` plus `local_path_packages` for projects that declare path packages
 - each build-manifest package entry includes `alias`, `root`, `manifest`, `source_count`, and sorted `modules`
 - `build-manifest.json` exposes `package_graph_readiness` for local path package projects, including `package_mode`, `reproducible`, `aot_ready`, `lock_status`, `risk_level`, `blocking_reasons`, and `recommended_commands`
-- build package graph readiness must keep `aot_ready = false` until native local package linking semantics exist, even when `AX.lock` is current
+- build package graph readiness sets `aot_ready = true` when local path package `AX.lock` is current; stale, missing, or unreadable locks keep it false
 - `axc lock <project>` writes `AX.lock` as stable JSON with schema version `1`
 - `axc lock <project> --check` validates that the checked-in `AX.lock` matches the current local path package graph
 - `AX.lock` v0 records only local path packages: root package name, dependency `alias`, `kind = "path"`, dependency package name, declared path, manifest path, source count, and sorted modules
@@ -241,9 +241,9 @@ Stable for the current package-interface slice:
 - context `evidence` also exposes `package_graph_readiness` for local path package projects:
   - `package_mode = local_path_v0`
   - `reproducible = true` only when `AX.lock` is current
-  - `aot_ready = false` until local package AOT linking semantics exist
-  - `risk_level = medium/high` summarizes whether the package graph is reproducible
-  - `blocking_reasons` explains stale/missing lock risk and future AOT linking blockers
+  - `aot_ready = true` only when `AX.lock` is current; otherwise it remains false
+  - `risk_level = low/high` summarizes whether the package graph is reproducible
+  - `blocking_reasons` explains stale/missing lock risk
 - package resolver failures use stable `PX****` text codes before source diagnostics exist:
   - `PX0001`: dependency alias is not a valid AX module root
   - `PX0002`: dependency path is empty, missing, inaccessible, or not a directory

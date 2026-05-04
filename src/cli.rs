@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 
 use crate::ai::{AiDiagnostic, AiRepairContract, AiRuleCard, TeachingLevel, enhance_diagnostics};
 use crate::build::{
-    BuildOptions, build_input_from_project, build_input_from_source, build_program,
+    BuildEmit, BuildOptions, build_input_from_project, build_input_from_source, build_program,
     default_output_dir,
 };
 use crate::context::{ContextView, render_context_json};

@@ -2,7 +2,7 @@ use super::{
     AotReadiness, AotReadinessInput, assess_aot_readiness, build_input_from_project,
     default_output_dir, target_name_from_file,
 };
-use crate::frontend::analyze;
+use crate::frontend::{analyze, analyze_with_project};
 use crate::project::resolve_input;
 use crate::source::SourceFile;
 use std::path::{Path, PathBuf};
@@ -115,6 +115,100 @@ return 0;
 }
 
 #[test]
+fn aot_readiness_allows_host_env_without_host_runtime_blocker() {
+    let readiness = readiness_for(
+        "\
+fn main() -> i32 {
+if (env_has(\"PATH\")) {
+    println(env_get(\"PATH\"));
+}
+return 0;
+}
+",
+        AotReadinessInput {
+            is_project: false,
+            has_local_path_packages: false,
+            package_lock_status: None,
+        },
+    );
+
+    assert!(readiness.single_file_core_candidate);
+    assert_eq!(blocker_codes(&readiness), vec!["AOT0001"]);
+    assert!(
+        readiness
+            .required_backend_features
+            .contains(&"host_env".to_string())
+    );
+}
+
+#[test]
+fn aot_readiness_allows_filesystem_read_subset_without_host_runtime_blocker() {
+    let readiness = readiness_for(
+        "\
+fn main() -> i32 {
+let path: string = \"examples/aot_fs_read.ax\";
+if (fs_exists(path) && fs_is_file(path) && !fs_is_dir(path)) {
+    let entries: [string] = fs_read_dir(\"examples\");
+    if (len(entries) < 1) {
+        return 99;
+    }
+    return fs_file_size(path);
+}
+return 0;
+}
+",
+        AotReadinessInput {
+            is_project: false,
+            has_local_path_packages: false,
+            package_lock_status: None,
+        },
+    );
+
+    assert!(readiness.single_file_core_candidate);
+    assert_eq!(blocker_codes(&readiness), vec!["AOT0001"]);
+    assert!(
+        readiness
+            .required_backend_features
+            .contains(&"host_fs_read".to_string())
+    );
+}
+
+#[test]
+fn aot_readiness_allows_filesystem_write_subset_without_host_runtime_blocker() {
+    let readiness = readiness_for(
+        "\
+fn main() -> i32 {
+let source: string = \"examples/.aot_fs_write_source.tmp\";
+let copied: string = \"examples/.aot_fs_write_copied.tmp\";
+let renamed: string = \"examples/.aot_fs_write_renamed.tmp\";
+let nested: string = \"build/aot_fs_create_dir_all_test/nested\";
+fs_create_dir_all(nested);
+fs_write_string(source, \"hello\");
+let bytes: i32 = fs_copy_file(source, copied);
+fs_rename(copied, renamed);
+fs_remove_file(renamed);
+fs_remove_file(source);
+fs_remove_dir_all(\"build/aot_fs_create_dir_all_test\");
+return 0;
+}
+",
+        AotReadinessInput {
+            is_project: false,
+            has_local_path_packages: false,
+            package_lock_status: None,
+        },
+    );
+
+    assert!(readiness.single_file_core_candidate);
+    assert_eq!(blocker_codes(&readiness), vec!["AOT0001"]);
+    assert!(
+        readiness
+            .required_backend_features
+            .contains(&"host_fs_write".to_string())
+    );
+}
+
+#[test]
 fn aot_readiness_allows_string_literals_without_full_string_runtime() {
     let readiness = readiness_for(
         "\
@@ -139,6 +233,103 @@ return 0;
             "i32_values".to_string(),
             "string_literals".to_string()
         ]
+    );
+    assert_eq!(blocker_codes(&readiness), vec!["AOT0001"]);
+}
+
+#[test]
+fn aot_readiness_allows_single_source_project_as_aot_candidate() {
+    let readiness = readiness_for(
+        "\
+fn main() -> i32 {
+println(1);
+return 0;
+}
+",
+        AotReadinessInput {
+            is_project: true,
+            has_local_path_packages: false,
+            package_lock_status: None,
+        },
+    );
+
+    assert!(readiness.single_file_core_candidate);
+    assert_eq!(
+        readiness.required_backend_features,
+        vec![
+            "functions".to_string(),
+            "host_stdio".to_string(),
+            "i32_values".to_string(),
+            "project_sources".to_string()
+        ]
+    );
+    assert_eq!(blocker_codes(&readiness), vec!["AOT0001"]);
+}
+
+#[test]
+fn aot_readiness_allows_multi_source_project_without_modules_as_aot_candidate() {
+    let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let resolved = resolve_input(repo_root.join("examples").join("project_split"))
+        .expect("project input should resolve");
+    let project = resolved
+        .project
+        .as_ref()
+        .expect("project metadata should be available");
+    let output = analyze_with_project(&resolved.source, Some(project));
+    assert!(
+        output.diagnostics.is_empty(),
+        "project_split should analyze cleanly: {:?}",
+        output.diagnostics
+    );
+
+    let readiness = assess_aot_readiness(
+        &output.program,
+        AotReadinessInput {
+            is_project: true,
+            has_local_path_packages: false,
+            package_lock_status: None,
+        },
+    );
+
+    assert!(readiness.single_file_core_candidate);
+    assert!(
+        readiness
+            .required_backend_features
+            .contains(&"multi_source_program".to_string())
+    );
+    assert_eq!(blocker_codes(&readiness), vec!["AOT0001"]);
+}
+
+#[test]
+fn aot_readiness_allows_module_import_project_as_aot_candidate() {
+    let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let resolved = resolve_input(repo_root.join("examples").join("project_module_smoke"))
+        .expect("project input should resolve");
+    let project = resolved
+        .project
+        .as_ref()
+        .expect("project metadata should be available");
+    let output = analyze_with_project(&resolved.source, Some(project));
+    assert!(
+        output.diagnostics.is_empty(),
+        "project_module_smoke should analyze cleanly: {:?}",
+        output.diagnostics
+    );
+
+    let readiness = assess_aot_readiness(
+        &output.program,
+        AotReadinessInput {
+            is_project: true,
+            has_local_path_packages: false,
+            package_lock_status: None,
+        },
+    );
+
+    assert!(readiness.single_file_core_candidate);
+    assert!(
+        readiness
+            .required_backend_features
+            .contains(&"module_imports".to_string())
     );
     assert_eq!(blocker_codes(&readiness), vec!["AOT0001"]);
 }
@@ -1417,7 +1608,7 @@ return point.x;
 }
 
 #[test]
-fn aot_readiness_reports_project_package_and_generic_blockers() {
+fn aot_readiness_reports_project_package_lock_blockers() {
     let readiness = readiness_for(
         "\
 fn id<T>(value: T) -> T {
@@ -1441,10 +1632,7 @@ return id(1);
             .required_backend_features
             .contains(&"generic_functions".to_string())
     );
-    assert_eq!(
-        blocker_codes(&readiness),
-        vec!["AOT0001", "AOT0101", "AOT0102", "AOT0103", "AOT0201"]
-    );
+    assert_eq!(blocker_codes(&readiness), vec!["AOT0001", "AOT0103"]);
     let lock_blocker = readiness
         .blockers
         .iter()
@@ -1464,4 +1652,36 @@ return id(1);
             "axc build <project> --json".to_string()
         ]
     );
+}
+
+#[test]
+fn aot_readiness_allows_current_local_path_package_graph() {
+    let readiness = readiness_for(
+        "\
+fn package_value() -> i32 {
+return 7;
+}
+
+fn main() -> i32 {
+return package_value();
+}
+",
+        AotReadinessInput {
+            is_project: true,
+            has_local_path_packages: true,
+            package_lock_status: Some("current"),
+        },
+    );
+
+    assert!(
+        readiness
+            .required_backend_features
+            .contains(&"local_path_packages".to_string())
+    );
+    assert!(
+        readiness
+            .required_backend_features
+            .contains(&"package_lock".to_string())
+    );
+    assert_eq!(blocker_codes(&readiness), vec!["AOT0001"]);
 }
