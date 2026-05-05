@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "name": "text_tools",
+  "owner": "ax-core",
+  "license": "Apache-2.0",
+  "description": "Text normalization helpers for AX package preview examples",
+  "versions": [
+    {
+      "version": "0.1.0",
+      "source": {
+        "kind": "git",
+        "url": "https://github.com/AX-FDN/AX-PKG.git",
+        "rev": "a901c21a1e61efa98be010a427d803c4b19dee3f",
+        "path": "packages/text_tools"
+      },
+      "checksum": "sha256:bfcc4fbb9e8765ac9bd85b037d06360a5ae900425c11425c6fc7ff775331daf3",
+      "modules": [
+        "text_tools.normalize",
+        "text_tools.stats"
+      ]
+    }
+  ]
+}

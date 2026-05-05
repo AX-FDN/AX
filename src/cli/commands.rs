@@ -281,6 +281,363 @@ pub(in crate::cli) fn run_lock(args: Vec<String>) -> i32 {
     0
 }
 
+pub(in crate::cli) fn run_pkg(args: Vec<String>) -> i32 {
+    let options = match parse_pkg_args(args) {
+        Ok(options) => options,
+        Err(error) => {
+            eprintln!(
+                "{error}\nusage: axc pkg <search|info|check|tree|add|install|hash> [args] [--registry <path>]"
+            );
+            return 2;
+        }
+    };
+
+    match options {
+        PkgCliOptions::Search { query, registry } => {
+            let registry = match load_registry(&registry) {
+                Ok(registry) => registry,
+                Err(error) => {
+                    eprintln!("{error}");
+                    return 1;
+                }
+            };
+            let matches = registry.search(&query);
+            println!("{}", render_search_results(&matches));
+            0
+        }
+        PkgCliOptions::Info { package, registry } => {
+            let registry = match load_registry(&registry) {
+                Ok(registry) => registry,
+                Err(error) => {
+                    eprintln!("{error}");
+                    return 1;
+                }
+            };
+            let Some(package) = registry.find_package(&package) else {
+                eprintln!("registry package `{package}` was not found");
+                return 1;
+            };
+            println!("{}", render_package_info(package));
+            0
+        }
+        PkgCliOptions::Check { registry } => {
+            let issues = validate_registry(&registry);
+            if issues.is_empty() {
+                println!("registry check succeeded: {}", registry.display());
+                return 0;
+            }
+            eprintln!("{}", render_registry_check_failure(&issues));
+            1
+        }
+        PkgCliOptions::Tree { project } => run_pkg_tree(&project),
+        PkgCliOptions::Add {
+            package,
+            registry,
+            dry_run: _,
+        } => {
+            let registry = match load_registry(&registry) {
+                Ok(registry) => registry,
+                Err(error) => {
+                    eprintln!("{error}");
+                    return 1;
+                }
+            };
+            let Some(metadata) = registry.find_package(&package) else {
+                eprintln!("registry package `{package}` was not found");
+                return 1;
+            };
+            let Some(version) = metadata.latest_version() else {
+                eprintln!("registry package `{package}` has no versions");
+                return 1;
+            };
+            println!("preview dependency entry:");
+            println!(
+                "{} = {{ registry = \"ax\", version = \"{}\" }}",
+                metadata.name, version.version
+            );
+            println!(
+                "note: `axc pkg add` does not edit AX.toml until install and lockfile support land"
+            );
+            0
+        }
+        PkgCliOptions::Install {
+            project,
+            registry,
+            dry_run,
+        } => run_pkg_install(&project, &registry, dry_run),
+        PkgCliOptions::Hash { path } => match hash_package_dir(&path) {
+            Ok(checksum) => {
+                println!("{checksum}");
+                0
+            }
+            Err(error) => {
+                eprintln!("{error}");
+                1
+            }
+        },
+    }
+}
+
+fn run_pkg_tree(project_path: &Path) -> i32 {
+    let input = match load_input(project_path) {
+        Ok(input) => input,
+        Err(error) => {
+            if error.starts_with("PX0101:") {
+                return run_pkg_tree_from_manifest(project_path);
+            }
+            eprintln!("{error}");
+            return 1;
+        }
+    };
+    let Some(project) = input.project.as_ref() else {
+        eprintln!("axc pkg tree requires a project directory or AX.toml path");
+        return 2;
+    };
+
+    println!("{} dependencies", project.target_name());
+    if project.local_path_dependencies().is_empty() {
+        println!("(no dependencies)");
+        return 0;
+    }
+    for dependency in project.local_path_dependencies() {
+        println!(
+            "{} path {} package {} sources {}",
+            dependency.alias(),
+            dependency.declared_path(),
+            dependency.package_name(),
+            dependency.source_paths().len()
+        );
+    }
+    0
+}
+
+fn run_pkg_tree_from_manifest(project_path: &Path) -> i32 {
+    let (_manifest_path, value) = match load_project_manifest_value(project_path) {
+        Ok(value) => value,
+        Err(error) => {
+            eprintln!("{error}");
+            return 1;
+        }
+    };
+    let package_name = value
+        .get("package")
+        .and_then(|package| package.get("name"))
+        .and_then(toml::Value::as_str)
+        .unwrap_or("unknown");
+    println!("{package_name} dependencies");
+
+    let Some(dependencies) = value.get("dependencies").and_then(toml::Value::as_table) else {
+        println!("(no dependencies)");
+        return 0;
+    };
+    if dependencies.is_empty() {
+        println!("(no dependencies)");
+        return 0;
+    }
+
+    for (alias, dependency) in dependencies {
+        let Some(table) = dependency.as_table() else {
+            println!("{alias} invalid dependency declaration");
+            continue;
+        };
+        if let Some(path) = table.get("path").and_then(toml::Value::as_str) {
+            println!("{alias} path {path}");
+        } else if let Some(version) = table.get("version").and_then(toml::Value::as_str) {
+            let registry = table
+                .get("registry")
+                .and_then(toml::Value::as_str)
+                .unwrap_or("ax");
+            println!("{alias} registry {registry} version {version} status preview-uninstalled");
+        } else {
+            println!("{alias} invalid dependency declaration");
+        }
+    }
+    0
+}
+
+fn run_pkg_install(project_path: &Path, registry_path: &Path, dry_run: bool) -> i32 {
+    let (manifest_path, value) = match load_project_manifest_value(project_path) {
+        Ok(value) => value,
+        Err(error) => {
+            eprintln!("{error}");
+            return 1;
+        }
+    };
+    let registry = match load_registry(registry_path) {
+        Ok(registry) => registry,
+        Err(error) => {
+            eprintln!("{error}");
+            return 1;
+        }
+    };
+    let package_name = value
+        .get("package")
+        .and_then(|package| package.get("name"))
+        .and_then(toml::Value::as_str)
+        .unwrap_or("unknown");
+    println!("install plan: {package_name}");
+    println!("manifest: {}", manifest_path.display());
+
+    let Some(dependencies) = value.get("dependencies").and_then(toml::Value::as_table) else {
+        println!("(no registry dependencies)");
+        return 0;
+    };
+
+    let mut planned = 0;
+    let mut path_dependency_count = 0;
+    let mut lock_entries = Vec::new();
+    let mut install_plans = Vec::new();
+    for (alias, dependency) in dependencies {
+        let Some(table) = dependency.as_table() else {
+            continue;
+        };
+        if table.get("path").and_then(toml::Value::as_str).is_some() {
+            path_dependency_count += 1;
+            continue;
+        }
+        let Some(version) = table.get("version").and_then(toml::Value::as_str) else {
+            continue;
+        };
+        let registry_name = table
+            .get("registry")
+            .and_then(toml::Value::as_str)
+            .unwrap_or("ax");
+        if registry_name != "ax" {
+            eprintln!(
+                "PX0102: registry dependency `{alias}` uses registry `{registry_name}`, but only the built-in `ax` registry is supported in this preview"
+            );
+            return 1;
+        }
+        let Some(package) = registry.find_package(alias) else {
+            eprintln!("PX0103: registry package `{alias}` was not found");
+            return 1;
+        };
+        let Some(package_version) = package.find_version(version) else {
+            eprintln!("PX0104: registry package `{alias}` has no version `{version}`");
+            return 1;
+        };
+        planned += 1;
+        lock_entries.push(registry_lock_dependency_preview(
+            alias,
+            &package.name,
+            package_version,
+        ));
+        install_plans.push((package.name.clone(), package_version.clone()));
+        let source_path = package_version.source.path.as_deref().unwrap_or(".");
+        println!(
+            "{} registry ax version {} source {} {} path {} rev {} checksum {} modules {}",
+            alias,
+            package_version.version,
+            package_version.source.kind,
+            package_version.source.url,
+            source_path,
+            package_version.source.rev,
+            package_version.checksum,
+            package_version.modules.join(", ")
+        );
+    }
+    if planned == 0 {
+        println!("(no registry dependencies)");
+    } else {
+        if !dry_run && path_dependency_count > 0 {
+            eprintln!(
+                "PX0106: `axc pkg install` cannot write mixed local path + registry AX.lock yet; run with `--dry-run` to inspect registry entries"
+            );
+            return 1;
+        }
+        let lockfile_text = match render_registry_lockfile_preview(package_name, lock_entries) {
+            Ok(text) => text,
+            Err(error) => {
+                eprintln!("{error}");
+                return 1;
+            }
+        };
+        if dry_run {
+            println!("AX.lock preview:");
+            print!("{lockfile_text}");
+            println!("note: dry-run only; no cache, AX.toml, or AX.lock files were changed");
+            return 0;
+        }
+        for (package_name, package_version) in &install_plans {
+            match install_registry_package_to_cache("ax", package_name, package_version) {
+                Ok(PackageCacheInstall::Installed(package)) => {
+                    println!(
+                        "cached package {package_name}: {}",
+                        package.package_dir.display()
+                    );
+                    println!("verified checksum: {}", package.checksum);
+                }
+                Ok(PackageCacheInstall::Skipped { reason }) => {
+                    println!("cache skipped: {reason}");
+                }
+                Err(error) => {
+                    eprintln!("{error}");
+                    return 1;
+                }
+            }
+        }
+        let Some(project_root) = manifest_path.parent() else {
+            eprintln!(
+                "failed to resolve project root for manifest {}",
+                manifest_path.display()
+            );
+            return 1;
+        };
+        let lockfile_path = project_root.join("AX.lock");
+        if let Err(error) = fs::write(&lockfile_path, lockfile_text) {
+            eprintln!(
+                "failed to write AX.lock {}: {error}",
+                lockfile_path.display()
+            );
+            return 1;
+        }
+        println!(
+            "wrote AX.lock registry preview: {}",
+            lockfile_path.display()
+        );
+        println!("note: packages with placeholder rev/checksum metadata are not cached yet");
+    }
+    0
+}
+
+fn load_project_manifest_value(project_path: &Path) -> Result<(PathBuf, toml::Value), String> {
+    let manifest_path = if project_path.is_dir() {
+        project_path.join(crate::project::PROJECT_MANIFEST_FILE)
+    } else {
+        project_path.to_path_buf()
+    };
+    let text = fs::read_to_string(&manifest_path).map_err(|error| {
+        format!(
+            "failed to read AX project manifest {}: {error}",
+            manifest_path.display()
+        )
+    })?;
+    let value = toml::from_str::<toml::Value>(&text).map_err(|error| {
+        format!(
+            "failed to parse AX project manifest {}: {error}",
+            manifest_path.display()
+        )
+    })?;
+    Ok((manifest_path, value))
+}
+
+fn render_registry_check_failure(issues: &[crate::registry::RegistryIssue]) -> String {
+    let mut lines = Vec::new();
+    lines.push(format!(
+        "{}: registry check failed",
+        issues.first().map(|issue| issue.code).unwrap_or("RG0000")
+    ));
+    for issue in issues {
+        lines.push(format!(
+            "- {} {}: {}",
+            issue.code,
+            issue.path.display(),
+            issue.message
+        ));
+    }
+    lines.join("\n")
+}
+
 pub(in crate::cli) fn render_lock_check_failure(report: &LockfileCheckReport) -> String {
     let mut lines = vec![format!(
         "{}: AX.lock {}: {}",

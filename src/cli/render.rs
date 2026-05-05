@@ -11,6 +11,13 @@ Commands:
   mir <path>               Print stable MIR JSON
   build <path> [--emit <ir|exe|all>] [--no-link] [--out-dir <path>] [--json]   Emit build artifacts, LLVM IR, or a native executable
   lock <project> [--check] Generate or validate AX.lock for local path packages
+  pkg search [query] [--registry <path>]   Search the curated registry preview
+  pkg info <package> [--registry <path>]   Show registry package metadata
+  pkg check [--registry <path>]            Validate registry metadata
+  pkg tree <project>                       Show the current project dependency tree
+  pkg add <package> --dry-run [--registry <path>]   Preview the AX.toml registry dependency entry
+  pkg install <project> --dry-run [--registry <path>]   Preview registry package resolution
+  pkg hash <package-dir>                   Print the stable sha256 package checksum
   run <path> [--json] [--ai] [--ai-session <path>] [-- <args...>]   Execute the minimal interpreter
   fmt <path>               Rewrite the file or project sources to the canonical AX format
   context <overview|boundaries|topology|flow> <path> [--json]
@@ -109,7 +116,7 @@ pub(in crate::cli) fn package_load_error_diagnostic(
     let source = source_for_load_error(path);
     let span = first_source_span(&source);
     let mut diagnostic = Diagnostic::new(code, base_message, &source, span)
-        .with_expected("valid local path package graph")
+        .with_expected("valid local path package graph or installed registry package graph")
         .with_suggestion(hint.fixit);
 
     if ai {
@@ -128,9 +135,9 @@ pub(in crate::cli) fn package_load_error_diagnostic(
             related_symbols: Vec::new(),
             rule_card: AiRuleCard {
                 summary: hint.repair_goal.to_string(),
-                pattern: Some("AX local path package manifests must describe a loadable one-level package graph.".to_string()),
-                minimal_example: Some("[dependencies]\nconfig_rules = { path = \"packages/config_rules\" }".to_string()),
-                anti_pattern: Some("Pointing a dependency alias at a missing directory, invalid manifest, duplicate module root, or transitive package graph.".to_string()),
+                pattern: Some("AX package manifests must describe dependencies the current package loader can materialize into source modules.".to_string()),
+                minimal_example: Some("[dependencies]\nconfig_rules = { path = \"packages/config_rules\" }\ntext_tools = { registry = \"ax\", version = \"0.1.0\" }".to_string()),
+                anti_pattern: Some("Pointing a dependency alias at a missing directory, invalid manifest, duplicate module root, unresolved registry package, or transitive package graph.".to_string()),
             },
             fixits: vec![hint.fixit.to_string()],
             context_snippets: Vec::new(),

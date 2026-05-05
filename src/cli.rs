@@ -11,11 +11,20 @@ use crate::diagnostics::{Diagnostic, render_diagnostics};
 use crate::formatter::format_source;
 use crate::frontend::{analyze_with_project, check_only_with_project};
 use crate::interpreter::{RunContext, run_program_with_context};
-use crate::lockfile::{LockfileCheckReport, check_lockfile, render_lockfile};
+use crate::lockfile::{
+    LockfileCheckReport, check_lockfile, registry_lock_dependency_preview, render_lockfile,
+    render_registry_lockfile_preview,
+};
+use crate::package_cache::{PackageCacheInstall, install_registry_package_to_cache};
 use crate::package_diagnostics::{
     append_package_repair_hint, package_repair_hint, render_package_repair_hint,
 };
+use crate::package_hash::hash_package_dir;
 use crate::project::{ResolvedInput, resolve_input};
+use crate::registry::{
+    default_registry_dir, load_registry, render_package_info, render_search_results,
+    validate_registry,
+};
 use crate::source::{SourceFile, Span};
 
 mod commands;
@@ -43,6 +52,7 @@ pub fn run_cli(args: Vec<String>) -> i32 {
         "mir" => run_mir(rest),
         "build" => run_build(rest),
         "lock" => run_lock(rest),
+        "pkg" => run_pkg(rest),
         "run" => run_run(rest),
         "fmt" => run_fmt(rest),
         "context" => run_context_command(rest),

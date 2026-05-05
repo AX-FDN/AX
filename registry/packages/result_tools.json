@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "name": "result_tools",
+  "owner": "ax-core",
+  "license": "Apache-2.0",
+  "description": "Status-code result summary helpers for AX package preview examples",
+  "versions": [
+    {
+      "version": "0.1.0",
+      "source": {
+        "kind": "git",
+        "url": "https://github.com/AX-FDN/AX-PKG.git",
+        "rev": "a901c21a1e61efa98be010a427d803c4b19dee3f",
+        "path": "packages/result_tools"
+      },
+      "checksum": "sha256:bd4f415eab7409119d69f96be6efe5859d92414ddc5a340f98f5e571dc1b73fd",
+      "modules": [
+        "result_tools.summary"
+      ]
+    }
+  ]
+}

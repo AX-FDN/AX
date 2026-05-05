@@ -61,6 +61,84 @@ pub fn package_repair_hint(code: &str) -> Option<PackageRepairHint> {
             repair_goal: "Ensure dependency sources do not duplicate the project entry or another loaded source.",
             fixit: "remove the duplicate source entry or move the dependency source so each file is loaded once",
         }),
+        "PX0101" => Some(PackageRepairHint {
+            code: "PX0101",
+            rule_id: "registry_dependency_requires_install_preview",
+            repair_goal: "Treat the AX.toml registry dependency as valid package intent, but do not load it as source until registry install and lockfile support are available.",
+            fixit: "inspect the package with `axc pkg info <package>` or use `{ path = \"...\" }` until `axc pkg install` lands",
+        }),
+        "PX0102" => Some(PackageRepairHint {
+            code: "PX0102",
+            rule_id: "registry_dependency_must_use_supported_registry",
+            repair_goal: "Use the built-in `ax` registry until custom registries are supported.",
+            fixit: "change the dependency to `{ registry = \"ax\", version = \"...\" }`",
+        }),
+        "PX0106" => Some(PackageRepairHint {
+            code: "PX0106",
+            rule_id: "registry_lockfile_mixed_graph_not_enabled",
+            repair_goal: "Avoid writing mixed local path and registry lockfiles until schema v2 handles both dependency kinds together.",
+            fixit: "run `axc pkg install <project> --dry-run` to inspect registry entries, or keep registry and path dependencies in separate preview projects",
+        }),
+        "PX0107" => Some(PackageRepairHint {
+            code: "PX0107",
+            rule_id: "registry_package_rev_must_be_pinned",
+            repair_goal: "Publish the package source and pin a real git commit before cache installation.",
+            fixit: "replace the all-zero registry `rev` with the AX-PKG commit hash for this package version",
+        }),
+        "PX0108" => Some(PackageRepairHint {
+            code: "PX0108",
+            rule_id: "registry_package_checksum_must_be_real",
+            repair_goal: "Replace preview checksums with stable package directory hashes.",
+            fixit: "run `axc pkg hash <package-dir>` and update registry metadata with the resulting `sha256:<hex>`",
+        }),
+        "PX0109" => Some(PackageRepairHint {
+            code: "PX0109",
+            rule_id: "registry_package_source_path_must_exist",
+            repair_goal: "Make the locked package source path exist inside the checked-out package repository.",
+            fixit: "fix `source.path` in registry metadata or add the package directory to AX-PKG",
+        }),
+        "PX0110" => Some(PackageRepairHint {
+            code: "PX0110",
+            rule_id: "registry_package_checksum_must_match",
+            repair_goal: "Ensure the cached package source exactly matches the checksum pinned in registry metadata.",
+            fixit: "review package source changes, then update registry metadata checksum only if the change is intended",
+        }),
+        "PX0111" => Some(PackageRepairHint {
+            code: "PX0111",
+            rule_id: "registry_package_git_command_must_succeed",
+            repair_goal: "Make git available and ensure the package source repository/rev can be fetched.",
+            fixit: "install git, check network access, verify the package URL, and pin an existing commit rev",
+        }),
+        "PX0112" => Some(PackageRepairHint {
+            code: "PX0112",
+            rule_id: "registry_dependency_requires_lockfile",
+            repair_goal: "Create AX.lock schema v2 before loading registry packages into the project source graph.",
+            fixit: "run `axc pkg install <project>`",
+        }),
+        "PX0113" => Some(PackageRepairHint {
+            code: "PX0113",
+            rule_id: "registry_lockfile_must_parse",
+            repair_goal: "Keep AX.lock valid JSON so registry package resolution can read it.",
+            fixit: "rerun `axc pkg install <project>` to regenerate AX.lock",
+        }),
+        "PX0114" => Some(PackageRepairHint {
+            code: "PX0114",
+            rule_id: "registry_lockfile_requires_schema_v2",
+            repair_goal: "Upgrade AX.lock to schema v2 before loading registry dependencies.",
+            fixit: "rerun `axc pkg install <project>`",
+        }),
+        "PX0115" => Some(PackageRepairHint {
+            code: "PX0115",
+            rule_id: "registry_lockfile_must_match_manifest",
+            repair_goal: "Keep AX.lock registry entries aligned with AX.toml dependency aliases, registries, and versions.",
+            fixit: "rerun `axc pkg install <project>` after editing AX.toml dependencies",
+        }),
+        "PX0116" => Some(PackageRepairHint {
+            code: "PX0116",
+            rule_id: "registry_package_must_be_cached",
+            repair_goal: "Install the locked registry package into the local AX cache before check/run/build can load it.",
+            fixit: "publish real rev/checksum metadata, then rerun `axc pkg install <project>`",
+        }),
         "LX0001" => Some(PackageRepairHint {
             code: "LX0001",
             rule_id: "package_lockfile_must_exist",
@@ -125,6 +203,18 @@ mod tests {
     fn maps_lockfile_codes_to_repair_hints() {
         let hint = package_repair_hint("LX0002").expect("LX0002 should have a repair hint");
         assert_eq!(hint.rule_id, "package_lockfile_must_match_graph");
+    }
+
+    #[test]
+    fn maps_registry_preview_code_to_repair_hint() {
+        let hint = package_repair_hint("PX0101").expect("PX0101 should have a repair hint");
+        assert_eq!(hint.rule_id, "registry_dependency_requires_install_preview");
+    }
+
+    #[test]
+    fn maps_registry_cache_codes_to_repair_hints() {
+        let hint = package_repair_hint("PX0116").expect("PX0116 should have a repair hint");
+        assert_eq!(hint.rule_id, "registry_package_must_be_cached");
     }
 
     #[test]

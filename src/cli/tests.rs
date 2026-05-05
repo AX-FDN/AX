@@ -1,6 +1,7 @@
 use super::{
-    BuildCliOptions, CheckOptions, ContextOptions, LockCliOptions, RunOptions, parse_build_args,
-    parse_check_args, parse_context_args, parse_lock_args, parse_run_args, render_check_success,
+    BuildCliOptions, CheckOptions, ContextOptions, LockCliOptions, PkgCliOptions, RunOptions,
+    parse_build_args, parse_check_args, parse_context_args, parse_lock_args, parse_pkg_args,
+    parse_run_args, render_check_success,
 };
 use crate::build::BuildEmit;
 use crate::context::ContextView;
@@ -148,6 +149,150 @@ fn parses_lock_check_options() {
 fn rejects_lock_without_project() {
     let error = parse_lock_args(Vec::new()).expect_err("lock arguments should be rejected");
     assert!(error.contains("missing input project for `axc lock`"));
+}
+
+#[test]
+fn parses_pkg_search_with_default_registry() {
+    let options = parse_pkg_args(vec!["search".to_string(), "text".to_string()])
+        .expect("pkg search arguments should parse");
+
+    match options {
+        PkgCliOptions::Search { query, registry } => {
+            assert_eq!(query, "text");
+            assert!(registry.ends_with("registry"));
+        }
+        other => panic!("expected search options, got {other:?}"),
+    }
+}
+
+#[test]
+fn parses_pkg_info_with_explicit_registry() {
+    let options = parse_pkg_args(vec![
+        "info".to_string(),
+        "text_tools".to_string(),
+        "--registry".to_string(),
+        "registry".to_string(),
+    ])
+    .expect("pkg info arguments should parse");
+
+    assert_eq!(
+        options,
+        PkgCliOptions::Info {
+            package: "text_tools".to_string(),
+            registry: PathBuf::from("registry"),
+        }
+    );
+}
+
+#[test]
+fn parses_pkg_tree_project() {
+    let options = parse_pkg_args(vec![
+        "tree".to_string(),
+        "examples/project_package_config".to_string(),
+    ])
+    .expect("pkg tree arguments should parse");
+
+    assert_eq!(
+        options,
+        PkgCliOptions::Tree {
+            project: PathBuf::from("examples/project_package_config"),
+        }
+    );
+}
+
+#[test]
+fn parses_pkg_add_dry_run() {
+    let options = parse_pkg_args(vec![
+        "add".to_string(),
+        "text_tools".to_string(),
+        "--dry-run".to_string(),
+    ])
+    .expect("pkg add dry-run arguments should parse");
+
+    match options {
+        PkgCliOptions::Add {
+            package,
+            registry,
+            dry_run,
+        } => {
+            assert_eq!(package, "text_tools");
+            assert!(registry.ends_with("registry"));
+            assert!(dry_run);
+        }
+        other => panic!("expected add options, got {other:?}"),
+    }
+}
+
+#[test]
+fn rejects_pkg_add_without_dry_run() {
+    let error = parse_pkg_args(vec!["add".to_string(), "text_tools".to_string()])
+        .expect_err("pkg add without dry-run should be rejected");
+    assert!(error.contains("preview-only"));
+}
+
+#[test]
+fn parses_pkg_install_dry_run() {
+    let options = parse_pkg_args(vec![
+        "install".to_string(),
+        "examples/project_package_config".to_string(),
+        "--dry-run".to_string(),
+    ])
+    .expect("pkg install dry-run arguments should parse");
+
+    match options {
+        PkgCliOptions::Install {
+            project,
+            registry,
+            dry_run,
+        } => {
+            assert_eq!(project, PathBuf::from("examples/project_package_config"));
+            assert!(registry.ends_with("registry"));
+            assert!(dry_run);
+        }
+        other => panic!("expected install options, got {other:?}"),
+    }
+}
+
+#[test]
+fn parses_pkg_install_without_dry_run() {
+    let options = parse_pkg_args(vec![
+        "install".to_string(),
+        "examples/project_package_config".to_string(),
+    ])
+    .expect("pkg install arguments should parse");
+
+    match options {
+        PkgCliOptions::Install {
+            project,
+            registry,
+            dry_run,
+        } => {
+            assert_eq!(project, PathBuf::from("examples/project_package_config"));
+            assert!(registry.ends_with("registry"));
+            assert!(!dry_run);
+        }
+        other => panic!("expected install options, got {other:?}"),
+    }
+}
+
+#[test]
+fn parses_pkg_hash_path() {
+    let options = parse_pkg_args(vec!["hash".to_string(), "packages/text_tools".to_string()])
+        .expect("pkg hash arguments should parse");
+
+    assert_eq!(
+        options,
+        PkgCliOptions::Hash {
+            path: PathBuf::from("packages/text_tools"),
+        }
+    );
+}
+
+#[test]
+fn rejects_unknown_pkg_command() {
+    let error =
+        parse_pkg_args(vec!["publish".to_string()]).expect_err("pkg arguments should be rejected");
+    assert!(error.contains("unknown pkg command"));
 }
 
 #[test]

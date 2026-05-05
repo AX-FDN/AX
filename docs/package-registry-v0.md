@@ -41,7 +41,7 @@ It also has `AX.lock` v0 for local path package graph reproducibility. Registry 
 
 ## Registry Shape
 
-Start with a repository-owned curated index:
+Start with a repository-owned curated index inside the AX repository during 0.2:
 
 ```text
 registry/
@@ -49,7 +49,26 @@ registry/
   packages/
     text_tools.json
     config_rules.json
+    math_rules.json
+    result_tools.json
 ```
+
+This in-repo registry is the 0.2 prototype and test fixture. Package source can
+live in the foundation package repository:
+
+```text
+https://github.com/AX-FDN/AX-PKG.git
+git@github.com:AX-FDN/AX-PKG.git
+```
+
+The registry metadata uses the HTTPS URL by default so read-only install works
+without SSH keys. Maintainers can use the SSH URL when pushing package source.
+`AX-PKG` is expected to work as a package monorepo, so each metadata entry may pin
+a `source.path` such as `packages/text_tools`.
+
+Package checksums are computed over package directory files in stable relative
+path order. `.git` and `target` directories are ignored so source checksums do
+not depend on repository internals or local build artifacts.
 
 Example package metadata:
 
@@ -63,8 +82,9 @@ Example package metadata:
   "description": "Text helpers for AX projects",
   "source": {
     "kind": "git",
-    "url": "https://example.com/ax-core/text_tools.git",
-    "rev": "0123456789abcdef"
+    "url": "https://github.com/AX-FDN/AX-PKG.git",
+    "rev": "0123456789abcdef",
+    "path": "packages/text_tools"
   },
   "checksum": "sha256:...",
   "modules": [
@@ -104,8 +124,9 @@ Registry packages should extend `AX.lock` with immutable source and checksum dat
   "version": "0.1.0",
   "source": {
     "registry": "ax",
-    "url": "https://example.com/ax-core/text_tools.git",
-    "rev": "0123456789abcdef"
+    "url": "https://github.com/AX-FDN/AX-PKG.git",
+    "rev": "0123456789abcdef",
+    "path": "packages/text_tools"
   },
   "checksum": "sha256:...",
   "modules": [
@@ -124,14 +145,38 @@ axc lock <project>
 axc lock <project> --check
 ```
 
-Phase 0.2, download/install preview:
+Phase 0.2, current preview:
 
 ```powershell
 axc pkg search text
-axc pkg add text_tools
-axc pkg install
+axc pkg info text_tools
 axc pkg tree
 axc pkg check
+axc pkg add text_tools --dry-run
+axc pkg install <project> --dry-run
+axc pkg hash <package-dir>
+```
+
+`search`, `info`, `tree`, `check`, `add --dry-run`, `install --dry-run`, and
+`hash` are the first implemented slice. `AX.toml` can now parse registry
+dependency intent, but unresolved registry packages are reported as preview
+package-layer blockers instead of being loaded as source. `pkg install <project>`
+can now write registry-only `AX.lock` schema v2 preview entries and has the first
+git/cache installer path: when metadata pins a real `rev` and real checksum it
+will clone/fetch the package source, checkout the rev, verify `source.path`, hash
+the package, and materialize it under the local AX cache. Current preview
+metadata with all-zero revs or `sha256:preview-*` checksums is skipped with a
+package-layer note instead of pretending it was verified. Mixed local path +
+registry lock writing and `AX.toml` editing remain future slices. The project
+loader now recognizes registry dependencies through AX.lock schema v2 and the
+local cache: missing lockfiles produce `PX0112`, and locked-but-not-cached
+packages produce `PX0116`.
+
+Phase 0.2, download/install preview:
+
+```powershell
+axc pkg add text_tools
+axc pkg install <project>
 ```
 
 Phase 0.3+, publish beta:
@@ -155,6 +200,14 @@ Recommended local cache:
       AX.toml
       src\
 ```
+
+The installer also keeps git checkouts under:
+
+```text
+%USERPROFILE%\.ax\git\
+```
+
+`AX_HOME` can override the cache root for tests or isolated installs.
 
 Repository-local vendor/cache remains a future option for offline builds.
 
@@ -184,10 +237,10 @@ Registry package AOT should reuse the same rules as local path package AOT:
 Until upload exists, third-party packages should enter through proposal/review:
 
 1. Author publishes package source in a public repository.
-2. Author opens a package-index proposal.
+2. Author opens a package-index proposal. For the foundation preview, package
+   source usually lands under `AX-FDN/AX-PKG/packages/<package-name>`.
 3. Maintainers review metadata, license, module names, examples, and validation.
 4. The package metadata is merged into the curated index.
 5. Users can install it through `axc pkg install` once the CLI exists.
 
 This keeps AX's early package ecosystem useful without opening the security and moderation surface of public upload too early.
-

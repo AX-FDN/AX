@@ -490,6 +490,104 @@ entry = \"src/main.ax\"
 }
 
 #[test]
+fn rejects_uninstalled_registry_dependency_with_stable_package_code() {
+    let project_root = repo_root()
+        .join("target")
+        .join("project-registry-dependency-preview-test");
+    let _ = fs::remove_dir_all(&project_root);
+    fs::create_dir_all(project_root.join("src")).expect("project src directory should exist");
+    fs::write(
+        project_root.join(PROJECT_MANIFEST_FILE),
+        "\
+manifest_version = 1
+
+[package]
+name = \"project_registry_dependency_preview\"
+entry = \"src/main.ax\"
+
+[dependencies]
+text_tools = { registry = \"ax\", version = \"0.1.0\" }
+",
+    )
+    .expect("project manifest should exist");
+    fs::write(
+        project_root.join("src").join("main.ax"),
+        "fn main() -> i32 { return 0; }\n",
+    )
+    .expect("project entry should exist");
+
+    let error = resolve_input(&project_root).expect_err("uninstalled registry package should fail");
+    assert!(error.contains("PX0112"));
+    assert!(error.contains("registry dependency `text_tools`"));
+    assert!(error.contains("AX.lock schema v2"));
+
+    let _ = fs::remove_dir_all(&project_root);
+}
+
+#[test]
+fn rejects_locked_registry_dependency_without_cache_with_stable_package_code() {
+    let project_root = repo_root()
+        .join("target")
+        .join("project-registry-dependency-cache-missing-test");
+    let _ = fs::remove_dir_all(&project_root);
+    fs::create_dir_all(project_root.join("src")).expect("project src directory should exist");
+    fs::write(
+        project_root.join(PROJECT_MANIFEST_FILE),
+        "\
+manifest_version = 1
+
+[package]
+name = \"project_registry_dependency_cache_missing\"
+entry = \"src/main.ax\"
+
+[dependencies]
+text_tools = { registry = \"ax\", version = \"0.1.0\" }
+",
+    )
+    .expect("project manifest should exist");
+    fs::write(
+        project_root.join("AX.lock"),
+        r#"{
+  "schema_version": 2,
+  "package": {
+    "name": "project_registry_dependency_cache_missing"
+  },
+  "dependencies": [
+    {
+      "alias": "text_tools",
+      "kind": "registry",
+      "package": "text_tools",
+      "version": "0.1.0",
+      "source": {
+        "registry": "ax",
+        "url": "https://github.com/AX-FDN/AX-PKG.git",
+        "rev": "0000000000000000000000000000000000000000",
+        "path": "packages/text_tools"
+      },
+      "checksum": "sha256:preview-text-tools",
+      "modules": [
+        "text_tools.normalize"
+      ]
+    }
+  ]
+}
+"#,
+    )
+    .expect("lockfile should exist");
+    fs::write(
+        project_root.join("src").join("main.ax"),
+        "fn main() -> i32 { return 0; }\n",
+    )
+    .expect("project entry should exist");
+
+    let error = resolve_input(&project_root).expect_err("missing registry cache should fail");
+    assert!(error.contains("PX0116"));
+    assert!(error.contains("locked but not cached"));
+
+    let _ = fs::remove_dir_all(&project_root);
+}
+
+#[test]
 fn rejects_missing_dependency_manifest_with_stable_package_code() {
     let project_root = repo_root()
         .join("target")

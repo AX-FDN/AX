@@ -210,6 +210,10 @@ http://101.37.238.42
 
 完整的阶段门槛和前置条件看 [`执行路线.md`](./执行路线.md)。
 
+## 0.2 Package Preview
+
+AX 0.2 已经从规划进入第一刀实现：仓库内新增 `registry/` curated index prototype，并提供 `axc pkg search/info/check/tree` 读取和校验这份内置包索引。`AX.toml` 已能识别 `{ registry = "ax", version = "0.1.0" }` 形式的依赖意图，未安装的 registry 依赖会作为包层 preview blocker 反馈；`axc pkg add <package> --dry-run` 可以预览将写入的依赖行，`axc pkg install <project> --dry-run` 可以预览 registry 依赖解析计划和未来 AX.lock registry entry，`axc pkg install <project>` 已能为 registry-only 项目写入 AX.lock schema v2 preview，并在 metadata 具备真实 rev/checksum 时走 git clone/fetch、checkout、checksum verify 和本地 `.ax` cache materialization 路径；当前 preview 占位 metadata 会被明确跳过缓存安装。project loader 已经能按 AX.lock schema v2 查找 `.ax/packages/ax/<package>/<version>`，缺锁文件会报 `PX0112`，缺本地缓存会报 `PX0116`，不会再把 registry 包缺失误报成用户源码错误。`axc pkg hash <package-dir>` 可以生成稳定 `sha256:<hex>` 包校验和。三方/基金会包源码会以 [`AX-FDN/AX-PKG`](https://github.com/AX-FDN/AX-PKG.git) 作为当前预览仓库，registry metadata 通过 `source.path` 指向 monorepo 内的具体包目录。真正写入 `AX.toml`、混合 path+registry 锁文件和让 registry package 在真实包缓存存在时进入完整 `check/run/build/AOT` parity，会作为下一组能力继续推进。
+
 ## 一眼看懂 AX
 
 | 项目维度     | AX 当前提供什么                                                                                       |

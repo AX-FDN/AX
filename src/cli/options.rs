@@ -23,6 +23,37 @@ pub(in crate::cli) struct LockCliOptions {
 }
 
 #[derive(Debug, PartialEq, Eq)]
+pub(in crate::cli) enum PkgCliOptions {
+    Search {
+        query: String,
+        registry: PathBuf,
+    },
+    Info {
+        package: String,
+        registry: PathBuf,
+    },
+    Check {
+        registry: PathBuf,
+    },
+    Tree {
+        project: PathBuf,
+    },
+    Add {
+        package: String,
+        registry: PathBuf,
+        dry_run: bool,
+    },
+    Install {
+        project: PathBuf,
+        registry: PathBuf,
+        dry_run: bool,
+    },
+    Hash {
+        path: PathBuf,
+    },
+}
+
+#[derive(Debug, PartialEq, Eq)]
 pub(in crate::cli) struct RunOptions {
     pub(in crate::cli) file: PathBuf,
     pub(in crate::cli) json: bool,
@@ -299,6 +330,221 @@ pub(in crate::cli) fn parse_lock_args(args: Vec<String>) -> Result<LockCliOption
     };
 
     Ok(LockCliOptions { file, check })
+}
+
+pub(in crate::cli) fn parse_pkg_args(args: Vec<String>) -> Result<PkgCliOptions, String> {
+    let Some((command, rest)) = args.split_first() else {
+        return Err("missing pkg command".to_string());
+    };
+
+    match command.as_str() {
+        "search" => {
+            let mut registry = default_registry_dir();
+            let mut query = None;
+            parse_pkg_value_args(rest, &mut registry, &mut query)?;
+            Ok(PkgCliOptions::Search {
+                query: query.unwrap_or_default(),
+                registry,
+            })
+        }
+        "info" => {
+            let mut registry = default_registry_dir();
+            let mut package = None;
+            parse_pkg_value_args(rest, &mut registry, &mut package)?;
+            let Some(package) = package else {
+                return Err("missing package name for `axc pkg info`".to_string());
+            };
+            Ok(PkgCliOptions::Info { package, registry })
+        }
+        "check" => {
+            let mut registry = default_registry_dir();
+            let mut unexpected = None;
+            parse_pkg_value_args(rest, &mut registry, &mut unexpected)?;
+            if let Some(value) = unexpected {
+                return Err(format!("unexpected argument `{value}`"));
+            }
+            Ok(PkgCliOptions::Check { registry })
+        }
+        "tree" => {
+            let mut project = None;
+            for arg in rest {
+                match arg.as_str() {
+                    _ if project.is_none() => project = Some(PathBuf::from(arg)),
+                    _ => return Err(format!("unexpected argument `{arg}`")),
+                }
+            }
+            let Some(project) = project else {
+                return Err("missing project path for `axc pkg tree`".to_string());
+            };
+            Ok(PkgCliOptions::Tree { project })
+        }
+        "add" => {
+            let mut registry = default_registry_dir();
+            let mut package = None;
+            let mut dry_run = false;
+            parse_pkg_add_args(rest, &mut registry, &mut package, &mut dry_run)?;
+            let Some(package) = package else {
+                return Err("missing package name for `axc pkg add`".to_string());
+            };
+            if !dry_run {
+                return Err(
+                    "`axc pkg add` is currently preview-only; pass `--dry-run` to inspect the dependency entry"
+                        .to_string(),
+                );
+            }
+            Ok(PkgCliOptions::Add {
+                package,
+                registry,
+                dry_run,
+            })
+        }
+        "install" => {
+            let mut registry = default_registry_dir();
+            let mut project = None;
+            let mut dry_run = false;
+            parse_pkg_install_args(rest, &mut registry, &mut project, &mut dry_run)?;
+            let Some(project) = project else {
+                return Err("missing project path for `axc pkg install`".to_string());
+            };
+            Ok(PkgCliOptions::Install {
+                project,
+                registry,
+                dry_run,
+            })
+        }
+        "hash" => {
+            let mut path = None;
+            for arg in rest {
+                match arg.as_str() {
+                    _ if path.is_none() => path = Some(PathBuf::from(arg)),
+                    _ => return Err(format!("unexpected argument `{arg}`")),
+                }
+            }
+            let Some(path) = path else {
+                return Err("missing package path for `axc pkg hash`".to_string());
+            };
+            Ok(PkgCliOptions::Hash { path })
+        }
+        other => Err(format!(
+            "unknown pkg command `{other}`; expected `search`, `info`, `check`, `tree`, `add`, `install`, or `hash`"
+        )),
+    }
+}
+
+fn parse_pkg_value_args(
+    args: &[String],
+    registry: &mut PathBuf,
+    value: &mut Option<String>,
+) -> Result<(), String> {
+    let mut index = 0;
+    while index < args.len() {
+        let arg = &args[index];
+        match arg.as_str() {
+            "--registry" => {
+                let Some(path) = args.get(index + 1) else {
+                    return Err("missing path after `--registry`".to_string());
+                };
+                *registry = PathBuf::from(path);
+                index += 1;
+            }
+            _ if arg.starts_with("--registry=") => {
+                let path = arg
+                    .split_once('=')
+                    .map(|(_, value)| value)
+                    .unwrap_or_default();
+                if path.is_empty() {
+                    return Err("missing path after `--registry=`".to_string());
+                }
+                *registry = PathBuf::from(path);
+            }
+            _ if value.is_none() => {
+                *value = Some(arg.clone());
+            }
+            _ => return Err(format!("unexpected argument `{arg}`")),
+        }
+        index += 1;
+    }
+    Ok(())
+}
+
+fn parse_pkg_add_args(
+    args: &[String],
+    registry: &mut PathBuf,
+    package: &mut Option<String>,
+    dry_run: &mut bool,
+) -> Result<(), String> {
+    let mut index = 0;
+    while index < args.len() {
+        let arg = &args[index];
+        match arg.as_str() {
+            "--dry-run" => {
+                *dry_run = true;
+            }
+            "--registry" => {
+                let Some(path) = args.get(index + 1) else {
+                    return Err("missing path after `--registry`".to_string());
+                };
+                *registry = PathBuf::from(path);
+                index += 1;
+            }
+            _ if arg.starts_with("--registry=") => {
+                let path = arg
+                    .split_once('=')
+                    .map(|(_, value)| value)
+                    .unwrap_or_default();
+                if path.is_empty() {
+                    return Err("missing path after `--registry=`".to_string());
+                }
+                *registry = PathBuf::from(path);
+            }
+            _ if package.is_none() => {
+                *package = Some(arg.clone());
+            }
+            _ => return Err(format!("unexpected argument `{arg}`")),
+        }
+        index += 1;
+    }
+    Ok(())
+}
+
+fn parse_pkg_install_args(
+    args: &[String],
+    registry: &mut PathBuf,
+    project: &mut Option<PathBuf>,
+    dry_run: &mut bool,
+) -> Result<(), String> {
+    let mut index = 0;
+    while index < args.len() {
+        let arg = &args[index];
+        match arg.as_str() {
+            "--dry-run" => {
+                *dry_run = true;
+            }
+            "--registry" => {
+                let Some(path) = args.get(index + 1) else {
+                    return Err("missing path after `--registry`".to_string());
+                };
+                *registry = PathBuf::from(path);
+                index += 1;
+            }
+            _ if arg.starts_with("--registry=") => {
+                let path = arg
+                    .split_once('=')
+                    .map(|(_, value)| value)
+                    .unwrap_or_default();
+                if path.is_empty() {
+                    return Err("missing path after `--registry=`".to_string());
+                }
+                *registry = PathBuf::from(path);
+            }
+            _ if project.is_none() => {
+                *project = Some(PathBuf::from(arg));
+            }
+            _ => return Err(format!("unexpected argument `{arg}`")),
+        }
+        index += 1;
+    }
+    Ok(())
 }
 
 pub(in crate::cli) fn parse_context_args(args: Vec<String>) -> Result<ContextOptions, String> {

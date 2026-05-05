@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 
 use crate::project::{PROJECT_MANIFEST_FILE, Project};
+use crate::registry::RegistryPackageVersion;
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq, Serialize)]
 pub struct Lockfile {
@@ -21,10 +22,27 @@ pub struct LockfileDependency {
     pub alias: String,
     pub kind: String,
     pub package: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub version: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source: Option<LockfileRegistrySource>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub checksum: Option<String>,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub path: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub manifest: String,
+    #[serde(default, skip_serializing_if = "is_zero")]
     pub source_count: usize,
     pub modules: Vec<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq, Serialize)]
+pub struct LockfileRegistrySource {
+    pub registry: String,
+    pub url: String,
+    pub rev: String,
+    pub path: String,
 }
 
 #[derive(Debug, Clone)]
@@ -191,6 +209,9 @@ fn lockfile_from_project(project: &Project) -> Lockfile {
                 alias: dependency.alias().to_string(),
                 kind: "path".to_string(),
                 package: dependency.package_name().to_string(),
+                version: None,
+                source: None,
+                checksum: None,
                 path: dependency.declared_path().to_string(),
                 manifest: declared_manifest_path(dependency.declared_path()),
                 source_count: dependency.source_paths().len(),
@@ -207,6 +228,61 @@ fn lockfile_from_project(project: &Project) -> Lockfile {
         },
         dependencies,
     }
+}
+
+pub fn registry_lock_dependency_preview(
+    alias: &str,
+    package: &str,
+    version: &RegistryPackageVersion,
+) -> LockfileDependency {
+    LockfileDependency {
+        alias: alias.to_string(),
+        kind: "registry".to_string(),
+        package: package.to_string(),
+        version: Some(version.version.clone()),
+        source: Some(LockfileRegistrySource {
+            registry: "ax".to_string(),
+            url: version.source.url.clone(),
+            rev: version.source.rev.clone(),
+            path: version
+                .source
+                .path
+                .clone()
+                .unwrap_or_else(|| ".".to_string()),
+        }),
+        checksum: Some(version.checksum.clone()),
+        path: String::new(),
+        manifest: String::new(),
+        source_count: 0,
+        modules: sorted_modules(&version.modules),
+    }
+}
+
+pub fn render_registry_lockfile_preview(
+    package_name: &str,
+    mut dependencies: Vec<LockfileDependency>,
+) -> Result<String, String> {
+    dependencies.sort_by(|left, right| left.alias.cmp(&right.alias));
+    let lockfile = Lockfile {
+        schema_version: 2,
+        package: LockfilePackage {
+            name: package_name.to_string(),
+        },
+        dependencies,
+    };
+    let text = serde_json::to_string_pretty(&lockfile)
+        .map_err(|error| format!("failed to serialize registry AX.lock preview: {error}"))?;
+    Ok(format!("{text}\n"))
+}
+
+fn sorted_modules(modules: &[String]) -> Vec<String> {
+    let mut modules = modules.to_vec();
+    modules.sort();
+    modules
+}
+
+fn is_zero(value: &usize) -> bool {
+    *value == 0
 }
 
 fn compare_lockfiles(expected: &Lockfile, current: &Lockfile) -> Vec<LockfileIssue> {
@@ -372,4 +448,76 @@ fn declared_manifest_path(declared_path: &str) -> String {
         .join(PROJECT_MANIFEST_FILE)
         .to_string_lossy()
         .replace('\\', "/")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        LockfileRegistrySource, registry_lock_dependency_preview, render_registry_lockfile_preview,
+    };
+    use crate::registry::{RegistryPackageSource, RegistryPackageVersion};
+
+    #[test]
+    fn renders_registry_dependency_preview_without_path_fields() {
+        let version = RegistryPackageVersion {
+            version: "0.1.0".to_string(),
+            source: RegistryPackageSource {
+                kind: "git".to_string(),
+                url: "https://github.com/AX-FDN/AX-PKG.git".to_string(),
+                rev: "abc123".to_string(),
+                path: Some("packages/text_tools".to_string()),
+            },
+            checksum: "sha256:test".to_string(),
+            modules: vec![
+                "text_tools.stats".to_string(),
+                "text_tools.normalize".to_string(),
+            ],
+        };
+
+        let entry = registry_lock_dependency_preview("text_tools", "text_tools", &version);
+        let text = serde_json::to_string(&entry).expect("entry should serialize");
+
+        assert!(text.contains("\"kind\":\"registry\""));
+        assert!(!text.contains("source_count"));
+        assert!(!text.contains("\"manifest\""));
+        assert_eq!(
+            entry.source,
+            Some(LockfileRegistrySource {
+                registry: "ax".to_string(),
+                url: "https://github.com/AX-FDN/AX-PKG.git".to_string(),
+                rev: "abc123".to_string(),
+                path: "packages/text_tools".to_string(),
+            })
+        );
+        assert_eq!(
+            entry.modules,
+            vec![
+                "text_tools.normalize".to_string(),
+                "text_tools.stats".to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn renders_registry_lockfile_preview_as_schema_v2() {
+        let version = RegistryPackageVersion {
+            version: "0.1.0".to_string(),
+            source: RegistryPackageSource {
+                kind: "git".to_string(),
+                url: "https://github.com/AX-FDN/AX-PKG.git".to_string(),
+                rev: "abc123".to_string(),
+                path: Some("packages/text_tools".to_string()),
+            },
+            checksum: "sha256:test".to_string(),
+            modules: vec!["text_tools.normalize".to_string()],
+        };
+        let entry = registry_lock_dependency_preview("text_tools", "text_tools", &version);
+
+        let text = render_registry_lockfile_preview("app", vec![entry])
+            .expect("lockfile preview should render");
+
+        assert!(text.contains("\"schema_version\": 2"));
+        assert!(text.contains("\"name\": \"app\""));
+        assert!(text.contains("\"kind\": \"registry\""));
+    }
 }

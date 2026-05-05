@@ -133,10 +133,10 @@ Recommended next phase:
 
 ```text
 AX 0.2 Package Preview
-  -> curated package index
-  -> axc pkg install/add/search first cut
+  -> in-repo curated package index prototype
+  -> axc pkg search/info/check/tree first cut
+  -> axc pkg add/install next slice
   -> checksum lock entries
   -> package-backed AOT parity examples
   -> stronger per-case fixture isolation in AOT parity
 ```
-
