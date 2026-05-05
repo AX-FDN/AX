@@ -18,13 +18,17 @@
   已退役的旧版计划和施工单，仅作历史参考。
 - [`../ARCHIVE.md`](../ARCHIVE.md)
   已完成事项归档。
+- [`release-0.1-alpha.md`](./release-0.1-alpha.md)
+  AX 0.1 Alpha 的收口边界、AOT parity 快照、发布前验证基线和不应夸大的 public claims。
+- [`../CONTRIBUTING.md`](../CONTRIBUTING.md)
+  贡献入口、推荐验证命令、AOT/标准库/包样例的提交方式。
 
 ## 当前专题文档
 
 - [`why-not-language-subsets.md`](./why-not-language-subsets.md)
   说明为什么 AX 的价值必须由 canonical syntax、structured diagnostics、repair contract 和 benchmark evidence 一起成立。
 - [`benchmark-showcase.md`](./benchmark-showcase.md)
-  汇总当前已经验证过的 benchmark 结果，包括 `30` 个 full repair case、`cold / base / ai` deterministic replay、context-enabled export，并区分“仓库内可复现事实”和“尚未完成的外部对照”。
+  汇总当前已经验证过的 benchmark 结果，包括 `43` 个 full repair case、已发布的 `30` case deterministic replay、context-enabled export，并区分“仓库内可复现事实”和“尚未完成的外部对照”。
 - [`repair-archaeology.md`](./repair-archaeology.md)
   定义下一轮 `Repair Archaeology v0`：把 repair replay、score、compare 和 context-enabled export 资产整理成 case 级 JSON / Markdown 修复证据对象。
 - [`repair-archaeology-schema.md`](./repair-archaeology-schema.md)
@@ -34,7 +38,11 @@
 - [`application-scenarios.md`](./application-scenarios.md)
   定义 AX 的 AI-first 先落在哪些真实场景，以及后端语言方向的实际推进顺序。
 - [`llvm-aot.md`](./llvm-aot.md)
-  记录 `axc build` 当前的 LLVM IR v0 后端原型、manifest schema v9、`--json` 输出、链接环境变量、AOT blocker AI 建议、run vs AOT exe parity smoke 和不应误读成发布级 native compiler 的边界。
+  记录 `axc build` 当前的 LLVM IR v0 后端原型、manifest schema version `10`、`--json` 输出、链接环境变量、AOT blocker AI 建议、run vs AOT exe parity smoke 和不应误读成发布级 native compiler 的边界。
+- [`aot-native-abi.md`](./aot-native-abi.md)
+  收口 AX Native ABI v1：string、slice、string_list、runtime error、内存策略和当前 LLVM layout 约定。
+- [`package-registry-v0.md`](./package-registry-v0.md)
+  定义 curated registry v0：先做源码包索引、下载/锁定/校验，不开放公共上传服务器。
 - [`killer-demo.md`](./killer-demo.md)
   给对外演示用的短 demo 脚本。
 - [`../web/`](../web/)

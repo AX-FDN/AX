@@ -1,0 +1,22 @@
+fn main() -> i32 {
+    let cwd: string = process_cwd();
+    if (string_len(cwd) == 0) {
+        return 91;
+    }
+
+    let status: i32 = process_run("exit 0");
+    if (status != 0) {
+        return 92;
+    }
+
+    let nested_status: i32 = process_run_in(".", "exit 0");
+    if (nested_status != 0) {
+        return 93;
+    }
+
+    let captured: string = string_trim(process_capture("echo AX"));
+    let nested_captured: string = string_trim(process_capture_in(".", "echo OK"));
+    println(captured);
+    println(nested_captured);
+    return string_len(captured);
+}

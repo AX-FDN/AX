@@ -6,13 +6,33 @@ param(
         "examples/project_module_smoke",
         "examples/project_option_result",
         "examples/project_collections_core",
+        "examples/project_collections_report",
+        "examples/project_command_batch",
+        "examples/project_command_capture",
+        "examples/project_directory_index",
+        "examples/project_docs_release",
         "examples/project_env_result",
+        "examples/project_file_result",
+        "examples/project_foundation_report",
         "examples/project_package_math",
+        "examples/project_config_validate",
+        "examples/project_package_config",
+        "examples/project_job_runner",
+        "examples/project_payload_event_report",
+        "examples/project_release_promote",
+        "examples/project_result_pipeline",
+        "examples/project_process_result",
+        "examples/project_text_normalize",
+        "examples/project_workspace_audit",
+        "examples/project_workspace_search_report",
         "examples/aot_fs_read.ax",
         "examples/aot_fs_read_dir.ax",
         "examples/project_fs_read_core",
         "examples/aot_fs_write.ax",
         "examples/project_fs_write_core",
+        "examples/aot_path_runtime.ax",
+        "examples/aot_path_join_separator.ax",
+        "examples/aot_process_runtime.ax",
         "examples/aot_math.ax",
         "examples/aot_control_flow.ax",
         "examples/aot_loop.ax",
@@ -104,6 +124,25 @@ param(
         "examples/result_propagation.ax",
         "examples/aot_result_try.ax"
     ),
+    [hashtable] $CaseArgs = @{
+        "examples/project_collections_report" = @("build/aot-parity-data/project_collections_report")
+        "examples/project_command_batch" = @(".", "build/aot-parity-data/project_command_batch")
+        "examples/project_command_capture" = @(".", "echo AX", "build/aot-parity-data/project_command_capture/CAPTURE.txt")
+        "examples/project_config_validate" = @("examples/project_config_validate/sample.conf", "build/aot-parity-data/project_config_validate")
+        "examples/project_directory_index" = @("examples", "build/aot-parity-data/project_directory_index/INDEX.txt")
+        "examples/project_docs_release" = @("docs", "build/aot-parity-data/project_docs_release")
+        "examples/project_file_result" = @("examples/project_file_result/src/main.ax")
+        "examples/project_foundation_report" = @("README.md")
+        "examples/project_package_config" = @("examples/project_package_config/sample.conf", "build/aot-parity-data/project_package_config")
+        "examples/project_job_runner" = @(".", "build/aot-parity-data/project_job_runner")
+        "examples/project_payload_event_report" = @("build/aot-parity-data/project_payload_event_report")
+        "examples/project_release_promote" = @("build/aot-parity-data/project_release_promote/missing-input.txt", "build/aot-parity-data/project_release_promote/release")
+        "examples/project_result_pipeline" = @("examples/project_result_pipeline/src/main.ax", "build/aot-parity-data/project_result_pipeline")
+        "examples/project_process_result" = @(".")
+        "examples/project_text_normalize" = @("examples/project_text_normalize/src/main.ax", "build/aot-parity-data/project_text_normalize")
+        "examples/project_workspace_audit" = @("examples", "build/aot-parity-data/project_workspace_audit/AUDIT.txt")
+        "examples/project_workspace_search_report" = @("examples", "fn", "build/aot-parity-data/project_workspace_search_report/SEARCH.txt")
+    },
     [string] $OutputRoot = ""
 )
 
@@ -320,6 +359,41 @@ function Assert-ProcessResultEqual {
     Assert-Equal -Label "$CaseLabel stderr" -Actual (Normalize-Text $Executable.Stderr) -Expected (Normalize-Text $Interpreter.Stderr)
 }
 
+function Convert-ToStringArray {
+    param($Value)
+
+    if ($null -eq $Value) {
+        return @()
+    }
+
+    if (($Value -is [System.Collections.IEnumerable]) -and -not ($Value -is [string])) {
+        $items = @()
+        foreach ($item in $Value) {
+            $items += [string] $item
+        }
+        return $items
+    }
+
+    return @([string] $Value)
+}
+
+function Get-CaseArguments {
+    param(
+        [string] $Source,
+        [string] $ResolvedSource,
+        [string] $CaseName
+    )
+
+    $candidateKeys = @($Source, $ResolvedSource, $CaseName)
+    foreach ($key in $candidateKeys) {
+        if ($CaseArgs.ContainsKey($key)) {
+            return Convert-ToStringArray $CaseArgs[$key]
+        }
+    }
+
+    return @()
+}
+
 function Invoke-Axc {
     param(
         [string] $Axc,
@@ -382,11 +456,17 @@ foreach ($source in $SourcePath) {
 
     $caseName = [System.IO.Path]::GetFileNameWithoutExtension($resolvedSource)
     $caseOutDir = Join-Path $OutputRoot $caseName
+    $programArgs = @(Get-CaseArguments -Source $source -ResolvedSource $resolvedSource -CaseName $caseName)
 
     $check = Invoke-Axc -Axc $axc -Arguments @("check", $resolvedSource)
     Assert-Equal -Label "$source check exit code" -Actual ([int] $check.ExitCode) -Expected 0
 
-    $interpreter = Invoke-Axc -Axc $axc -Arguments @("run", $resolvedSource)
+    $runArgs = @("run", $resolvedSource)
+    if ($programArgs.Count -gt 0) {
+        $runArgs += "--"
+        $runArgs += $programArgs
+    }
+    $interpreter = Invoke-Axc -Axc $axc -Arguments $runArgs
 
     $build = Invoke-Axc -Axc $axc -Arguments @(
         "build",
@@ -403,7 +483,7 @@ foreach ($source in $SourcePath) {
         Write-Error "AOT parity build stdout was not valid manifest JSON for $source.`nstdout:`n$($build.Stdout)`nstderr:`n$($build.Stderr)"
     }
 
-    Assert-Equal -Label "$source manifest schema_version" -Actual ([int] $manifest.schema_version) -Expected 9
+    Assert-Equal -Label "$source manifest schema_version" -Actual ([int] $manifest.schema_version) -Expected 10
     Assert-Equal -Label "$source aot_readiness.schema_version" -Actual ([int] $manifest.aot_readiness.schema_version) -Expected 3
     Assert-Equal -Label "$source user_code_valid" -Actual ([bool] $manifest.user_code_valid) -Expected $true
     Assert-Equal -Label "$source interpreter_supported" -Actual ([bool] $manifest.interpreter_supported) -Expected $true
@@ -422,7 +502,7 @@ foreach ($source in $SourcePath) {
         Write-Error "AOT parity executable is missing for $source`: $executablePath"
     }
 
-    $executable = Invoke-Process -FilePath $executablePath
+    $executable = Invoke-Process -FilePath $executablePath -Arguments $programArgs
     Assert-ProcessResultEqual -CaseLabel $source -Interpreter $interpreter -Executable $executable
 
     Write-Host "AOT parity passed: $source exit=$($executable.ExitCode) exe=$executablePath"

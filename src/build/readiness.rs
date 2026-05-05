@@ -37,7 +37,12 @@ pub fn assess_aot_readiness(program: &AstProgram, input: AotReadinessInput<'_>) 
         feature.starts_with("host_")
             && !matches!(
                 feature.as_str(),
-                "host_stdio" | "host_argv" | "host_env" | "host_fs_read" | "host_fs_write"
+                "host_stdio"
+                    | "host_argv"
+                    | "host_env"
+                    | "host_fs_read"
+                    | "host_fs_write"
+                    | "host_process"
             )
     }) {
         blockers.push(AotReadinessBlocker::new(
@@ -62,7 +67,12 @@ pub fn assess_aot_readiness(program: &AstProgram, input: AotReadinessInput<'_>) 
                 || (feature.starts_with("host_")
                     && !matches!(
                         feature.as_str(),
-                        "host_stdio" | "host_argv" | "host_env" | "host_fs_read" | "host_fs_write"
+                        "host_stdio"
+                            | "host_argv"
+                            | "host_env"
+                            | "host_fs_read"
+                            | "host_fs_write"
+                            | "host_process"
                     ))
         });
 
@@ -506,6 +516,9 @@ fn collect_call_aot_features(name: &str, features: &mut BTreeSet<String>) {
     if name.starts_with("process_") || name.starts_with("std.process.") {
         features.insert("host_process".to_string());
     }
+    if name.starts_with("path_") || name.starts_with("std.path.") {
+        features.insert("path_runtime".to_string());
+    }
     if name.starts_with("string_list_") || name.starts_with("std.collections.") {
         features.insert("string_list_runtime".to_string());
     }
@@ -527,7 +540,6 @@ fn collect_call_aot_features(name: &str, features: &mut BTreeSet<String>) {
     } else if name.starts_with("string_")
         || name.starts_with("std.text.")
         || name.starts_with("std.report.")
-        || name.starts_with("std.path.")
     {
         features.insert("string_runtime".to_string());
     }

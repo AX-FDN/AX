@@ -142,6 +142,34 @@ return 0;
 }
 
 #[test]
+fn aot_readiness_allows_host_process_without_host_runtime_blocker() {
+    let readiness = readiness_for(
+        "\
+fn main() -> i32 {
+let cwd: string = process_cwd();
+let status: i32 = process_run_in(cwd, \"exit 0\");
+let output: string = process_capture(\"echo AX\");
+println(output);
+return status;
+}
+",
+        AotReadinessInput {
+            is_project: false,
+            has_local_path_packages: false,
+            package_lock_status: None,
+        },
+    );
+
+    assert!(readiness.single_file_core_candidate);
+    assert_eq!(blocker_codes(&readiness), vec!["AOT0001"]);
+    assert!(
+        readiness
+            .required_backend_features
+            .contains(&"host_process".to_string())
+    );
+}
+
+#[test]
 fn aot_readiness_allows_filesystem_read_subset_without_host_runtime_blocker() {
     let readiness = readiness_for(
         "\
@@ -205,6 +233,39 @@ return 0;
         readiness
             .required_backend_features
             .contains(&"host_fs_write".to_string())
+    );
+}
+
+#[test]
+fn aot_readiness_allows_path_runtime_subset_without_host_runtime_blocker() {
+    let readiness = readiness_for(
+        "\
+fn main() -> i32 {
+let path: string = path_join(\"build\", \"artifact.txt\");
+let parent: string = path_parent(path);
+let name: string = path_file_name(path);
+let stem: string = path_stem(name);
+let extension: string = path_extension(name);
+let resolved: string = path_resolve(parent);
+if (path_is_absolute(resolved)) {
+    return string_len(stem) + string_len(extension);
+}
+return 0;
+}
+",
+        AotReadinessInput {
+            is_project: false,
+            has_local_path_packages: false,
+            package_lock_status: None,
+        },
+    );
+
+    assert!(readiness.single_file_core_candidate);
+    assert_eq!(blocker_codes(&readiness), vec!["AOT0001"]);
+    assert!(
+        readiness
+            .required_backend_features
+            .contains(&"path_runtime".to_string())
     );
 }
 

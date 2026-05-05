@@ -440,6 +440,44 @@ return 1;
 }
 
 #[test]
+fn renders_process_builtins_from_native_process_abi_v0() {
+    let rendered = render(
+        "\
+fn main() -> i32 {
+let cwd: string = process_cwd();
+let status: i32 = process_run(\"exit 0\");
+let nested: i32 = process_run_in(\".\", \"exit 0\");
+let output: string = process_capture(\"echo AX\");
+let nested_output: string = process_capture_in(\".\", \"echo OK\");
+println(cwd);
+println(output + nested_output);
+return status + nested;
+}
+",
+    );
+
+    assert!(rendered.contains("declare i32 @system(ptr)"));
+    if cfg!(windows) {
+        assert!(rendered.contains("declare i32 @SetCurrentDirectoryA(ptr)"));
+        assert!(rendered.contains("declare ptr @_popen(ptr, ptr)"));
+        assert!(rendered.contains("declare i32 @_pclose(ptr)"));
+    } else {
+        assert!(rendered.contains("declare i32 @chdir(ptr)"));
+        assert!(rendered.contains("declare ptr @popen(ptr, ptr)"));
+        assert!(rendered.contains("declare i32 @pclose(ptr)"));
+    }
+    assert!(rendered.contains("define private i32 @ax_process_run(ptr %command)"));
+    assert!(rendered.contains("define private i32 @ax_process_run_in(ptr %dir, ptr %command)"));
+    assert!(rendered.contains("define private ptr @ax_process_capture(ptr %command)"));
+    assert!(rendered.contains("define private ptr @ax_process_capture_in(ptr %dir, ptr %command)"));
+    assert!(rendered.contains("call ptr @ax_process_cwd()"));
+    assert!(rendered.contains("call i32 @ax_process_run(ptr"));
+    assert!(rendered.contains("call i32 @ax_process_run_in(ptr"));
+    assert!(rendered.contains("call ptr @ax_process_capture(ptr"));
+    assert!(rendered.contains("call ptr @ax_process_capture_in(ptr"));
+}
+
+#[test]
 fn renders_fs_read_builtins_from_native_filesystem_v0() {
     let rendered = render(
         "\
@@ -550,6 +588,46 @@ return 0;
     assert!(rendered.contains("call void @ax_fs_remove_dir_all(ptr"));
     assert!(rendered.contains("call void @ax_fs_rename(ptr"));
     assert!(rendered.contains("call void @ax_fs_remove_file(ptr"));
+}
+
+#[test]
+fn renders_path_runtime_builtins_v0() {
+    let rendered = render(
+        "\
+fn main() -> i32 {
+let joined: string = path_join(\"build\", \"artifact.txt\");
+let parent: string = path_parent(joined);
+let resolved: string = path_resolve(parent);
+println(path_file_name(joined));
+println(path_stem(joined));
+println(path_extension(joined));
+if (path_is_absolute(resolved)) {
+    return string_len(parent);
+}
+return 0;
+}
+",
+    );
+
+    assert!(rendered.contains("define private ptr @ax_path_join(ptr %base, ptr %name)"));
+    assert!(rendered.contains("define private ptr @ax_path_parent(ptr %path)"));
+    assert!(rendered.contains("define private ptr @ax_path_resolve(ptr %path)"));
+    assert!(rendered.contains("define private ptr @ax_path_file_name(ptr %path)"));
+    assert!(rendered.contains("define private ptr @ax_path_stem(ptr %path)"));
+    assert!(rendered.contains("define private ptr @ax_path_extension(ptr %path)"));
+    assert!(rendered.contains("define private i1 @ax_path_is_absolute(ptr %path)"));
+    if cfg!(windows) {
+        assert!(rendered.contains("store i8 92, ptr %separator"));
+        assert!(rendered.contains("store i8 92, ptr %slash"));
+        assert!(!rendered.contains("store i8 47, ptr %separator"));
+    } else {
+        assert!(rendered.contains("store i8 47, ptr %separator"));
+    }
+    assert!(rendered.contains("call ptr @ax_path_join(ptr"));
+    assert!(rendered.contains("call ptr @ax_path_parent(ptr"));
+    assert!(rendered.contains("call ptr @ax_path_resolve(ptr"));
+    assert!(rendered.contains("call ptr @ax_path_file_name(ptr"));
+    assert!(rendered.contains("call i1 @ax_path_is_absolute(ptr"));
 }
 
 #[test]
@@ -2190,4 +2268,86 @@ return match (result) { Result.Ok(text) => string_len(text), Result.Err(message)
     assert!(rendered.contains("try_err_"));
     assert!(rendered.contains("try_ok_"));
     assert!(rendered.contains("ret %ax_enum_Result_string__string_"));
+}
+
+#[test]
+fn renders_generic_result_adapter_inferred_from_nested_call_argument_v0() {
+    let rendered = render(
+        "\
+enum Result<T, E> {
+Ok(T),
+Err(E),
+}
+
+enum ConfigError {
+Io(string),
+}
+
+fn from_io<T>(value: Result<T, string>) -> Result<T, ConfigError> {
+return match (value) {
+    Result.Ok(found) => Result.Ok(found),
+    Result.Err(message) => Result.Err(ConfigError.Io(message)),
+};
+}
+
+fn read_text() -> Result<string, string> {
+return Result.Ok(\"cfg\");
+}
+
+fn validate() -> Result<string, ConfigError> {
+let contents: string = from_io(read_text())?;
+return Result.Ok(contents);
+}
+
+fn main() -> i32 {
+let result: Result<string, ConfigError> = validate();
+return match (result) {
+    Result.Ok(text) => string_len(text),
+    Result.Err(_) => 1,
+};
+}
+",
+    );
+
+    assert!(rendered.contains("%ax_enum_Result_string__string_ = type { i32, ptr }"));
+    assert!(rendered.contains("%ax_enum_Result_string__ConfigError_ = type { i32, ptr }"));
+    assert!(rendered.contains("define %ax_enum_Result_string__ConfigError_ @ax_from_io_string"));
+    assert!(rendered.contains("call %ax_enum_Result_string__string_ @ax_read_text()"));
+    assert!(rendered.contains("call %ax_enum_Result_string__ConfigError_ @ax_from_io_string"));
+}
+
+#[test]
+fn renders_result_statement_match_payload_binding_with_concrete_type_v0() {
+    let rendered = render(
+        "\
+enum Result<T, E> {
+Ok(T),
+Err(E),
+}
+
+fn read_text() -> Result<string, string> {
+return Result.Ok(\"cfg\");
+}
+
+fn main() -> i32 {
+let result: Result<string, string> = read_text();
+match (result) {
+    Result.Ok(report_path) => {
+        println(\"ok=\" + report_path);
+        return 0;
+    }
+    Result.Err(message) => {
+        println(\"err=\" + message);
+        return 1;
+    }
+}
+return 2;
+}
+",
+    );
+
+    assert!(rendered.contains("%ax_enum_Result_string__string_ = type { i32, ptr }"));
+    assert!(rendered.contains("call %ax_enum_Result_string__string_ @ax_read_text()"));
+    assert!(rendered.contains("call ptr @ax_string_concat(ptr"));
+    assert!(rendered.contains("ret i32 0"));
 }

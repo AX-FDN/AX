@@ -3,8 +3,13 @@ use std::path::Path;
 
 use crate::mir::Program as MirProgram;
 
+mod abi;
+mod diagnostic;
 mod ir;
+mod linking;
+mod monomorph;
 mod runtime;
+mod symbols;
 mod toolchain;
 
 const GENERATED_DIR: &str = "generated";
@@ -148,11 +153,13 @@ pub fn build(mir: &MirProgram, options: LlvmAotOptions<'_>) -> Result<LlvmAotRes
         });
     }
 
-    let link_outcome = match options.link_mode {
-        LlvmAotLinkMode::Environment => toolchain::link_if_enabled(&llvm_ir_path, &executable_path),
-        LlvmAotLinkMode::Force => toolchain::link_executable(&llvm_ir_path, &executable_path),
-        LlvmAotLinkMode::Skip => unreachable!("skip mode returned before linking"),
-    };
+    let link_plan = linking::NativeLinkPlan::single_ir_executable(
+        options.target_name,
+        &llvm_ir_path,
+        &executable_path,
+        options.link_mode,
+    );
+    let link_outcome = linking::execute(&link_plan);
 
     match link_outcome {
         toolchain::LinkOutcome::Skipped => {

@@ -1,0 +1,34 @@
+const SAMPLE_PATH: string = "build/aot_path_runtime/note.txt";
+
+fn main() -> i32 {
+    let parent: string = path_parent(SAMPLE_PATH);
+    let name: string = path_file_name(SAMPLE_PATH);
+    let stem: string = path_stem(SAMPLE_PATH);
+    let extension: string = path_extension(SAMPLE_PATH);
+    let joined: string = path_join(parent, name);
+    let resolved: string = path_resolve(parent);
+
+    println("name=" + name);
+    println("stem=" + stem);
+    println("extension=" + extension);
+
+    if (!string_contains(parent, "aot_path_runtime")) {
+        return 10;
+    }
+    if (name != "note.txt") {
+        return 11;
+    }
+    if (stem != "note") {
+        return 12;
+    }
+    if (extension != "txt") {
+        return 13;
+    }
+    if (!string_contains(joined, "note.txt")) {
+        return 14;
+    }
+    if (!path_is_absolute(resolved)) {
+        return 15;
+    }
+    return 0;
+}

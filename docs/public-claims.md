@@ -43,14 +43,18 @@
 - AI 增强诊断已经包含 `rule_id / repair_goal / fixits / context_snippets`。
 - `axc context` 已经提供 `overview / boundaries / topology / flow / symbol / impact / evidence` 七个视图。
 - repair benchmark 已经有 manifest、export、adapter spec、run、score、compare、smoke 链路。
-- 当前 full repair manifest 有 `30` 个 case。
+- 当前 full repair manifest 有 `43` 个 case。
 - 当前 deterministic replay 可复现 `cold 23/30`、`base 25/30`、`ai 30/30`。
 - `export-repair-benchmark.ps1 -IncludeContext` 已能把 `overview / boundaries / evidence` 写入 repair bundle 与 prompt。
-- `Repair Archaeology v0` 已进入规划，目标是把仓库内 replay / score / compare 事实整理成 case 级 JSON / Markdown 报告。
+- `Repair Archaeology v0` 已有 artifact schema、最小导出脚本和固定 smoke；后续目标是把仓库内 replay / score / compare 事实继续整理成更完整的 case 级 JSON / Markdown 报告。
 - 本地 path package v0 已进入主线，项目可以通过 `[dependencies] alias = { path = ... }` 复用本地 AX 源码包。
 - 本地 path package v0 已有 `PX0001~PX0007` 稳定 resolver 错误码，并能在 context 中暴露 `local_path_packages`。
 - `AX.lock` v0 已进入主线，可通过 `axc lock <project> [--check]` 生成或校验本地 path package 图。
 - context `overview/topology/evidence` 已能暴露 `local_package_lock` 状态，供 agent 判断本地包锁文件是否缺失、当前有效、过期或不可读。
+- `axc build` 已进入 LLVM AOT v0，`build-manifest.json` 当前 schema version 为 `10`，`aot_readiness.schema_version` 为 `3`。
+- 当前默认 AOT parity smoke 覆盖 `123` 个 run-vs-exe 样例，其中 `26` 个是 `AX.toml` project 样例，仓库内全部 project 示例都已列入默认清单。
+- AX Native ABI v1 已有文档收口：`string = ptr`、`slice = { ptr, i32 }`、`string_list = opaque ptr`，当前内存策略是 process-lifetime allocation v0。
+- curated package registry v0 已有设计文档；当前是计划和契约，不是公共上传服务。
 - Windows 是 full workflow 平台，Linux 是 core support 平台，macOS 尚未进入承诺范围。
 
 ## 可以作为目标说，但不能作为结论说的内容
@@ -92,11 +96,11 @@
 
 引用 Repair Archaeology 时，使用这句话：
 
-> Repair Archaeology v0 is a planned evidence display layer over AX's existing repair benchmark artifacts. It will explain individual replay cases as JSON and Markdown reports; it is not a live-model claim and not an agent runtime.
+> Repair Archaeology v0 is the first evidence display layer over AX's existing repair benchmark artifacts. Its artifact schema and minimal export/smoke are already in-repo, and it will keep growing into richer JSON and Markdown case reports. It is not a live-model claim and not an agent runtime.
 
 中文：
 
-> Repair Archaeology v0 是计划中的证据展示层，建立在 AX 现有 repair benchmark 产物之上。它会把单个 replay case 解释成 JSON 和 Markdown 报告；它不是 live-model 结论，也不是 agent 运行时。
+> Repair Archaeology v0 是 AX 现有 repair benchmark 产物之上的第一层证据展示面。它的 artifact schema 与最小导出/smoke 已经进入仓库，后续会继续长成更完整的 JSON 和 Markdown case 报告；它不是 live-model 结论，也不是 agent 运行时。
 
 ## Context 引用口径
 
@@ -134,4 +138,8 @@ AX 应该被表述为语言项目，而不是纯 research harness：
 - live-model benchmark 结果进入仓库
 - cross-language benchmark 结果进入仓库
 - Repair Archaeology artifact schema 或报告入口进入仓库
+- AOT parity 默认样例数量或 project 样例数量变化
+- `build-manifest.json` / `aot_readiness` schema version 变化
+- package registry 从设计进入可安装/可上传实现
+- AX 0.1 Alpha release scope 变化
 - 平台支持等级变化

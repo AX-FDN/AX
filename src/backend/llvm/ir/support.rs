@@ -346,7 +346,7 @@ pub(super) fn ensure_string_argument(
     name: &str,
     value: &LlvmValue,
 ) -> Result<(), String> {
-    if value.ty == "ptr" && matches!(value.ax_ty.as_ref(), Some(Type::String)) {
+    if value.ty == abi::STRING_LLVM_TYPE && matches!(value.ax_ty.as_ref(), Some(Type::String)) {
         Ok(())
     } else {
         Err(format!(
@@ -360,7 +360,9 @@ pub(super) fn ensure_string_list_argument(
     name: &str,
     value: &LlvmValue,
 ) -> Result<(), String> {
-    if value.ty == "ptr" && matches!(value.ax_ty.as_ref(), Some(Type::StringList)) {
+    if value.ty == abi::STRING_LIST_LLVM_TYPE
+        && matches!(value.ax_ty.as_ref(), Some(Type::StringList))
+    {
         Ok(())
     } else {
         Err(format!(
@@ -456,10 +458,9 @@ pub(super) fn llvm_type(
     enum_layouts: &BTreeMap<String, EnumLayout>,
 ) -> Option<String> {
     match ty {
-        Type::Bool => Some("i1".to_string()),
-        Type::I32 => Some("i32".to_string()),
-        Type::F32 => Some("float".to_string()),
-        Type::String | Type::StringList => Some("ptr".to_string()),
+        Type::Bool | Type::I32 | Type::F32 | Type::String | Type::StringList => {
+            abi::primitive_llvm_type(ty).map(str::to_string)
+        }
         Type::Array { element, length } => {
             let element_ty = llvm_type(element, layouts, enum_layouts)?;
             Some(format!("[{length} x {element_ty}]"))
@@ -480,7 +481,7 @@ pub(super) fn llvm_type(
 }
 
 pub(super) fn slice_llvm_type() -> String {
-    "{ ptr, i32 }".to_string()
+    abi::slice_llvm_type().to_string()
 }
 
 pub(super) fn enum_layout_for_static_type<'a>(
@@ -639,19 +640,7 @@ pub(super) fn struct_field_formatter_label(field_name: &str) -> String {
 }
 
 pub(super) fn llvm_symbol(name: &str) -> String {
-    if name == "main" {
-        return "main".to_string();
-    }
-
-    let mut symbol = String::from("ax_");
-    for ch in name.chars() {
-        if ch.is_ascii_alphanumeric() || ch == '_' {
-            symbol.push(ch);
-        } else {
-            symbol.push('_');
-        }
-    }
-    symbol
+    symbols::user_function(name)
 }
 
 pub(super) fn ax_type_name(ty: &Type) -> String {

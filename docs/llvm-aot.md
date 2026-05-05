@@ -13,9 +13,9 @@ axc run <file-or-project>
 `axc build` 现在有两层职责：
 
 - 始终导出稳定构建资产：`source.ax`、`program.hir.json`、`program.mir.json`、`build-manifest.json`
-- 对持续扩展的 MIR 子集尝试生成文本 LLVM IR：`generated/main.ll`，当前已包含单入口、多文件、`module/import` 与 `std.option/std.result` 与纯函数 local path package `AX.toml` project-backed AOT
+- 对持续扩展的 MIR 子集尝试生成文本 LLVM IR：`generated/main.ll`，当前已包含单入口、多文件、`module/import`、多组 `std.*` project、host runtime v0 和 local path package `AX.toml` project-backed AOT
 
-这意味着 AOT 已经从“只有 readiness 规划”进入“可观察、可链接、可和解释器对照的 IR artifact v0”，但还没有变成成熟 native executable 输出链。
+这意味着 AOT 已经从“只有 readiness 规划”进入“可观察、可链接、可和解释器对照的 IR artifact v0”。它已经能在当前子集内生成 native executable，但仍不是成熟发布级 native backend。
 
 ## 生成路径
 
@@ -35,20 +35,34 @@ AX source
 
 - `src/backend/mod.rs`
 - `src/backend/llvm/mod.rs`
+- `src/backend/llvm/abi.rs`
 - `src/backend/llvm/ir.rs`
-- `src/backend/llvm/runtime.rs`
+- `src/backend/llvm/symbols.rs`
+- `src/backend/llvm/monomorph.rs`
+- `src/backend/llvm/linking.rs`
+- `src/backend/llvm/runtime/mod.rs`
+- `src/backend/llvm/runtime/core.rs`
+- `src/backend/llvm/runtime/string.rs`
+- `src/backend/llvm/runtime/list.rs`
+- `src/backend/llvm/runtime/fs.rs`
+- `src/backend/llvm/runtime/path.rs`
+- `src/backend/llvm/runtime/process.rs`
 - `src/backend/llvm/toolchain.rs`
 
 解释器位置仍然是 `src/interpreter.rs`，LLVM AOT v0 不替换解释器，也不把解释器逻辑复制成第二套语义实现。解释器继续作为 `axc run` 的语义参考路径。
 
-`runtime.rs` 是 AOT runtime ABI 的收口点：当前负责内建 format/text globals、libc/clang 可见的外部声明、`ax_runtime_error` 最小 stderr 错误出口，以及 `ax_string_len` / `ax_string_concat` / `ax_string_replace` / `ax_string_split_lines` / `ax_string_trim` / `ax_string_list_new` / `ax_string_list_push` / `ax_string_list_get` / `ax_string_list_join` / `ax_i32_to_string` / `ax_f32_to_string` 这类文本 IR helper。后续补 host runtime、slice runtime 与更完整 string_list runtime 时，都优先在这里扩 ABI，不把 runtime 细节散落回 lowering 主流程。
+`src/backend/llvm/abi.rs` 和 [`aot-native-abi.md`](./aot-native-abi.md) 是 AX Native ABI v1 的收口点：当前固定 `string = ptr`、`slice = { ptr, i32 }`、`string_list = opaque ptr`，并把 process-lifetime allocation v0 明确成当前内存策略。`symbols.rs` 收口用户函数、方法、静态方法、泛型实例和 runtime helper 的 symbol 生成入口，第一轮保持 `main` / `ax_<sanitized_name>` 兼容输出。
+
+`runtime/` 是 AOT runtime ABI 的实现分区：`core.rs` 负责内建 format/text globals、libc/clang 可见的外部声明和 `ax_runtime_error` 最小 stderr 错误出口；`string.rs`、`list.rs`、`fs.rs`、`path.rs`、`process.rs` 分别承载 string、string_list、filesystem、path、process helper。`runtime/mod.rs` 对外仍保留原来的 `write_*` 入口，调用方不需要感知拆分。后续补 host runtime、slice runtime 与更完整 std/native package runtime 时，都优先在这里扩 ABI，不把 runtime 细节散落回 lowering 主流程。
+
+`monomorph.rs` 现在提供 `MonomorphizationPlan`，集中记录当前 AOT 使用到的 reachable functions 和 concrete generic instances；`linking.rs` 现在提供 `NativeLinkPlan`，把当前单个 `generated/main.ll` 链接 executable 的行为计划化。当前 CLI、manifest schema 和 IR 符号兼容性保持不变。
 
 ## 当前支持的最小子集
 
 LLVM IR v0 先支持核心子集，并按 parity 样例逐包扩展：
 
 - `fn main() -> i32`
-- Project-backed AOT：当前已经覆盖单入口 [`examples/project_hello`](../examples/project_hello/)、多文件 [`examples/project_split`](../examples/project_split/)、`module/import` [`examples/project_module_smoke`](../examples/project_module_smoke/) 、`std.option/std.result` [`examples/project_option_result`](../examples/project_option_result/)、`std.collections` [`examples/project_collections_core`](../examples/project_collections_core/)、`std.env` [`examples/project_env_result`](../examples/project_env_result/) 和纯函数 local path package [`examples/project_package_math`](../examples/project_package_math/) native parity；更完整 local path package ABI 仍按后续 package linking 推进
+- Project-backed AOT：当前默认 parity 清单包含 26 个 `AX.toml` project 样例，覆盖单入口、多文件、`module/import`、`std.option/std.result`、`std.collections`、`std.env`、`std.fs`、`std.path`、`std.process`、真实工具型 project 和 local path package project；完整清单由 [`scripts/smoke-aot-parity.ps1`](../scripts/smoke-aot-parity.ps1) 维护
 - 同文件普通函数
 - `i32`，包含 negation/add/sub/mul/div/rem overflow、除零和取余零的最小 runtime error guard
 - `bool`
@@ -65,6 +79,7 @@ LLVM IR v0 先支持核心子集，并按 parity 样例逐包扩展：
 - `string + string`，当前通过 process-lifetime `malloc` 分配拼接结果，暂不回收
 - `argv_len()` / `argv_get(index)` v0：native `main(argc, argv)` 会把 CLI 参数暴露给 AX，`argv_get(0)` 对应用户传入的第一个参数
 - `env_has(name)` / `env_get(name)` v0：当前通过 C ABI `getenv` 读取宿主环境变量；`env_get` 缺失时输出 `R0053` runtime error，`std.env.try_get` 可通过 `env_has` 避免失败路径
+- `process_cwd()` / `process_run(command)` / `process_run_in(dir, command)` / `process_capture(command)` / `process_capture_in(dir, command)` host process ABI v0：当前通过 C ABI `system`、`popen/_popen`、`pclose/_pclose` 和 cwd 切换 helper 实现；`capture` 非零退出会进入 native runtime error，适合先覆盖短 stdout 命令和 `std.process` run/status 封装
 - 固定长度数组 v0：非空 array literal、显式零长度 array literal（例如 `let values: [i32; 0] = []`）、局部变量、函数参数 by value、索引读取、元素写入、`len(array)`、`to_string(array)`、直接 `println(array)` 与 element-wise `==` / `!=`；当前主要验证 `[i32; N]` / `[bool; N]` / `[string; N]`
 - Slice v0：固定数组可形成 `{ ptr, i32 len }` slice，支持 `values[start:end]` 半开区间、`len(slice)`、`slice[index]` 读取、mutable slice element assignment、`to_string(slice)`、直接 `println(slice)`、同文件 slice 参数调用和 element-wise `==` / `!=`，并支撑 `for in` over fixed array 与 `values[start:end]` slice range 直接遍历；`string_split_lines(text)` 返回的 `[string]` slice 也已支持 `len(lines)`、`lines[i]` 和 `for in`；当前 range slice 是 copy-backed value，除 `string_split_lines` 外的 host/runtime slice 来源和跨项目 slice ABI 仍未进入完整 native contract
 - Struct v0：非泛型 struct 定义、struct literal、局部变量、函数参数 by value、返回值、字段读取、字段写入、字段级 `==` / `!=`、`to_string(struct)` 与直接 `println(struct)`
@@ -125,6 +140,7 @@ axc build examples/aot_string_split_lines.ax
 axc build examples/aot_string_split_lines_for_in.ax
 axc build examples/aot_string_trim.ax
 axc build examples/string_list.ax
+axc build examples/aot_process_runtime.ax
 axc build examples/aot_argv.ax
 axc build examples/string_match.ax
 axc build examples/aot_array_read.ax
@@ -175,13 +191,11 @@ build/aot_return/
 - 除 `string_split_lines` 外的 host/runtime slice 来源、跨项目 slice ABI 和更完整的 slice ownership / lifetime contract
 - `len(...)` 作用于尚未由 AOT slice v0 表达的复杂 slice 来源
 - 更完整的通用 `string` ownership / allocation / free 规则
-- 更完整的宿主 IO runtime ABI
-- 除 `string_split_lines` 外的 host/runtime slice 来源、跨项目 slice ABI 和完整 slice ownership / lifetime contract
+- 更完整的宿主 IO runtime ABI；当前 fs/path/process/env 已有 v0，但不是完整 host extension ABI
 - 更深层组合 enum payload formatter / 更深层组合 payload equality / binding-bearing or pattern lowering
 - 跨项目 methods / impl / traits / generics native linking，以及完整 project/std monomorphization
 - 更完整 `std`/native package monomorphization 与 helper native linking
-- multi-file project linking
-- 更完整 local path package native linking（纯函数 path package 已有第一刀 parity）
+- 更完整 local path package native linking（当前已有 project-backed 第一批 parity，不等于完整跨包 ABI 冻结）
 - registry package
 - host extension ABI
 
@@ -286,60 +300,9 @@ LLVM AOT parity smoke：
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke-aot-parity.ps1
 ```
 
-这条 smoke 是 G3 的核心验证入口。它会对同一批 AX core 样例依次执行 `axc check`、`axc run`、`axc build --json`、运行生成的 executable，并比较解释器与 executable 的 `exit code / stdout / stderr`。它默认覆盖：
+这条 smoke 是 G3 的核心验证入口。它会对同一批 AX core/project 样例依次执行 `axc check`、`axc run`、`axc build --json`、运行生成的 executable，并比较解释器与 executable 的 `exit code / stdout / stderr`。它默认覆盖 `123` 个样例，其中 `97` 个是单文件/直接样例，`26` 个是 `AX.toml` project 样例；仓库内全部 project 示例都已列入默认清单。
 
-- `examples/aot_return.ax`
-- `examples/aot_math.ax`
-- `examples/aot_control_flow.ax`
-- `examples/aot_loop.ax`
-- `examples/consts.ax`
-- `examples/modulo.ax`
-- `examples/for_loop.ax`
-- `examples/break_loop.ax`
-- `examples/continue.ax`
-- `examples/for_in.ax`
-- `examples/aot_slice_range.ax`
-- `examples/aot_slice_for_in.ax`
-- `examples/aot_slice_to_string.ax`
-- `examples/aot_bool_logic.ax`
-- `examples/aot_comparisons.ax`
-- `examples/aot_nested_calls.ax`
-- `examples/aot_print.ax`
-- `examples/aot_print_string.ax`
-- `examples/aot_string_values.ax`
-- `examples/aot_string_len_compare.ax`
-- `examples/aot_string_runtime.ax`
-- `examples/aot_string_predicates.ax`
-- `examples/aot_string_replace.ax`
-- `examples/aot_string_split_lines.ax`
-- `examples/aot_string_split_lines_for_in.ax`
-- `examples/aot_string_trim.ax`
-- `examples/string_list.ax`
-- `examples/project_collections_core`
-- `examples/project_env_result`
-- `examples/string_match.ax`
-- `examples/aot_array_read.ax`
-- `examples/aot_array_write.ax`
-- `examples/aot_array_to_string.ax`
-- `examples/aot_struct_read.ax`
-- `examples/aot_struct_write.ax`
-- `examples/aot_struct_to_string.ax`
-- `examples/match_struct_pattern.ax`
-- `examples/aot_enum_unit.ax`
-- `examples/aot_enum_match.ax`
-- `examples/aot_payload_enum.ax`
-- `examples/aot_payload_enum_equality.ax`
-- `examples/aot_enum_to_string.ax`
-- `examples/aot_enum_print.ax`
-- `examples/aot_enum_array_payload.ax`
-- `examples/aot_enum_struct_slice_payload.ax`
-- `examples/aot_generic_enum_print.ax`
-- `examples/aot_match_expression.ax`
-- `examples/match_range.ax`
-- `examples/match_or.ax`
-- `examples/match_guard.ax`
-- `examples/aot_result_option.ax`
-- `examples/aot_result_try.ax`
+默认清单由 [`scripts/smoke-aot-parity.ps1`](../scripts/smoke-aot-parity.ps1) 维护，不在本文复制长列表，避免文档和脚本漂移。覆盖范围包括 core/control-flow/consts/f32-core/stdout/string/string-runtime/string-list/std-collections/std-env/std-fs/std-path/std-process/argv/array/slice/struct/enum/match/concrete generic enum/Result/project-backed/local path package。部分 side-effect-heavy project 仍可能通过受控失败路径做 parity，后续会通过 per-backend fixture isolation 继续把它们收口到成功路径。
 
 有 clang 的 CI 应优先跑 parity smoke，因为它不只证明“能链接 exe”，还证明当前 AOT executable 没有偏离解释器语义。Ubuntu CI 会安装 `clang` 后跑这条验证。没有 clang 的本机不要求这条通过；必须保证默认 IR-only 路径和缺 clang 的 `AOT1001` blocker 路径稳定。
 

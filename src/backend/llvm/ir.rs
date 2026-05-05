@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 use std::fmt::Write;
 
 use crate::hir::{EnumVariant, EnumVariantPayloadPattern, StructField};
@@ -8,11 +8,11 @@ use crate::mir::{
     StructLiteralField, TerminatorKind, Type, UnaryOp,
 };
 
-use super::runtime;
+use super::{abi, diagnostic, monomorph, runtime, symbols};
 
 mod emitter;
 mod layout;
-mod specialization;
+pub(in crate::backend::llvm) mod specialization;
 mod support;
 
 use self::layout::*;
@@ -104,33 +104,45 @@ struct FunctionEmitter<'a> {
 }
 
 pub fn render_program(program: &Program) -> Result<String, Vec<String>> {
+    render_program_with_diagnostics(program).map_err(diagnostic::user_messages)
+}
+
+fn render_program_with_diagnostics(
+    program: &Program,
+) -> Result<String, Vec<diagnostic::AotLoweringDiagnostic>> {
     let mut unsupported = Vec::new();
     let mut signatures = BTreeMap::new();
     let enum_layouts = match collect_enum_layouts(program) {
         Ok(layouts) => layouts,
         Err(reasons) => {
-            unsupported.extend(reasons);
+            unsupported.extend(
+                reasons
+                    .into_iter()
+                    .map(diagnostic::AotLoweringDiagnostic::llvm_lowering),
+            );
             BTreeMap::new()
         }
     };
     let layouts = match collect_struct_layouts(program, &enum_layouts) {
         Ok(layouts) => layouts,
         Err(reasons) => {
-            unsupported.extend(reasons);
+            unsupported.extend(
+                reasons
+                    .into_iter()
+                    .map(diagnostic::AotLoweringDiagnostic::llvm_lowering),
+            );
             BTreeMap::new()
         }
     };
-    let (reachable, specializations) = match collect_reachable_functions(program) {
-        Ok(reachable) => reachable,
+    let monomorph_plan = match monomorph::plan_program(program) {
+        Ok(plan) => plan,
         Err(reasons) => {
-            unsupported.extend(reasons);
-            (
-                ReachableFunctions {
-                    functions: BTreeSet::new(),
-                    specializations: BTreeSet::new(),
-                },
-                BTreeMap::new(),
-            )
+            unsupported.extend(
+                reasons
+                    .into_iter()
+                    .map(diagnostic::AotLoweringDiagnostic::monomorphization),
+            );
+            monomorph::MonomorphizationPlan::empty()
         }
     };
 
@@ -148,12 +160,15 @@ pub fn render_program(program: &Program) -> Result<String, Vec<String>> {
                 if !type_params.is_empty() {
                     continue;
                 }
-                if !reachable.functions.contains(name) {
+                if !monomorph_plan.reachable_functions().contains(name) {
                     continue;
                 }
                 if !type_param_bounds.is_empty() {
-                    unsupported.push(format!(
-                        "function `{name}` uses trait bounds, which LLVM AOT v0 does not lower"
+                    unsupported.push(diagnostic::AotLoweringDiagnostic::aot_readiness(
+                        "trait_bounds",
+                        format!(
+                            "function `{name}` uses trait bounds, which LLVM AOT v0 does not lower"
+                        ),
                     ));
                     continue;
                 }
@@ -162,10 +177,13 @@ pub fn render_program(program: &Program) -> Result<String, Vec<String>> {
                 for param in params {
                     match llvm_type(&param.ty, &layouts, &enum_layouts) {
                         Some(ty) => lowered_params.push(ty),
-                        None => unsupported.push(format!(
-                            "function `{name}` parameter `{}` uses unsupported type {}",
-                            param.name,
-                            ax_type_name(&param.ty)
+                        None => unsupported.push(diagnostic::AotLoweringDiagnostic::runtime_abi(
+                            ax_type_name(&param.ty),
+                            format!(
+                                "function `{name}` parameter `{}` uses unsupported type {}",
+                                param.name,
+                                ax_type_name(&param.ty)
+                            ),
                         )),
                     }
                 }
@@ -173,9 +191,12 @@ pub fn render_program(program: &Program) -> Result<String, Vec<String>> {
                 let return_ax_type = return_type.clone();
                 let Some(lowered_return_type) = llvm_type(return_type, &layouts, &enum_layouts)
                 else {
-                    unsupported.push(format!(
-                        "function `{name}` returns unsupported type {}",
-                        ax_type_name(return_type)
+                    unsupported.push(diagnostic::AotLoweringDiagnostic::runtime_abi(
+                        ax_type_name(return_type),
+                        format!(
+                            "function `{name}` returns unsupported type {}",
+                            ax_type_name(return_type)
+                        ),
                     ));
                     continue;
                 };
@@ -193,9 +214,12 @@ pub fn render_program(program: &Program) -> Result<String, Vec<String>> {
             }
             ItemKind::Const { name, ty, value } => {
                 if llvm_type(ty, &layouts, &enum_layouts).is_none() {
-                    unsupported.push(format!(
-                        "top-level const `{name}` uses unsupported type {}",
-                        ax_type_name(ty)
+                    unsupported.push(diagnostic::AotLoweringDiagnostic::runtime_abi(
+                        ax_type_name(ty),
+                        format!(
+                            "top-level const `{name}` uses unsupported type {}",
+                            ax_type_name(ty)
+                        ),
                     ));
                     continue;
                 }
@@ -212,10 +236,7 @@ pub fn render_program(program: &Program) -> Result<String, Vec<String>> {
         }
     }
 
-    for specialization in specializations
-        .values()
-        .filter(|specialization| reachable.specializations.contains(&specialization.key))
-    {
+    for specialization in monomorph_plan.used_concrete_instances() {
         let Some(FunctionSource {
             type_params,
             params,
@@ -223,9 +244,11 @@ pub fn render_program(program: &Program) -> Result<String, Vec<String>> {
             ..
         }) = find_function_source(program, &specialization.source_name)
         else {
-            unsupported.push(format!(
-                "generic method specialization `{}` has no source function `{}`",
-                specialization.key, specialization.source_name
+            unsupported.push(diagnostic::AotLoweringDiagnostic::monomorphization(
+                format!(
+                    "generic method specialization `{}` has no source function `{}`",
+                    specialization.key, specialization.source_name
+                ),
             ));
             continue;
         };
@@ -233,9 +256,11 @@ pub fn render_program(program: &Program) -> Result<String, Vec<String>> {
             .iter()
             .any(|param| !specialization.substitutions.contains_key(param))
         {
-            unsupported.push(format!(
-                "generic method specialization `{}` does not bind every type parameter",
-                specialization.source_name
+            unsupported.push(diagnostic::AotLoweringDiagnostic::monomorphization(
+                format!(
+                    "generic method specialization `{}` does not bind every type parameter",
+                    specialization.source_name
+                ),
             ));
             continue;
         }
@@ -247,11 +272,14 @@ pub fn render_program(program: &Program) -> Result<String, Vec<String>> {
         for param in &specialized_params {
             match llvm_type(&param.ty, &layouts, &enum_layouts) {
                 Some(ty) => lowered_params.push(ty),
-                None => unsupported.push(format!(
-                    "function `{}` parameter `{}` uses unsupported type {}",
-                    specialization.key,
-                    param.name,
-                    ax_type_name(&param.ty)
+                None => unsupported.push(diagnostic::AotLoweringDiagnostic::runtime_abi(
+                    ax_type_name(&param.ty),
+                    format!(
+                        "function `{}` parameter `{}` uses unsupported type {}",
+                        specialization.key,
+                        param.name,
+                        ax_type_name(&param.ty)
+                    ),
                 )),
             }
         }
@@ -259,10 +287,13 @@ pub fn render_program(program: &Program) -> Result<String, Vec<String>> {
         let Some(lowered_return_type) =
             llvm_type(&specialized_return_type, &layouts, &enum_layouts)
         else {
-            unsupported.push(format!(
-                "function `{}` returns unsupported type {}",
-                specialization.key,
-                ax_type_name(&specialized_return_type)
+            unsupported.push(diagnostic::AotLoweringDiagnostic::runtime_abi(
+                ax_type_name(&specialized_return_type),
+                format!(
+                    "function `{}` returns unsupported type {}",
+                    specialization.key,
+                    ax_type_name(&specialized_return_type)
+                ),
             ));
             continue;
         };
@@ -287,9 +318,10 @@ pub fn render_program(program: &Program) -> Result<String, Vec<String>> {
     }
 
     if !signatures.contains_key("main") {
-        return Err(vec![
-            "LLVM AOT v0 requires an explicit `fn main() -> i32` entrypoint".to_string(),
-        ]);
+        return Err(vec![diagnostic::AotLoweringDiagnostic::aot_readiness(
+            "entrypoint",
+            "LLVM AOT v0 requires an explicit `fn main() -> i32` entrypoint",
+        )]);
     }
 
     let strings = collect_string_literals(program, &layouts, &enum_layouts);
@@ -356,7 +388,7 @@ pub fn render_program(program: &Program) -> Result<String, Vec<String>> {
         if !type_params.is_empty() || !type_param_bounds.is_empty() {
             continue;
         }
-        if !reachable.functions.contains(name) {
+        if !monomorph_plan.reachable_functions().contains(name) {
             continue;
         }
 
@@ -376,14 +408,13 @@ pub fn render_program(program: &Program) -> Result<String, Vec<String>> {
             &strings,
         ) {
             Ok(function_text) => module.push_str(&function_text),
-            Err(reason) => unsupported.push(reason),
+            Err(reason) => {
+                unsupported.push(diagnostic::AotLoweringDiagnostic::llvm_lowering(reason))
+            }
         }
     }
 
-    for specialization in specializations
-        .values()
-        .filter(|specialization| reachable.specializations.contains(&specialization.key))
-    {
+    for specialization in monomorph_plan.used_concrete_instances() {
         let Some(FunctionSource {
             params,
             return_type,
@@ -411,7 +442,9 @@ pub fn render_program(program: &Program) -> Result<String, Vec<String>> {
             &strings,
         ) {
             Ok(function_text) => module.push_str(&function_text),
-            Err(reason) => unsupported.push(reason),
+            Err(reason) => {
+                unsupported.push(diagnostic::AotLoweringDiagnostic::llvm_lowering(reason))
+            }
         }
     }
 
@@ -584,6 +617,14 @@ fn infer_concrete_local_types(
             enum_layouts,
             &mut overrides,
         );
+        infer_match_test_branch_payload_types(
+            &block.terminator.kind,
+            blocks,
+            &local_types,
+            signatures,
+            enum_layouts,
+            &mut overrides,
+        );
     }
     overrides
 }
@@ -596,7 +637,25 @@ fn infer_statement_concrete_local_types(
     overrides: &mut BTreeMap<u32, Type>,
 ) {
     match &statement.kind {
-        StatementKind::Let { initializer, .. } | StatementKind::Eval { expr: initializer } => {
+        StatementKind::Let {
+            local, initializer, ..
+        } => {
+            infer_expr_concrete_local_types(
+                initializer,
+                local_types,
+                signatures,
+                enum_layouts,
+                overrides,
+            );
+            if let Some(inferred) =
+                static_expr_type_with_signatures(initializer, local_types, overrides, signatures)
+                && let Some(declared) = local_types.get(local)
+                && should_override_local_type(declared, &inferred)
+            {
+                overrides.insert(*local, inferred);
+            }
+        }
+        StatementKind::Eval { expr: initializer } => {
             infer_expr_concrete_local_types(
                 initializer,
                 local_types,
@@ -614,6 +673,40 @@ fn infer_statement_concrete_local_types(
                 overrides,
             );
         }
+    }
+}
+
+fn should_override_local_type(declared: &Type, inferred: &Type) -> bool {
+    if declared == inferred {
+        return false;
+    }
+
+    match (declared, inferred) {
+        (Type::TypeParam { .. }, _) => true,
+        (Type::Struct { name }, Type::StructInstance { name: inferred, .. })
+        | (Type::Enum { name }, Type::EnumInstance { name: inferred, .. }) => name == inferred,
+        (Type::StructInstance { name, args }, Type::StructInstance { name: inferred, .. })
+        | (Type::EnumInstance { name, args }, Type::EnumInstance { name: inferred, .. }) => {
+            name == inferred && args.iter().any(type_contains_type_param)
+        }
+        _ => false,
+    }
+}
+
+fn type_contains_type_param(ty: &Type) -> bool {
+    match ty {
+        Type::TypeParam { .. } => true,
+        Type::Slice { element } | Type::Array { element, .. } => type_contains_type_param(element),
+        Type::StructInstance { args, .. } | Type::EnumInstance { args, .. } => {
+            args.iter().any(type_contains_type_param)
+        }
+        Type::Bool
+        | Type::I32
+        | Type::F32
+        | Type::String
+        | Type::StringList
+        | Type::Struct { .. }
+        | Type::Enum { .. } => false,
     }
 }
 
@@ -636,6 +729,78 @@ fn infer_terminator_concrete_local_types(
         }
         TerminatorKind::Goto { .. } | TerminatorKind::Unreachable => {}
     }
+}
+
+fn infer_match_test_branch_payload_types(
+    terminator: &TerminatorKind,
+    blocks: &[BasicBlock],
+    local_types: &BTreeMap<u32, Type>,
+    signatures: &BTreeMap<String, FunctionSignature>,
+    enum_layouts: &BTreeMap<String, EnumLayout>,
+    overrides: &mut BTreeMap<u32, Type>,
+) {
+    let TerminatorKind::Branch {
+        condition,
+        then_block,
+        ..
+    } = terminator
+    else {
+        return;
+    };
+    let ExprKind::MatchTest { scrutinee, pattern } = &condition.kind else {
+        return;
+    };
+    let MatchPatternKind::EnumVariant {
+        variant,
+        payload: Some(EnumVariantPayloadPattern::Binding { name }),
+        ..
+    } = &pattern.kind
+    else {
+        return;
+    };
+    let Some(scrutinee_ty) =
+        static_expr_type_with_signatures(scrutinee, local_types, overrides, signatures)
+    else {
+        return;
+    };
+    let Some(layout) = enum_layout_for_static_type(&scrutinee_ty, enum_layouts) else {
+        return;
+    };
+    let Some(payload_ty) = layout
+        .variants
+        .iter()
+        .find(|candidate| candidate.name == *variant)
+        .and_then(|candidate| candidate.payload_ax_ty.clone())
+    else {
+        return;
+    };
+    let Some(target_block) = blocks.iter().find(|block| block.id == *then_block) else {
+        return;
+    };
+    let Some(local) = find_local_declaration_by_name(target_block, name) else {
+        return;
+    };
+    if let Some(declared) = local_types.get(&local)
+        && should_override_local_type(declared, &payload_ty)
+    {
+        overrides.insert(local, payload_ty);
+    }
+}
+
+fn find_local_declaration_by_name(block: &BasicBlock, name: &str) -> Option<u32> {
+    block
+        .statements
+        .iter()
+        .find_map(|statement| match &statement.kind {
+            StatementKind::Let {
+                local,
+                name: local_name,
+                ..
+            } if local_name == name => Some(*local),
+            StatementKind::Let { .. }
+            | StatementKind::Eval { .. }
+            | StatementKind::Assign { .. } => None,
+        })
 }
 
 fn infer_expr_concrete_local_types(
@@ -887,6 +1052,20 @@ fn static_expr_type_with_signatures(
                 return Some(Type::Slice {
                     element: Box::new(Type::String),
                 });
+            }
+            if matches!(
+                function.as_str(),
+                "path_join"
+                    | "path_parent"
+                    | "path_resolve"
+                    | "path_file_name"
+                    | "path_stem"
+                    | "path_extension"
+            ) {
+                return Some(Type::String);
+            }
+            if function == "path_is_absolute" {
+                return Some(Type::Bool);
             }
             if let Some(signature) = signatures.get(function) {
                 return Some(signature.return_ax_type.clone());

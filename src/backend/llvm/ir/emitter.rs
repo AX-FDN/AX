@@ -588,6 +588,15 @@ impl<'a> FunctionEmitter<'a> {
                 if function == "env_get" {
                     return Ok(("ptr".to_string(), Type::String));
                 }
+                if function == "process_cwd" {
+                    return Ok(("ptr".to_string(), Type::String));
+                }
+                if function == "process_run" || function == "process_run_in" {
+                    return Ok(("i32".to_string(), Type::I32));
+                }
+                if function == "process_capture" || function == "process_capture_in" {
+                    return Ok(("ptr".to_string(), Type::String));
+                }
                 if matches!(function.as_str(), "fs_exists" | "fs_is_file" | "fs_is_dir") {
                     return Ok(("i1".to_string(), Type::Bool));
                 }
@@ -609,6 +618,20 @@ impl<'a> FunctionEmitter<'a> {
                 }
                 if function == "fs_copy_file" {
                     return Ok(("i32".to_string(), Type::I32));
+                }
+                if matches!(
+                    function.as_str(),
+                    "path_join"
+                        | "path_parent"
+                        | "path_resolve"
+                        | "path_file_name"
+                        | "path_stem"
+                        | "path_extension"
+                ) {
+                    return Ok(("ptr".to_string(), Type::String));
+                }
+                if function == "path_is_absolute" {
+                    return Ok(("i1".to_string(), Type::Bool));
                 }
                 if matches!(
                     function.as_str(),

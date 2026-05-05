@@ -3,10 +3,10 @@ use std::collections::{BTreeSet, VecDeque};
 use super::*;
 
 #[derive(Clone)]
-pub(super) struct FunctionSpecialization {
-    pub(super) key: String,
-    pub(super) source_name: String,
-    pub(super) substitutions: BTreeMap<String, Type>,
+pub(in crate::backend::llvm) struct FunctionSpecialization {
+    pub(in crate::backend::llvm) key: String,
+    pub(in crate::backend::llvm) source_name: String,
+    pub(in crate::backend::llvm) substitutions: BTreeMap<String, Type>,
 }
 
 pub(super) struct FunctionSource<'a> {
@@ -18,9 +18,9 @@ pub(super) struct FunctionSource<'a> {
     pub(super) blocks: &'a [BasicBlock],
 }
 
-pub(super) struct ReachableFunctions {
-    pub(super) functions: BTreeSet<String>,
-    pub(super) specializations: BTreeSet<String>,
+pub(in crate::backend::llvm) struct ReachableFunctions {
+    pub(in crate::backend::llvm) functions: BTreeSet<String>,
+    pub(in crate::backend::llvm) specializations: BTreeSet<String>,
 }
 
 pub(super) fn find_function_source<'a>(
@@ -56,7 +56,7 @@ pub(super) fn find_function_source<'a>(
     })
 }
 
-pub(super) fn collect_reachable_functions(
+pub(in crate::backend::llvm) fn collect_reachable_functions(
     program: &Program,
 ) -> Result<(ReachableFunctions, BTreeMap<String, FunctionSpecialization>), Vec<String>> {
     let mut reachable = ReachableFunctions {
@@ -538,7 +538,9 @@ fn collect_call_reachable_function(
         let Some(receiver) = arguments.first() else {
             return;
         };
-        let Some(receiver_ty) = static_expr_type(receiver, local_types, overrides) else {
+        let Some(receiver_ty) =
+            static_expr_type_for_specialization(program, receiver, local_types, overrides)
+        else {
             return;
         };
         let Some(method_function) = method_function_name(method, &receiver_ty) else {
@@ -955,6 +957,7 @@ fn collect_direct_function_specialization(
         return;
     };
     collect_generic_function_specialization(
+        program,
         function,
         &source,
         arguments,
@@ -980,7 +983,9 @@ fn collect_method_specialization(
     let Some(receiver) = arguments.first() else {
         return;
     };
-    let Some(receiver_ty) = static_expr_type(receiver, local_types, overrides) else {
+    let Some(receiver_ty) =
+        static_expr_type_for_specialization(program, receiver, local_types, overrides)
+    else {
         return;
     };
     let Some(method_function) = method_function_name(method, &receiver_ty) else {
@@ -990,6 +995,7 @@ fn collect_method_specialization(
         return;
     };
     collect_generic_function_specialization(
+        program,
         &method_function,
         &source,
         arguments,
@@ -1003,6 +1009,7 @@ fn collect_method_specialization(
 }
 
 fn collect_generic_function_specialization(
+    program: &Program,
     function_name: &str,
     source: &FunctionSource<'_>,
     arguments: &[Expr],
@@ -1027,7 +1034,9 @@ fn collect_generic_function_specialization(
 
     let mut substitutions = BTreeMap::new();
     for (param, argument) in source.params.iter().zip(arguments) {
-        let Some(argument_ty) = static_expr_type(argument, local_types, overrides) else {
+        let Some(argument_ty) =
+            static_expr_type_for_specialization(program, argument, local_types, overrides)
+        else {
             continue;
         };
         if let Err(reason) = bind_type_params(&param.ty, &argument_ty, &mut substitutions) {
@@ -1187,6 +1196,107 @@ fn bind_type_params(
             ax_type_name(pattern),
             ax_type_name(concrete)
         )),
+    }
+}
+
+fn static_expr_type_for_specialization(
+    program: &Program,
+    expr: &Expr,
+    local_types: &BTreeMap<u32, Type>,
+    overrides: &BTreeMap<u32, Type>,
+) -> Option<Type> {
+    if let Some(ty) = static_expr_type(expr, local_types, overrides) {
+        return Some(ty);
+    }
+
+    match &expr.kind {
+        ExprKind::Call {
+            function,
+            arguments,
+        } => static_call_type_for_specialization(
+            program,
+            function,
+            arguments,
+            local_types,
+            overrides,
+        ),
+        ExprKind::Try { expr } => {
+            let result_ty =
+                static_expr_type_for_specialization(program, expr, local_types, overrides)?;
+            try_ok_type(&result_ty)
+        }
+        ExprKind::Unary { expr, .. }
+        | ExprKind::EnumPayload { value: expr }
+        | ExprKind::Field { base: expr, .. } => {
+            static_expr_type_for_specialization(program, expr, local_types, overrides)
+        }
+        ExprKind::Binary { .. }
+        | ExprKind::ArrayLiteral { .. }
+        | ExprKind::StructLiteral { .. }
+        | ExprKind::Match { .. }
+        | ExprKind::MatchTest { .. }
+        | ExprKind::Index { .. }
+        | ExprKind::Slice { .. }
+        | ExprKind::Int { .. }
+        | ExprKind::Float { .. }
+        | ExprKind::Bool { .. }
+        | ExprKind::String { .. }
+        | ExprKind::Local { .. }
+        | ExprKind::Const { .. }
+        | ExprKind::Block { .. }
+        | ExprKind::EnumVariant { .. } => None,
+    }
+}
+
+fn static_call_type_for_specialization(
+    program: &Program,
+    function: &str,
+    arguments: &[Expr],
+    local_types: &BTreeMap<u32, Type>,
+    overrides: &BTreeMap<u32, Type>,
+) -> Option<Type> {
+    let source_name = if let Some(method) = function.strip_prefix("<method>.") {
+        let receiver = arguments.first()?;
+        let receiver_ty =
+            static_expr_type_for_specialization(program, receiver, local_types, overrides)?;
+        method_function_name(method, &receiver_ty)?
+    } else {
+        function.to_string()
+    };
+    let source = find_function_source(program, &source_name)?;
+
+    if source.type_params.is_empty() {
+        return Some(source.return_type.clone());
+    }
+    if source.params.len() != arguments.len() {
+        return None;
+    }
+
+    let mut substitutions = BTreeMap::new();
+    for (param, argument) in source.params.iter().zip(arguments) {
+        let argument_ty =
+            static_expr_type_for_specialization(program, argument, local_types, overrides)?;
+        bind_type_params(&param.ty, &argument_ty, &mut substitutions).ok()?;
+    }
+    if source
+        .type_params
+        .iter()
+        .any(|param| !substitutions.contains_key(param))
+    {
+        return None;
+    }
+    Some(substitute_type_params(source.return_type, &substitutions))
+}
+
+fn try_ok_type(ty: &Type) -> Option<Type> {
+    match ty {
+        Type::EnumInstance { name, args } if name.ends_with("Result") && args.len() == 2 => {
+            args.first().cloned()
+        }
+        Type::EnumInstance { name, args } if name.ends_with("Option") && args.len() == 1 => {
+            args.first().cloned()
+        }
+        _ => None,
     }
 }
 

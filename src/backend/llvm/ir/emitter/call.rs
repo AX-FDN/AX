@@ -25,6 +25,21 @@ impl<'a> FunctionEmitter<'a> {
         if function == "env_get" {
             return self.emit_env_get(arguments, out);
         }
+        if function == "process_cwd" {
+            return self.emit_process_cwd(arguments, out);
+        }
+        if function == "process_run" {
+            return self.emit_process_run(arguments, out);
+        }
+        if function == "process_capture" {
+            return self.emit_process_capture(arguments, out);
+        }
+        if function == "process_run_in" {
+            return self.emit_process_run_in(arguments, out);
+        }
+        if function == "process_capture_in" {
+            return self.emit_process_capture_in(arguments, out);
+        }
         if matches!(function, "fs_exists" | "fs_is_file" | "fs_is_dir") {
             return self.emit_fs_predicate(function, arguments, out);
         }
@@ -87,6 +102,18 @@ impl<'a> FunctionEmitter<'a> {
         }
         if function == "to_string" {
             return self.emit_to_string(arguments, out);
+        }
+        if function == "path_join" {
+            return self.emit_path_join(arguments, out);
+        }
+        if matches!(
+            function,
+            "path_parent" | "path_resolve" | "path_file_name" | "path_stem" | "path_extension"
+        ) {
+            return self.emit_path_string_function(function, arguments, out);
+        }
+        if function == "path_is_absolute" {
+            return self.emit_path_is_absolute(arguments, out);
         }
 
         let resolved = self.resolve_call_signature(function, arguments, expected_return_ax_ty)?;
@@ -539,6 +566,139 @@ impl<'a> FunctionEmitter<'a> {
         Ok(LlvmValue {
             ty: "ptr".to_string(),
             repr: value,
+            ax_ty: Some(Type::String),
+        })
+    }
+
+    fn emit_process_cwd(
+        &mut self,
+        arguments: &[Expr],
+        out: &mut String,
+    ) -> Result<LlvmValue, String> {
+        if !arguments.is_empty() {
+            return Err(format!(
+                "call to `process_cwd` has {} argument(s), but LLVM AOT expected 0",
+                arguments.len()
+            ));
+        }
+        let value = self.next_temp();
+        writeln!(out, "  {value} = call ptr @ax_process_cwd()")
+            .expect("writing to string cannot fail");
+        Ok(LlvmValue {
+            ty: "ptr".to_string(),
+            repr: value,
+            ax_ty: Some(Type::String),
+        })
+    }
+
+    fn emit_process_run(
+        &mut self,
+        arguments: &[Expr],
+        out: &mut String,
+    ) -> Result<LlvmValue, String> {
+        if arguments.len() != 1 {
+            return Err(format!(
+                "call to `process_run` has {} argument(s), but LLVM AOT expected 1",
+                arguments.len()
+            ));
+        }
+        let command = self.emit_expr(&arguments[0], out)?;
+        ensure_string_argument("process_run", "command", &command)?;
+        let status = self.next_temp();
+        writeln!(
+            out,
+            "  {status} = call i32 @ax_process_run(ptr {})",
+            command.repr
+        )
+        .expect("writing to string cannot fail");
+        Ok(LlvmValue {
+            ty: "i32".to_string(),
+            repr: status,
+            ax_ty: Some(Type::I32),
+        })
+    }
+
+    fn emit_process_capture(
+        &mut self,
+        arguments: &[Expr],
+        out: &mut String,
+    ) -> Result<LlvmValue, String> {
+        if arguments.len() != 1 {
+            return Err(format!(
+                "call to `process_capture` has {} argument(s), but LLVM AOT expected 1",
+                arguments.len()
+            ));
+        }
+        let command = self.emit_expr(&arguments[0], out)?;
+        ensure_string_argument("process_capture", "command", &command)?;
+        let output = self.next_temp();
+        writeln!(
+            out,
+            "  {output} = call ptr @ax_process_capture(ptr {})",
+            command.repr
+        )
+        .expect("writing to string cannot fail");
+        Ok(LlvmValue {
+            ty: "ptr".to_string(),
+            repr: output,
+            ax_ty: Some(Type::String),
+        })
+    }
+
+    fn emit_process_run_in(
+        &mut self,
+        arguments: &[Expr],
+        out: &mut String,
+    ) -> Result<LlvmValue, String> {
+        if arguments.len() != 2 {
+            return Err(format!(
+                "call to `process_run_in` has {} argument(s), but LLVM AOT expected 2",
+                arguments.len()
+            ));
+        }
+        let working_dir = self.emit_expr(&arguments[0], out)?;
+        ensure_string_argument("process_run_in", "working_dir", &working_dir)?;
+        let command = self.emit_expr(&arguments[1], out)?;
+        ensure_string_argument("process_run_in", "command", &command)?;
+        let status = self.next_temp();
+        writeln!(
+            out,
+            "  {status} = call i32 @ax_process_run_in(ptr {}, ptr {})",
+            working_dir.repr, command.repr
+        )
+        .expect("writing to string cannot fail");
+        Ok(LlvmValue {
+            ty: "i32".to_string(),
+            repr: status,
+            ax_ty: Some(Type::I32),
+        })
+    }
+
+    fn emit_process_capture_in(
+        &mut self,
+        arguments: &[Expr],
+        out: &mut String,
+    ) -> Result<LlvmValue, String> {
+        if arguments.len() != 2 {
+            return Err(format!(
+                "call to `process_capture_in` has {} argument(s), but LLVM AOT expected 2",
+                arguments.len()
+            ));
+        }
+        let working_dir = self.emit_expr(&arguments[0], out)?;
+        ensure_string_argument("process_capture_in", "working_dir", &working_dir)?;
+        let command = self.emit_expr(&arguments[1], out)?;
+        ensure_string_argument("process_capture_in", "command", &command)?;
+        let output = self.next_temp();
+        writeln!(
+            out,
+            "  {output} = call ptr @ax_process_capture_in(ptr {}, ptr {})",
+            working_dir.repr, command.repr
+        )
+        .expect("writing to string cannot fail");
+        Ok(LlvmValue {
+            ty: "ptr".to_string(),
+            repr: output,
             ax_ty: Some(Type::String),
         })
     }
@@ -1001,6 +1161,98 @@ impl<'a> FunctionEmitter<'a> {
             ty: "ptr".to_string(),
             repr: replaced,
             ax_ty: Some(Type::String),
+        })
+    }
+
+    fn emit_path_join(
+        &mut self,
+        arguments: &[Expr],
+        out: &mut String,
+    ) -> Result<LlvmValue, String> {
+        if arguments.len() != 2 {
+            return Err(format!(
+                "call to `path_join` has {} argument(s), but LLVM AOT expected 2",
+                arguments.len()
+            ));
+        }
+        let left = self.emit_expr(&arguments[0], out)?;
+        ensure_string_argument("path_join", "left", &left)?;
+        let right = self.emit_expr(&arguments[1], out)?;
+        ensure_string_argument("path_join", "right", &right)?;
+        let value = self.next_temp();
+        writeln!(
+            out,
+            "  {value} = call ptr @ax_path_join(ptr {}, ptr {})",
+            left.repr, right.repr
+        )
+        .expect("writing to string cannot fail");
+        Ok(LlvmValue {
+            ty: "ptr".to_string(),
+            repr: value,
+            ax_ty: Some(Type::String),
+        })
+    }
+
+    fn emit_path_string_function(
+        &mut self,
+        function: &str,
+        arguments: &[Expr],
+        out: &mut String,
+    ) -> Result<LlvmValue, String> {
+        if arguments.len() != 1 {
+            return Err(format!(
+                "call to `{function}` has {} argument(s), but LLVM AOT expected 1",
+                arguments.len()
+            ));
+        }
+        let path = self.emit_expr(&arguments[0], out)?;
+        ensure_string_argument(function, "path", &path)?;
+        let helper = match function {
+            "path_parent" => "ax_path_parent",
+            "path_resolve" => "ax_path_resolve",
+            "path_file_name" => "ax_path_file_name",
+            "path_stem" => "ax_path_stem",
+            "path_extension" => "ax_path_extension",
+            _ => {
+                return Err(format!(
+                    "call to `{function}` is outside the LLVM AOT path subset"
+                ));
+            }
+        };
+        let value = self.next_temp();
+        writeln!(out, "  {value} = call ptr @{helper}(ptr {})", path.repr)
+            .expect("writing to string cannot fail");
+        Ok(LlvmValue {
+            ty: "ptr".to_string(),
+            repr: value,
+            ax_ty: Some(Type::String),
+        })
+    }
+
+    fn emit_path_is_absolute(
+        &mut self,
+        arguments: &[Expr],
+        out: &mut String,
+    ) -> Result<LlvmValue, String> {
+        if arguments.len() != 1 {
+            return Err(format!(
+                "call to `path_is_absolute` has {} argument(s), but LLVM AOT expected 1",
+                arguments.len()
+            ));
+        }
+        let path = self.emit_expr(&arguments[0], out)?;
+        ensure_string_argument("path_is_absolute", "path", &path)?;
+        let value = self.next_temp();
+        writeln!(
+            out,
+            "  {value} = call i1 @ax_path_is_absolute(ptr {})",
+            path.repr
+        )
+        .expect("writing to string cannot fail");
+        Ok(LlvmValue {
+            ty: "i1".to_string(),
+            repr: value,
+            ax_ty: Some(Type::Bool),
         })
     }
 
