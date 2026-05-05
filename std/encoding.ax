@@ -1,0 +1,164 @@
+module std.encoding;
+
+import std.bytes;
+
+struct DecodeResult {
+    ok: bool,
+    data: bytes,
+    message: string,
+}
+
+fn hex_encode_bytes(data: bytes) -> string {
+    return std.bytes.to_hex(data);
+}
+
+fn hex_encode_text(text: string) -> string {
+    return hex_encode_bytes(std.bytes.from_string(text));
+}
+
+fn hex_nibble(ascii: i32) -> i32 {
+    if (ascii >= 48 && ascii <= 57) {
+        return ascii - 48;
+    }
+    if (ascii >= 65 && ascii <= 70) {
+        return ascii - 55;
+    }
+    if (ascii >= 97 && ascii <= 102) {
+        return ascii - 87;
+    }
+    return -1;
+}
+
+fn hex_decode(hex: string) -> DecodeResult {
+    let raw: bytes = std.bytes.from_string(hex);
+    if ((std.bytes.length(raw) % 2) != 0) {
+        return DecodeResult {
+            ok: false,
+            data: std.bytes.empty(),
+            message: "hex length must be even",
+        };
+    }
+
+    let mut output: bytes = std.bytes.empty();
+    for (let mut i: i32 = 0; i < std.bytes.length(raw); i = i + 2) {
+        let high: i32 = hex_nibble(std.bytes.get(raw, i));
+        let low: i32 = hex_nibble(std.bytes.get(raw, i + 1));
+        if (high < 0 || low < 0) {
+            return DecodeResult {
+                ok: false,
+                data: std.bytes.empty(),
+                message: "hex contains a non-hex digit",
+            };
+        }
+        output = std.bytes.push(output, high * 16 + low);
+    }
+    return DecodeResult { ok: true, data: output, message: "ok" };
+}
+
+fn base64_char(value: i32) -> string {
+    if (value == 0) { return "A"; }
+    if (value == 1) { return "B"; }
+    if (value == 2) { return "C"; }
+    if (value == 3) { return "D"; }
+    if (value == 4) { return "E"; }
+    if (value == 5) { return "F"; }
+    if (value == 6) { return "G"; }
+    if (value == 7) { return "H"; }
+    if (value == 8) { return "I"; }
+    if (value == 9) { return "J"; }
+    if (value == 10) { return "K"; }
+    if (value == 11) { return "L"; }
+    if (value == 12) { return "M"; }
+    if (value == 13) { return "N"; }
+    if (value == 14) { return "O"; }
+    if (value == 15) { return "P"; }
+    if (value == 16) { return "Q"; }
+    if (value == 17) { return "R"; }
+    if (value == 18) { return "S"; }
+    if (value == 19) { return "T"; }
+    if (value == 20) { return "U"; }
+    if (value == 21) { return "V"; }
+    if (value == 22) { return "W"; }
+    if (value == 23) { return "X"; }
+    if (value == 24) { return "Y"; }
+    if (value == 25) { return "Z"; }
+    if (value == 26) { return "a"; }
+    if (value == 27) { return "b"; }
+    if (value == 28) { return "c"; }
+    if (value == 29) { return "d"; }
+    if (value == 30) { return "e"; }
+    if (value == 31) { return "f"; }
+    if (value == 32) { return "g"; }
+    if (value == 33) { return "h"; }
+    if (value == 34) { return "i"; }
+    if (value == 35) { return "j"; }
+    if (value == 36) { return "k"; }
+    if (value == 37) { return "l"; }
+    if (value == 38) { return "m"; }
+    if (value == 39) { return "n"; }
+    if (value == 40) { return "o"; }
+    if (value == 41) { return "p"; }
+    if (value == 42) { return "q"; }
+    if (value == 43) { return "r"; }
+    if (value == 44) { return "s"; }
+    if (value == 45) { return "t"; }
+    if (value == 46) { return "u"; }
+    if (value == 47) { return "v"; }
+    if (value == 48) { return "w"; }
+    if (value == 49) { return "x"; }
+    if (value == 50) { return "y"; }
+    if (value == 51) { return "z"; }
+    if (value == 52) { return "0"; }
+    if (value == 53) { return "1"; }
+    if (value == 54) { return "2"; }
+    if (value == 55) { return "3"; }
+    if (value == 56) { return "4"; }
+    if (value == 57) { return "5"; }
+    if (value == 58) { return "6"; }
+    if (value == 59) { return "7"; }
+    if (value == 60) { return "8"; }
+    if (value == 61) { return "9"; }
+    if (value == 62) { return "+"; }
+    return "/";
+}
+
+fn base64_encode_bytes(data: bytes) -> string {
+    let mut output: string = "";
+    let length: i32 = std.bytes.length(data);
+    for (let mut i: i32 = 0; i < length; i = i + 3) {
+        let b0: i32 = std.bytes.get(data, i);
+        let mut b1: i32 = 0;
+        let mut b2: i32 = 0;
+        let has1: bool = i + 1 < length;
+        let has2: bool = i + 2 < length;
+        if (has1) {
+            b1 = std.bytes.get(data, i + 1);
+        }
+        if (has2) {
+            b2 = std.bytes.get(data, i + 2);
+        }
+
+        output = output + base64_char(b0 / 4);
+        output = output + base64_char((b0 % 4) * 16 + (b1 / 16));
+        if (has1) {
+            output = output + base64_char((b1 % 16) * 4 + (b2 / 64));
+        } else {
+            output = output + "=";
+        }
+        if (has2) {
+            output = output + base64_char(b2 % 64);
+        } else {
+            output = output + "=";
+        }
+    }
+    return output;
+}
+
+fn base64_encode_text(text: string) -> string {
+    return base64_encode_bytes(std.bytes.from_string(text));
+}
+
+fn base64_urlsafe_no_pad(text: string) -> string {
+    let encoded: string = base64_encode_text(text);
+    return string_replace(string_replace(string_replace(encoded, "+", "-"), "/", "_"), "=", "");
+}

@@ -538,7 +538,10 @@ fn collect_call_aot_features(name: &str, features: &mut BTreeSet<String>) {
     if name.starts_with("db_") || name.starts_with("std.db.") || name.starts_with("std.database.") {
         features.insert("host_db".to_string());
     }
-    if name.starts_with("bytes_") || name.starts_with("std.bytes.") {
+    if name.starts_with("bytes_")
+        || name.starts_with("std.bytes.")
+        || name.starts_with("std.encoding.")
+    {
         features.insert("bytes_runtime".to_string());
     }
     if name.starts_with("path_") || name.starts_with("std.path.") {
