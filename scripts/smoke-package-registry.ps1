@@ -121,7 +121,9 @@ import collection_tools.ints;
 import config_rules.validate;
 import database_tools.dsn;
 import encoding_tools.core;
+import hash_tools.checksum;
 import json_tools.encode;
+import jwt_tools.preview;
 import log_tools.core;
 import markdown_tools.headings;
 import math_rules.core;
@@ -153,6 +155,8 @@ fn main() -> i32 {
     let bytes_hex: string = bytes_tools.core.utf8_hex("AX");
     let base64_text: string = encoding_tools.core.base64_encode_text("AX");
     let decoded: encoding_tools.core.DecodeResult = encoding_tools.core.hex_decode("4158");
+    let checksum: hash_tools.checksum.Checksum = hash_tools.checksum.summarize("AX-PKG");
+    let jwt: jwt_tools.preview.JwtPreview = jwt_tools.preview.preview_subject_scope("user-1", "read");
     let retry_policy: retry_tools.policy.RetryPolicy = retry_tools.policy.exponential(4, 100, 1000);
     let page: pagination_tools.core.PageWindow = pagination_tools.core.window(52, 2, 20);
     let cache_policy: cache_tools.keys.CachePolicy = cache_tools.keys.with_stale(60, 30);
@@ -173,6 +177,8 @@ fn main() -> i32 {
     report = report_tools.builder.kv_string(report, "bytes", bytes_hex);
     report = report_tools.builder.kv_string(report, "base64", base64_text);
     report = report_tools.builder.kv_bool(report, "hex-ok", decoded.ok);
+    report = report_tools.builder.kv_string(report, "checksum", checksum.label);
+    report = report_tools.builder.kv_bool(report, "jwt-safe", jwt.safe_for_auth);
     report = report_tools.builder.kv_string(report, "retry", retry_tools.policy.action_label(503, 1, retry_policy));
     report = report_tools.builder.kv_i32(report, "page-offset", page.offset);
     report = report_tools.builder.kv_string(report, "cache", cache_tools.keys.age_label(75, cache_policy));
@@ -201,7 +207,9 @@ $packages = @(
     "config_rules",
     "database_tools",
     "encoding_tools",
+    "hash_tools",
     "json_tools",
+    "jwt_tools",
     "log_tools",
     "markdown_tools",
     "math_rules",
@@ -230,7 +238,7 @@ if (-not (Test-Path $lockfilePath)) {
 
 $lockfile = Get-Content $lockfilePath -Raw -Encoding utf8 | ConvertFrom-Json
 Assert-Equal -Label "AX.lock schema_version" -Actual ([int] $lockfile.schema_version) -Expected 2
-Assert-Equal -Label "AX.lock dependency count" -Actual (@($lockfile.dependencies).Count) -Expected 19
+Assert-Equal -Label "AX.lock dependency count" -Actual (@($lockfile.dependencies).Count) -Expected 21
 
 & $axcBinary check $outputRoot
 Assert-Equal -Label "axc check exit code" -Actual $LASTEXITCODE -Expected 0
@@ -252,6 +260,8 @@ $expectedOutput = @(
     "bytes: 4158",
     "base64: QVg=",
     "hex-ok: true",
+    "checksum: axh1:943584527",
+    "jwt-safe: false",
     "retry: retry",
     "page-offset: 20",
     "cache: stale",
@@ -272,4 +282,4 @@ for ($index = 0; $index -lt $expectedOutput.Count; $index += 1) {
     Assert-Equal -Label "run output[$index]" -Actual $actualOutput[$index] -Expected $expectedOutput[$index]
 }
 
-Write-Host "Package registry smoke passed. Verified 19 stable registry packages at $outputRoot"
+Write-Host "Package registry smoke passed. Verified 21 stable registry packages at $outputRoot"

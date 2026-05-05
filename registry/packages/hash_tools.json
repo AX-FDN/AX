@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "name": "database_tools",
+  "name": "hash_tools",
   "owner": "ax-core",
   "license": "Apache-2.0",
-  "description": "Pure AX DSN classification, migration, and database readiness helpers",
+  "description": "Non-cryptographic deterministic checksum helpers",
   "versions": [
     {
       "version": "0.1.0",
@@ -11,11 +11,11 @@
         "kind": "git",
         "url": "https://github.com/AX-FDN/AX-PKG.git",
         "rev": "596bed8b328ba553f3cfdee16db1c8f8e78eb7e0",
-        "path": "packages/database_tools"
+        "path": "packages/hash_tools"
       },
-      "checksum": "sha256:48258d5fa4aa63071029a9e1dd613312fa9623379b60ce59e9a412029804fb28",
+      "checksum": "sha256:da47e623b8c018b84a15a57e3700080bc0d05a0ea992b04d0b694a5b19f506ea",
       "modules": [
-        "database_tools.dsn"
+        "hash_tools.checksum"
       ]
     }
   ]

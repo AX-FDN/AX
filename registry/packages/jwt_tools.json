@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "name": "database_tools",
+  "name": "jwt_tools",
   "owner": "ax-core",
   "license": "Apache-2.0",
-  "description": "Pure AX DSN classification, migration, and database readiness helpers",
+  "description": "Unsigned JWT shape helpers for package experiments",
   "versions": [
     {
       "version": "0.1.0",
@@ -11,11 +11,11 @@
         "kind": "git",
         "url": "https://github.com/AX-FDN/AX-PKG.git",
         "rev": "596bed8b328ba553f3cfdee16db1c8f8e78eb7e0",
-        "path": "packages/database_tools"
+        "path": "packages/jwt_tools"
       },
-      "checksum": "sha256:48258d5fa4aa63071029a9e1dd613312fa9623379b60ce59e9a412029804fb28",
+      "checksum": "sha256:d366acc32f171d8645a0b400102b7c0b62bad82b411d6d3981ccda7bb97e6473",
       "modules": [
-        "database_tools.dsn"
+        "jwt_tools.preview"
       ]
     }
   ]

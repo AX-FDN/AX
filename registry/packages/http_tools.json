@@ -3,17 +3,17 @@
   "name": "http_tools",
   "owner": "ax-core",
   "license": "Apache-2.0",
-  "description": "Interpreter-backed plain HTTP GET helpers over std.http",
+  "description": "Interpreter-backed HTTP helpers over std.http plus pure request/status helpers",
   "versions": [
     {
       "version": "0.1.0",
       "source": {
         "kind": "git",
         "url": "https://github.com/AX-FDN/AX-PKG.git",
-        "rev": "16d9306843ca8300c348a39c17283e4184c40106",
+        "rev": "596bed8b328ba553f3cfdee16db1c8f8e78eb7e0",
         "path": "packages/http_tools"
       },
-      "checksum": "sha256:84b14c10fee64a7a750ef977a8a04bdadd4657c520ed6b76ded48aeb5c7c4663",
+      "checksum": "sha256:0b2b8698e3b94e312d4bc12b0c21f27b127240324ceff755fe1dac398d2b6cb6",
       "modules": [
         "http_tools.client"
       ]

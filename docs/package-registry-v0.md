@@ -60,8 +60,10 @@ registry/
     config_rules.json
     database_tools.json
     encoding_tools.json
+    hash_tools.json
     http_tools.json
     json_tools.json
+    jwt_tools.json
     log_tools.json
     markdown_tools.json
     math_rules.json

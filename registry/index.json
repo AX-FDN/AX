@@ -30,12 +30,20 @@
       "metadata": "packages/encoding_tools.json"
     },
     {
+      "name": "hash_tools",
+      "metadata": "packages/hash_tools.json"
+    },
+    {
       "name": "http_tools",
       "metadata": "packages/http_tools.json"
     },
     {
       "name": "json_tools",
       "metadata": "packages/json_tools.json"
+    },
+    {
+      "name": "jwt_tools",
+      "metadata": "packages/jwt_tools.json"
     },
     {
       "name": "log_tools",
