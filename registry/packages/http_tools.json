@@ -10,10 +10,10 @@
       "source": {
         "kind": "git",
         "url": "https://github.com/AX-FDN/AX-PKG.git",
-        "rev": "596bed8b328ba553f3cfdee16db1c8f8e78eb7e0",
+        "rev": "ce5a66f84be15e7b80d19b8bc6235ec4cf727666",
         "path": "packages/http_tools"
       },
-      "checksum": "sha256:0b2b8698e3b94e312d4bc12b0c21f27b127240324ceff755fe1dac398d2b6cb6",
+      "checksum": "sha256:350a73b31b6f96331e8b5b3cd1a29b9dabfcc643d05548ec6a2631117128e173",
       "modules": [
         "http_tools.client"
       ]
