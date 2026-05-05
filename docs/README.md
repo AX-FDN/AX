@@ -11,6 +11,13 @@ can change, but these docs should describe the current project accurately.
 | [`../PROJECT_FACTS.md`](../PROJECT_FACTS.md) | Current factual baseline. Keep this synchronized with public claims. |
 | [`release-0.1-alpha.md`](./release-0.1-alpha.md) | AX 0.1 Alpha / Developer Preview release boundary. |
 | [`release-0.2-package-preview.md`](./release-0.2-package-preview.md) | Current 0.2 Package Preview execution anchor. |
+| [`release-1.0-backend-systems.md`](./release-1.0-backend-systems.md) | Long-range AX 1.0 backend systems language roadmap. |
+| [`backend-profile-v1.md`](./backend-profile-v1.md) | Draft native-build profile for the 1.0 backend target. |
+| [`language-spec.md`](./language-spec.md) | Top-level language specification skeleton. |
+| [`type-system.md`](./type-system.md) | Type system specification skeleton. |
+| [`module-system.md`](./module-system.md) | Module and import specification skeleton. |
+| [`package-semantics.md`](./package-semantics.md) | Package semantics specification skeleton. |
+| [`error-model.md`](./error-model.md) | Error layering and AI action model skeleton. |
 | [`public-claims.md`](./public-claims.md) | What AX can and cannot safely claim in public. |
 | [`package-registry-v0.md`](./package-registry-v0.md) | Curated package registry and package install preview contract. |
 | [`package-maturity.md`](./package-maturity.md) | Package maturity levels and current AX-PKG classification. |
@@ -47,6 +54,11 @@ AX 0.2 Package Preview:
   checksum-backed installs
   standard-library package foundations
   package-backed validation and AOT readiness
+
+AX 1.0 Backend Systems Language:
+  Windows + Linux
+  default reliable AOT for Backend Profile v1
+  runtime ABI before production HTTP/TLS/DB/async
 ```
 
 Do not split the project into unrelated goals. New work should strengthen one of
@@ -58,6 +70,7 @@ these loops:
 - std foundation -> curated package ecosystem
 - package install -> lock/check/run/build validation
 - package maturity -> AOT readiness blockers
+- Backend Profile -> runtime ABI -> AOT exe parity
 
 ## Documentation Rules
 

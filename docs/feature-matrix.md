@@ -8,6 +8,7 @@ line:
 ```text
 0.1 Alpha / Developer Preview
 0.2 Package Preview in progress
+1.0 Backend Systems Language roadmap
 ```
 
 ## Status Keys
@@ -34,6 +35,7 @@ line:
 | Registry packages | `[~]` | Curated registry metadata, `axc pkg`, checksum-backed install preview, and AX-PKG source repo exist. | No public upload server or mature semver solver. |
 | Standard library | `[~]` | Tooling std modules plus `std.bytes / encoding / json / hash / http` foundations exist. | Not a complete standard library. |
 | AOT build | `[~]` | LLVM AOT v0 can emit IR and supported native executables with clang/linking. | Not a mature production native backend. |
+| Backend Profile v1 | `[~]` | Draft roadmap exists for the 1.0 native-build target. | Not yet an implemented 1.0 backend profile. |
 | AOT parity | `[~]` | Default run-vs-exe parity covers `123` cases, including `26` project cases. | Parity only proves the supported subset. |
 | Native ABI | `[~]` | Native ABI v1 docs and runtime/symbol/linking foundations exist. | Ownership/free/GC/FFI are not mature. |
 | Platform | `[~]` | Windows has full workflow; Linux has core support. | macOS is not yet a committed support tier. |
@@ -85,6 +87,7 @@ Current fixed facts:
 - stable pure-AX package smoke: `29` packages
 - host-boundary preview packages: `http_tools`, `net_tools`
 - package source repository: `https://github.com/AX-FDN/AX-PKG.git`
+- package-backed AOT readiness smoke: `scripts/smoke-package-registry-aot.ps1`
 
 Package v0 is deliberately curated and source-only. It is useful now, but it is
 not a public upload ecosystem yet.

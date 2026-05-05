@@ -216,6 +216,12 @@ AX is currently converging around two release lines:
   strengthen AX-PKG source packages
   strengthen checksum-backed installs
   make package-backed check/run/build/AOT readiness increasingly reliable
+
+1.0 Backend Systems Language:
+  Windows + Linux
+  default reliable AOT for Backend Profile v1
+  runtime ABI before production HTTP/TLS/DB/async
+  keep AI-native diagnostics and repair guidance as a core differentiator
 ```
 
 New work should strengthen one of these loops:
@@ -234,6 +240,10 @@ New work should strengthen one of these loops:
 | Public wording boundary | [`docs/public-claims.md`](./docs/public-claims.md) |
 | 0.1 Alpha release scope | [`docs/release-0.1-alpha.md`](./docs/release-0.1-alpha.md) |
 | 0.2 Package Preview | [`docs/release-0.2-package-preview.md`](./docs/release-0.2-package-preview.md) |
+| 1.0 Backend Systems roadmap | [`docs/release-1.0-backend-systems.md`](./docs/release-1.0-backend-systems.md) |
+| Backend Profile v1 draft | [`docs/backend-profile-v1.md`](./docs/backend-profile-v1.md) |
+| Language specification skeleton | [`docs/language-spec.md`](./docs/language-spec.md) |
+| Error model skeleton | [`docs/error-model.md`](./docs/error-model.md) |
 | Package preview contract | [`docs/package-registry-v0.md`](./docs/package-registry-v0.md) |
 | Package maturity | [`docs/package-maturity.md`](./docs/package-maturity.md) |
 | AOT details | [`docs/llvm-aot.md`](./docs/llvm-aot.md) |

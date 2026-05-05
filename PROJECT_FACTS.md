@@ -19,6 +19,16 @@ interpreter-stable + LLVM AOT v0 executable-capable subset + 0.2 Package Preview
 
 AX is not a production-ready 1.0 language yet.
 
+Long-range 1.0 direction:
+
+```text
+Backend systems language
+Windows + Linux
+default reliable AOT for Backend Profile v1
+runtime ABI before production HTTP/TLS/DB/async
+AI-native diagnostics and repair guidance preserved
+```
+
 ## Current Core Facts
 
 | Area | Current fact |
@@ -39,6 +49,8 @@ AX is not a production-ready 1.0 language yet.
 | Package catalog | Registry catalog has `31` curated packages; stable pure-AX smoke covers `29` packages. |
 | Package source | Preview package source lives in `https://github.com/AX-FDN/AX-PKG.git`. |
 | Package maturity | Packages are classified as `stable_pure_ax`, `host_boundary_preview`, or `future_native_preview`. |
+| 1.0 roadmap | `docs/release-1.0-backend-systems.md` is the active long-range roadmap. |
+| Backend profile | `docs/backend-profile-v1.md` defines the draft native-build target. |
 | Standard library | `std.bytes`, `std.encoding`, `std.json`, `std.hash`, and `std.http` now provide package-facing foundations. |
 | Platform | Windows has the fullest workflow. Linux has core support. macOS is not yet a committed support tier. |
 

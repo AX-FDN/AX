@@ -50,6 +50,7 @@ Already present:
 - AX-PKG source monorepo
 - package registry smoke
 - first package AOT smoke entry
+- focused package-backed AOT readiness smoke for package maturity blockers
 
 Current fixed facts:
 
@@ -117,8 +118,12 @@ When AOT/package readiness changes, add:
 .\scripts\smoke-package-registry-aot.ps1
 ```
 
-Run the AOT package smoke only when the local toolchain can link native
-executables. Otherwise, keep IR/readiness checks focused and explicit.
+The package AOT smoke is an IR/readiness smoke. It checks package maturity
+behavior without requiring native executable linking:
+
+- `stable_pure_ax` does not produce package maturity blockers.
+- `host_boundary_preview` produces `AOT0104`.
+- `future_native_preview` produces `AOT0105`.
 
 ## AOT Readiness Rule
 
@@ -174,8 +179,8 @@ Before those become real package capabilities, AX needs clearer runtime ABI for:
 - registry metadata points to real rev/checksum for promoted packages
 - `axc pkg add/install/hash/check/info/search/tree` are documented and stable
 - package registry smoke is reliable
+- package-backed AOT readiness smoke is reliable
 - host-boundary packages have focused examples
 - AOT readiness distinguishes pure helpers, host calls, bytes/string/runtime
   ABI blockers, package lock blockers, and toolchain/link blockers
 - README, `PROJECT_FACTS.md`, `public-claims.md`, and package docs agree
-

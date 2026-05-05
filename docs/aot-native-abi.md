@@ -1,88 +1,174 @@
-# AX Native ABI v1
+# AX Native Runtime ABI v1 Draft
 
-> 本文固定 AX LLVM AOT 当前 native 表示的第一版工程契约。它不是最终内存模型，也不是 GC/ownership 方案；它的目标是让 AOT runtime、IR lowering、package linking 和后续 std/native 支持沿同一套规则扩展。
+This document is the ABI anchor for the 1.0 backend systems language line.
+It replaces the earlier v0 notes with a clean contract for LLVM AOT, runtime
+helpers, package linking, and future backend standard-library work.
 
-## 定位
+The current implementation is still a preview. This document defines the target
+shape that new AOT/runtime work should converge toward.
 
-AX 当前仍以 `axc run` 解释执行作为语义参考，`axc build` 的 LLVM AOT 路径负责把已支持 MIR 子集 lower 成 textual LLVM IR，并在显式开启链接时通过 clang/lld 或系统链接器生成 native executable。
+## Positioning
 
-Native ABI v1 先服务三个目标：
+AX keeps `axc run` as the semantic reference. AX 1.0, however, should make
+`axc build --emit exe` reliable for Backend Profile v1 on Windows and Linux.
 
-- 让 runtime helper 的类型、命名和内存策略有固定入口。
-- 让 AOT 不支持的能力能被归类为 `aot_readiness`、`monomorphization`、`runtime_abi`、`llvm_lowering`、`toolchain` 或 `internal_compiler_error`，避免误判成用户源码错误。
-- 让后续补 `process`、local path package native linking、std native package、generics/impl/trait ABI 时不再把规则散落到 runtime 或 call lowering 里。
+Native ABI v1 exists to keep these systems aligned:
 
-## Type Layout
+- MIR-to-LLVM lowering.
+- Runtime helper declarations and definitions.
+- Standard library host/runtime modules.
+- Registry and local path package native linking.
+- AOT readiness blockers and AI repair guidance.
 
-当前 LLVM opaque pointer 模式下的 v1 规则：
+Do not add new host, HTTP, TLS, database, async, or native package behavior by
+hiding rules inside one call-lowering path. Add the ABI rule here, then connect
+the code through the existing backend entry points.
 
-| AX 类型 | Native 表示 | 说明 |
+## Stable Scalar Layout
+
+| AX type | Native representation | Status |
 | --- | --- | --- |
-| `bool` | `i1` | 与现有 LLVM IR 输出保持一致 |
-| `i32` | `i32` | 当前整数核心类型 |
-| `f32` | `float` | 当前浮点核心类型 |
-| `string` | `ptr` | NUL-terminated UTF-8；当前指向 process-lifetime allocation 或静态 string literal |
-| `[T]` slice | `{ ptr, i32 }` | `ptr` 指向连续元素区域，`i32` 是元素数量 |
-| `string_list` | `ptr` | opaque native list pointer，内部布局只属于 runtime helper |
-| fixed array | `[N x T]` | 由 LLVM value/layout 直接表示 |
-| struct | LLVM struct type | 继续沿用现有 `%ax_struct_* = type { ... }` layout |
-| enum without payload | `i32` | tag-only enum |
-| enum with payload | `{ i32, ptr }` | tag + opaque payload pointer |
-| `Option<T>` / `Result<T,E>` | enum layout | 继续通过 concrete enum instance layout lower |
+| `bool` | `i1` | Stable for current AOT subset. |
+| `i32` | `i32` | Stable for current AOT subset. |
+| `f32` | `float` | Stable for current AOT subset. |
+| `string` | pointer to UTF-8 bytes with NUL terminator | Preview; ownership rules below. |
+| `bytes` | runtime byte buffer handle or `{ ptr, len, capacity }` | Target for ABI v1; not frozen. |
+| fixed array `[T; N]` | LLVM array value `[N x T]` | Stable inside current AOT subset. |
+| slice `[T]` | `{ ptr, i32 len }` | Preview; cross-package ownership not frozen. |
+| `string_list` | runtime-owned list handle | Preview; must stay runtime-owned. |
+| struct | LLVM struct layout | Stable for non-generic current subset. |
+| unit enum | `i32` tag | Stable for current subset. |
+| payload enum | `{ i32 tag, ptr payload }` | Preview; payload allocation needs release policy. |
+| `Option<T>` / `Result<T,E>` | concrete enum instance layout | Preview; cross-package monomorphization remains open. |
 
-## Memory Policy
+## Ownership And Allocation
 
-当前统一写死为 `process_lifetime_malloc_v0`：
+Current AOT code uses process-lifetime allocation in several runtime helpers.
+That remains acceptable for v0 parity examples, but it is not enough for a
+backend systems language.
 
-- string concat/replace/split/trim/to_string 等 runtime helper 会分配新字符串。
-- `string_list` 会分配 list header 和 data buffer。
-- payload enum 需要 boxed payload 时使用 process-lifetime allocation。
-- v1 不引入 `free`、allocator 参数、引用计数、GC 或 ownership lowering。
+ABI v1 should introduce one explicit memory policy:
 
-这不是最终方案，但它是现在最稳定的 AOT parity 基线。后续如果引入 allocator/ownership，必须先扩展 ABI 文档和 runtime strategy，再迁移 lowering。
+- Runtime-created strings, byte buffers, lists, payload boxes, and host handles
+  are runtime-owned values.
+- Runtime-owned values must have either a matching release helper or a documented
+  arena/process-lifetime rule.
+- Backend standard-library APIs must state whether the caller owns, borrows, or
+  receives a runtime-owned value.
+- AOT lowering must not invent allocation/free rules locally.
 
-## Runtime Helper Boundary
+Default v1 direction:
 
-AOT runtime helper 现在按目录分区：
+```text
+runtime-owned object
+  -> opaque handle or pointer
+  -> explicit runtime release helper when lifetime can end
+  -> process-lifetime only for literals, compiler-owned constants, or documented
+     compatibility helpers
+```
 
-| 文件 | 责任 |
-| --- | --- |
-| `src/backend/llvm/runtime/core.rs` | format globals、runtime error、C ABI declarations |
-| `src/backend/llvm/runtime/string.rs` | string length、concat、replace、split lines、trim、to_string |
-| `src/backend/llvm/runtime/list.rs` | `string_list` opaque runtime |
-| `src/backend/llvm/runtime/fs.rs` | filesystem ABI helpers |
-| `src/backend/llvm/runtime/path.rs` | path ABI helpers |
-| `src/backend/llvm/runtime/process.rs` | process cwd/run/capture ABI helpers |
-| `src/backend/llvm/runtime/mod.rs` | 对外保留 `write_*` 入口，调用方不感知拆分 |
+GC is not required for 1.0. Reference counting is not required for 1.0. A clear
+release/runtime-owned rule is required.
 
-`src/backend/llvm/abi.rs` 收口 LLVM ABI 常量和 helper；`src/backend/llvm/symbols.rs` 收口用户函数、方法、静态方法、泛型实例和 runtime helper 的 symbol 生成入口。
+## Host Result And Error ABI
 
-## Symbols
+Host/runtime failures must not appear as parser or semantic errors.
 
-第一轮保持现有 IR 符号兼容：
+Runtime helpers should report failures through one of these routes:
 
-- `main` 仍输出为 `@main`。
-- 普通用户函数仍输出为 `@ax_<sanitized_name>`。
-- 方法、静态方法和泛型实例先保留兼容 API，不强行改写历史 IR 符号。
-- 新增 module/package-aware mangling API，但当前不主动重命名已有样例符号。
+- AX `Result<T, string>` for recoverable standard-library APIs.
+- Structured runtime diagnostics for unrecoverable interpreter/AOT runtime
+  failures.
+- AOT readiness blockers when the backend does not support the required ABI.
 
-这保证了本轮是后端工程化升级，不是用户可见 ABI 符号迁移。
+Native host errors should preserve:
 
-## Lowering Diagnostics
+- stable error code or category
+- human-readable message
+- source operation, such as `http.get`, `tls.connect`, `db.query`, or
+  `async.timeout`
+- AI action: edit source, explain backend limit, install/configure toolchain,
+  retry validation, or report compiler bug
 
-内部新增 `AotLoweringDiagnostic`，先把 unsupported/lowering reason 结构化为：
+## Resource Handles
 
-| 字段 | 含义 |
-| --- | --- |
-| `layer` | `aot_readiness`、`monomorphization`、`runtime_abi`、`llvm_lowering`、`toolchain`、`internal_compiler_error` |
-| `code` | 内部 AOT 分层码，例如 `AOT2001` |
-| `feature` | 相关 feature/type，可为空 |
-| `message` | 保持当前用户可见文本 |
+Backend systems work needs handles. ABI v1 reserves these handle families:
 
-当前 `build-manifest.json` schema 不变；内部先结构化，再格式化成原 notes/blocker 文本，为后续 manifest 分层升级铺路。
+| Handle | Intended owner | Release rule |
+| --- | --- | --- |
+| file handle | runtime | explicit close helper |
+| tcp socket | runtime | explicit close helper |
+| tls stream | runtime | explicit close helper |
+| http client/server | runtime | explicit close/shutdown helper |
+| db connection | runtime | explicit close helper |
+| async task | runtime/event loop | join/cancel/drop helper |
+| timer | runtime/event loop | cancel/drop helper |
 
-## Monomorphization And Linking
+Do not expose raw OS handles as stable AX values in 1.0. Keep them behind
+runtime-owned handles so Windows and Linux can share the same language contract.
 
-`src/backend/llvm/monomorph.rs` 现在提供 `MonomorphizationPlan`，集中记录当前 AOT 用到的 reachable functions 和 concrete generic instances。第一版复用既有 specialization 逻辑，不宣称 full generics。
+## Backend Standard Library ABI Targets
 
-`src/backend/llvm/linking.rs` 现在提供 `NativeLinkPlan`，把 “单个 `generated/main.ll` -> executable” 包装成计划对象。当前 CLI 行为不变，仍由 `--emit ir/exe/all`、`--no-link` 和 `AX_LLVM_AOT_LINK` 控制是否调用 clang；后续 obj/package/std native linking 会沿这个入口扩展。
+The 1.0 backend standard library should use the ABI in this order:
+
+1. `std.bytes`: byte buffers and binary-safe conversion.
+2. `std.net`: TCP sockets, timeouts, and error mapping.
+3. `std.tls`: TLS stream over sockets with certificate policy.
+4. `std.http`: request/response over TCP/TLS.
+5. `std.db`: PostgreSQL client v1 over TCP/TLS.
+6. `std.async`: task and event-loop integration for network/database IO.
+
+`std.hash` and checksum helpers are not cryptography. Secure crypto must be a
+separate `std.crypto` contract before password hashing, JWT signing, HMAC, or
+TLS internals can be claimed.
+
+## Backend Code Boundaries
+
+Keep ABI implementation concentrated in these backend areas:
+
+- `src/backend/llvm/abi.rs`: type and helper-name constants.
+- `src/backend/llvm/symbols.rs`: user, package, method, generic, and runtime
+  symbol generation.
+- `src/backend/llvm/runtime/*`: runtime helper declarations and definitions.
+- `src/backend/llvm/linking.rs`: native link plan and future package/std object
+  linking.
+- `src/backend/llvm/monomorph.rs`: concrete instance planning.
+
+Call lowering may use these APIs, but it should not become the source of truth
+for ABI policy.
+
+## AOT Readiness Contract
+
+When ABI support is missing, `axc build` should report a blocker rather than a
+source error.
+
+Required blocker categories:
+
+- `runtime_abi`
+- `aot_readiness`
+- `monomorphization`
+- `llvm_lowering`
+- `toolchain_link`
+- `package_registry`
+- `package_cache`
+- `internal_compiler_error`
+
+The AI-facing rule is simple:
+
+```text
+valid check/run behavior + missing native ABI
+  -> explain backend/runtime gap
+  -> do not rewrite user business logic
+```
+
+## 1.0 Exit Criteria
+
+Native ABI v1 is ready for the 1.0 backend profile when:
+
+- strings, bytes, slices, results, and runtime-owned handles have documented
+  layout and ownership.
+- Windows and Linux use the same language-level ABI contract.
+- runtime helpers are declared through the backend ABI entry points.
+- package and std native linking use the same symbol/mangling rules.
+- AOT readiness can explain every unsupported ABI boundary with a structured
+  blocker.

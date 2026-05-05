@@ -65,6 +65,17 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\cargo-gnu.ps1 test --test interface_snapshots context_
 ```
 
+Package-backed AOT readiness changes should also run:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke-package-registry-aot.ps1
+```
+
+This smoke does not require native executable linking. It checks registry
+package maturity behavior through `build-manifest.json`: stable pure-AX package
+fixtures must not produce `AOT0104` or `AOT0105`, host-boundary fixtures must
+produce `AOT0104`, and future-native fixtures must produce `AOT0105`.
+
 如果本机或 CI 已安装 clang，优先跑 run vs AOT executable parity smoke：
 
 ```powershell
