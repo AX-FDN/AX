@@ -1,0 +1,64 @@
+module std.json;
+
+fn escape_string(value: string) -> string {
+    let mut escaped: string = string_replace(value, "\\", "\\\\");
+    escaped = string_replace(escaped, "\"", "\\\"");
+    escaped = string_replace(escaped, "\n", "\\n");
+    escaped = string_replace(escaped, "\t", "\\t");
+    return escaped;
+}
+
+fn string_value(value: string) -> string {
+    return "\"" + escape_string(value) + "\"";
+}
+
+fn i32_value(value: i32) -> string {
+    return to_string(value);
+}
+
+fn bool_value(value: bool) -> string {
+    if (value) {
+        return "true";
+    }
+    return "false";
+}
+
+fn null_value() -> string {
+    return "null";
+}
+
+fn field_string(key: string, value: string) -> string {
+    return string_value(key) + ":" + string_value(value);
+}
+
+fn field_i32(key: string, value: i32) -> string {
+    return string_value(key) + ":" + i32_value(value);
+}
+
+fn field_bool(key: string, value: bool) -> string {
+    return string_value(key) + ":" + bool_value(value);
+}
+
+fn field_null(key: string) -> string {
+    return string_value(key) + ":" + null_value();
+}
+
+fn object1(field: string) -> string {
+    return "{" + field + "}";
+}
+
+fn object2(first: string, second: string) -> string {
+    return "{" + first + "," + second + "}";
+}
+
+fn object3(first: string, second: string, third: string) -> string {
+    return "{" + first + "," + second + "," + third + "}";
+}
+
+fn array2(first: string, second: string) -> string {
+    return "[" + first + "," + second + "]";
+}
+
+fn array3(first: string, second: string, third: string) -> string {
+    return "[" + first + "," + second + "," + third + "]";
+}

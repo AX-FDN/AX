@@ -566,6 +566,7 @@ fn collect_call_aot_features(name: &str, features: &mut BTreeSet<String>) {
     } else if name == "to_string" {
         features.insert("to_string_values".to_string());
     } else if name.starts_with("string_")
+        || name.starts_with("std.json.")
         || name.starts_with("std.text.")
         || name.starts_with("std.report.")
     {
