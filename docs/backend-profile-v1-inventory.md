@@ -63,6 +63,14 @@ export generic structs/functions and non-generic methods/impls. It requires
 `AX.lock`, checks the package graph readiness contract, and compares interpreter
 output with the native executable.
 
+## Runtime ABI Readiness
+
+`scripts/smoke-bytes-runtime.ps1` is the current `std.bytes` ABI fixture. It
+proves interpreter behavior for byte buffers and requires `axc build` to report
+`bytes_runtime` with `AOT0303` at the `runtime_abi` AI layer. This keeps valid
+byte-buffer source from being misreported as a user-code error while native
+bytes lowering is still pending.
+
 ## Backend Profile v1 Gaps
 
 These gaps block promotion from "candidate" to "Backend Profile v1 stable".
@@ -70,7 +78,7 @@ These gaps block promotion from "candidate" to "Backend Profile v1 stable".
 | Gap | Why it matters | Required next proof |
 | --- | --- | --- |
 | Native Runtime ABI v1 ownership | Backend services need predictable string/bytes/handle lifetime. | ABI doc plus runtime helper tests for release/ownership behavior. |
-| `bytes` native ABI | HTTP/TLS/DB need binary-safe data. | `std.bytes` AOT parity with byte buffers beyond interpreter-only helpers. |
+| `bytes` native ABI | HTTP/TLS/DB need binary-safe data. | Readiness fixture exists with `AOT0303/runtime_abi`; next proof is native byte-buffer layout and parity. |
 | Registry package native parity | 1.0 packages must participate in native build, not only readiness. | First `stable_pure_ax` package fixture exists; expand to more packages and cross-package cases. |
 | Cross-package monomorphization | Generic package APIs need concrete native instances. | Local path generic package smoke exists; add registry-backed generic package parity next. |
 | Method/impl ABI freeze | Backend code will use methods heavily. | Local package method parity exists; freeze symbol/ABI rules and add registry-backed coverage next. |
@@ -96,7 +104,7 @@ If any item is missing, the capability stays preview.
 Next executable checks to add:
 
 1. registry-backed generic/method helper fixture.
-2. bytes native ABI fixture.
+2. native byte-buffer layout and parity fixture.
 3. host handle readiness fixture for future HTTP/TLS/DB/async handles.
 
 These should be added before implementing production HTTP/TLS/DB/async APIs.

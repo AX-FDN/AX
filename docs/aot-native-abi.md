@@ -32,7 +32,7 @@ the code through the existing backend entry points.
 | `i32` | `i32` | Stable for current AOT subset. |
 | `f32` | `float` | Stable for current AOT subset. |
 | `string` | pointer to UTF-8 bytes with NUL terminator | Preview; ownership rules below. |
-| `bytes` | runtime byte buffer handle or `{ ptr, len, capacity }` | Target for ABI v1; not frozen. |
+| `bytes` | runtime byte buffer handle or `{ ptr, len, capacity }` | Target for ABI v1; not frozen; currently guarded by `AOT0303`. |
 | fixed array `[T; N]` | LLVM array value `[N x T]` | Stable inside current AOT subset. |
 | slice `[T]` | `{ ptr, i32 len }` | Preview; cross-package ownership not frozen. |
 | `string_list` | runtime-owned list handle | Preview; must stay runtime-owned. |
@@ -121,6 +121,16 @@ The 1.0 backend standard library should use the ABI in this order:
 `std.hash` and checksum helpers are not cryptography. Secure crypto must be a
 separate `std.crypto` contract before password hashing, JWT signing, HMAC, or
 TLS internals can be claimed.
+
+Current `std.bytes` status:
+
+- `axc run` supports `bytes_empty`, `bytes_from_string`, `bytes_push`,
+  `bytes_get`, `bytes_to_hex`, `bytes_to_string_lossy`, and `len(bytes)`.
+- `axc build` must report `bytes_runtime` and `AOT0303` until the native
+  byte-buffer representation is implemented.
+- `AOT0303` belongs to the `runtime_abi` AI layer and is not a safe source-edit
+  request.
+- `scripts/smoke-bytes-runtime.ps1` is the fixture that locks this contract.
 
 ## Backend Code Boundaries
 

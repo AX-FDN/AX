@@ -92,6 +92,63 @@ function Assert-Equal {
     }
 }
 
+function Join-ProcessArguments {
+    param([string[]] $Arguments)
+
+    $quoted = @()
+    foreach ($argument in $Arguments) {
+        $text = [string] $argument
+        if ($text.Length -eq 0) {
+            $quoted += '""'
+        } elseif ($text -match '[\s"]') {
+            $quoted += '"' + $text.Replace('"', '\"') + '"'
+        } else {
+            $quoted += $text
+        }
+    }
+
+    return ($quoted -join " ")
+}
+
+function Invoke-Process {
+    param(
+        [string] $FilePath,
+        [string[]] $Arguments = @()
+    )
+
+    $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
+    $startInfo.FileName = $FilePath
+    $startInfo.WorkingDirectory = $repoRoot
+    $startInfo.UseShellExecute = $false
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.RedirectStandardError = $true
+    $startInfo.Arguments = Join-ProcessArguments $Arguments
+
+    $process = $null
+    for ($attempt = 1; $attempt -le 5; $attempt += 1) {
+        try {
+            $process = [System.Diagnostics.Process]::Start($startInfo)
+            break
+        } catch [System.ComponentModel.Win32Exception] {
+            $message = $_.Exception.Message
+            if ($attempt -eq 5 -or $message -notmatch "being used by another process") {
+                throw
+            }
+            Start-Sleep -Milliseconds (200 * $attempt)
+        }
+    }
+
+    $stdout = $process.StandardOutput.ReadToEnd()
+    $stderr = $process.StandardError.ReadToEnd()
+    $process.WaitForExit()
+
+    [pscustomobject] @{
+        ExitCode = $process.ExitCode
+        Stdout = $stdout
+        Stderr = $stderr
+    }
+}
+
 $outputRoot = Resolve-RepoPath -Path $OutputDir
 if (Test-Path $outputRoot) {
     Remove-Item -LiteralPath $outputRoot -Recurse -Force
@@ -125,13 +182,13 @@ Write-Utf8NoBom -Path (Join-Path $outputRoot "src\main.ax") -Text $sourceText
 
 $axcBinary = Ensure-AxcBinary
 
-& $axcBinary check $outputRoot
-Assert-Equal -Label "axc check exit code" -Actual $LASTEXITCODE -Expected 0
+$check = Invoke-Process -FilePath $axcBinary -Arguments @("check", $outputRoot)
+Assert-Equal -Label "axc check exit code" -Actual ([int] $check.ExitCode) -Expected 0
 
-$runOutput = & $axcBinary run $outputRoot
-Assert-Equal -Label "axc run exit code" -Actual $LASTEXITCODE -Expected 3
+$run = Invoke-Process -FilePath $axcBinary -Arguments @("run", $outputRoot)
+Assert-Equal -Label "axc run exit code" -Actual ([int] $run.ExitCode) -Expected 3
 
-$actualOutput = @($runOutput | ForEach-Object { [string] $_ })
+$actualOutput = @(($run.Stdout -split "\r?\n") | Where-Object { $_ -ne "" } | ForEach-Object { [string] $_ })
 $expectedOutput = @("415821", "AX!", "65")
 Assert-Equal -Label "run output line count" -Actual $actualOutput.Count -Expected $expectedOutput.Count
 for ($index = 0; $index -lt $expectedOutput.Count; $index += 1) {
@@ -139,21 +196,30 @@ for ($index = 0; $index -lt $expectedOutput.Count; $index += 1) {
 }
 
 $buildOutput = Join-Path $outputRoot "build"
-& $axcBinary build $outputRoot --emit ir --no-link --out-dir $buildOutput | Out-Null
-Assert-Equal -Label "axc build --emit ir --no-link exit code" -Actual $LASTEXITCODE -Expected 0
+$build = Invoke-Process -FilePath $axcBinary -Arguments @("build", $outputRoot, "--emit", "ir", "--no-link", "--out-dir", $buildOutput)
+Assert-Equal -Label "axc build --emit ir --no-link exit code" -Actual ([int] $build.ExitCode) -Expected 0
 
 $manifestPath = Join-Path $buildOutput "build-manifest.json"
 if (-not (Test-Path $manifestPath)) {
     Write-Error "build manifest was not produced at $manifestPath"
 }
 $manifest = Get-Content $manifestPath -Raw -Encoding utf8 | ConvertFrom-Json
+Assert-Equal -Label "manifest schema_version" -Actual ([int] $manifest.schema_version) -Expected 10
+Assert-Equal -Label "aot readiness schema_version" -Actual ([int] $manifest.aot_readiness.schema_version) -Expected 3
+Assert-Equal -Label "bytes fixture aot_supported" -Actual ([bool] $manifest.aot_supported) -Expected $false
+
 $features = @($manifest.aot_readiness.required_backend_features | ForEach-Object { [string] $_ })
 if (-not $features.Contains("bytes_runtime")) {
     Write-Error "AOT readiness did not report bytes_runtime for std.bytes."
 }
-$blockerCodes = @($manifest.aot_readiness.blockers | ForEach-Object { [string] $_.code })
-if (-not $blockerCodes.Contains("AOT0303")) {
+$bytesBlocker = @($manifest.aot_readiness.blockers | Where-Object { [string] $_.code -eq "AOT0303" }) | Select-Object -First 1
+if ($null -eq $bytesBlocker) {
     Write-Error "AOT readiness did not report AOT0303 for bytes runtime ABI."
 }
+Assert-Equal -Label "AOT0303 category" -Actual ([string] $bytesBlocker.category) -Expected "runtime"
+Assert-Equal -Label "AOT0303 ai layer" -Actual ([string] $bytesBlocker.ai.layer) -Expected "runtime_abi"
+Assert-Equal -Label "AOT0303 ai action" -Actual ([string] $bytesBlocker.ai.ai_action) -Expected "explain_unsupported"
+Assert-Equal -Label "AOT0303 safe_to_edit" -Actual ([bool] $bytesBlocker.ai.safe_to_edit) -Expected $false
+Assert-Equal -Label "AOT0303 rule id" -Actual ([string] $bytesBlocker.ai.rule_id) -Expected "aot_bytes_runtime_abi_pending"
 
 Write-Host "Bytes runtime smoke passed at $outputRoot"

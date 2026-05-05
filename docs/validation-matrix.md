@@ -88,6 +88,16 @@ These smokes require clang. On Windows, `axc build` can also use the Rust
 `x86_64-pc-windows-gnu` self-contained runtime libraries as a fallback when the
 default clang/MSVC link path is missing system libraries.
 
+Bytes ABI/readiness changes should run:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke-bytes-runtime.ps1
+```
+
+This smoke does not require clang. It verifies interpreter byte-buffer behavior
+and the `AOT0303`/`runtime_abi` blocker contract while native bytes lowering is
+still pending.
+
 如果本机或 CI 已安装 clang，优先跑 run vs AOT executable parity smoke：
 
 ```powershell

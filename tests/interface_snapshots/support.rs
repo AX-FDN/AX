@@ -646,10 +646,16 @@ pub(crate) const SHARED_FOUNDATION_PROJECT_SOURCES: &[&str] = &[
 ];
 
 pub(crate) const SHARED_STD_PROJECT_SOURCES: &[&str] = &[
+    "external/std/bytes.ax",
     "external/std/cli.ax",
     "external/std/collections.ax",
+    "external/std/encoding.ax",
     "external/std/env.ax",
     "external/std/fs.ax",
+    "external/std/hash.ax",
+    "external/std/http.ax",
+    "external/std/json.ax",
+    "external/std/net.ax",
     "external/std/option.ax",
     "external/std/path.ax",
     "external/std/process.ax",

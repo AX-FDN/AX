@@ -147,7 +147,7 @@ const RULE_STRUCT_WRITE_LOWERING_PENDING: AotBlockerRule = AotBlockerRule {
 
 const RULE_HOST_RUNTIME_ABI_PENDING: AotBlockerRule = AotBlockerRule {
     rule_id: "aot_host_runtime_abi_pending",
-    layer: "aot_readiness",
+    layer: "runtime_abi",
     summary: "host boundary builtins need a native runtime ABI",
     repair_goal: "Treat the source as valid when check/run pass; add runtime ABI support before native build can preserve host behavior.",
     validation: VALIDATE_RUN_BUILD,
@@ -155,7 +155,7 @@ const RULE_HOST_RUNTIME_ABI_PENDING: AotBlockerRule = AotBlockerRule {
 
 const RULE_STRING_RUNTIME_ABI_PENDING: AotBlockerRule = AotBlockerRule {
     rule_id: "aot_string_runtime_abi_pending",
-    layer: "aot_readiness",
+    layer: "runtime_abi",
     summary: "string values need a native representation and ABI",
     repair_goal: "Keep string-using source valid for the interpreter and add a native string ABI before AOT parity.",
     validation: VALIDATE_RUN_BUILD,
@@ -163,7 +163,7 @@ const RULE_STRING_RUNTIME_ABI_PENDING: AotBlockerRule = AotBlockerRule {
 
 const RULE_BYTES_RUNTIME_ABI_PENDING: AotBlockerRule = AotBlockerRule {
     rule_id: "aot_bytes_runtime_abi_pending",
-    layer: "aot_readiness",
+    layer: "runtime_abi",
     summary: "bytes values need a native byte-buffer ABI",
     repair_goal: "Keep byte-buffer source valid for the interpreter and add a native bytes ABI before AOT parity.",
     validation: VALIDATE_RUN_BUILD,

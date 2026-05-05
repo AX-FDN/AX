@@ -67,18 +67,23 @@
           "control_flow",
           "functions",
           "host_argv",
-          "host_fs",
+          "host_fs_read",
+          "host_fs_write",
           "host_stdio",
           "i32_values",
           "loops",
           "multi_source_program",
+          "path_runtime",
           "project_sources",
           "slices",
           "string_concat",
           "string_len",
           "string_list_runtime",
           "string_literals",
+          "string_predicates",
           "string_runtime",
+          "string_split_lines",
+          "string_trim",
           "string_values",
           "struct_writes",
           "structs",
@@ -108,72 +113,6 @@
             }
           },
           {
-            "code": "AOT0101",
-            "category": "project",
-            "message": "project source graph packaging exists, but native project linking semantics are not implemented",
-            "required_stage": "Build-2",
-            "resolution": {
-              "agent_action": "explain_unsupported",
-              "source_edit_safe": false
-            },
-            "ai": {
-              "rule_id": "aot_project_linking_pending",
-              "layer": "aot_readiness",
-              "ai_action": "explain_unsupported",
-              "safe_to_edit": false,
-              "summary": "project source graph packaging is not yet native-linkable",
-              "repair_goal": "Preserve the project source layout and add explicit native project linking semantics before treating build as a source repair failure.",
-              "validation": [
-                "axc run <target>",
-                "axc build <target> --json"
-              ]
-            }
-          },
-          {
-            "code": "AOT0207",
-            "category": "language",
-            "message": "struct field mutation needs explicit native layout write semantics before AOT can preserve interpreter behavior",
-            "required_stage": "Build-2",
-            "resolution": {
-              "agent_action": "explain_unsupported",
-              "source_edit_safe": false
-            },
-            "ai": {
-              "rule_id": "aot_struct_write_lowering_pending",
-              "layer": "aot_readiness",
-              "ai_action": "explain_unsupported",
-              "safe_to_edit": false,
-              "summary": "struct field mutation needs native write semantics",
-              "repair_goal": "Keep struct-mutating source valid for axc run and add explicit native field write lowering before AOT parity.",
-              "validation": [
-                "axc run <target>",
-                "axc build <target> --json"
-              ]
-            }
-          },
-          {
-            "code": "AOT0301",
-            "category": "runtime",
-            "message": "host boundary builtins need a native runtime ABI before AOT can preserve check/run behavior",
-            "required_stage": "Build-2/Build-3",
-            "resolution": {
-              "agent_action": "explain_unsupported",
-              "source_edit_safe": false
-            },
-            "ai": {
-              "rule_id": "aot_host_runtime_abi_pending",
-              "layer": "aot_readiness",
-              "ai_action": "explain_unsupported",
-              "safe_to_edit": false,
-              "summary": "host boundary builtins need a native runtime ABI",
-              "repair_goal": "Treat the source as valid when check/run pass; add runtime ABI support before native build can preserve host behavior.",
-              "validation": [
-                "axc run <target>",
-                "axc build <target> --json"
-              ]
-            }
-          },
-          {
             "code": "AOT0302",
             "category": "runtime",
             "message": "full string runtime operations and string_list values need a native runtime representation and ABI",
@@ -184,7 +123,7 @@
             },
             "ai": {
               "rule_id": "aot_string_runtime_abi_pending",
-              "layer": "aot_readiness",
+              "layer": "runtime_abi",
               "ai_action": "explain_unsupported",
               "safe_to_edit": false,
               "summary": "string values need a native representation and ABI",
