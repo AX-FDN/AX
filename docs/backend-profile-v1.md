@@ -10,6 +10,10 @@ axc build --emit exe
 native executable parity with axc run
 ```
 
+The executable inventory for this profile lives in
+[`backend-profile-v1-inventory.md`](./backend-profile-v1-inventory.md). That
+file maps the current AOT parity set to profile candidates and gaps.
+
 ## Platform Target
 
 - Windows: first-tier development workflow.
@@ -75,3 +79,14 @@ For profile features:
 
 The profile is not complete until Windows and Linux CI both validate the native
 path.
+
+## Promotion Rule
+
+A feature can move into Backend Profile v1 only when it has:
+
+- documented language or std contract
+- interpreter behavior
+- build manifest / AOT readiness behavior
+- native parity or an explicit structured blocker
+
+Anything missing one of those stays preview.

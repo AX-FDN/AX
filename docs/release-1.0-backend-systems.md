@@ -57,6 +57,11 @@ The next implementation work should stay in this order:
 4. Language Spec v1 skeleton.
 5. Backend demo target.
 
+The next profile-tracking document is
+[`backend-profile-v1-inventory.md`](./backend-profile-v1-inventory.md), which
+maps current executable parity coverage to Backend Profile v1 candidates and
+remaining gaps.
+
 Do not start production HTTP/TLS/DB/async implementation until the ABI and
 Backend Profile documents are in place.
 

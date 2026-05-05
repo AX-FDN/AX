@@ -13,6 +13,7 @@ can change, but these docs should describe the current project accurately.
 | [`release-0.2-package-preview.md`](./release-0.2-package-preview.md) | Current 0.2 Package Preview execution anchor. |
 | [`release-1.0-backend-systems.md`](./release-1.0-backend-systems.md) | Long-range AX 1.0 backend systems language roadmap. |
 | [`backend-profile-v1.md`](./backend-profile-v1.md) | Draft native-build profile for the 1.0 backend target. |
+| [`backend-profile-v1-inventory.md`](./backend-profile-v1-inventory.md) | Executable checklist mapping current AOT parity to Backend Profile v1. |
 | [`language-spec.md`](./language-spec.md) | Top-level language specification skeleton. |
 | [`type-system.md`](./type-system.md) | Type system specification skeleton. |
 | [`module-system.md`](./module-system.md) | Module and import specification skeleton. |

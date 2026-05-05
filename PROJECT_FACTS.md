@@ -51,6 +51,7 @@ AI-native diagnostics and repair guidance preserved
 | Package maturity | Packages are classified as `stable_pure_ax`, `host_boundary_preview`, or `future_native_preview`. |
 | 1.0 roadmap | `docs/release-1.0-backend-systems.md` is the active long-range roadmap. |
 | Backend profile | `docs/backend-profile-v1.md` defines the draft native-build target. |
+| Backend profile inventory | `docs/backend-profile-v1-inventory.md` maps current AOT parity to 1.0 candidates and gaps. |
 | Standard library | `std.bytes`, `std.encoding`, `std.json`, `std.hash`, and `std.http` now provide package-facing foundations. |
 | Platform | Windows has the fullest workflow. Linux has core support. macOS is not yet a committed support tier. |
 

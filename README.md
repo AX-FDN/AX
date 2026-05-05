@@ -242,6 +242,7 @@ New work should strengthen one of these loops:
 | 0.2 Package Preview | [`docs/release-0.2-package-preview.md`](./docs/release-0.2-package-preview.md) |
 | 1.0 Backend Systems roadmap | [`docs/release-1.0-backend-systems.md`](./docs/release-1.0-backend-systems.md) |
 | Backend Profile v1 draft | [`docs/backend-profile-v1.md`](./docs/backend-profile-v1.md) |
+| Backend Profile v1 inventory | [`docs/backend-profile-v1-inventory.md`](./docs/backend-profile-v1-inventory.md) |
 | Language specification skeleton | [`docs/language-spec.md`](./docs/language-spec.md) |
 | Error model skeleton | [`docs/error-model.md`](./docs/error-model.md) |
 | Package preview contract | [`docs/package-registry-v0.md`](./docs/package-registry-v0.md) |
