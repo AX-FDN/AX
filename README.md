@@ -1335,6 +1335,13 @@ Current registry facts:
 - Package source monorepo: `https://github.com/AX-FDN/AX-PKG.git`.
 - Validation entry: [`scripts/smoke-package-registry.ps1`](./scripts/smoke-package-registry.ps1).
 
+The compiler repository is also growing the standard-library foundation needed
+by these packages. `std.bytes`, `std.encoding`, `std.json`, and `std.hash` now
+cover byte buffers, hex/base64 helpers, JSON string construction, and
+deterministic non-cryptographic checksums. These modules are interpreter-stable
+today; AOT readiness reports their current native runtime needs explicitly
+instead of pretending every helper is already part of the native subset.
+
 Current package families:
 
 | Family | Packages | What they enable today |

@@ -1,0 +1,38 @@
+module std.hash;
+
+import std.bytes;
+
+struct Checksum {
+    value: i32,
+    label: string,
+}
+
+fn checksum_bytes(data: bytes) -> i32 {
+    let mut value: i32 = 17;
+    for (let mut i: i32 = 0; i < std.bytes.length(data); i = i + 1) {
+        value = ((value * 17) % 1000003 + std.bytes.get(data, i) + i) % 1000003;
+    }
+    return value;
+}
+
+fn checksum_text(text: string) -> i32 {
+    return checksum_bytes(std.bytes.from_string(text));
+}
+
+fn checksum_label(text: string) -> string {
+    return "axh2:" + to_string(checksum_text(text));
+}
+
+fn summarize(text: string) -> Checksum {
+    let value: i32 = checksum_text(text);
+    return Checksum { value: value, label: "axh2:" + to_string(value) };
+}
+
+fn cache_key(namespace: string, key: string) -> string {
+    return namespace + ":" + checksum_label(key);
+}
+
+fn equal_text(left: string, right: string) -> bool {
+    return checksum_text(left) == checksum_text(right);
+}
+

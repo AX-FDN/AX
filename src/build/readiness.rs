@@ -541,6 +541,7 @@ fn collect_call_aot_features(name: &str, features: &mut BTreeSet<String>) {
     if name.starts_with("bytes_")
         || name.starts_with("std.bytes.")
         || name.starts_with("std.encoding.")
+        || name.starts_with("std.hash.")
     {
         features.insert("bytes_runtime".to_string());
     }
@@ -567,6 +568,7 @@ fn collect_call_aot_features(name: &str, features: &mut BTreeSet<String>) {
         features.insert("to_string_values".to_string());
     } else if name.starts_with("string_")
         || name.starts_with("std.json.")
+        || name.starts_with("std.hash.")
         || name.starts_with("std.text.")
         || name.starts_with("std.report.")
     {
