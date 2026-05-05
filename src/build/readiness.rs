@@ -516,6 +516,15 @@ fn collect_call_aot_features(name: &str, features: &mut BTreeSet<String>) {
     if name.starts_with("process_") || name.starts_with("std.process.") {
         features.insert("host_process".to_string());
     }
+    if name.starts_with("http_") || name.starts_with("std.http.") {
+        features.insert("host_http".to_string());
+    }
+    if name.starts_with("net_") || name.starts_with("std.net.") {
+        features.insert("host_net".to_string());
+    }
+    if name.starts_with("db_") || name.starts_with("std.db.") || name.starts_with("std.database.") {
+        features.insert("host_db".to_string());
+    }
     if name.starts_with("path_") || name.starts_with("std.path.") {
         features.insert("path_runtime".to_string());
     }

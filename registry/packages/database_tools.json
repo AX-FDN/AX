@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "name": "database_tools",
+  "owner": "ax-core",
+  "license": "Apache-2.0",
+  "description": "Pure AX DSN classification and database readiness helpers",
+  "versions": [
+    {
+      "version": "0.1.0",
+      "source": {
+        "kind": "git",
+        "url": "https://github.com/AX-FDN/AX-PKG.git",
+        "rev": "16d9306843ca8300c348a39c17283e4184c40106",
+        "path": "packages/database_tools"
+      },
+      "checksum": "sha256:42465f38d969e81110cbefb27b227141ea46294673db6c2869538c0d9f5a67ee",
+      "modules": [
+        "database_tools.dsn"
+      ]
+    }
+  ]
+}

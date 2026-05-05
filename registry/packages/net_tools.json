@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "name": "net_tools",
+  "owner": "ax-core",
+  "license": "Apache-2.0",
+  "description": "Interpreter-backed one-shot TCP helpers over std.net",
+  "versions": [
+    {
+      "version": "0.1.0",
+      "source": {
+        "kind": "git",
+        "url": "https://github.com/AX-FDN/AX-PKG.git",
+        "rev": "16d9306843ca8300c348a39c17283e4184c40106",
+        "path": "packages/net_tools"
+      },
+      "checksum": "sha256:bcde8f0386a7f83e69d7f28ba09e0bcf54d51a4af0ddd613b771d8c688db6236",
+      "modules": [
+        "net_tools.tcp"
+      ]
+    }
+  ]
+}

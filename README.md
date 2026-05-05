@@ -162,6 +162,7 @@ AOT 的能力边界也会被结构化管理：`to_string(string_list)` 或尚未
 | LLVM AOT v0 后端边界        | [`docs/llvm-aot.md`](./docs/llvm-aot.md)                           |
 | AX Native ABI v1            | [`docs/aot-native-abi.md`](./docs/aot-native-abi.md)               |
 | 包注册表 v0 规划            | [`docs/package-registry-v0.md`](./docs/package-registry-v0.md)     |
+| Host runtime package boundary | [`docs/host-runtime-packages.md`](./docs/host-runtime-packages.md) |
 | 语言能力当前支持状态        | [`docs/language-support-status.md`](./docs/language-support-status.md) |
 | 全项目按什么阶段推进        | [`执行路线.md`](./执行路线.md)                                     |
 | 曾经的计划与旧施工单        | [`曾经的计划/`](./曾经的计划/)                                     |

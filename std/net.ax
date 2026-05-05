@@ -1,0 +1,28 @@
+module std.net;
+
+import std.result;
+
+struct TcpResponse {
+    ok: bool,
+    data: string,
+    error: string,
+}
+
+fn tcp_exchange(host: string, port: i32, request: string) -> TcpResponse {
+    return net_tcp_exchange(host, port, request);
+}
+
+fn try_tcp_exchange(host: string, port: i32, request: string) -> std.result.Result<string, string> {
+    let response: TcpResponse = net_tcp_exchange(host, port, request);
+    if (response.ok) {
+        return std.result.Result.ok(response.data);
+    }
+    return std.result.Result.err(response.error);
+}
+
+fn status_text(response: TcpResponse) -> string {
+    if (response.ok) {
+        return "ok";
+    }
+    return "err:" + response.error;
+}

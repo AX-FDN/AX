@@ -17,6 +17,12 @@ The first public shape should support:
 - No native extensions.
 - No public upload server in v0.
 
+Host IO packages are allowed only when their runtime boundary is explicit. HTTP
+and raw TCP package experiments should wrap `std.http` and `std.net`; database
+packages should begin with pure AX types and protocol helpers until TCP/TLS/byte
+buffer/runtime ABI support is mature enough. See
+[`host-runtime-packages.md`](./host-runtime-packages.md).
+
 ## Non-Goals For v0
 
 - Public package upload.
@@ -47,6 +53,9 @@ Start with a repository-owned curated index inside the AX repository during 0.2:
 registry/
   index.json
   packages/
+    database_tools.json
+    http_tools.json
+    net_tools.json
     text_tools.json
     config_rules.json
     math_rules.json

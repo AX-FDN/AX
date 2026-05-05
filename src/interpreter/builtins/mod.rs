@@ -2,6 +2,8 @@ mod argv;
 mod core;
 mod env;
 mod fs;
+mod http;
+mod net;
 mod path;
 mod process;
 mod string;
@@ -63,6 +65,8 @@ impl<'a> Interpreter<'a> {
             "fs_read_dir" => self.call_fs_read_dir_builtin(arguments, span),
             "fs_read_to_string" => self.call_fs_read_to_string_builtin(arguments, span),
             "fs_write_string" => self.call_fs_write_string_builtin(arguments, span),
+            "http_get" => self.call_http_get_builtin(arguments, span),
+            "net_tcp_exchange" => self.call_net_tcp_exchange_builtin(arguments, span),
             _ => self.call_declared_function(name, arguments, span),
         }
     }

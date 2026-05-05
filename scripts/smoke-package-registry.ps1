@@ -115,6 +115,7 @@ entry = "src/main.ax"
 $sourceText = @'
 import collection_tools.ints;
 import config_rules.validate;
+import database_tools.dsn;
 import markdown_tools.headings;
 import math_rules.core;
 import number_tools.core;
@@ -132,6 +133,7 @@ fn main() -> i32 {
     let totals: collection_tools.ints.IntSummary = collection_tools.ints.summarize(values);
     let bounded: number_tools.core.RangeCheck = number_tools.core.range_check(totals.sum, 0, 20);
     let headings: markdown_tools.headings.HeadingSummary = markdown_tools.headings.summarize(normalized);
+    let database_status: database_tools.dsn.DsnCheck = database_tools.dsn.check("postgres://db.example/app");
     let config_status: i32 = config_rules.validate.validate("host=localhost\nport=8080\n");
     let name_status: i32 = validation_tools.rules.require_prefix("AX-PKG", "AX");
     let mut report: string = "";
@@ -141,6 +143,7 @@ fn main() -> i32 {
     report = report_tools.builder.kv_string(report, "band", number_tools.core.score_band(score));
     report = report_tools.builder.kv_bool(report, "range-ok", bounded.ok);
     report = report_tools.builder.kv_i32(report, "headings", headings.headings);
+    report = report_tools.builder.kv_string(report, "db", database_status.driver);
     report = report_tools.builder.kv_string(report, "name", validation_tools.rules.message(name_status, "name"));
     println(result_tools.summary.status_label(config_status, "ok"));
     println(report);
@@ -159,6 +162,7 @@ Assert-Equal -Label "axc pkg check exit code" -Actual $LASTEXITCODE -Expected 0
 $packages = @(
     "collection_tools",
     "config_rules",
+    "database_tools",
     "markdown_tools",
     "math_rules",
     "number_tools",
@@ -183,7 +187,7 @@ if (-not (Test-Path $lockfilePath)) {
 
 $lockfile = Get-Content $lockfilePath -Raw -Encoding utf8 | ConvertFrom-Json
 Assert-Equal -Label "AX.lock schema_version" -Actual ([int] $lockfile.schema_version) -Expected 2
-Assert-Equal -Label "AX.lock dependency count" -Actual (@($lockfile.dependencies).Count) -Expected 9
+Assert-Equal -Label "AX.lock dependency count" -Actual (@($lockfile.dependencies).Count) -Expected 10
 
 & $axcBinary check $outputRoot
 Assert-Equal -Label "axc check exit code" -Actual $LASTEXITCODE -Expected 0
@@ -199,6 +203,7 @@ $expectedOutput = @(
     "band: excellent",
     "range-ok: true",
     "headings: 1",
+    "db: postgres",
     "name: name: ok"
 )
 $actualOutput = @($runOutput | ForEach-Object { [string] $_ })
@@ -214,4 +219,4 @@ for ($index = 0; $index -lt $expectedOutput.Count; $index += 1) {
     Assert-Equal -Label "run output[$index]" -Actual $actualOutput[$index] -Expected $expectedOutput[$index]
 }
 
-Write-Host "Package registry smoke passed. Verified 9 registry packages at $outputRoot"
+Write-Host "Package registry smoke passed. Verified 10 stable registry packages at $outputRoot"

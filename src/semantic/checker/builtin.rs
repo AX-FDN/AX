@@ -11,6 +11,10 @@ mod conversion;
 mod fs;
 #[path = "builtin/helpers.rs"]
 mod helpers;
+#[path = "builtin/http.rs"]
+mod http;
+#[path = "builtin/net.rs"]
+mod net;
 #[path = "builtin/output.rs"]
 mod output;
 #[path = "builtin/path.rs"]
@@ -73,6 +77,8 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             "fs_read_dir" => self.check_fs_read_dir_builtin(expr, arguments),
             "fs_read_to_string" => self.check_fs_read_to_string_builtin(expr, arguments),
             "fs_write_string" => self.check_fs_write_string_builtin(expr, arguments),
+            "http_get" => self.check_http_get_builtin(expr, arguments),
+            "net_tcp_exchange" => self.check_net_tcp_exchange_builtin(expr, arguments),
             "to_string" => self.check_to_string_builtin(expr, arguments),
             _ => return None,
         };

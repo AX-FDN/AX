@@ -1,0 +1,29 @@
+module std.http;
+
+import std.result;
+
+struct HttpResponse {
+    status: i32,
+    ok: bool,
+    headers: string,
+    body: string,
+}
+
+fn get(url: string) -> HttpResponse {
+    return http_get(url);
+}
+
+fn try_get(url: string) -> std.result.Result<HttpResponse, string> {
+    let response: HttpResponse = http_get(url);
+    if (response.ok) {
+        return std.result.Result.ok(response);
+    }
+    return std.result.Result.err(response.body);
+}
+
+fn status_text(response: HttpResponse) -> string {
+    if (response.ok) {
+        return "ok:" + to_string(response.status);
+    }
+    return "err:" + to_string(response.status);
+}

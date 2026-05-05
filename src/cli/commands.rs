@@ -705,6 +705,7 @@ fn run_pkg_install(project_path: &Path, registry_path: &Path, dry_run: bool) -> 
             println!("note: dry-run only; no cache, AX.toml, or AX.lock files were changed");
             return 0;
         }
+        let mut skipped_cache_install = false;
         for (package_name, package_version) in &install_plans {
             match install_registry_package_to_cache("ax", package_name, package_version) {
                 Ok(PackageCacheInstall::Installed(package)) => {
@@ -715,6 +716,7 @@ fn run_pkg_install(project_path: &Path, registry_path: &Path, dry_run: bool) -> 
                     println!("verified checksum: {}", package.checksum);
                 }
                 Ok(PackageCacheInstall::Skipped { reason }) => {
+                    skipped_cache_install = true;
                     println!("cache skipped: {reason}");
                 }
                 Err(error) => {
@@ -742,7 +744,9 @@ fn run_pkg_install(project_path: &Path, registry_path: &Path, dry_run: bool) -> 
             "wrote AX.lock registry preview: {}",
             lockfile_path.display()
         );
-        println!("note: packages with placeholder rev/checksum metadata are not cached yet");
+        if skipped_cache_install {
+            println!("note: packages with placeholder rev/checksum metadata are not cached yet");
+        }
     }
     0
 }

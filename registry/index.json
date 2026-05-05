@@ -10,12 +10,24 @@
       "metadata": "packages/config_rules.json"
     },
     {
+      "name": "database_tools",
+      "metadata": "packages/database_tools.json"
+    },
+    {
+      "name": "http_tools",
+      "metadata": "packages/http_tools.json"
+    },
+    {
       "name": "markdown_tools",
       "metadata": "packages/markdown_tools.json"
     },
     {
       "name": "math_rules",
       "metadata": "packages/math_rules.json"
+    },
+    {
+      "name": "net_tools",
+      "metadata": "packages/net_tools.json"
     },
     {
       "name": "number_tools",

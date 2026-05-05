@@ -170,6 +170,37 @@ return status;
 }
 
 #[test]
+fn aot_readiness_reports_http_and_net_as_host_runtime_blockers() {
+    let readiness = readiness_for(
+        "\
+fn main() -> i32 {
+http_get(\"http://127.0.0.1/\");
+net_tcp_exchange(\"127.0.0.1\", 80, \"PING\");
+return 0;
+}
+",
+        AotReadinessInput {
+            is_project: false,
+            has_local_path_packages: false,
+            package_lock_status: None,
+        },
+    );
+
+    assert!(!readiness.single_file_core_candidate);
+    assert_eq!(blocker_codes(&readiness), vec!["AOT0001", "AOT0301"]);
+    assert!(
+        readiness
+            .required_backend_features
+            .contains(&"host_http".to_string())
+    );
+    assert!(
+        readiness
+            .required_backend_features
+            .contains(&"host_net".to_string())
+    );
+}
+
+#[test]
 fn aot_readiness_allows_filesystem_read_subset_without_host_runtime_blocker() {
     let readiness = readiness_for(
         "\
