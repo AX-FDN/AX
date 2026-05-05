@@ -10,7 +10,7 @@
       "source": {
         "kind": "git",
         "url": "https://github.com/AX-FDN/AX-PKG.git",
-        "rev": "a901c21a1e61efa98be010a427d803c4b19dee3f",
+        "rev": "49f5f4e361e78225502f222939bcca031a91eafe",
         "path": "packages/config_rules"
       },
       "checksum": "sha256:32833d3ee5e0bb923597ca9ac0c2354a7606ba4cb54fa2cfe4681c73f0a6762f",

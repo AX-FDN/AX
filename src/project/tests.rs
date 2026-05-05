@@ -556,7 +556,7 @@ text_tools = { registry = \"ax\", version = \"0.1.0\" }
     {
       "alias": "text_tools",
       "kind": "registry",
-      "package": "text_tools",
+      "package": "text_tools_cache_missing",
       "version": "0.1.0",
       "source": {
         "registry": "ax",

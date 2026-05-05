@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "name": "text_tools",
+  "name": "validation_tools",
   "owner": "ax-core",
   "license": "Apache-2.0",
-  "description": "Text normalization helpers for AX package preview examples",
+  "description": "Reusable validation predicates and status messages for AX package preview",
   "versions": [
     {
       "version": "0.1.0",
@@ -11,12 +11,11 @@
         "kind": "git",
         "url": "https://github.com/AX-FDN/AX-PKG.git",
         "rev": "49f5f4e361e78225502f222939bcca031a91eafe",
-        "path": "packages/text_tools"
+        "path": "packages/validation_tools"
       },
-      "checksum": "sha256:bfcc4fbb9e8765ac9bd85b037d06360a5ae900425c11425c6fc7ff775331daf3",
+      "checksum": "sha256:2b9be8a164c577d4cfb95e85fb79856ec5dc9863bfbdc6c97d2fbf3dffaaf3de",
       "modules": [
-        "text_tools.normalize",
-        "text_tools.stats"
+        "validation_tools.rules"
       ]
     }
   ]

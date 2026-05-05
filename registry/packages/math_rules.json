@@ -10,7 +10,7 @@
       "source": {
         "kind": "git",
         "url": "https://github.com/AX-FDN/AX-PKG.git",
-        "rev": "a901c21a1e61efa98be010a427d803c4b19dee3f",
+        "rev": "49f5f4e361e78225502f222939bcca031a91eafe",
         "path": "packages/math_rules"
       },
       "checksum": "sha256:ee96ba29ab94f97a7b04e73a63b42f3322edd386f29281ba0f843c1090ba04ff",

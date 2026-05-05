@@ -2,12 +2,28 @@
   "schema_version": 1,
   "packages": [
     {
+      "name": "collection_tools",
+      "metadata": "packages/collection_tools.json"
+    },
+    {
       "name": "config_rules",
       "metadata": "packages/config_rules.json"
     },
     {
+      "name": "markdown_tools",
+      "metadata": "packages/markdown_tools.json"
+    },
+    {
       "name": "math_rules",
       "metadata": "packages/math_rules.json"
+    },
+    {
+      "name": "number_tools",
+      "metadata": "packages/number_tools.json"
+    },
+    {
+      "name": "report_tools",
+      "metadata": "packages/report_tools.json"
     },
     {
       "name": "result_tools",
@@ -16,6 +32,10 @@
     {
       "name": "text_tools",
       "metadata": "packages/text_tools.json"
+    },
+    {
+      "name": "validation_tools",
+      "metadata": "packages/validation_tools.json"
     }
   ]
 }

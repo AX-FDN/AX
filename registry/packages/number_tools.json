@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "name": "text_tools",
+  "name": "number_tools",
   "owner": "ax-core",
   "license": "Apache-2.0",
-  "description": "Text normalization helpers for AX package preview examples",
+  "description": "Integer clamps, percentages, and range checks for AX package preview",
   "versions": [
     {
       "version": "0.1.0",
@@ -11,12 +11,11 @@
         "kind": "git",
         "url": "https://github.com/AX-FDN/AX-PKG.git",
         "rev": "49f5f4e361e78225502f222939bcca031a91eafe",
-        "path": "packages/text_tools"
+        "path": "packages/number_tools"
       },
-      "checksum": "sha256:bfcc4fbb9e8765ac9bd85b037d06360a5ae900425c11425c6fc7ff775331daf3",
+      "checksum": "sha256:e80e7d16516f8de9500e3a0977a20ff2c0450c72110ad71865689f8b15dc3b9a",
       "modules": [
-        "text_tools.normalize",
-        "text_tools.stats"
+        "number_tools.core"
       ]
     }
   ]
