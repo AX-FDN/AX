@@ -1,12 +1,29 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::ast::{self, Program as AstProgram};
+use crate::source::SourceFile;
 
 use super::*;
 
 pub fn assess_aot_readiness(program: &AstProgram, input: AotReadinessInput<'_>) -> AotReadiness {
+    assess_aot_readiness_inner(None, program, input)
+}
+
+pub fn assess_aot_readiness_with_source(
+    source: &SourceFile,
+    program: &AstProgram,
+    input: AotReadinessInput<'_>,
+) -> AotReadiness {
+    assess_aot_readiness_inner(Some(source), program, input)
+}
+
+fn assess_aot_readiness_inner(
+    source: Option<&SourceFile>,
+    program: &AstProgram,
+    input: AotReadinessInput<'_>,
+) -> AotReadiness {
     let mut features = BTreeSet::new();
-    collect_aot_features(program, &mut features);
+    collect_aot_features(source, program, &mut features);
 
     if input.is_project {
         features.insert("project_sources".to_string());
@@ -104,7 +121,11 @@ pub fn assess_aot_readiness(program: &AstProgram, input: AotReadinessInput<'_>) 
     }
 }
 
-fn collect_aot_features(program: &AstProgram, features: &mut BTreeSet<String>) {
+fn collect_aot_features(
+    source: Option<&SourceFile>,
+    program: &AstProgram,
+    features: &mut BTreeSet<String>,
+) {
     if program.source_units.len() > 1 {
         features.insert("multi_source_program".to_string());
     }
@@ -116,8 +137,77 @@ fn collect_aot_features(program: &AstProgram, features: &mut BTreeSet<String>) {
         features.insert("module_imports".to_string());
     }
 
+    if let Some(source) = source {
+        collect_reachable_item_aot_features(source, program, features);
+    } else {
+        for item in &program.items {
+            collect_item_aot_features(&item.kind, features);
+        }
+    }
+}
+
+fn collect_reachable_item_aot_features(
+    source: &SourceFile,
+    program: &AstProgram,
+    features: &mut BTreeSet<String>,
+) {
+    let mut functions = BTreeMap::<String, &ast::Item>::new();
+    let mut simple_functions = BTreeMap::<String, Vec<String>>::new();
+    let mut entry_functions = Vec::<String>::new();
+
     for item in &program.items {
+        let ast::ItemKind::Function { name, .. } = &item.kind else {
+            collect_item_aot_features(&item.kind, features);
+            continue;
+        };
+
+        let qualified_name = qualified_item_name(source, program, item, name);
+        if is_entry_function(source, program, item, name) {
+            entry_functions.push(qualified_name.clone());
+        }
+        simple_functions
+            .entry(name.clone())
+            .or_default()
+            .push(qualified_name.clone());
+        functions.insert(qualified_name, item);
+    }
+
+    if entry_functions.is_empty() {
+        entry_functions.extend(
+            functions
+                .keys()
+                .filter(|name| name.as_str() == "main" || name.ends_with(".main"))
+                .cloned(),
+        );
+    }
+
+    let mut pending = entry_functions;
+    let mut visited = BTreeSet::<String>::new();
+    while let Some(function_name) = pending.pop() {
+        if !visited.insert(function_name.clone()) {
+            continue;
+        }
+        let Some(item) = functions.get(&function_name) else {
+            continue;
+        };
         collect_item_aot_features(&item.kind, features);
+
+        let ast::ItemKind::Function { body, .. } = &item.kind else {
+            continue;
+        };
+        let mut raw_calls = BTreeSet::<String>::new();
+        collect_called_names_in_block(body, &mut raw_calls);
+        for call in raw_calls {
+            if functions.contains_key(&call) {
+                pending.push(call);
+                continue;
+            }
+            if let Some(candidates) = simple_functions.get(&call) {
+                if candidates.len() == 1 {
+                    pending.push(candidates[0].clone());
+                }
+            }
+        }
     }
 }
 
@@ -318,6 +408,169 @@ fn collect_stmt_aot_features(statement: &ast::Stmt, features: &mut BTreeSet<Stri
             collect_block_aot_features(body, features);
         }
         ast::StmtKind::Block { block } => collect_block_aot_features(block, features),
+    }
+}
+
+fn qualified_item_name(
+    source: &SourceFile,
+    program: &AstProgram,
+    item: &ast::Item,
+    name: &str,
+) -> String {
+    let source_path = source.display_path_for_offset(item.span.start);
+    let module_path = program
+        .source_unit_for_path(source_path)
+        .and_then(|unit| unit.module.as_ref())
+        .map(|module| module.path.as_str());
+    match module_path {
+        Some(module_path) => format!("{module_path}.{name}"),
+        None => name.to_string(),
+    }
+}
+
+fn is_entry_function(
+    source: &SourceFile,
+    program: &AstProgram,
+    item: &ast::Item,
+    name: &str,
+) -> bool {
+    if name != "main" {
+        return false;
+    }
+    let source_path = source.display_path_for_offset(item.span.start);
+    program
+        .source_unit_for_path(source_path)
+        .is_none_or(|unit| unit.is_entry)
+}
+
+fn collect_called_names_in_block(block: &ast::Block, calls: &mut BTreeSet<String>) {
+    for statement in &block.statements {
+        collect_called_names_in_stmt(statement, calls);
+    }
+}
+
+fn collect_called_names_in_stmt(statement: &ast::Stmt, calls: &mut BTreeSet<String>) {
+    match &statement.kind {
+        ast::StmtKind::Let { initializer, .. } => collect_called_names_in_expr(initializer, calls),
+        ast::StmtKind::Assign { target, value } => {
+            collect_called_names_in_expr(target, calls);
+            collect_called_names_in_expr(value, calls);
+        }
+        ast::StmtKind::Expr { expr } => collect_called_names_in_expr(expr, calls),
+        ast::StmtKind::Return { value } => {
+            if let Some(value) = value {
+                collect_called_names_in_expr(value, calls);
+            }
+        }
+        ast::StmtKind::Break | ast::StmtKind::Continue => {}
+        ast::StmtKind::Match { scrutinee, arms } => {
+            collect_called_names_in_expr(scrutinee, calls);
+            for arm in arms {
+                if let Some(guard) = &arm.guard {
+                    collect_called_names_in_expr(guard, calls);
+                }
+                collect_called_names_in_block(&arm.body, calls);
+            }
+        }
+        ast::StmtKind::If {
+            condition,
+            then_branch,
+            else_branch,
+        } => {
+            collect_called_names_in_expr(condition, calls);
+            collect_called_names_in_block(then_branch, calls);
+            if let Some(else_branch) = else_branch {
+                collect_called_names_in_block(else_branch, calls);
+            }
+        }
+        ast::StmtKind::While { condition, body } => {
+            collect_called_names_in_expr(condition, calls);
+            collect_called_names_in_block(body, calls);
+        }
+        ast::StmtKind::For {
+            initializer,
+            condition,
+            step,
+            body,
+        } => {
+            if let Some(initializer) = initializer {
+                collect_called_names_in_stmt(initializer, calls);
+            }
+            if let Some(condition) = condition {
+                collect_called_names_in_expr(condition, calls);
+            }
+            if let Some(step) = step {
+                collect_called_names_in_stmt(step, calls);
+            }
+            collect_called_names_in_block(body, calls);
+        }
+        ast::StmtKind::ForIn { iterable, body, .. } => {
+            collect_called_names_in_expr(iterable, calls);
+            collect_called_names_in_block(body, calls);
+        }
+        ast::StmtKind::Block { block } => collect_called_names_in_block(block, calls),
+    }
+}
+
+fn collect_called_names_in_expr(expression: &ast::Expr, calls: &mut BTreeSet<String>) {
+    match &expression.kind {
+        ast::ExprKind::Int { .. }
+        | ast::ExprKind::Float { .. }
+        | ast::ExprKind::Bool { .. }
+        | ast::ExprKind::String { .. }
+        | ast::ExprKind::Name { .. }
+        | ast::ExprKind::Error => {}
+        ast::ExprKind::Unary { expr, .. } | ast::ExprKind::Try { expr } => {
+            collect_called_names_in_expr(expr, calls);
+        }
+        ast::ExprKind::Binary { left, right, .. } => {
+            collect_called_names_in_expr(left, calls);
+            collect_called_names_in_expr(right, calls);
+        }
+        ast::ExprKind::Call { callee, arguments } => {
+            if let Some(name) = callee.qualified_name() {
+                calls.insert(name);
+            }
+            collect_called_names_in_expr(callee, calls);
+            for argument in arguments {
+                collect_called_names_in_expr(argument, calls);
+            }
+        }
+        ast::ExprKind::StructLiteral { fields, .. } => {
+            for field in fields {
+                collect_called_names_in_expr(&field.value, calls);
+            }
+        }
+        ast::ExprKind::ArrayLiteral { elements } => {
+            for element in elements {
+                collect_called_names_in_expr(element, calls);
+            }
+        }
+        ast::ExprKind::Block { statements, value } => {
+            for statement in statements {
+                collect_called_names_in_stmt(statement, calls);
+            }
+            collect_called_names_in_expr(value, calls);
+        }
+        ast::ExprKind::Match { scrutinee, arms } => {
+            collect_called_names_in_expr(scrutinee, calls);
+            for arm in arms {
+                if let Some(guard) = &arm.guard {
+                    collect_called_names_in_expr(guard, calls);
+                }
+                collect_called_names_in_expr(&arm.value, calls);
+            }
+        }
+        ast::ExprKind::Field { base, .. } => collect_called_names_in_expr(base, calls),
+        ast::ExprKind::Index { base, index } => {
+            collect_called_names_in_expr(base, calls);
+            collect_called_names_in_expr(index, calls);
+        }
+        ast::ExprKind::Slice { base, start, end } => {
+            collect_called_names_in_expr(base, calls);
+            collect_called_names_in_expr(start, calls);
+            collect_called_names_in_expr(end, calls);
+        }
     }
 }
 
@@ -529,7 +782,7 @@ fn collect_call_aot_features(name: &str, features: &mut BTreeSet<String>) {
     if name.starts_with("process_") || name.starts_with("std.process.") {
         features.insert("host_process".to_string());
     }
-    if name.starts_with("http_") || name.starts_with("std.http.") {
+    if name.starts_with("http_") || matches!(name, "std.http.get" | "std.http.try_get") {
         features.insert("host_http".to_string());
     }
     if name.starts_with("net_") || name.starts_with("std.net.") {
@@ -567,6 +820,7 @@ fn collect_call_aot_features(name: &str, features: &mut BTreeSet<String>) {
     } else if name == "to_string" {
         features.insert("to_string_values".to_string());
     } else if name.starts_with("string_")
+        || is_std_http_string_helper(name)
         || name.starts_with("std.json.")
         || name.starts_with("std.hash.")
         || name.starts_with("std.text.")
@@ -574,6 +828,19 @@ fn collect_call_aot_features(name: &str, features: &mut BTreeSet<String>) {
     {
         features.insert("string_runtime".to_string());
     }
+}
+
+fn is_std_http_string_helper(name: &str) -> bool {
+    matches!(
+        name,
+        "std.http.status_text"
+            | "std.http.status_class"
+            | "std.http.query_pair"
+            | "std.http.append_query"
+            | "std.http.request_key"
+            | "std.http.header_line"
+            | "std.http.accept_json_header"
+    )
 }
 
 fn is_aot_supported_fs_read_call(name: &str) -> bool {

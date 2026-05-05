@@ -6,7 +6,7 @@ use crate::hir::Program as HirProgram;
 use crate::mir::Program as MirProgram;
 use crate::source::SourceFile;
 
-use super::readiness::assess_aot_readiness;
+use super::readiness::assess_aot_readiness_with_source;
 use super::*;
 
 pub fn build_program(
@@ -95,7 +95,8 @@ pub fn build_program(
         status: "pending".to_string(),
         entrypoint: "main".to_string(),
     };
-    let mut aot_readiness = assess_aot_readiness(
+    let mut aot_readiness = assess_aot_readiness_with_source(
+        source,
         program,
         AotReadinessInput {
             is_project: input.project_manifest.is_some(),

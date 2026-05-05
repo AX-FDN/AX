@@ -1336,11 +1336,14 @@ Current registry facts:
 - Validation entry: [`scripts/smoke-package-registry.ps1`](./scripts/smoke-package-registry.ps1).
 
 The compiler repository is also growing the standard-library foundation needed
-by these packages. `std.bytes`, `std.encoding`, `std.json`, and `std.hash` now
-cover byte buffers, hex/base64 helpers, JSON string construction, and
-deterministic non-cryptographic checksums. These modules are interpreter-stable
-today; AOT readiness reports their current native runtime needs explicitly
-instead of pretending every helper is already part of the native subset.
+by these packages. `std.bytes`, `std.encoding`, `std.json`, `std.hash`, and
+`std.http` now cover byte buffers, hex/base64 helpers, JSON string construction,
+deterministic non-cryptographic checksums, and pure HTTP request/status helpers.
+These modules are interpreter-stable today; AOT readiness reports their current
+native runtime needs explicitly instead of pretending every helper is already
+part of the native subset. Pure helpers such as HTTP status classification are
+kept separate from real host networking so AI and users can tell whether a build
+failure is a source issue or a native runtime boundary.
 
 Current package families:
 

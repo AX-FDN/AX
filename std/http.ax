@@ -27,3 +27,65 @@ fn status_text(response: HttpResponse) -> string {
     }
     return "err:" + to_string(response.status);
 }
+
+fn is_success_status(status: i32) -> bool {
+    return status >= 200 && status <= 299;
+}
+
+fn is_redirect_status(status: i32) -> bool {
+    return status >= 300 && status <= 399;
+}
+
+fn is_client_error_status(status: i32) -> bool {
+    return status >= 400 && status <= 499;
+}
+
+fn is_server_error_status(status: i32) -> bool {
+    return status >= 500 && status <= 599;
+}
+
+fn is_retryable_status(status: i32) -> bool {
+    return status == 408 || status == 429 || status == 502 || status == 503 || status == 504 || is_server_error_status(status);
+}
+
+fn status_class(status: i32) -> string {
+    if (is_success_status(status)) {
+        return "success";
+    }
+    if (is_redirect_status(status)) {
+        return "redirect";
+    }
+    if (is_client_error_status(status)) {
+        return "client-error";
+    }
+    if (is_server_error_status(status)) {
+        return "server-error";
+    }
+    return "informational";
+}
+
+fn query_pair(key: string, value: string) -> string {
+    return key + "=" + value;
+}
+
+fn append_query(url: string, query: string) -> string {
+    if (string_len(query) == 0) {
+        return url;
+    }
+    if (string_contains(url, "?")) {
+        return url + "&" + query;
+    }
+    return url + "?" + query;
+}
+
+fn request_key(method: string, url: string) -> string {
+    return method + " " + url;
+}
+
+fn header_line(name: string, value: string) -> string {
+    return name + ": " + value;
+}
+
+fn accept_json_header() -> string {
+    return header_line("Accept", "application/json");
+}
