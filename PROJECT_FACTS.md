@@ -49,6 +49,7 @@ AI-native diagnostics and repair guidance preserved
 | Package catalog | Registry catalog has `31` curated packages; stable pure-AX smoke covers `29` packages. |
 | Package source | Preview package source lives in `https://github.com/AX-FDN/AX-PKG.git`. |
 | Package maturity | Packages are classified as `stable_pure_ax`, `host_boundary_preview`, or `future_native_preview`. |
+| Package native smoke | `scripts/smoke-package-registry-native-parity.ps1` verifies one `stable_pure_ax` registry package through run-vs-exe parity. |
 | 1.0 roadmap | `docs/release-1.0-backend-systems.md` is the active long-range roadmap. |
 | Backend profile | `docs/backend-profile-v1.md` defines the draft native-build target. |
 | Backend profile inventory | `docs/backend-profile-v1-inventory.md` maps current AOT parity to 1.0 candidates and gaps. |

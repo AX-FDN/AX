@@ -117,7 +117,9 @@ Current registry facts:
 - Stable pure-AX smoke coverage: `29` packages.
 - Host-boundary preview packages: `http_tools` and `net_tools`.
 - Package source monorepo: `https://github.com/AX-FDN/AX-PKG.git`.
-- Validation entry: [`scripts/smoke-package-registry.ps1`](./scripts/smoke-package-registry.ps1).
+- Validation entries: [`scripts/smoke-package-registry.ps1`](./scripts/smoke-package-registry.ps1),
+  [`scripts/smoke-package-registry-aot.ps1`](./scripts/smoke-package-registry-aot.ps1),
+  and [`scripts/smoke-package-registry-native-parity.ps1`](./scripts/smoke-package-registry-native-parity.ps1).
 
 Package families include API helpers, auth previews, bytes/encoding/hash tools,
 JSON/text/url helpers, cache/retry/pagination, queue/migration/schema workflow,

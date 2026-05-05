@@ -76,6 +76,17 @@ package maturity behavior through `build-manifest.json`: stable pure-AX package
 fixtures must not produce `AOT0104` or `AOT0105`, host-boundary fixtures must
 produce `AOT0104`, and future-native fixtures must produce `AOT0105`.
 
+Package-backed native linking changes should run the focused stable package
+parity smoke:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke-package-registry-native-parity.ps1
+```
+
+This smoke requires clang. On Windows, `axc build` can also use the Rust
+`x86_64-pc-windows-gnu` self-contained runtime libraries as a fallback when the
+default clang/MSVC link path is missing system libraries.
+
 如果本机或 CI 已安装 clang，优先跑 run vs AOT executable parity smoke：
 
 ```powershell

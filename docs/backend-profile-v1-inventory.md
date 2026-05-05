@@ -53,6 +53,11 @@ It verifies:
 This smoke is an IR/readiness check. It does not require clang or native
 executable linking.
 
+`scripts/smoke-package-registry-native-parity.ps1` is the first package-backed
+native parity smoke. It installs `json_tools` from the curated registry, runs
+`axc check`, compares `axc run` with the linked native executable, and requires
+the registry package manifest entry to stay `stable_pure_ax`.
+
 ## Backend Profile v1 Gaps
 
 These gaps block promotion from "candidate" to "Backend Profile v1 stable".
@@ -61,7 +66,7 @@ These gaps block promotion from "candidate" to "Backend Profile v1 stable".
 | --- | --- | --- |
 | Native Runtime ABI v1 ownership | Backend services need predictable string/bytes/handle lifetime. | ABI doc plus runtime helper tests for release/ownership behavior. |
 | `bytes` native ABI | HTTP/TLS/DB need binary-safe data. | `std.bytes` AOT parity with byte buffers beyond interpreter-only helpers. |
-| Registry package native parity | 1.0 packages must participate in native build, not only readiness. | package-backed run-vs-exe parity fixture for at least one `stable_pure_ax` package. |
+| Registry package native parity | 1.0 packages must participate in native build, not only readiness. | First `stable_pure_ax` package fixture exists; expand to more packages and cross-package cases. |
 | Cross-package monomorphization | Generic package APIs need concrete native instances. | local path and registry generic package examples in AOT parity. |
 | Method/impl ABI freeze | Backend code will use methods heavily. | same-file and cross-module method parity with documented symbol rules. |
 | Trait ABI boundary | Traits exist but full dispatch is not frozen. | static dispatch subset documented; dynamic dispatch remains out of profile unless implemented. |
@@ -85,10 +90,9 @@ If any item is missing, the capability stays preview.
 
 Next executable checks to add:
 
-1. `stable_pure_ax` registry package native parity fixture.
-2. cross-package generic helper fixture.
-3. method/impl cross-module fixture.
-4. bytes native ABI fixture.
-5. host handle readiness fixture for future HTTP/TLS/DB/async handles.
+1. cross-package generic helper fixture.
+2. method/impl cross-module fixture.
+3. bytes native ABI fixture.
+4. host handle readiness fixture for future HTTP/TLS/DB/async handles.
 
 These should be added before implementing production HTTP/TLS/DB/async APIs.

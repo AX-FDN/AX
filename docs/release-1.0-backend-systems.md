@@ -51,7 +51,8 @@ validation, and AI-assisted repair.
 
 The next implementation work should stay in this order:
 
-1. Package-backed AOT fixture smoke v1.
+1. Expand package-backed AOT fixture smoke beyond the first `stable_pure_ax`
+   native parity case.
 2. Backend Profile v1 draft.
 3. Native Runtime ABI v1 draft.
 4. Language Spec v1 skeleton.
