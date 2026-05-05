@@ -58,10 +58,10 @@ native parity smoke. It installs `json_tools` from the curated registry, runs
 `axc check`, compares `axc run` with the linked native executable, and requires
 the registry package manifest entry to stay `stable_pure_ax`.
 
-`scripts/smoke-aot-package-generics.ps1` verifies a local path package that
-exports a generic struct and generic functions. It requires `AX.lock`, checks
-the package graph readiness contract, and compares interpreter output with the
-native executable.
+`scripts/smoke-aot-package-generics.ps1` verifies local path packages that
+export generic structs/functions and non-generic methods/impls. It requires
+`AX.lock`, checks the package graph readiness contract, and compares interpreter
+output with the native executable.
 
 ## Backend Profile v1 Gaps
 
@@ -73,7 +73,7 @@ These gaps block promotion from "candidate" to "Backend Profile v1 stable".
 | `bytes` native ABI | HTTP/TLS/DB need binary-safe data. | `std.bytes` AOT parity with byte buffers beyond interpreter-only helpers. |
 | Registry package native parity | 1.0 packages must participate in native build, not only readiness. | First `stable_pure_ax` package fixture exists; expand to more packages and cross-package cases. |
 | Cross-package monomorphization | Generic package APIs need concrete native instances. | Local path generic package smoke exists; add registry-backed generic package parity next. |
-| Method/impl ABI freeze | Backend code will use methods heavily. | same-file and cross-module method parity with documented symbol rules. |
+| Method/impl ABI freeze | Backend code will use methods heavily. | Local package method parity exists; freeze symbol/ABI rules and add registry-backed coverage next. |
 | Trait ABI boundary | Traits exist but full dispatch is not frozen. | static dispatch subset documented; dynamic dispatch remains out of profile unless implemented. |
 | HTTP/TLS runtime ABI | Backend language needs real network IO. | `std.http` client/server and `std.tls` readiness/ABI fixtures. |
 | PostgreSQL runtime ABI | DB is a 1.0 backend target. | `std.db` PostgreSQL smoke with interpreter and AOT readiness first, parity later. |
@@ -95,9 +95,8 @@ If any item is missing, the capability stays preview.
 
 Next executable checks to add:
 
-1. registry-backed generic helper fixture.
-2. method/impl cross-module fixture.
-3. bytes native ABI fixture.
-4. host handle readiness fixture for future HTTP/TLS/DB/async handles.
+1. registry-backed generic/method helper fixture.
+2. bytes native ABI fixture.
+3. host handle readiness fixture for future HTTP/TLS/DB/async handles.
 
 These should be added before implementing production HTTP/TLS/DB/async APIs.

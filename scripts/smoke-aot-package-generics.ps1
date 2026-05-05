@@ -127,7 +127,20 @@ function Invoke-Process {
         $startInfo.Environment[$name] = [string] $Environment[$name]
     }
 
-    $process = [System.Diagnostics.Process]::Start($startInfo)
+    $process = $null
+    for ($attempt = 1; $attempt -le 5; $attempt += 1) {
+        try {
+            $process = [System.Diagnostics.Process]::Start($startInfo)
+            break
+        } catch [System.ComponentModel.Win32Exception] {
+            $message = $_.Exception.Message
+            if ($attempt -eq 5 -or $message -notmatch "being used by another process") {
+                throw
+            }
+            Start-Sleep -Milliseconds (200 * $attempt)
+        }
+    }
+
     $stdout = $process.StandardOutput.ReadToEnd()
     $stderr = $process.StandardError.ReadToEnd()
     $process.WaitForExit()
@@ -162,30 +175,106 @@ if (Test-Path $outputRoot) {
     Remove-Item -LiteralPath $outputRoot -Recurse -Force
 }
 
-$packageRoot = Join-Path $outputRoot "packages\generic_helpers"
-New-Item -ItemType Directory -Force -Path (Join-Path $outputRoot "src") | Out-Null
-New-Item -ItemType Directory -Force -Path (Join-Path $packageRoot "src") | Out-Null
+$axcBinary = Ensure-AxcBinary
+$clang = Resolve-Clang
 
-Write-Utf8NoBom -Path (Join-Path $outputRoot "AX.toml") -Text @'
+function Invoke-LocalPackageParity {
+    param(
+        [string] $Name,
+        [string] $PackageName,
+        [string] $ModuleFile,
+        [string] $ModuleText,
+        [string] $MainText,
+        [string[]] $ExpectedFeatures
+    )
+
+    $fixtureRoot = Join-Path $outputRoot $Name
+    $packageRoot = Join-Path $fixtureRoot "packages\$PackageName"
+    New-Item -ItemType Directory -Force -Path (Join-Path $fixtureRoot "src") | Out-Null
+    New-Item -ItemType Directory -Force -Path (Join-Path $packageRoot "src") | Out-Null
+
+    Write-Utf8NoBom -Path (Join-Path $fixtureRoot "AX.toml") -Text @"
 manifest_version = 1
 
 [package]
-name = "aot_package_generics_smoke"
+name = "$Name"
 entry = "src/main.ax"
 
 [dependencies]
-generic_helpers = { path = "packages/generic_helpers" }
-'@
+$PackageName = { path = "packages/$PackageName" }
+"@
 
-Write-Utf8NoBom -Path (Join-Path $packageRoot "AX.toml") -Text @'
+    Write-Utf8NoBom -Path (Join-Path $packageRoot "AX.toml") -Text @"
 manifest_version = 1
 
 [package]
-name = "generic_helpers"
+name = "$PackageName"
 sources = ["src"]
-'@
+"@
 
-Write-Utf8NoBom -Path (Join-Path $packageRoot "src\core.ax") -Text @'
+    Write-Utf8NoBom -Path (Join-Path $packageRoot "src\$ModuleFile") -Text $ModuleText
+    Write-Utf8NoBom -Path (Join-Path $fixtureRoot "src\main.ax") -Text $MainText
+
+    $check = Invoke-Process -FilePath $axcBinary -Arguments @("check", $fixtureRoot)
+    Assert-Equal -Label "$Name axc check exit code" -Actual ([int] $check.ExitCode) -Expected 0
+
+    $lock = Invoke-Process -FilePath $axcBinary -Arguments @("lock", $fixtureRoot)
+    Assert-Equal -Label "$Name axc lock exit code" -Actual ([int] $lock.ExitCode) -Expected 0
+
+    $interpreter = Invoke-Process -FilePath $axcBinary -Arguments @("run", $fixtureRoot)
+
+    $buildRoot = Join-Path $fixtureRoot "build"
+    $build = Invoke-Process `
+        -FilePath $axcBinary `
+        -Arguments @("build", $fixtureRoot, "--out-dir", $buildRoot, "--json") `
+        -Environment @{
+            AX_LLVM_AOT_LINK = "1"
+            AX_LLVM_CLANG = $clang
+        }
+    Assert-Equal -Label "$Name axc build exit code" -Actual ([int] $build.ExitCode) -Expected 0
+
+    try {
+        $manifest = $build.Stdout | ConvertFrom-Json
+    } catch {
+        Write-Error "$Name axc build did not produce valid manifest JSON.`nstdout:`n$($build.Stdout)`nstderr:`n$($build.Stderr)"
+    }
+
+    Assert-Equal -Label "$Name manifest schema_version" -Actual ([int] $manifest.schema_version) -Expected 10
+    Assert-Equal -Label "$Name aot readiness schema_version" -Actual ([int] $manifest.aot_readiness.schema_version) -Expected 3
+    Assert-Equal -Label "$Name aot_supported" -Actual ([bool] $manifest.aot_supported) -Expected $true
+    Assert-Equal -Label "$Name backend status" -Actual ([string] $manifest.backend.status) -Expected "built"
+    Assert-Equal -Label "$Name package graph ready" -Actual ([bool] $manifest.package_graph_readiness.aot_ready) -Expected $true
+
+    $features = @($manifest.aot_readiness.required_backend_features | ForEach-Object { [string] $_ })
+    foreach ($feature in $ExpectedFeatures) {
+        if (-not $features.Contains($feature)) {
+            Write-Error "$Name required_backend_features expected to contain '$feature' but found: $($features -join ', ')"
+        }
+    }
+
+    $executableArtifact = [string] $manifest.artifacts.executable
+    if ([string]::IsNullOrWhiteSpace($executableArtifact)) {
+        Write-Error "$Name build manifest did not include artifacts.executable"
+    }
+
+    $executablePath = Join-Path $buildRoot $executableArtifact
+    if (-not (Test-Path $executablePath)) {
+        Write-Error "$Name native executable was not produced: $executablePath"
+    }
+
+    $executable = Invoke-Process -FilePath $executablePath
+    Assert-Equal -Label "$Name native exit code" -Actual ([int] $executable.ExitCode) -Expected ([int] $interpreter.ExitCode)
+    Assert-Equal -Label "$Name native stdout" -Actual (Normalize-Text $executable.Stdout) -Expected (Normalize-Text $interpreter.Stdout)
+    Assert-Equal -Label "$Name native stderr" -Actual (Normalize-Text $executable.Stderr) -Expected (Normalize-Text $interpreter.Stderr)
+
+    Write-Host "AOT local package parity passed: $Name"
+}
+
+Invoke-LocalPackageParity `
+    -Name "aot_package_generics_smoke" `
+    -PackageName "generic_helpers" `
+    -ModuleFile "core.ax" `
+    -ModuleText @'
 module generic_helpers.core;
 
 struct Box<T> {
@@ -199,9 +288,8 @@ fn identity<T>(value: T) -> T {
 fn box_value<T>(box: Box<T>) -> T {
     return box.value;
 }
-'@
-
-Write-Utf8NoBom -Path (Join-Path $outputRoot "src\main.ax") -Text @'
+'@ `
+    -MainText @'
 import generic_helpers.core;
 
 fn main() -> i32 {
@@ -210,61 +298,51 @@ fn main() -> i32 {
     let right: i32 = generic_helpers.core.box_value(boxed);
     return left + right;
 }
-'@
+'@ `
+    -ExpectedFeatures @("generic_functions", "generic_structs", "generic_type_instances", "local_path_packages")
 
-$axcBinary = Ensure-AxcBinary
-$clang = Resolve-Clang
+Invoke-LocalPackageParity `
+    -Name "aot_package_methods_smoke" `
+    -PackageName "method_helpers" `
+    -ModuleFile "score.ax" `
+    -ModuleText @'
+module method_helpers.score;
 
-$check = Invoke-Process -FilePath $axcBinary -Arguments @("check", $outputRoot)
-Assert-Equal -Label "axc check exit code" -Actual ([int] $check.ExitCode) -Expected 0
-
-$lock = Invoke-Process -FilePath $axcBinary -Arguments @("lock", $outputRoot)
-Assert-Equal -Label "axc lock exit code" -Actual ([int] $lock.ExitCode) -Expected 0
-
-$interpreter = Invoke-Process -FilePath $axcBinary -Arguments @("run", $outputRoot)
-
-$buildRoot = Join-Path $outputRoot "build"
-$build = Invoke-Process `
-    -FilePath $axcBinary `
-    -Arguments @("build", $outputRoot, "--out-dir", $buildRoot, "--json") `
-    -Environment @{
-        AX_LLVM_AOT_LINK = "1"
-        AX_LLVM_CLANG = $clang
-    }
-Assert-Equal -Label "axc build exit code" -Actual ([int] $build.ExitCode) -Expected 0
-
-try {
-    $manifest = $build.Stdout | ConvertFrom-Json
-} catch {
-    Write-Error "axc build did not produce valid manifest JSON.`nstdout:`n$($build.Stdout)`nstderr:`n$($build.Stderr)"
+struct Score {
+    value: i32,
 }
 
-Assert-Equal -Label "manifest schema_version" -Actual ([int] $manifest.schema_version) -Expected 10
-Assert-Equal -Label "aot readiness schema_version" -Actual ([int] $manifest.aot_readiness.schema_version) -Expected 3
-Assert-Equal -Label "aot_supported" -Actual ([bool] $manifest.aot_supported) -Expected $true
-Assert-Equal -Label "backend status" -Actual ([string] $manifest.backend.status) -Expected "built"
-Assert-Equal -Label "package graph ready" -Actual ([bool] $manifest.package_graph_readiness.aot_ready) -Expected $true
+impl Score {
+    fn add(self: Score, amount: i32) -> Score {
+        return Score { value: self.value + amount };
+    }
 
-$features = @($manifest.aot_readiness.required_backend_features | ForEach-Object { [string] $_ })
-foreach ($feature in @("generic_functions", "generic_structs", "generic_type_instances", "local_path_packages")) {
-    if (-not $features.Contains($feature)) {
-        Write-Error "required_backend_features expected to contain '$feature' but found: $($features -join ', ')"
+    fn clamp(self: Score, max: i32) -> Score {
+        if (self.value > max) {
+            return Score { value: max };
+        }
+        return self;
+    }
+
+    fn get(self: Score) -> i32 {
+        return self.value;
     }
 }
 
-$executableArtifact = [string] $manifest.artifacts.executable
-if ([string]::IsNullOrWhiteSpace($executableArtifact)) {
-    Write-Error "build manifest did not include artifacts.executable"
+fn new(value: i32) -> Score {
+    return Score { value: value };
 }
+'@ `
+    -MainText @'
+import method_helpers.score;
 
-$executablePath = Join-Path $buildRoot $executableArtifact
-if (-not (Test-Path $executablePath)) {
-    Write-Error "native executable was not produced: $executablePath"
+fn main() -> i32 {
+    let score: method_helpers.score.Score = method_helpers.score.new(7);
+    let raised: method_helpers.score.Score = score.add(5);
+    let adjusted: method_helpers.score.Score = raised.clamp(10);
+    return adjusted.get();
 }
+'@ `
+    -ExpectedFeatures @("impl_methods", "local_path_packages", "module_imports", "structs")
 
-$executable = Invoke-Process -FilePath $executablePath
-Assert-Equal -Label "native exit code" -Actual ([int] $executable.ExitCode) -Expected ([int] $interpreter.ExitCode)
-Assert-Equal -Label "native stdout" -Actual (Normalize-Text $executable.Stdout) -Expected (Normalize-Text $interpreter.Stdout)
-Assert-Equal -Label "native stderr" -Actual (Normalize-Text $executable.Stderr) -Expected (Normalize-Text $interpreter.Stderr)
-
-Write-Host "AOT package generics smoke passed at $outputRoot"
+Write-Host "AOT package generics/methods smoke passed at $outputRoot"
