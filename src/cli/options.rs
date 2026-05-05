@@ -40,6 +40,7 @@ pub(in crate::cli) enum PkgCliOptions {
     },
     Add {
         package: String,
+        project: PathBuf,
         registry: PathBuf,
         dry_run: bool,
     },
@@ -381,19 +382,22 @@ pub(in crate::cli) fn parse_pkg_args(args: Vec<String>) -> Result<PkgCliOptions,
         "add" => {
             let mut registry = default_registry_dir();
             let mut package = None;
+            let mut project = None;
             let mut dry_run = false;
-            parse_pkg_add_args(rest, &mut registry, &mut package, &mut dry_run)?;
+            parse_pkg_add_args(
+                rest,
+                &mut registry,
+                &mut package,
+                &mut project,
+                &mut dry_run,
+            )?;
             let Some(package) = package else {
                 return Err("missing package name for `axc pkg add`".to_string());
             };
-            if !dry_run {
-                return Err(
-                    "`axc pkg add` is currently preview-only; pass `--dry-run` to inspect the dependency entry"
-                        .to_string(),
-                );
-            }
+            let project = project.unwrap_or_else(|| PathBuf::from("."));
             Ok(PkgCliOptions::Add {
                 package,
+                project,
                 registry,
                 dry_run,
             })
@@ -471,6 +475,7 @@ fn parse_pkg_add_args(
     args: &[String],
     registry: &mut PathBuf,
     package: &mut Option<String>,
+    project: &mut Option<PathBuf>,
     dry_run: &mut bool,
 ) -> Result<(), String> {
     let mut index = 0;
@@ -499,6 +504,9 @@ fn parse_pkg_add_args(
             }
             _ if package.is_none() => {
                 *package = Some(arg.clone());
+            }
+            _ if project.is_none() => {
+                *project = Some(PathBuf::from(arg));
             }
             _ => return Err(format!("unexpected argument `{arg}`")),
         }

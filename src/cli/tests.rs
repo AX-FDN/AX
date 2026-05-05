@@ -212,10 +212,12 @@ fn parses_pkg_add_dry_run() {
     match options {
         PkgCliOptions::Add {
             package,
+            project,
             registry,
             dry_run,
         } => {
             assert_eq!(package, "text_tools");
+            assert_eq!(project, PathBuf::from("."));
             assert!(registry.ends_with("registry"));
             assert!(dry_run);
         }
@@ -224,10 +226,28 @@ fn parses_pkg_add_dry_run() {
 }
 
 #[test]
-fn rejects_pkg_add_without_dry_run() {
-    let error = parse_pkg_args(vec!["add".to_string(), "text_tools".to_string()])
-        .expect_err("pkg add without dry-run should be rejected");
-    assert!(error.contains("preview-only"));
+fn parses_pkg_add_with_project() {
+    let options = parse_pkg_args(vec![
+        "add".to_string(),
+        "text_tools".to_string(),
+        "examples/project_package_config".to_string(),
+    ])
+    .expect("pkg add arguments should parse");
+
+    match options {
+        PkgCliOptions::Add {
+            package,
+            project,
+            registry,
+            dry_run,
+        } => {
+            assert_eq!(package, "text_tools");
+            assert_eq!(project, PathBuf::from("examples/project_package_config"));
+            assert!(registry.ends_with("registry"));
+            assert!(!dry_run);
+        }
+        other => panic!("expected add options, got {other:?}"),
+    }
 }
 
 #[test]

@@ -110,17 +110,6 @@ manifest_version = 1
 [package]
 name = "package_registry_smoke"
 entry = "src/main.ax"
-
-[dependencies]
-collection_tools = { registry = "ax", version = "0.1.0" }
-config_rules = { registry = "ax", version = "0.1.0" }
-markdown_tools = { registry = "ax", version = "0.1.0" }
-math_rules = { registry = "ax", version = "0.1.0" }
-number_tools = { registry = "ax", version = "0.1.0" }
-report_tools = { registry = "ax", version = "0.1.0" }
-result_tools = { registry = "ax", version = "0.1.0" }
-text_tools = { registry = "ax", version = "0.1.0" }
-validation_tools = { registry = "ax", version = "0.1.0" }
 '@
 
 $sourceText = @'
@@ -166,6 +155,23 @@ $axcBinary = Ensure-AxcBinary
 
 & $axcBinary pkg check --registry $registryRoot
 Assert-Equal -Label "axc pkg check exit code" -Actual $LASTEXITCODE -Expected 0
+
+$packages = @(
+    "collection_tools",
+    "config_rules",
+    "markdown_tools",
+    "math_rules",
+    "number_tools",
+    "report_tools",
+    "result_tools",
+    "text_tools",
+    "validation_tools"
+)
+
+foreach ($package in $packages) {
+    & $axcBinary pkg add $package $outputRoot --registry $registryRoot
+    Assert-Equal -Label "axc pkg add $package exit code" -Actual $LASTEXITCODE -Expected 0
+}
 
 & $axcBinary pkg install $outputRoot --registry $registryRoot
 Assert-Equal -Label "axc pkg install exit code" -Actual $LASTEXITCODE -Expected 0

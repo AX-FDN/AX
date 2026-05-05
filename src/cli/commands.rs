@@ -332,34 +332,10 @@ pub(in crate::cli) fn run_pkg(args: Vec<String>) -> i32 {
         PkgCliOptions::Tree { project } => run_pkg_tree(&project),
         PkgCliOptions::Add {
             package,
+            project,
             registry,
-            dry_run: _,
-        } => {
-            let registry = match load_registry(&registry) {
-                Ok(registry) => registry,
-                Err(error) => {
-                    eprintln!("{error}");
-                    return 1;
-                }
-            };
-            let Some(metadata) = registry.find_package(&package) else {
-                eprintln!("registry package `{package}` was not found");
-                return 1;
-            };
-            let Some(version) = metadata.latest_version() else {
-                eprintln!("registry package `{package}` has no versions");
-                return 1;
-            };
-            println!("preview dependency entry:");
-            println!(
-                "{} = {{ registry = \"ax\", version = \"{}\" }}",
-                metadata.name, version.version
-            );
-            println!(
-                "note: `axc pkg add` does not edit AX.toml until install and lockfile support land"
-            );
-            0
-        }
+            dry_run,
+        } => run_pkg_add(&package, &project, &registry, dry_run),
         PkgCliOptions::Install {
             project,
             registry,
@@ -375,6 +351,177 @@ pub(in crate::cli) fn run_pkg(args: Vec<String>) -> i32 {
                 1
             }
         },
+    }
+}
+
+fn run_pkg_add(package: &str, project_path: &Path, registry_path: &Path, dry_run: bool) -> i32 {
+    let registry = match load_registry(registry_path) {
+        Ok(registry) => registry,
+        Err(error) => {
+            eprintln!("{error}");
+            return 1;
+        }
+    };
+    let Some(metadata) = registry.find_package(package) else {
+        eprintln!("registry package `{package}` was not found");
+        return 1;
+    };
+    let Some(version) = metadata.latest_version() else {
+        eprintln!("registry package `{package}` has no versions");
+        return 1;
+    };
+
+    let dependency_entry = format!(
+        "{} = {{ registry = \"ax\", version = \"{}\" }}",
+        metadata.name, version.version
+    );
+    if dry_run {
+        println!("preview dependency entry:");
+        println!("{dependency_entry}");
+        println!("note: dry-run only; AX.toml was not changed");
+        return 0;
+    }
+
+    let (manifest_path, value) = match load_project_manifest_value(project_path) {
+        Ok(value) => value,
+        Err(error) => {
+            eprintln!("{error}");
+            return 1;
+        }
+    };
+    if value
+        .get("dependencies")
+        .and_then(toml::Value::as_table)
+        .is_some_and(|dependencies| dependencies.contains_key(&metadata.name))
+    {
+        eprintln!(
+            "PX0117: dependency `{}` is already declared in {}",
+            metadata.name,
+            manifest_path.display()
+        );
+        return 1;
+    }
+
+    let manifest_text = match fs::read_to_string(&manifest_path) {
+        Ok(text) => text,
+        Err(error) => {
+            eprintln!(
+                "failed to read AX project manifest {}: {error}",
+                manifest_path.display()
+            );
+            return 1;
+        }
+    };
+    let updated =
+        add_registry_dependency_to_manifest_text(&manifest_text, &metadata.name, &version.version);
+    if let Err(error) = fs::write(&manifest_path, updated) {
+        eprintln!(
+            "failed to write AX project manifest {}: {error}",
+            manifest_path.display()
+        );
+        return 1;
+    }
+    println!("added dependency:");
+    println!("{dependency_entry}");
+    println!("updated manifest: {}", manifest_path.display());
+    0
+}
+
+fn add_registry_dependency_to_manifest_text(
+    manifest_text: &str,
+    package: &str,
+    version: &str,
+) -> String {
+    let line_to_add = format!("{package} = {{ registry = \"ax\", version = \"{version}\" }}");
+    let normalized = manifest_text.replace("\r\n", "\n");
+    let mut lines = normalized.split('\n').collect::<Vec<_>>();
+    let had_trailing_newline = normalized.ends_with('\n');
+    if had_trailing_newline {
+        lines.pop();
+    }
+
+    let mut dependency_header = None;
+    for (index, line) in lines.iter().enumerate() {
+        if line.trim() == "[dependencies]" {
+            dependency_header = Some(index);
+            break;
+        }
+    }
+
+    let mut output = Vec::new();
+    match dependency_header {
+        Some(header_index) => {
+            let mut insert_index = lines.len();
+            for (index, line) in lines.iter().enumerate().skip(header_index + 1) {
+                let trimmed = line.trim();
+                if trimmed.starts_with('[') && trimmed.ends_with(']') {
+                    insert_index = index;
+                    break;
+                }
+            }
+            output.extend(
+                lines
+                    .iter()
+                    .take(insert_index)
+                    .map(|line| (*line).to_string()),
+            );
+            while output.last().is_some_and(|line| line.trim().is_empty()) {
+                output.pop();
+            }
+            output.push(line_to_add);
+            if insert_index < lines.len() {
+                output.push(String::new());
+            }
+            output.extend(
+                lines
+                    .iter()
+                    .skip(insert_index)
+                    .map(|line| (*line).to_string()),
+            );
+        }
+        None => {
+            output.extend(lines.iter().map(|line| (*line).to_string()));
+            if output.last().is_some_and(|line| !line.trim().is_empty()) {
+                output.push(String::new());
+            }
+            output.push("[dependencies]".to_string());
+            output.push(line_to_add);
+        }
+    }
+
+    let mut rendered = output.join("\n");
+    rendered.push('\n');
+    rendered
+}
+
+#[cfg(test)]
+mod tests {
+    use super::add_registry_dependency_to_manifest_text;
+
+    #[test]
+    fn adds_registry_dependency_to_existing_dependencies_table() {
+        let updated = add_registry_dependency_to_manifest_text(
+            "manifest_version = 1\n\n[package]\nname = \"demo\"\nentry = \"src/main.ax\"\n\n[dependencies]\ntext_tools = { registry = \"ax\", version = \"0.1.0\" }\n\n[profile]\nname = \"dev\"\n",
+            "math_rules",
+            "0.1.0",
+        );
+
+        assert!(updated.contains(
+            "[dependencies]\ntext_tools = { registry = \"ax\", version = \"0.1.0\" }\nmath_rules = { registry = \"ax\", version = \"0.1.0\" }\n\n[profile]"
+        ));
+    }
+
+    #[test]
+    fn adds_dependencies_table_when_missing() {
+        let updated = add_registry_dependency_to_manifest_text(
+            "manifest_version = 1\n\n[package]\nname = \"demo\"\nentry = \"src/main.ax\"\n",
+            "text_tools",
+            "0.1.0",
+        );
+
+        assert!(updated.ends_with(
+            "\n[dependencies]\ntext_tools = { registry = \"ax\", version = \"0.1.0\" }\n"
+        ));
     }
 }
 

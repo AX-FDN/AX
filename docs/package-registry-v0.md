@@ -152,25 +152,28 @@ axc pkg search text
 axc pkg info text_tools
 axc pkg tree
 axc pkg check
-axc pkg add text_tools --dry-run
+axc pkg add text_tools <project>
+axc pkg add text_tools <project> --dry-run
 axc pkg install <project> --dry-run
 axc pkg hash <package-dir>
 ```
 
-`search`, `info`, `tree`, `check`, `add --dry-run`, `install --dry-run`, and
-`hash` are the first implemented slice. `AX.toml` can now parse registry
-dependency intent, but unresolved registry packages are reported as preview
-package-layer blockers instead of being loaded as source. `pkg install <project>`
-can now write registry-only `AX.lock` schema v2 preview entries and has the first
-git/cache installer path: when metadata pins a real `rev` and real checksum it
-will clone/fetch the package source, checkout the rev, verify `source.path`, hash
-the package, and materialize it under the local AX cache. Current preview
-metadata with all-zero revs or `sha256:preview-*` checksums is skipped with a
-package-layer note instead of pretending it was verified. Mixed local path +
-registry lock writing and `AX.toml` editing remain future slices. The project
-loader now recognizes registry dependencies through AX.lock schema v2 and the
-local cache: missing lockfiles produce `PX0112`, and locked-but-not-cached
-packages produce `PX0116`.
+`search`, `info`, `tree`, `check`, `add`, `install --dry-run`, `install`, and
+`hash` are the first implemented slice. `pkg add <package> <project>` resolves
+the latest curated package version and writes a registry dependency into
+`AX.toml`; `--dry-run` keeps the old preview-only behavior. `AX.toml` can parse
+registry dependency intent, but unresolved registry packages are reported as
+preview package-layer blockers instead of being loaded as source. `pkg install
+<project>` can now write registry-only `AX.lock` schema v2 preview entries and
+has the first git/cache installer path: when metadata pins a real `rev` and real
+checksum it will clone/fetch the package source, checkout the rev, verify
+`source.path`, hash the package, and materialize it under the local AX cache.
+Current preview metadata with all-zero revs or `sha256:preview-*` checksums is
+skipped with a package-layer note instead of pretending it was verified. Mixed
+local path + registry lock writing remains a future slice. The project loader
+now recognizes registry dependencies through AX.lock schema v2 and the local
+cache: missing lockfiles produce `PX0112`, and locked-but-not-cached packages
+produce `PX0116`.
 
 Phase 0.2, download/install preview:
 
@@ -241,6 +244,6 @@ Until upload exists, third-party packages should enter through proposal/review:
    source usually lands under `AX-FDN/AX-PKG/packages/<package-name>`.
 3. Maintainers review metadata, license, module names, examples, and validation.
 4. The package metadata is merged into the curated index.
-5. Users can install it through `axc pkg install` once the CLI exists.
+5. Users can add and install it through `axc pkg add` and `axc pkg install`.
 
 This keeps AX's early package ecosystem useful without opening the security and moderation surface of public upload too early.
