@@ -225,6 +225,19 @@ $axcBinary = Ensure-AxcBinary
 & $axcBinary pkg check --registry $registryRoot
 Assert-Equal -Label "axc pkg check exit code" -Actual $LASTEXITCODE -Expected 0
 
+$maturityCases = @(
+    @{ Package = "json_tools"; Expected = "maturity: stable_pure_ax" },
+    @{ Package = "http_tools"; Expected = "maturity: host_boundary_preview" },
+    @{ Package = "jwt_tools"; Expected = "maturity: future_native_preview" }
+)
+foreach ($case in $maturityCases) {
+    $infoOutput = @(& $axcBinary pkg info $case.Package --registry $registryRoot | ForEach-Object { [string] $_ })
+    Assert-Equal -Label "axc pkg info $($case.Package) exit code" -Actual $LASTEXITCODE -Expected 0
+    if (-not $infoOutput.Contains($case.Expected)) {
+        Write-Error "pkg info $($case.Package) did not include expected maturity line '$($case.Expected)'."
+    }
+}
+
 $packages = @(
     "api_tools",
     "auth_tools",

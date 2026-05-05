@@ -102,7 +102,7 @@ Before a package can move upward in maturity:
 4. It must not require secrets, private services, install scripts, or native extensions.
 5. If it claims native support, it needs AOT readiness/parity evidence.
 
-Future registry metadata may add a machine-readable field:
+Registry metadata now includes a machine-readable field:
 
 ```json
 {
@@ -110,5 +110,5 @@ Future registry metadata may add a machine-readable field:
 }
 ```
 
-For now, this document is the source of truth.
-
+This document explains the meaning of the field and remains the source of truth
+for package classification changes.

@@ -4,6 +4,7 @@
   "owner": "ax-core",
   "license": "Apache-2.0",
   "description": "Interpreter-backed HTTP helpers over std.http plus pure request/status helpers",
+  "maturity": "host_boundary_preview",
   "versions": [
     {
       "version": "0.1.0",

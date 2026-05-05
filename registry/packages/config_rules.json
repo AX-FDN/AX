@@ -4,6 +4,7 @@
   "owner": "ax-core",
   "license": "Apache-2.0",
   "description": "Configuration validation helpers for AX project examples",
+  "maturity": "stable_pure_ax",
   "versions": [
     {
       "version": "0.1.0",

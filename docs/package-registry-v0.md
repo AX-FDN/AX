@@ -116,6 +116,7 @@ Example package metadata:
   "version": "0.1.0",
   "license": "Apache-2.0",
   "description": "Text helpers for AX projects",
+  "maturity": "stable_pure_ax",
   "source": {
     "kind": "git",
     "url": "https://github.com/AX-FDN/AX-PKG.git",
@@ -276,6 +277,12 @@ Registry v0 should be intentionally boring:
 - Lockfile drift is reported as a package graph readiness issue.
 - Package maturity must be explicit before a package is promoted in docs or
   examples.
+
+Allowed maturity values are:
+
+- `stable_pure_ax`
+- `host_boundary_preview`
+- `future_native_preview`
 
 ## AOT Contract
 

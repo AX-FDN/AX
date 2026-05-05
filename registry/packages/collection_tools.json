@@ -4,6 +4,7 @@
   "owner": "ax-core",
   "license": "Apache-2.0",
   "description": "Integer slice summaries and aggregate helpers for AX package preview",
+  "maturity": "stable_pure_ax",
   "versions": [
     {
       "version": "0.1.0",

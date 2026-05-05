@@ -4,6 +4,7 @@
   "owner": "ax-core",
   "license": "Apache-2.0",
   "description": "Unsigned JWT shape helpers for package experiments",
+  "maturity": "future_native_preview",
   "versions": [
     {
       "version": "0.1.0",

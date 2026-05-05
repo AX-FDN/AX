@@ -4,6 +4,7 @@
   "owner": "ax-core",
   "license": "Apache-2.0",
   "description": "Non-cryptographic deterministic checksum helpers",
+  "maturity": "future_native_preview",
   "versions": [
     {
       "version": "0.1.0",

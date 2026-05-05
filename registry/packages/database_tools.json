@@ -4,6 +4,7 @@
   "owner": "ax-core",
   "license": "Apache-2.0",
   "description": "Pure AX DSN classification, migration, and database readiness helpers",
+  "maturity": "future_native_preview",
   "versions": [
     {
       "version": "0.1.0",

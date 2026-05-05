@@ -4,6 +4,7 @@
   "owner": "ax-core",
   "license": "Apache-2.0",
   "description": "Bearer/API-key header helpers and safe secret redaction",
+  "maturity": "future_native_preview",
   "versions": [
     {
       "version": "0.1.0",

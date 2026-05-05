@@ -4,6 +4,7 @@
   "owner": "ax-core",
   "license": "Apache-2.0",
   "description": "Text normalization helpers for AX package preview examples",
+  "maturity": "stable_pure_ax",
   "versions": [
     {
       "version": "0.1.0",

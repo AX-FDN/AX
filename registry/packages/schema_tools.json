@@ -4,6 +4,7 @@
   "owner": "ax-core",
   "license": "Apache-2.0",
   "description": "Schema field and table description helpers",
+  "maturity": "stable_pure_ax",
   "versions": [
     {
       "version": "0.1.0",

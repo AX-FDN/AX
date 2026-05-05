@@ -4,6 +4,11 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
 const REGISTRY_SCHEMA_VERSION: u32 = 1;
+const PACKAGE_MATURITY_LEVELS: &[&str] = &[
+    "stable_pure_ax",
+    "host_boundary_preview",
+    "future_native_preview",
+];
 
 #[derive(Debug, Clone)]
 pub struct Registry {
@@ -52,6 +57,7 @@ pub struct RegistryPackage {
     pub schema_version: u32,
     pub name: String,
     pub description: String,
+    pub maturity: String,
     pub owner: String,
     pub license: String,
     pub versions: Vec<RegistryPackageVersion>,
@@ -260,6 +266,7 @@ pub fn render_package_info(package: &RegistryPackage) -> String {
         format!("package: {}", package.name),
         format!("owner: {}", package.owner),
         format!("license: {}", package.license),
+        format!("maturity: {}", package.maturity),
         format!("description: {}", package.description),
     ];
     for version in &package.versions {
@@ -319,6 +326,18 @@ fn validate_package_metadata(issues: &mut Vec<RegistryIssue>, path: &Path, expec
             message: format!(
                 "metadata package name `{}` does not match index name `{expected_name}`",
                 package.name
+            ),
+        });
+    }
+    if !is_valid_package_maturity(&package.maturity) {
+        issues.push(RegistryIssue {
+            code: "RG0018",
+            path: path.to_path_buf(),
+            message: format!(
+                "package `{}` maturity is `{}`, expected one of: {}",
+                package.name,
+                package.maturity,
+                PACKAGE_MATURITY_LEVELS.join(", ")
             ),
         });
     }
@@ -420,6 +439,10 @@ fn is_relative_package_path(path: &str) -> bool {
             .all(|part| !matches!(part, std::path::Component::ParentDir))
 }
 
+fn is_valid_package_maturity(maturity: &str) -> bool {
+    PACKAGE_MATURITY_LEVELS.contains(&maturity)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -431,6 +454,17 @@ mod tests {
 
         assert!(matches.iter().any(|package| package.name == "text_tools"));
         assert!(registry.find_package("config_rules").is_some());
+    }
+
+    #[test]
+    fn built_in_registry_exposes_package_maturity() {
+        let registry = load_registry(default_registry_dir()).expect("registry should load");
+        let package = registry
+            .find_package("http_tools")
+            .expect("http_tools should exist");
+
+        assert_eq!(package.maturity, "host_boundary_preview");
+        assert!(render_package_info(package).contains("maturity: host_boundary_preview"));
     }
 
     #[test]
