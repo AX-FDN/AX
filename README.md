@@ -1313,6 +1313,69 @@ AX 希望最终回答的是：
 它不会调用真实模型，也不会新增语法；它会先把已有 replay、score、compare 和 context-enabled export 产物整理成按 case 可查询、可导出的修复证据对象。
 这会让 benchmark 从“脚本结果”升级成“可读的修复故事”：初始错误是什么、哪种模式修复成功、哪一步失败、context 是否进入输入、如何复现。
 
+## Package Ecosystem Preview
+
+AX now has an early but usable third-party package preview. The package source
+repository is [AX-PKG](https://github.com/AX-FDN/AX-PKG), while this compiler
+repository owns the curated registry metadata under [`registry/`](./registry/).
+The current flow is intentionally reviewed and checksum-backed: package source
+is pinned by git revision, package path, module list, and `sha256` checksum, then
+installed through `axc pkg`.
+
+This means AX is no longer only a language runtime/compiler experiment. It
+already has the beginning of an application-development surface: reusable AX
+source packages, local cache install, lockfile entries, registry smoke tests, and
+examples that prove the packages can be checked and run together.
+
+Current registry facts:
+
+- Registry catalog: 31 curated packages.
+- Stable pure-AX smoke coverage: 29 packages.
+- Host-boundary preview packages: `http_tools` and `net_tools`.
+- Package source monorepo: `https://github.com/AX-FDN/AX-PKG.git`.
+- Validation entry: [`scripts/smoke-package-registry.ps1`](./scripts/smoke-package-registry.ps1).
+
+Current package families:
+
+| Family | Packages | What they enable today |
+| --- | --- | --- |
+| API and backend workflow | `api_tools`, `queue_tools`, `migration_tools`, `schema_tools` | API envelopes, queue job states, migration planning, schema/table descriptions |
+| Service operations | `observability_tools`, `rate_limit_tools`, `feature_flag_tools`, `health_tools` | metrics/spans, rate-limit windows, feature rollout decisions, readiness/degraded checks |
+| Data and formatting | `json_tools`, `text_tools`, `markdown_tools`, `report_tools`, `log_tools` | JSON construction, text normalization, markdown inspection, reports, structured log lines |
+| Validation and configuration | `validation_tools`, `config_rules`, `result_tools`, `number_tools`, `math_rules`, `collection_tools` | reusable validation, config checks, status labels, scoring, ranges, integer summaries |
+| URL/auth/token preview | `url_tools`, `auth_tools`, `jwt_tools` | URL summaries, safe auth header previews, unsigned JWT shape helpers |
+| Bytes and encoding | `bytes_tools`, `encoding_tools`, `hash_tools` | byte buffers, hex/base64 helpers, deterministic non-crypto checksums |
+| Host-boundary preview | `http_tools`, `net_tools`, `database_tools` | interpreter-first HTTP/TCP wrappers and pure database DSN/readiness metadata |
+| Cache/retry | `cache_tools`, `retry_tools`, `pagination_tools` | cache policy, retry policy, pagination windows |
+
+Security and maturity boundaries are explicit. `jwt_tools` does not sign tokens,
+`hash_tools` is not cryptographic, and `database_tools` is not a native database
+driver. Those packages are useful development scaffolding today, while real
+crypto, TLS, native database drivers, and mature binary protocols remain future
+runtime/backend work.
+
+Basic registry workflow:
+
+```powershell
+axc pkg search text
+axc pkg info text_tools
+axc pkg add text_tools <project> --registry registry
+axc pkg install <project> --registry registry
+axc check <project>
+axc run <project>
+```
+
+The current full package smoke does the complete path:
+
+```text
+pkg check -> pkg add 29 stable packages -> pkg install -> checksum verify -> AX.lock -> axc check -> axc run
+```
+
+For package authors, see:
+
+- [AX-PKG README](https://github.com/AX-FDN/AX-PKG)
+- [`docs/package-registry-v0.md`](./docs/package-registry-v0.md)
+
 ## Quickstart
 
 平台入口：
