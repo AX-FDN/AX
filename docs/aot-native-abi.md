@@ -132,6 +132,17 @@ Current `std.bytes` status:
   request.
 - `scripts/smoke-bytes-runtime.ps1` is the fixture that locks this contract.
 
+Current host/network status:
+
+- `axc run` supports host-boundary preview helpers for `std.http` and `std.net`
+  over local TCP/HTTP test fixtures.
+- `axc build` must report `host_http`, `host_net`, and `AOT0301` until
+  runtime-owned host handles and native networking ABI rules are implemented.
+- `AOT0301` belongs to the `runtime_abi` AI layer and is not a safe source-edit
+  request.
+- `scripts/smoke-host-network-runtime.ps1` is the fixture that locks this
+  contract.
+
 ## Backend Code Boundaries
 
 Keep ABI implementation concentrated in these backend areas:

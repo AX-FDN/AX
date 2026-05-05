@@ -71,6 +71,12 @@ proves interpreter behavior for byte buffers and requires `axc build` to report
 byte-buffer source from being misreported as a user-code error while native
 bytes lowering is still pending.
 
+`scripts/smoke-host-network-runtime.ps1` is the current host handle boundary
+fixture. It runs local TCP-backed `std.http` and `std.net` interpreter behavior,
+then requires `axc build` to report `host_http`, `host_net`, and
+`AOT0301/runtime_abi` instead of treating valid host/network code as a source
+repair target.
+
 ## Backend Profile v1 Gaps
 
 These gaps block promotion from "candidate" to "Backend Profile v1 stable".
@@ -83,7 +89,7 @@ These gaps block promotion from "candidate" to "Backend Profile v1 stable".
 | Cross-package monomorphization | Generic package APIs need concrete native instances. | Local path generic package smoke exists; add registry-backed generic package parity next. |
 | Method/impl ABI freeze | Backend code will use methods heavily. | Local package method parity exists; freeze symbol/ABI rules and add registry-backed coverage next. |
 | Trait ABI boundary | Traits exist but full dispatch is not frozen. | static dispatch subset documented; dynamic dispatch remains out of profile unless implemented. |
-| HTTP/TLS runtime ABI | Backend language needs real network IO. | `std.http` client/server and `std.tls` readiness/ABI fixtures. |
+| HTTP/TLS runtime ABI | Backend language needs real network IO. | HTTP/TCP host-boundary readiness fixture exists; next proof is runtime-owned handles and TLS policy. |
 | PostgreSQL runtime ABI | DB is a 1.0 backend target. | `std.db` PostgreSQL smoke with interpreter and AOT readiness first, parity later. |
 | Async runtime model | Backend services need structured IO. | either `async fn/await` or explicit `std.async` API frozen with readiness blockers. |
 | Linux executable parity | 1.0 target includes Linux server workflow. | Ubuntu CI runs Backend Profile v1 parity with clang installed. |
@@ -105,6 +111,6 @@ Next executable checks to add:
 
 1. registry-backed generic/method helper fixture.
 2. native byte-buffer layout and parity fixture.
-3. host handle readiness fixture for future HTTP/TLS/DB/async handles.
+3. runtime-owned handle layout/release fixture for HTTP/TLS/DB/async handles.
 
 These should be added before implementing production HTTP/TLS/DB/async APIs.

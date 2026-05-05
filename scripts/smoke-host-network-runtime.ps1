@@ -82,6 +82,63 @@ function Assert-Equal {
     }
 }
 
+function Join-ProcessArguments {
+    param([string[]] $Arguments)
+
+    $quoted = @()
+    foreach ($argument in $Arguments) {
+        $text = [string] $argument
+        if ($text.Length -eq 0) {
+            $quoted += '""'
+        } elseif ($text -match '[\s"]') {
+            $quoted += '"' + $text.Replace('"', '\"') + '"'
+        } else {
+            $quoted += $text
+        }
+    }
+
+    return ($quoted -join " ")
+}
+
+function Invoke-Process {
+    param(
+        [string] $FilePath,
+        [string[]] $Arguments = @()
+    )
+
+    $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
+    $startInfo.FileName = $FilePath
+    $startInfo.WorkingDirectory = $repoRoot
+    $startInfo.UseShellExecute = $false
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.RedirectStandardError = $true
+    $startInfo.Arguments = Join-ProcessArguments $Arguments
+
+    $process = $null
+    for ($attempt = 1; $attempt -le 5; $attempt += 1) {
+        try {
+            $process = [System.Diagnostics.Process]::Start($startInfo)
+            break
+        } catch [System.ComponentModel.Win32Exception] {
+            $message = $_.Exception.Message
+            if ($attempt -eq 5 -or $message -notmatch "being used by another process") {
+                throw
+            }
+            Start-Sleep -Milliseconds (200 * $attempt)
+        }
+    }
+
+    $stdout = $process.StandardOutput.ReadToEnd()
+    $stderr = $process.StandardError.ReadToEnd()
+    $process.WaitForExit()
+
+    [pscustomobject] @{
+        ExitCode = $process.ExitCode
+        Stdout = $stdout
+        Stderr = $stderr
+    }
+}
+
 function Get-FreeTcpPort {
     $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
     $listener.Start()
@@ -177,13 +234,13 @@ fn main() -> i32 {
 
     $axcBinary = Ensure-AxcBinary
 
-    & $axcBinary check $outputRoot
-    Assert-Equal -Label "axc check exit code" -Actual $LASTEXITCODE -Expected 0
+    $check = Invoke-Process -FilePath $axcBinary -Arguments @("check", $outputRoot)
+    Assert-Equal -Label "axc check exit code" -Actual ([int] $check.ExitCode) -Expected 0
 
-    $runOutput = & $axcBinary run $outputRoot
-    Assert-Equal -Label "axc run exit code" -Actual $LASTEXITCODE -Expected 0
+    $run = Invoke-Process -FilePath $axcBinary -Arguments @("run", $outputRoot)
+    Assert-Equal -Label "axc run exit code" -Actual ([int] $run.ExitCode) -Expected 0
 
-    $actualOutput = @($runOutput | ForEach-Object { [string] $_ })
+    $actualOutput = @(($run.Stdout -split "\r?\n") | Where-Object { $_ -ne "" } | ForEach-Object { [string] $_ })
     $expectedOutput = @("ok:200", "AX_HTTP_OK:0", "ok")
     Assert-Equal -Label "run output line count" -Actual $actualOutput.Count -Expected $expectedOutput.Count
     for ($index = 0; $index -lt $expectedOutput.Count; $index += 1) {
@@ -191,14 +248,18 @@ fn main() -> i32 {
     }
 
     $buildOutput = Join-Path $outputRoot "build"
-    & $axcBinary build $outputRoot --emit ir --no-link --out-dir $buildOutput | Out-Null
-    Assert-Equal -Label "axc build --emit ir --no-link exit code" -Actual $LASTEXITCODE -Expected 0
+    $build = Invoke-Process -FilePath $axcBinary -Arguments @("build", $outputRoot, "--emit", "ir", "--no-link", "--out-dir", $buildOutput)
+    Assert-Equal -Label "axc build --emit ir --no-link exit code" -Actual ([int] $build.ExitCode) -Expected 0
 
     $manifestPath = Join-Path $buildOutput "build-manifest.json"
     if (-not (Test-Path $manifestPath)) {
         Write-Error "build manifest was not produced at $manifestPath"
     }
     $manifest = Get-Content $manifestPath -Raw -Encoding utf8 | ConvertFrom-Json
+    Assert-Equal -Label "manifest schema_version" -Actual ([int] $manifest.schema_version) -Expected 10
+    Assert-Equal -Label "aot readiness schema_version" -Actual ([int] $manifest.aot_readiness.schema_version) -Expected 3
+    Assert-Equal -Label "host fixture aot_supported" -Actual ([bool] $manifest.aot_supported) -Expected $false
+
     $features = @($manifest.aot_readiness.required_backend_features | ForEach-Object { [string] $_ })
     if (-not $features.Contains("host_http")) {
         Write-Error "AOT readiness did not report host_http for std.http."
@@ -206,10 +267,15 @@ fn main() -> i32 {
     if (-not $features.Contains("host_net")) {
         Write-Error "AOT readiness did not report host_net for std.net."
     }
-    $blockerCodes = @($manifest.aot_readiness.blockers | ForEach-Object { [string] $_.code })
-    if (-not $blockerCodes.Contains("AOT0301")) {
+    $hostBlocker = @($manifest.aot_readiness.blockers | Where-Object { [string] $_.code -eq "AOT0301" }) | Select-Object -First 1
+    if ($null -eq $hostBlocker) {
         Write-Error "AOT readiness did not report AOT0301 for host network runtime ABI."
     }
+    Assert-Equal -Label "AOT0301 category" -Actual ([string] $hostBlocker.category) -Expected "runtime"
+    Assert-Equal -Label "AOT0301 ai layer" -Actual ([string] $hostBlocker.ai.layer) -Expected "runtime_abi"
+    Assert-Equal -Label "AOT0301 ai action" -Actual ([string] $hostBlocker.ai.ai_action) -Expected "explain_unsupported"
+    Assert-Equal -Label "AOT0301 safe_to_edit" -Actual ([bool] $hostBlocker.ai.safe_to_edit) -Expected $false
+    Assert-Equal -Label "AOT0301 rule id" -Actual ([string] $hostBlocker.ai.rule_id) -Expected "aot_host_runtime_abi_pending"
 
     Write-Host "Host network runtime smoke passed at $outputRoot"
 } finally {

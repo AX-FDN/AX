@@ -98,6 +98,16 @@ This smoke does not require clang. It verifies interpreter byte-buffer behavior
 and the `AOT0303`/`runtime_abi` blocker contract while native bytes lowering is
 still pending.
 
+Host/network ABI readiness changes should run:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke-host-network-runtime.ps1
+```
+
+This smoke does not require clang. It verifies local TCP-backed interpreter
+behavior for `std.http`/`std.net` and the `AOT0301`/`runtime_abi` blocker
+contract while native host handles are still pending.
+
 如果本机或 CI 已安装 clang，优先跑 run vs AOT executable parity smoke：
 
 ```powershell
