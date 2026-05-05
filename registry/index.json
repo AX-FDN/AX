@@ -2,6 +2,10 @@
   "schema_version": 1,
   "packages": [
     {
+      "name": "auth_tools",
+      "metadata": "packages/auth_tools.json"
+    },
+    {
       "name": "collection_tools",
       "metadata": "packages/collection_tools.json"
     },
@@ -16,6 +20,14 @@
     {
       "name": "http_tools",
       "metadata": "packages/http_tools.json"
+    },
+    {
+      "name": "json_tools",
+      "metadata": "packages/json_tools.json"
+    },
+    {
+      "name": "log_tools",
+      "metadata": "packages/log_tools.json"
     },
     {
       "name": "markdown_tools",
@@ -44,6 +56,10 @@
     {
       "name": "text_tools",
       "metadata": "packages/text_tools.json"
+    },
+    {
+      "name": "url_tools",
+      "metadata": "packages/url_tools.json"
     },
     {
       "name": "validation_tools",

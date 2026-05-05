@@ -53,9 +53,13 @@ Start with a repository-owned curated index inside the AX repository during 0.2:
 registry/
   index.json
   packages/
+    auth_tools.json
     database_tools.json
     http_tools.json
+    json_tools.json
+    log_tools.json
     net_tools.json
+    url_tools.json
     text_tools.json
     config_rules.json
     math_rules.json

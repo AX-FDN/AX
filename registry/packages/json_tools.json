@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "name": "json_tools",
+  "owner": "ax-core",
+  "license": "Apache-2.0",
+  "description": "Deterministic JSON string construction helpers",
+  "versions": [
+    {
+      "version": "0.1.0",
+      "source": {
+        "kind": "git",
+        "url": "https://github.com/AX-FDN/AX-PKG.git",
+        "rev": "2c9b6bbf7214a8e611e0f0946a6972e87fe8cc93",
+        "path": "packages/json_tools"
+      },
+      "checksum": "sha256:386169dd2cb3e7555d0092310644f161a5b4f0e1f8368861b79ec007b3b1ee54",
+      "modules": [
+        "json_tools.encode"
+      ]
+    }
+  ]
+}

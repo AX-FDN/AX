@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "name": "log_tools",
+  "owner": "ax-core",
+  "license": "Apache-2.0",
+  "description": "Structured log line formatting helpers",
+  "versions": [
+    {
+      "version": "0.1.0",
+      "source": {
+        "kind": "git",
+        "url": "https://github.com/AX-FDN/AX-PKG.git",
+        "rev": "2c9b6bbf7214a8e611e0f0946a6972e87fe8cc93",
+        "path": "packages/log_tools"
+      },
+      "checksum": "sha256:bdc5eb2b18f323eda0d4fda31495ad6cc269d56d052873a9d696501458ea07a2",
+      "modules": [
+        "log_tools.core"
+      ]
+    }
+  ]
+}

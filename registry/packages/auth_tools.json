@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "name": "auth_tools",
+  "owner": "ax-core",
+  "license": "Apache-2.0",
+  "description": "Bearer/API-key header helpers and safe secret redaction",
+  "versions": [
+    {
+      "version": "0.1.0",
+      "source": {
+        "kind": "git",
+        "url": "https://github.com/AX-FDN/AX-PKG.git",
+        "rev": "2c9b6bbf7214a8e611e0f0946a6972e87fe8cc93",
+        "path": "packages/auth_tools"
+      },
+      "checksum": "sha256:ec957fabcd2a1159853ffc5cae9b03d3f4b2ecfa6e9954ba0c679fc7aca5e5fc",
+      "modules": [
+        "auth_tools.headers"
+      ]
+    }
+  ]
+}

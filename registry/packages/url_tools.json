@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "name": "url_tools",
+  "owner": "ax-core",
+  "license": "Apache-2.0",
+  "description": "URL classification and query construction helpers",
+  "versions": [
+    {
+      "version": "0.1.0",
+      "source": {
+        "kind": "git",
+        "url": "https://github.com/AX-FDN/AX-PKG.git",
+        "rev": "2c9b6bbf7214a8e611e0f0946a6972e87fe8cc93",
+        "path": "packages/url_tools"
+      },
+      "checksum": "sha256:8cf9b98f548dbcd53ebf9ceb217f537632466b2615ea0736085f10cadd793de3",
+      "modules": [
+        "url_tools.core"
+      ]
+    }
+  ]
+}
