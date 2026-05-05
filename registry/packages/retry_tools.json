@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "name": "retry_tools",
+  "owner": "ax-core",
+  "license": "Apache-2.0",
+  "description": "Retry classification and delay policy helpers",
+  "versions": [
+    {
+      "version": "0.1.0",
+      "source": {
+        "kind": "git",
+        "url": "https://github.com/AX-FDN/AX-PKG.git",
+        "rev": "b8cf3ec591edea9eab419e008ba8b7e6532a94c4",
+        "path": "packages/retry_tools"
+      },
+      "checksum": "sha256:048d0d87e99238915cb80c488f08c66c4b9aca696cf990f34a42fce658009673",
+      "modules": [
+        "retry_tools.policy"
+      ]
+    }
+  ]
+}

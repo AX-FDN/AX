@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "name": "cache_tools",
+  "owner": "ax-core",
+  "license": "Apache-2.0",
+  "description": "Cache key and freshness policy helpers",
+  "versions": [
+    {
+      "version": "0.1.0",
+      "source": {
+        "kind": "git",
+        "url": "https://github.com/AX-FDN/AX-PKG.git",
+        "rev": "b8cf3ec591edea9eab419e008ba8b7e6532a94c4",
+        "path": "packages/cache_tools"
+      },
+      "checksum": "sha256:8998f4fcca094bdb80f22ecc18148a9a39756443566592b6a75437b906892625",
+      "modules": [
+        "cache_tools.keys"
+      ]
+    }
+  ]
+}

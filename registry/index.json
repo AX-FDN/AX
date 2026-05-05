@@ -10,6 +10,10 @@
       "metadata": "packages/bytes_tools.json"
     },
     {
+      "name": "cache_tools",
+      "metadata": "packages/cache_tools.json"
+    },
+    {
       "name": "collection_tools",
       "metadata": "packages/collection_tools.json"
     },
@@ -20,6 +24,10 @@
     {
       "name": "database_tools",
       "metadata": "packages/database_tools.json"
+    },
+    {
+      "name": "encoding_tools",
+      "metadata": "packages/encoding_tools.json"
     },
     {
       "name": "http_tools",
@@ -50,12 +58,20 @@
       "metadata": "packages/number_tools.json"
     },
     {
+      "name": "pagination_tools",
+      "metadata": "packages/pagination_tools.json"
+    },
+    {
       "name": "report_tools",
       "metadata": "packages/report_tools.json"
     },
     {
       "name": "result_tools",
       "metadata": "packages/result_tools.json"
+    },
+    {
+      "name": "retry_tools",
+      "metadata": "packages/retry_tools.json"
     },
     {
       "name": "text_tools",

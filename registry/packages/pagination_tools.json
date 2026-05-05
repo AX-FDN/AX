@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "name": "pagination_tools",
+  "owner": "ax-core",
+  "license": "Apache-2.0",
+  "description": "Page, offset, and window helpers",
+  "versions": [
+    {
+      "version": "0.1.0",
+      "source": {
+        "kind": "git",
+        "url": "https://github.com/AX-FDN/AX-PKG.git",
+        "rev": "b8cf3ec591edea9eab419e008ba8b7e6532a94c4",
+        "path": "packages/pagination_tools"
+      },
+      "checksum": "sha256:fccb4c9420c4baaf39db190772307bde48ae8ca4502c9db1c65754fc5c180572",
+      "modules": [
+        "pagination_tools.core"
+      ]
+    }
+  ]
+}

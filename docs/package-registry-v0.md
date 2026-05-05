@@ -54,16 +54,26 @@ registry/
   index.json
   packages/
     auth_tools.json
+    bytes_tools.json
+    cache_tools.json
+    collection_tools.json
+    config_rules.json
     database_tools.json
+    encoding_tools.json
     http_tools.json
     json_tools.json
     log_tools.json
+    markdown_tools.json
+    math_rules.json
     net_tools.json
+    number_tools.json
+    pagination_tools.json
+    report_tools.json
+    result_tools.json
+    retry_tools.json
     url_tools.json
     text_tools.json
-    config_rules.json
-    math_rules.json
-    result_tools.json
+    validation_tools.json
 ```
 
 This in-repo registry is the 0.2 prototype and test fixture. Package source can

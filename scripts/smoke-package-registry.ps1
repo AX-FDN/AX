@@ -110,20 +110,26 @@ manifest_version = 1
 [package]
 name = "package_registry_smoke"
 entry = "src/main.ax"
+sources = ["../../std"]
 '@
 
 $sourceText = @'
 import auth_tools.headers;
+import bytes_tools.core;
+import cache_tools.keys;
 import collection_tools.ints;
 import config_rules.validate;
 import database_tools.dsn;
+import encoding_tools.core;
 import json_tools.encode;
 import log_tools.core;
 import markdown_tools.headings;
 import math_rules.core;
 import number_tools.core;
+import pagination_tools.core;
 import report_tools.builder;
 import result_tools.summary;
+import retry_tools.policy;
 import text_tools.normalize;
 import text_tools.stats;
 import url_tools.core;
@@ -144,6 +150,12 @@ fn main() -> i32 {
         json_tools.encode.field_i32("score", score),
         json_tools.encode.field_bool("secure", url_status.secure)
     );
+    let bytes_hex: string = bytes_tools.core.utf8_hex("AX");
+    let base64_text: string = encoding_tools.core.base64_encode_text("AX");
+    let decoded: encoding_tools.core.DecodeResult = encoding_tools.core.hex_decode("4158");
+    let retry_policy: retry_tools.policy.RetryPolicy = retry_tools.policy.exponential(4, 100, 1000);
+    let page: pagination_tools.core.PageWindow = pagination_tools.core.window(52, 2, 20);
+    let cache_policy: cache_tools.keys.CachePolicy = cache_tools.keys.with_stale(60, 30);
     let log_line: string = log_tools.core.info("registry-smoke", "packages loaded");
     let auth_preview: string = auth_tools.headers.safe_header_preview("Authorization", "secret-token");
     let config_status: i32 = config_rules.validate.validate("host=localhost\nport=8080\n");
@@ -158,6 +170,12 @@ fn main() -> i32 {
     report = report_tools.builder.kv_string(report, "db", database_status.driver);
     report = report_tools.builder.kv_string(report, "url", url_status.scheme);
     report = report_tools.builder.kv_string(report, "json", json);
+    report = report_tools.builder.kv_string(report, "bytes", bytes_hex);
+    report = report_tools.builder.kv_string(report, "base64", base64_text);
+    report = report_tools.builder.kv_bool(report, "hex-ok", decoded.ok);
+    report = report_tools.builder.kv_string(report, "retry", retry_tools.policy.action_label(503, 1, retry_policy));
+    report = report_tools.builder.kv_i32(report, "page-offset", page.offset);
+    report = report_tools.builder.kv_string(report, "cache", cache_tools.keys.age_label(75, cache_policy));
     report = report_tools.builder.kv_string(report, "log", log_line);
     report = report_tools.builder.kv_string(report, "auth", auth_preview);
     report = report_tools.builder.kv_string(report, "name", validation_tools.rules.message(name_status, "name"));
@@ -177,16 +195,21 @@ Assert-Equal -Label "axc pkg check exit code" -Actual $LASTEXITCODE -Expected 0
 
 $packages = @(
     "auth_tools",
+    "bytes_tools",
+    "cache_tools",
     "collection_tools",
     "config_rules",
     "database_tools",
+    "encoding_tools",
     "json_tools",
     "log_tools",
     "markdown_tools",
     "math_rules",
     "number_tools",
+    "pagination_tools",
     "report_tools",
     "result_tools",
+    "retry_tools",
     "text_tools",
     "url_tools",
     "validation_tools"
@@ -207,7 +230,7 @@ if (-not (Test-Path $lockfilePath)) {
 
 $lockfile = Get-Content $lockfilePath -Raw -Encoding utf8 | ConvertFrom-Json
 Assert-Equal -Label "AX.lock schema_version" -Actual ([int] $lockfile.schema_version) -Expected 2
-Assert-Equal -Label "AX.lock dependency count" -Actual (@($lockfile.dependencies).Count) -Expected 14
+Assert-Equal -Label "AX.lock dependency count" -Actual (@($lockfile.dependencies).Count) -Expected 19
 
 & $axcBinary check $outputRoot
 Assert-Equal -Label "axc check exit code" -Actual $LASTEXITCODE -Expected 0
@@ -226,6 +249,12 @@ $expectedOutput = @(
     "db: postgres",
     "url: https",
     "json: {""service"":""ax-pkg"",""score"":9,""secure"":true}",
+    "bytes: 4158",
+    "base64: QVg=",
+    "hex-ok: true",
+    "retry: retry",
+    "page-offset: 20",
+    "cache: stale",
     "log: [info] registry-smoke: packages loaded",
     "auth: Authorization: <redacted:12>",
     "name: name: ok"
@@ -243,4 +272,4 @@ for ($index = 0; $index -lt $expectedOutput.Count; $index += 1) {
     Assert-Equal -Label "run output[$index]" -Actual $actualOutput[$index] -Expected $expectedOutput[$index]
 }
 
-Write-Host "Package registry smoke passed. Verified 14 stable registry packages at $outputRoot"
+Write-Host "Package registry smoke passed. Verified 19 stable registry packages at $outputRoot"

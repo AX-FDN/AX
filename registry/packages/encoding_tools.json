@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "name": "encoding_tools",
+  "owner": "ax-core",
+  "license": "Apache-2.0",
+  "description": "Hex and base64 helpers over std.bytes",
+  "versions": [
+    {
+      "version": "0.1.0",
+      "source": {
+        "kind": "git",
+        "url": "https://github.com/AX-FDN/AX-PKG.git",
+        "rev": "b8cf3ec591edea9eab419e008ba8b7e6532a94c4",
+        "path": "packages/encoding_tools"
+      },
+      "checksum": "sha256:613c45f4f0bd178eb239d21635ca78b238feab0ba3acf97c20954c13315150c2",
+      "modules": [
+        "encoding_tools.core"
+      ]
+    }
+  ]
+}
