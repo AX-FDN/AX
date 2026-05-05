@@ -38,6 +38,7 @@ AX is not a production-ready 1.0 language yet.
 | Package system | Local path package v0, `AX.lock` v0, registry metadata, `axc pkg`, and checksum-backed package install preview exist. |
 | Package catalog | Registry catalog has `31` curated packages; stable pure-AX smoke covers `29` packages. |
 | Package source | Preview package source lives in `https://github.com/AX-FDN/AX-PKG.git`. |
+| Package maturity | Packages are classified as `stable_pure_ax`, `host_boundary_preview`, or `future_native_preview`. |
 | Standard library | `std.bytes`, `std.encoding`, `std.json`, `std.hash`, and `std.http` now provide package-facing foundations. |
 | Platform | Windows has the fullest workflow. Linux has core support. macOS is not yet a committed support tier. |
 

@@ -21,7 +21,10 @@ Host IO packages are allowed only when their runtime boundary is explicit. HTTP
 and raw TCP package experiments should wrap `std.http` and `std.net`; database
 packages should begin with pure AX types and protocol helpers until TCP/TLS/byte
 buffer/runtime ABI support is mature enough. See
-[`host-runtime-packages.md`](./host-runtime-packages.md).
+[`host-runtime-packages.md`](./host-runtime-packages.md). Package maturity is
+tracked in [`package-maturity.md`](./package-maturity.md): every package should
+be classified as `stable_pure_ax`, `host_boundary_preview`, or
+`future_native_preview`.
 
 ## Non-Goals For v0
 
@@ -271,6 +274,8 @@ Registry v0 should be intentionally boring:
 - Checksums are required for registry packages.
 - Package index changes are reviewed by maintainers.
 - Lockfile drift is reported as a package graph readiness issue.
+- Package maturity must be explicit before a package is promoted in docs or
+  examples.
 
 ## AOT Contract
 

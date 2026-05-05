@@ -233,7 +233,9 @@ New work should strengthen one of these loops:
 | Current facts | [`PROJECT_FACTS.md`](./PROJECT_FACTS.md) |
 | Public wording boundary | [`docs/public-claims.md`](./docs/public-claims.md) |
 | 0.1 Alpha release scope | [`docs/release-0.1-alpha.md`](./docs/release-0.1-alpha.md) |
+| 0.2 Package Preview | [`docs/release-0.2-package-preview.md`](./docs/release-0.2-package-preview.md) |
 | Package preview contract | [`docs/package-registry-v0.md`](./docs/package-registry-v0.md) |
+| Package maturity | [`docs/package-maturity.md`](./docs/package-maturity.md) |
 | AOT details | [`docs/llvm-aot.md`](./docs/llvm-aot.md) |
 | Native ABI notes | [`docs/aot-native-abi.md`](./docs/aot-native-abi.md) |
 | Validation matrix | [`docs/validation-matrix.md`](./docs/validation-matrix.md) |

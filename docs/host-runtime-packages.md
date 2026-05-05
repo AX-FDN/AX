@@ -168,3 +168,6 @@ For `AX-PKG` packages:
   modeling, and local protocol experiments.
 - Do not claim native/AOT support for HTTP, TCP, TLS, or database IO until
   `host_http`, `host_net`, or `host_db` has a native runtime ABI.
+- Classify host IO packages as `host_boundary_preview` and database/security
+  shape packages as `future_native_preview` until their native/runtime ABI exists.
+  See [`package-maturity.md`](./package-maturity.md).

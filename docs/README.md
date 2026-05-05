@@ -10,8 +10,10 @@ can change, but these docs should describe the current project accurately.
 | [`../README.md`](../README.md) | Project overview, current capability, quick commands, and contribution entry. |
 | [`../PROJECT_FACTS.md`](../PROJECT_FACTS.md) | Current factual baseline. Keep this synchronized with public claims. |
 | [`release-0.1-alpha.md`](./release-0.1-alpha.md) | AX 0.1 Alpha / Developer Preview release boundary. |
+| [`release-0.2-package-preview.md`](./release-0.2-package-preview.md) | Current 0.2 Package Preview execution anchor. |
 | [`public-claims.md`](./public-claims.md) | What AX can and cannot safely claim in public. |
 | [`package-registry-v0.md`](./package-registry-v0.md) | Curated package registry and package install preview contract. |
+| [`package-maturity.md`](./package-maturity.md) | Package maturity levels and current AX-PKG classification. |
 | [`llvm-aot.md`](./llvm-aot.md) | LLVM AOT v0 architecture, build artifacts, parity, and limitations. |
 | [`aot-native-abi.md`](./aot-native-abi.md) | Native ABI v1 notes for strings, slices, runtime helpers, and memory policy. |
 | [`validation-matrix.md`](./validation-matrix.md) | What to run locally and in CI. |
@@ -55,6 +57,7 @@ these loops:
 - run -> AOT exe parity
 - std foundation -> curated package ecosystem
 - package install -> lock/check/run/build validation
+- package maturity -> AOT readiness blockers
 
 ## Documentation Rules
 
