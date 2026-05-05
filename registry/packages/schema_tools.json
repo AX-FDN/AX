@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "name": "schema_tools",
+  "owner": "ax-core",
+  "license": "Apache-2.0",
+  "description": "Schema field and table description helpers",
+  "versions": [
+    {
+      "version": "0.1.0",
+      "source": {
+        "kind": "git",
+        "url": "https://github.com/AX-FDN/AX-PKG.git",
+        "rev": "26ab32284486d136dfc89eddee75442be40487a8",
+        "path": "packages/schema_tools"
+      },
+      "checksum": "sha256:cc736ab0296c3976de8ff4a263d4c99a5f11b6fdb8f3c1534f4bf77dbc853432",
+      "modules": [
+        "schema_tools.describe"
+      ]
+    }
+  ]
+}

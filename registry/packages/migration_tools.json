@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "name": "migration_tools",
+  "owner": "ax-core",
+  "license": "Apache-2.0",
+  "description": "Migration naming, batch status, and rollback helpers",
+  "versions": [
+    {
+      "version": "0.1.0",
+      "source": {
+        "kind": "git",
+        "url": "https://github.com/AX-FDN/AX-PKG.git",
+        "rev": "26ab32284486d136dfc89eddee75442be40487a8",
+        "path": "packages/migration_tools"
+      },
+      "checksum": "sha256:418417dd9403702435b5c4a4edf5faf4d92e54caf3e0d7b2f0935892f1cf32f8",
+      "modules": [
+        "migration_tools.plan"
+      ]
+    }
+  ]
+}

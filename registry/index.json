@@ -2,6 +2,10 @@
   "schema_version": 1,
   "packages": [
     {
+      "name": "api_tools",
+      "metadata": "packages/api_tools.json"
+    },
+    {
       "name": "auth_tools",
       "metadata": "packages/auth_tools.json"
     },
@@ -58,6 +62,10 @@
       "metadata": "packages/math_rules.json"
     },
     {
+      "name": "migration_tools",
+      "metadata": "packages/migration_tools.json"
+    },
+    {
       "name": "net_tools",
       "metadata": "packages/net_tools.json"
     },
@@ -70,6 +78,10 @@
       "metadata": "packages/pagination_tools.json"
     },
     {
+      "name": "queue_tools",
+      "metadata": "packages/queue_tools.json"
+    },
+    {
       "name": "report_tools",
       "metadata": "packages/report_tools.json"
     },
@@ -80,6 +92,10 @@
     {
       "name": "retry_tools",
       "metadata": "packages/retry_tools.json"
+    },
+    {
+      "name": "schema_tools",
+      "metadata": "packages/schema_tools.json"
     },
     {
       "name": "text_tools",

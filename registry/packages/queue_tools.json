@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "name": "queue_tools",
+  "owner": "ax-core",
+  "license": "Apache-2.0",
+  "description": "Queue job status, retry, and dead-letter helpers",
+  "versions": [
+    {
+      "version": "0.1.0",
+      "source": {
+        "kind": "git",
+        "url": "https://github.com/AX-FDN/AX-PKG.git",
+        "rev": "26ab32284486d136dfc89eddee75442be40487a8",
+        "path": "packages/queue_tools"
+      },
+      "checksum": "sha256:5b137038ac75e97ac74d682df2f697ab68ef069ba2fd0298ce9bd163d0d77091",
+      "modules": [
+        "queue_tools.jobs"
+      ]
+    }
+  ]
+}

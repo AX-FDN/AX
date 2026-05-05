@@ -114,6 +114,7 @@ sources = ["../../std"]
 '@
 
 $sourceText = @'
+import api_tools.response;
 import auth_tools.headers;
 import bytes_tools.core;
 import cache_tools.keys;
@@ -127,11 +128,14 @@ import jwt_tools.preview;
 import log_tools.core;
 import markdown_tools.headings;
 import math_rules.core;
+import migration_tools.plan;
 import number_tools.core;
 import pagination_tools.core;
+import queue_tools.jobs;
 import report_tools.builder;
 import result_tools.summary;
 import retry_tools.policy;
+import schema_tools.describe;
 import text_tools.normalize;
 import text_tools.stats;
 import url_tools.core;
@@ -160,6 +164,11 @@ fn main() -> i32 {
     let retry_policy: retry_tools.policy.RetryPolicy = retry_tools.policy.exponential(4, 100, 1000);
     let page: pagination_tools.core.PageWindow = pagination_tools.core.window(52, 2, 20);
     let cache_policy: cache_tools.keys.CachePolicy = cache_tools.keys.with_stale(60, 30);
+    let api_status: api_tools.response.ApiStatus = api_tools.response.ok("ready");
+    let job: queue_tools.jobs.JobState = queue_tools.jobs.failed(3, 3);
+    let migration: migration_tools.plan.MigrationBatch = migration_tools.plan.batch("release-001", 2, 1);
+    let field: schema_tools.describe.FieldSpec = schema_tools.describe.field("id", "i32", false, true);
+    let table: schema_tools.describe.TableSummary = schema_tools.describe.table("users", 4, 1);
     let log_line: string = log_tools.core.info("registry-smoke", "packages loaded");
     let auth_preview: string = auth_tools.headers.safe_header_preview("Authorization", "secret-token");
     let config_status: i32 = config_rules.validate.validate("host=localhost\nport=8080\n");
@@ -182,6 +191,11 @@ fn main() -> i32 {
     report = report_tools.builder.kv_string(report, "retry", retry_tools.policy.action_label(503, 1, retry_policy));
     report = report_tools.builder.kv_i32(report, "page-offset", page.offset);
     report = report_tools.builder.kv_string(report, "cache", cache_tools.keys.age_label(75, cache_policy));
+    report = report_tools.builder.kv_string(report, "api", api_tools.response.status_label(api_status));
+    report = report_tools.builder.kv_string(report, "queue", queue_tools.jobs.dead_letter_reason(job));
+    report = report_tools.builder.kv_string(report, "migration", migration_tools.plan.batch_status(migration));
+    report = report_tools.builder.kv_string(report, "field", schema_tools.describe.field_label(field));
+    report = report_tools.builder.kv_string(report, "schema", schema_tools.describe.table_health(table));
     report = report_tools.builder.kv_string(report, "log", log_line);
     report = report_tools.builder.kv_string(report, "auth", auth_preview);
     report = report_tools.builder.kv_string(report, "name", validation_tools.rules.message(name_status, "name"));
@@ -200,6 +214,7 @@ $axcBinary = Ensure-AxcBinary
 Assert-Equal -Label "axc pkg check exit code" -Actual $LASTEXITCODE -Expected 0
 
 $packages = @(
+    "api_tools",
     "auth_tools",
     "bytes_tools",
     "cache_tools",
@@ -213,11 +228,14 @@ $packages = @(
     "log_tools",
     "markdown_tools",
     "math_rules",
+    "migration_tools",
     "number_tools",
     "pagination_tools",
+    "queue_tools",
     "report_tools",
     "result_tools",
     "retry_tools",
+    "schema_tools",
     "text_tools",
     "url_tools",
     "validation_tools"
@@ -238,7 +256,7 @@ if (-not (Test-Path $lockfilePath)) {
 
 $lockfile = Get-Content $lockfilePath -Raw -Encoding utf8 | ConvertFrom-Json
 Assert-Equal -Label "AX.lock schema_version" -Actual ([int] $lockfile.schema_version) -Expected 2
-Assert-Equal -Label "AX.lock dependency count" -Actual (@($lockfile.dependencies).Count) -Expected 21
+Assert-Equal -Label "AX.lock dependency count" -Actual (@($lockfile.dependencies).Count) -Expected 25
 
 & $axcBinary check $outputRoot
 Assert-Equal -Label "axc check exit code" -Actual $LASTEXITCODE -Expected 0
@@ -265,6 +283,11 @@ $expectedOutput = @(
     "retry: retry",
     "page-offset: 20",
     "cache: stale",
+    "api: ok:ready",
+    "queue: attempts-exhausted",
+    "migration: requires-review",
+    "field: id:i32#",
+    "schema: ok",
     "log: [info] registry-smoke: packages loaded",
     "auth: Authorization: <redacted:12>",
     "name: name: ok"
@@ -282,4 +305,4 @@ for ($index = 0; $index -lt $expectedOutput.Count; $index += 1) {
     Assert-Equal -Label "run output[$index]" -Actual $actualOutput[$index] -Expected $expectedOutput[$index]
 }
 
-Write-Host "Package registry smoke passed. Verified 21 stable registry packages at $outputRoot"
+Write-Host "Package registry smoke passed. Verified 25 stable registry packages at $outputRoot"
