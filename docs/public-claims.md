@@ -1,145 +1,140 @@
 # AX Public Claims Boundary
 
-> 本文件定义 AX 当前对外表述边界。它的目的不是削弱项目定位，而是防止把仓库内可复现事实说成尚未完成的外部结论。
+This document defines how AX should be described publicly. The goal is to sound
+confident without overstating maturity.
 
-## 一句话口径
+## Recommended Short Description
 
-推荐对外这样介绍 AX：
+Use this:
 
-> AX is an AI-first tool language and compiler/runtime prototype that makes source syntax, structured diagnostics, repair contracts, architecture context, and benchmark evidence part of one language system.
+```text
+AX is an AI-native language toolchain with a stable interpreter path, an LLVM
+AOT v0 native compiler path, structured diagnostics, AI-readable context, repair
+benchmarks, and an early curated package ecosystem.
+```
 
-中文口径：
+Chinese version:
 
-> AX 是一门面向 Coding AI 的 AI-first 工具语言与编译器/运行时原型，把显式语法、结构化诊断、修复协议、架构上下文和 benchmark 证据链放进同一套语言系统。
+```text
+AX 是一套 AI-native 语言工具链：解释器稳定执行，LLVM AOT v0 持续扩展，
+结构化诊断、AI 上下文、修复 benchmark 和 curated package preview 都是一等能力。
+```
 
-## 应用场景口径
+## Safe Claims
 
-推荐把 AX 的 AI-first 场景说具体：
+These are safe to say now:
 
-> AX first targets agent-generated CLI tools, repairable automation scripts, backend worker utilities, and compiler-guided repair benchmarks.
+- AX has `axc check / run / fmt / build / context / pkg`.
+- AX has a shared frontend for checking, interpretation, and AOT build artifacts.
+- `axc run` is the stable semantic reference for the current language mainline.
+- `axc build` has LLVM AOT v0 and can generate native executables for the supported subset when clang/linking is available.
+- Default AOT parity covers `123` cases, including `26` project cases.
+- All `26` repository `AX.toml` project examples are listed in default AOT parity.
+- `build-manifest.json` schema version is `10`.
+- `aot_readiness.schema_version` is `3`.
+- AX has structured diagnostics and `--json --ai`.
+- AX context has `overview / boundaries / topology / flow / symbol / impact / evidence`.
+- AX has repair benchmark infrastructure and deterministic replay assets.
+- AX has local path package v0, `AX.lock`, registry metadata, `axc pkg`, and a checksum-backed package install preview.
+- AX has a curated package catalog with `31` packages and stable pure-AX smoke coverage for `29` packages.
+- Package source currently lives in `https://github.com/AX-FDN/AX-PKG.git`.
+- `std.bytes`, `std.encoding`, `std.json`, `std.hash`, and `std.http` provide current package-facing foundations.
 
-中文：
+## Claims That Need Careful Wording
 
-> AX 当前优先服务 agent 生成 CLI 工具、可修复自动化脚本、后端 worker 辅助工具，以及由编译器事实驱动的修复 benchmark。
+Use careful wording for these:
 
-可以说：
+| Topic | Accurate wording |
+| --- | --- |
+| AOT | "LLVM AOT v0 is executable-capable for the supported subset." |
+| Backend maturity | "The native backend is growing by verified capability slices." |
+| Package ecosystem | "AX has an early curated package preview." |
+| Standard library | "AX has standard-library foundations, not a complete stdlib." |
+| HTTP/network | "AX has pure HTTP helpers and interpreter-first host-boundary experiments." |
+| AI repair | "AX has structured repair inputs and benchmark evidence loops." |
+| Backend language direction | "AX is growing toward backend worker and service-support workloads." |
 
-- AX 正在先把 CLI / worker tools 做成稳定语言内核。
-- AX 的后端路线已经先启动本地 path package v0，后续会经过 AOT、JSON/config/log 和 worker workload，再评估 HTTP client/server 与 async。
-- AX 的 AI-first 指的是生成、修复、项目理解和验证链路对 Coding AI 更友好。
+## Do Not Claim
 
-不建议说：
+Do not say:
 
-- “AX 已经是完整后端语言。”
-- “AX 已经能替代现有 Web 框架。”
-- “AX 的 AI-first 等于只给 AI 看，不需要人类审阅。”
+- AX is production-ready 1.0.
+- AX replaces Go, Rust, MoonBit, Python, or TypeScript.
+- AX has a mature native backend comparable to established production languages.
+- AX has a complete standard library.
+- AX has a full public package registry with open upload.
+- AX has production-grade HTTP, TLS, crypto, JWT signing, database drivers, async runtime, or FFI.
+- AX has proven universal AI repair superiority over other languages.
+- AX has completed cross-language or live-model benchmark conclusions unless those artifacts are explicitly added to the repository.
 
-## 已经可以说的事实
+## Benchmark Wording
 
-这些是当前仓库内已经成立、可以对外引用的事实：
+Safe wording:
 
-- AX 已经有可运行的 `axc check / run / fmt / build / context` 命令面。
-- AX 已经有 `--json` 与 `--json --ai` 诊断输出。
-- AI 增强诊断已经包含 `rule_id / repair_goal / fixits / context_snippets`。
-- `axc context` 已经提供 `overview / boundaries / topology / flow / symbol / impact / evidence` 七个视图。
-- repair benchmark 已经有 manifest、export、adapter spec、run、score、compare、smoke 链路。
-- 当前 full repair manifest 有 `43` 个 case。
-- 当前 deterministic replay 可复现 `cold 23/30`、`base 25/30`、`ai 30/30`。
-- `export-repair-benchmark.ps1 -IncludeContext` 已能把 `overview / boundaries / evidence` 写入 repair bundle 与 prompt。
-- `Repair Archaeology v0` 已有 artifact schema、最小导出脚本和固定 smoke；后续目标是把仓库内 replay / score / compare 事实继续整理成更完整的 case 级 JSON / Markdown 报告。
-- 本地 path package v0 已进入主线，项目可以通过 `[dependencies] alias = { path = ... }` 复用本地 AX 源码包。
-- 本地 path package v0 已有 `PX0001~PX0007` 稳定 resolver 错误码，并能在 context 中暴露 `local_path_packages`。
-- `AX.lock` v0 已进入主线，可通过 `axc lock <project> [--check]` 生成或校验本地 path package 图。
-- context `overview/topology/evidence` 已能暴露 `local_package_lock` 状态，供 agent 判断本地包锁文件是否缺失、当前有效、过期或不可读。
-- `axc build` 已进入 LLVM AOT v0，`build-manifest.json` 当前 schema version 为 `10`，`aot_readiness.schema_version` 为 `3`。
-- 当前默认 AOT parity smoke 覆盖 `123` 个 run-vs-exe 样例，其中 `26` 个是 `AX.toml` project 样例，仓库内全部 project 示例都已列入默认清单。
-- AX Native ABI v1 已有文档收口：`string = ptr`、`slice = { ptr, i32 }`、`string_list = opaque ptr`，当前内存策略是 process-lifetime allocation v0。
-- curated package registry v0 已有设计文档；当前是计划和契约，不是公共上传服务。
-- Windows 是 full workflow 平台，Linux 是 core support 平台，macOS 尚未进入承诺范围。
+```text
+AX has repository-internal deterministic repair benchmark assets and a repair
+evidence loop. These validate the internal repair workflow; cross-language and
+live-model claims remain future work.
+```
 
-## 可以作为目标说，但不能作为结论说的内容
+Avoid:
 
-这些是 AX 的目标或假设，需要明确使用“目标、正在验证、用于验证、下一步证明”等措辞：
+```text
+AX has proven that all AI models repair AX better than other languages.
+```
 
-- 提高 Coding AI 的首轮生成通过率。
-- 提高结构化修复成功率。
-- 降低多文件项目中的架构理解成本。
-- 证明 AX 比受限 Rust / Go / Python / TypeScript 子集更适合指定 agent 任务。
-- 证明 context bundle 对 live model 有稳定收益。
-- 证明 AX 的低熵源码表面能跨模型、跨版本持续有效。
+## AOT Wording
 
-推荐写法：
+Safe wording:
 
-- “AX 的目标是提高……”
-- “当前仓库已经建立了验证这件事的 benchmark 链路……”
-- “外部 cross-language / live-model 对照仍是下一阶段工作……”
+```text
+AX AOT is v0 but executable-capable. The default parity smoke compares
+interpreter output and native executable output across 123 cases.
+```
 
-避免写法：
+Avoid:
 
-- “AX 已经证明比 Rust / Go / Python 更适合 AI。”
-- “AX 已经让所有模型生成更稳定。”
-- “AX 已经完成 AI 时代语言的最终答案。”
-- “AX 的 tokenizer 设计直接匹配 Codex / Claude 内部 tokenizer。”
-- “Repair Archaeology 展示的是模型在线协商全过程。” 当前 v0 只计划整理离线可复现证据。
+```text
+AX already has a mature production native backend.
+```
 
-## Benchmark 引用口径
+## Package Wording
 
-引用当前 benchmark 时，使用这句话：
+Safe wording:
 
-> In the repository-internal deterministic replay benchmark, AX currently reproduces `cold 23/30`, `base 25/30`, and `ai 30/30` over 30 repair cases. This validates the internal repair evidence loop; cross-language and live-model claims remain future work.
+```text
+AX has a curated package preview. The compiler repository owns registry metadata
+and AX-PKG stores package source. Packages are checksum-backed and source-only.
+```
 
-中文：
+Avoid:
 
-> 在仓库内 deterministic replay benchmark 中，AX 当前在 30 个 repair case 上可复现 `cold 23/30`、`base 25/30`、`ai 30/30`。这证明内部修复证据链已经成立；跨语言和 live model 结论仍是后续工作。
+```text
+AX already has a complete public package ecosystem like npm/crates.io.
+```
 
-## Repair Archaeology 引用口径
+## Standard Library Wording
 
-引用 Repair Archaeology 时，使用这句话：
+Safe wording:
 
-> Repair Archaeology v0 is the first evidence display layer over AX's existing repair benchmark artifacts. Its artifact schema and minimal export/smoke are already in-repo, and it will keep growing into richer JSON and Markdown case reports. It is not a live-model claim and not an agent runtime.
+```text
+AX standard-library foundations now cover bytes, encoding, JSON string
+construction, non-cryptographic checksums, and HTTP request/status helpers.
+```
 
-中文：
+Avoid:
 
-> Repair Archaeology v0 是 AX 现有 repair benchmark 产物之上的第一层证据展示面。它的 artifact schema 与最小导出/smoke 已经进入仓库，后续会继续长成更完整的 JSON 和 Markdown case 报告；它不是 live-model 结论，也不是 agent 运行时。
+```text
+AX has a complete production standard library.
+```
 
-## Context 引用口径
+## Update Rule
 
-引用 context 协议时，使用这句话：
+Update this file together with `README.md` and `PROJECT_FACTS.md` when:
 
-> AX context is already a compiler-produced JSON interface for project overview, boundaries, topology, flow, symbol, impact, and evidence. The first repair-consumable context shell is `overview + boundaries + evidence` via `-IncludeContext`.
-
-中文：
-
-> AX context 已经是编译器生成的 JSON 接口，覆盖 overview、boundaries、topology、flow、symbol、impact、evidence。第一条进入 repair 输入链的最小壳层是通过 `-IncludeContext` 导出的 `overview + boundaries + evidence`。
-
-## 语言定位边界
-
-AX 应该被表述为语言项目，而不是纯 research harness：
-
-- `source protocol` 是 AX 语言与编译器接口的一部分，不是 AX 的全部。
-- `diagnostics / context / repair / benchmark` 是 AX 的编译器护城河，不是取代语言本体。
-- 语言内核、标准库、包接口、AOT、自举仍然是长期路线的一部分。
-
-更准确的表达是：
-
-> AX 是 AI-first 工具语言；它的护城河是显式语法、结构化诊断、架构上下文、修复协议和 benchmark 闭环共同组成的编译器系统。
-
-不建议表达成：
-
-> AX 只是一个 source protocol 实验。
-
-## 更新规则
-
-当下面任一事实变化时，需要同步更新本文件、[`README.md`](../README.md)、[`PROJECT_FACTS.md`](../PROJECT_FACTS.md) 和 [`benchmark-showcase.md`](./benchmark-showcase.md)：
-
-- repair case 总数变化
-- deterministic replay 结果变化
-- context bundle 默认视图变化
-- live-model benchmark 结果进入仓库
-- cross-language benchmark 结果进入仓库
-- Repair Archaeology artifact schema 或报告入口进入仓库
-- AOT parity 默认样例数量或 project 样例数量变化
-- `build-manifest.json` / `aot_readiness` schema version 变化
-- package registry 从设计进入可安装/可上传实现
-- AX 0.1 Alpha release scope 变化
-- 平台支持等级变化
+- AOT parity numbers change
+- package catalog numbers change
+- manifest or readiness schema versions change
+- package install/publish behavior changes
+- standard library foundation modules change
+- release scope changes

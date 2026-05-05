@@ -33,7 +33,8 @@ The release is a **Developer Preview / Agent-Native Preview**, not AX 1.0.
 - Context protocol: `overview / boundaries / topology / flow / symbol / impact / evidence`.
 - Repair benchmark evidence chain.
 - AOT run-vs-exe parity smoke.
-- Curated package registry v0 design, but not public upload.
+- Curated package registry v0 design and the first `axc pkg` preview slice.
+- Curated package source repository: `https://github.com/AX-FDN/AX-PKG.git`.
 
 ## AOT Snapshot
 
@@ -129,14 +130,20 @@ Do not claim:
 
 ## Next Phase After 0.1
 
-Recommended next phase:
+Current next phase:
 
 ```text
 AX 0.2 Package Preview
-  -> in-repo curated package index prototype
-  -> axc pkg search/info/check/tree first cut
-  -> axc pkg add/install next slice
+  -> in-repo curated package index
+  -> AX-PKG source package monorepo
+  -> axc pkg search/info/check/tree/add/install/hash preview
   -> checksum lock entries
   -> package-backed AOT parity examples
-  -> stronger per-case fixture isolation in AOT parity
+  -> stronger package-backed check/run/build/AOT readiness
+  -> stronger per-case fixture isolation
 ```
+
+0.2 still does not mean public upload, mature package ownership, full semver
+solving, native extension ABI, or arbitrary package trust. It is a curated,
+checksum-backed package preview designed to make AX collaboration possible
+without opening the security and moderation surface too early.

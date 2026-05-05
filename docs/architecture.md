@@ -8,7 +8,7 @@
 - 以后新增语法时，要按什么顺序改代码。
 - 这轮模块拆分后，接下来该优先做什么。
 
-本文状态基于 2026-05-02 的代码结构。
+本文状态基于 2026-05-05 的代码结构。
 
 ## 先建立一个正确心智模型
 
@@ -16,7 +16,7 @@
 
 - 编译器前端：词法、语法、语义检查、HIR lowering、MIR lowering。
 - 解释器：`axc run` 成功分析源码后，直接解释执行 HIR。
-- build/AOT 原型：`axc build` 成功分析源码后，写出 build artifacts，并在当前支持的单文件 MIR 子集上生成 LLVM IR，配置允许时尝试用 `clang` 链接成可执行文件。
+- build/AOT：`axc build` 成功分析源码后，写出 build artifacts，并在当前支持的 MIR/native 子集上生成 LLVM IR，配置允许时尝试用 `clang` 链接成可执行文件。
 - 诊断和 AI 解释：结构化 diagnostics、规则卡片、session、修复提示。
 - context 工具：给 AI 或外部工具看的项目概览、边界、拓扑、符号、影响面、证据等 JSON。
 - formatter、project/package/lockfile 等周边工具。
@@ -151,19 +151,24 @@ flowchart TD
 - `planned_executable`：计划路径，表示“如果能完整 AOT/link，目标文件应该在这里”。
 - `executable`：实际产物。只有 LLVM IR 生成成功，并且 `clang` 链接成功后才会出现。
 
-当前 LLVM AOT v0 位于：
+当前 LLVM AOT v0 主要位于：
 
 - `src/backend/llvm/mod.rs`
 - `src/backend/llvm/ir.rs`
+- `src/backend/llvm/abi.rs`
+- `src/backend/llvm/symbols.rs`
+- `src/backend/llvm/runtime/`
+- `src/backend/llvm/monomorph.rs`
+- `src/backend/llvm/linking.rs`
 - `src/backend/llvm/toolchain.rs`
 
-当前 LLVM AOT v0 的范围很窄，主要面向单文件、显式 `fn main() -> i32`、`i32/bool`、简单局部变量、算术、比较、分支、return、同文件直接函数调用等。字符串、数组、struct、enum、泛型、trait、`?`、复杂布局和宿主 builtins 都还需要更明确的 native ABI 或 lowering 设计。
+当前 LLVM AOT v0 已经不是“只会生成一点 IR”的原型。它是 executable-capable subset：在有 clang/linker 的环境下，默认 parity smoke 会比较解释器与 native executable 的退出码、stdout 和 stderr。当前默认 parity 覆盖 `123` 个样例，其中 `26` 个是 `AX.toml` project 样例，仓库内全部 project 示例都已列入默认清单。
 
 所以现在要这样理解 build：
 
-- `build` 已经不是空壳，它能稳定导出前端/中端 artifacts，并对一小段语言子集生成 LLVM IR。
-- `build` 还没有覆盖 AX 解释器目前能跑的大部分真实工作负载。
-- 后续要让 `.ax -> .exe` 成为主能力，需要持续补齐 MIR 到 LLVM/native 的 lowering、运行时 ABI、链接策略和跨平台验证。
+- `build` 已经不是空壳，它能稳定导出前端/中端 artifacts，并对当前支持的语言子集生成 LLVM IR 和可选 native executable。
+- `build` 还不是成熟发布级 native compiler，不能宣称完整替代解释器路径。
+- 后续要继续补齐 native runtime ABI、bytes/string ownership、package/std native linking、跨 package generics/impl/trait ABI、工具链分发和跨平台验证。
 
 ## Project / Package / Lockfile
 
@@ -394,4 +399,3 @@ benchmark 不是为了跑分好看，而是为了证明：
 - `tests/interface_snapshots.rs`
 
 原则是：当你为了功能必须读它、改它，而且文件内部已经明显出现几个稳定职责时，再拆。
-
