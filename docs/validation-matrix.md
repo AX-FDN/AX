@@ -81,9 +81,10 @@ parity smoke:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke-package-registry-native-parity.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke-aot-package-generics.ps1
 ```
 
-This smoke requires clang. On Windows, `axc build` can also use the Rust
+These smokes require clang. On Windows, `axc build` can also use the Rust
 `x86_64-pc-windows-gnu` self-contained runtime libraries as a fallback when the
 default clang/MSVC link path is missing system libraries.
 
