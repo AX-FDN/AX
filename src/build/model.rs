@@ -46,6 +46,7 @@ pub struct BuildInput {
     pub project_manifest: Option<ProjectManifestArtifact>,
     pub project_sources: Option<ProjectSourcesArtifact>,
     pub local_path_packages: Vec<LocalPathPackageArtifact>,
+    pub registry_packages: Vec<RegistryPackageArtifact>,
     pub package_graph_readiness: Option<BuildPackageGraphReadiness>,
 }
 
@@ -73,6 +74,16 @@ pub struct LocalPathPackageArtifact {
     pub root: String,
     pub manifest: String,
     pub source_count: usize,
+    pub modules: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct RegistryPackageArtifact {
+    pub alias: String,
+    pub registry: String,
+    pub package: String,
+    pub version: String,
+    pub maturity: String,
     pub modules: Vec<String>,
 }
 
@@ -182,6 +193,11 @@ impl AotBlockerResolution {
     fn for_code(code: &str) -> Self {
         let (agent_action, source_edit_safe, recommended_command) = match code {
             "AOT0103" => ("verify_lockfile", false, Some("axc lock <project> --check")),
+            "AOT0104" | "AOT0105" => (
+                "explain_package_maturity",
+                false,
+                Some("axc pkg info <package> --registry registry"),
+            ),
             "AOT1000" => (
                 "enable_linking",
                 false,
@@ -223,6 +239,8 @@ pub struct BuildManifest {
     pub artifacts: BuildArtifacts,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub local_path_packages: Vec<LocalPathPackageArtifact>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub registry_packages: Vec<RegistryPackageArtifact>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub package_graph_readiness: Option<BuildPackageGraphReadiness>,
     pub notes: Vec<String>,

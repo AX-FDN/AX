@@ -38,6 +38,7 @@ pub fn build_input_from_source(source: &SourceFile) -> Result<BuildInput, String
         project_manifest: None,
         project_sources: None,
         local_path_packages: Vec::new(),
+        registry_packages: Vec::new(),
         package_graph_readiness: None,
     })
 }
@@ -97,6 +98,19 @@ pub fn build_input_from_project(
     } else {
         Some(build_package_graph_readiness(project))
     };
+    let mut registry_packages = project
+        .registry_dependencies()
+        .iter()
+        .map(|dependency| RegistryPackageArtifact {
+            alias: dependency.alias().to_string(),
+            registry: dependency.registry().to_string(),
+            package: dependency.package_name().to_string(),
+            version: dependency.version().to_string(),
+            maturity: dependency.maturity().to_string(),
+            modules: dependency.modules().to_vec(),
+        })
+        .collect::<Vec<_>>();
+    registry_packages.sort_by(|left, right| left.alias.cmp(&right.alias));
 
     Ok(BuildInput {
         target_name: project.target_name().to_string(),
@@ -110,6 +124,7 @@ pub fn build_input_from_project(
             files: project_source_files,
         }),
         local_path_packages,
+        registry_packages,
         package_graph_readiness,
     })
 }
@@ -145,7 +160,21 @@ fn build_project_source_artifact_path(
     project_root: &Path,
     source_path: &Path,
 ) -> Result<String, String> {
-    if let Ok(relative_path) = source_path.strip_prefix(project_root) {
+    let project_root = project_root.canonicalize().map_err(|error| {
+        format!(
+            "failed to package project source {}: could not canonicalize project root {}: {error}",
+            source_path.display(),
+            project_root.display()
+        )
+    })?;
+    let source_path = source_path.canonicalize().map_err(|error| {
+        format!(
+            "failed to package project source {}: could not canonicalize source path: {error}",
+            source_path.display()
+        )
+    })?;
+
+    if let Ok(relative_path) = source_path.strip_prefix(&project_root) {
         return Ok(relative_path.to_string_lossy().replace('\\', "/"));
     }
 

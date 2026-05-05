@@ -24,6 +24,7 @@ pub struct Project {
     source_paths: Vec<PathBuf>,
     source_module_paths: Vec<(PathBuf, String)>,
     local_path_dependencies: Vec<ResolvedPathDependency>,
+    registry_dependencies: Vec<ResolvedRegistryDependency>,
     entry_path: PathBuf,
 }
 
@@ -76,6 +77,10 @@ impl Project {
     pub fn local_path_dependencies(&self) -> &[ResolvedPathDependency] {
         &self.local_path_dependencies
     }
+
+    pub fn registry_dependencies(&self) -> &[ResolvedRegistryDependency] {
+        &self.registry_dependencies
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -111,6 +116,42 @@ impl ResolvedPathDependency {
 
     pub fn source_paths(&self) -> &[PathBuf] {
         &self.source_paths
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ResolvedRegistryDependency {
+    alias: String,
+    registry: String,
+    package_name: String,
+    version: String,
+    maturity: String,
+    modules: Vec<String>,
+}
+
+impl ResolvedRegistryDependency {
+    pub fn alias(&self) -> &str {
+        &self.alias
+    }
+
+    pub fn registry(&self) -> &str {
+        &self.registry
+    }
+
+    pub fn package_name(&self) -> &str {
+        &self.package_name
+    }
+
+    pub fn version(&self) -> &str {
+        &self.version
+    }
+
+    pub fn maturity(&self) -> &str {
+        &self.maturity
+    }
+
+    pub fn modules(&self) -> &[String] {
+        &self.modules
     }
 }
 

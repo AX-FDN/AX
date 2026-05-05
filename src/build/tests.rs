@@ -1,5 +1,6 @@
 use super::{
-    AotReadiness, AotReadinessInput, assess_aot_readiness, build_input_from_project,
+    AotReadiness, AotReadinessInput, RegistryPackageArtifact,
+    apply_registry_package_maturity_readiness, assess_aot_readiness, build_input_from_project,
     default_output_dir, target_name_from_file,
 };
 use crate::frontend::{analyze, analyze_with_project};
@@ -1806,4 +1807,91 @@ return package_value();
             .contains(&"package_lock".to_string())
     );
     assert_eq!(blocker_codes(&readiness), vec!["AOT0001"]);
+}
+
+#[test]
+fn aot_readiness_reports_registry_package_maturity_blockers() {
+    let mut readiness = readiness_for(
+        "\
+fn main() -> i32 {
+return 0;
+}
+",
+        AotReadinessInput {
+            is_project: true,
+            has_local_path_packages: false,
+            package_lock_status: None,
+        },
+    );
+    let packages = vec![
+        RegistryPackageArtifact {
+            alias: "json_tools".to_string(),
+            registry: "ax".to_string(),
+            package: "json_tools".to_string(),
+            version: "0.1.0".to_string(),
+            maturity: "stable_pure_ax".to_string(),
+            modules: vec!["json_tools.encode".to_string()],
+        },
+        RegistryPackageArtifact {
+            alias: "http_tools".to_string(),
+            registry: "ax".to_string(),
+            package: "http_tools".to_string(),
+            version: "0.1.0".to_string(),
+            maturity: "host_boundary_preview".to_string(),
+            modules: vec!["http_tools.client".to_string()],
+        },
+        RegistryPackageArtifact {
+            alias: "jwt_tools".to_string(),
+            registry: "ax".to_string(),
+            package: "jwt_tools".to_string(),
+            version: "0.1.0".to_string(),
+            maturity: "future_native_preview".to_string(),
+            modules: vec!["jwt_tools.preview".to_string()],
+        },
+    ];
+
+    apply_registry_package_maturity_readiness(&mut readiness, &packages);
+
+    assert!(!readiness.single_file_core_candidate);
+    assert!(
+        readiness
+            .required_backend_features
+            .contains(&"registry_package_stable_pure_ax".to_string())
+    );
+    assert!(
+        readiness
+            .required_backend_features
+            .contains(&"registry_package_host_boundary_preview".to_string())
+    );
+    assert!(
+        readiness
+            .required_backend_features
+            .contains(&"registry_package_future_native_preview".to_string())
+    );
+    assert_eq!(
+        blocker_codes(&readiness),
+        vec!["AOT0001", "AOT0104", "AOT0105"]
+    );
+    let host_blocker = readiness
+        .blockers
+        .iter()
+        .find(|blocker| blocker.code == "AOT0104")
+        .expect("host-boundary package blocker should be present");
+    assert!(host_blocker.message.contains("http_tools"));
+    assert_eq!(
+        host_blocker.ai.rule_id,
+        "aot_registry_package_host_boundary_preview"
+    );
+    assert_eq!(host_blocker.ai.ai_action, "explain_package_maturity");
+
+    let future_blocker = readiness
+        .blockers
+        .iter()
+        .find(|blocker| blocker.code == "AOT0105")
+        .expect("future-native package blocker should be present");
+    assert!(future_blocker.message.contains("jwt_tools"));
+    assert_eq!(
+        future_blocker.ai.rule_id,
+        "aot_registry_package_future_native_preview"
+    );
 }

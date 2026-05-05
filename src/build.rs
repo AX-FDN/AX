@@ -15,7 +15,7 @@ pub use input::{
 };
 pub use model::*;
 pub use program::build_program;
-pub use readiness::assess_aot_readiness;
+pub use readiness::{apply_registry_package_maturity_readiness, assess_aot_readiness};
 
 #[cfg(test)]
 #[path = "build/tests.rs"]

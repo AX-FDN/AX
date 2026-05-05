@@ -2,6 +2,7 @@ use std::fs;
 
 use crate::lockfile::{Lockfile, LockfileDependency};
 use crate::package_cache::cached_registry_package_dir;
+use crate::registry::{default_registry_dir, load_registry};
 
 use super::dependencies::{
     is_valid_package_name, load_path_dependency_manifest, project_package_error,
@@ -74,6 +75,7 @@ pub(in crate::project) fn load_project(manifest_path: &Path) -> Result<Project, 
     let mut source_root_aliases = Vec::<(String, String)>::new();
     let mut dependency_module_paths = Vec::<(String, String)>::new();
     let mut local_path_dependencies = Vec::new();
+    let mut registry_dependencies = Vec::new();
 
     for (alias, dependency) in &manifest.dependencies {
         validate_dependency_alias(alias, manifest_path)?;
@@ -92,6 +94,7 @@ pub(in crate::project) fn load_project(manifest_path: &Path) -> Result<Project, 
                 &mut source_module_paths,
                 &mut source_root_aliases,
                 &mut dependency_module_paths,
+                &mut registry_dependencies,
             )?;
             continue;
         };
@@ -309,6 +312,7 @@ pub(in crate::project) fn load_project(manifest_path: &Path) -> Result<Project, 
         source_paths,
         source_module_paths,
         local_path_dependencies,
+        registry_dependencies,
         entry_path,
     })
 }
@@ -325,6 +329,7 @@ fn load_registry_dependency_sources(
     source_module_paths: &mut Vec<(PathBuf, String)>,
     source_root_aliases: &mut Vec<(String, String)>,
     dependency_module_paths: &mut Vec<(String, String)>,
+    registry_dependencies: &mut Vec<ResolvedRegistryDependency>,
 ) -> Result<(), String> {
     if registry.is_empty() {
         return Err(project_package_error(
@@ -379,6 +384,30 @@ fn load_registry_dependency_sources(
             ),
         )
     })?;
+    let registry_index = load_registry(default_registry_dir()).map_err(|error| {
+        project_package_error(
+            "PX0117",
+            format!("failed to load built-in registry metadata for dependency `{alias}`: {error}"),
+        )
+    })?;
+    let registry_package = registry_index.find_package(&lock_entry.package).ok_or_else(|| {
+        project_package_error(
+            "PX0117",
+            format!(
+                "AX.lock dependency `{alias}` package `{}` is not present in built-in registry metadata",
+                lock_entry.package
+            ),
+        )
+    })?;
+    if registry_package.find_version(package_version).is_none() {
+        return Err(project_package_error(
+            "PX0117",
+            format!(
+                "AX.lock dependency `{alias}` package `{}` version `{package_version}` is not present in built-in registry metadata",
+                lock_entry.package
+            ),
+        ));
+    }
     let package_dir = cached_registry_package_dir(registry, &lock_entry.package, package_version);
     let dependency_manifest_path = package_dir.join(PROJECT_MANIFEST_FILE);
     let dependency_manifest =
@@ -457,6 +486,17 @@ fn load_registry_dependency_sources(
             ));
         }
     }
+
+    let mut modules = lock_entry.modules.clone();
+    modules.sort();
+    registry_dependencies.push(ResolvedRegistryDependency {
+        alias: alias.to_string(),
+        registry: registry.to_string(),
+        package_name: lock_entry.package.clone(),
+        version: package_version.to_string(),
+        maturity: registry_package.maturity.clone(),
+        modules,
+    });
 
     Ok(())
 }

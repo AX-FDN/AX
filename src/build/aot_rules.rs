@@ -13,6 +13,8 @@ pub(super) fn rule_for_blocker(code: &str, category: &str) -> AotBlockerRule {
         "AOT0101" => RULE_PROJECT_LINKING_PENDING,
         "AOT0102" => RULE_PACKAGE_LINKING_PENDING,
         "AOT0103" => RULE_PACKAGE_LOCK_REQUIRED,
+        "AOT0104" => RULE_REGISTRY_HOST_BOUNDARY_PACKAGE,
+        "AOT0105" => RULE_REGISTRY_FUTURE_NATIVE_PACKAGE,
         "AOT0201" => RULE_GENERIC_LOWERING_PENDING,
         "AOT0202" => RULE_TRAIT_LOWERING_PENDING,
         "AOT0203" => RULE_METHOD_ABI_PENDING,
@@ -77,6 +79,22 @@ const RULE_PACKAGE_LOCK_REQUIRED: AotBlockerRule = AotBlockerRule {
     summary: "AOT package input needs a current lockfile",
     repair_goal: "Refresh or verify AX.lock before treating the package graph as reproducible AOT input.",
     validation: VALIDATE_LOCK_BUILD,
+};
+
+const RULE_REGISTRY_HOST_BOUNDARY_PACKAGE: AotBlockerRule = AotBlockerRule {
+    rule_id: "aot_registry_package_host_boundary_preview",
+    layer: "aot_readiness",
+    summary: "host-boundary registry packages need native runtime ABI coverage",
+    repair_goal: "Treat check/run as valid when they pass; do not rewrite package users just to satisfy AOT until the host runtime ABI is available.",
+    validation: VALIDATE_RUN_BUILD,
+};
+
+const RULE_REGISTRY_FUTURE_NATIVE_PACKAGE: AotBlockerRule = AotBlockerRule {
+    rule_id: "aot_registry_package_future_native_preview",
+    layer: "aot_readiness",
+    summary: "future-native registry packages are interpreter-first previews",
+    repair_goal: "Keep package usage explicit and explain the native ABI gap; do not claim executable parity until the package graduates from future-native preview.",
+    validation: VALIDATE_RUN_BUILD,
 };
 
 const RULE_GENERIC_LOWERING_PENDING: AotBlockerRule = AotBlockerRule {

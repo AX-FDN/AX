@@ -6,7 +6,9 @@ use crate::hir::Program as HirProgram;
 use crate::mir::Program as MirProgram;
 use crate::source::SourceFile;
 
-use super::readiness::assess_aot_readiness_with_source;
+use super::readiness::{
+    apply_registry_package_maturity_readiness, assess_aot_readiness_with_source,
+};
 use super::*;
 
 pub fn build_program(
@@ -165,6 +167,7 @@ pub fn build_program(
         &mut artifacts,
         &mut notes,
     );
+    apply_registry_package_maturity_readiness(&mut aot_readiness, &input.registry_packages);
 
     let manifest = BuildManifest {
         schema_version: 10,
@@ -179,6 +182,7 @@ pub fn build_program(
         aot_readiness,
         artifacts,
         local_path_packages: input.local_path_packages.clone(),
+        registry_packages: input.registry_packages.clone(),
         package_graph_readiness: input.package_graph_readiness.clone(),
         notes,
     };

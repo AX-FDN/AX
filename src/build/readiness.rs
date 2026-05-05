@@ -17,6 +17,67 @@ pub fn assess_aot_readiness_with_source(
     assess_aot_readiness_inner(Some(source), program, input)
 }
 
+pub fn apply_registry_package_maturity_readiness(
+    readiness: &mut AotReadiness,
+    packages: &[RegistryPackageArtifact],
+) {
+    if packages.is_empty() {
+        return;
+    }
+
+    insert_feature(readiness, "registry_packages");
+    for package in packages {
+        match package.maturity.as_str() {
+            "stable_pure_ax" => insert_feature(readiness, "registry_package_stable_pure_ax"),
+            "host_boundary_preview" => {
+                insert_feature(readiness, "registry_package_host_boundary_preview")
+            }
+            "future_native_preview" => {
+                insert_feature(readiness, "registry_package_future_native_preview")
+            }
+            _ => insert_feature(readiness, "registry_package_unknown_maturity"),
+        }
+    }
+
+    let host_boundary_packages = package_aliases_by_maturity(packages, "host_boundary_preview");
+    if !host_boundary_packages.is_empty() {
+        push_blocker_if_missing(
+            readiness,
+            AotReadinessBlocker::new(
+                "AOT0104",
+                "package",
+                format!(
+                    "registry packages with host_boundary_preview maturity need native runtime ABI coverage before AOT parity: {}",
+                    host_boundary_packages.join(", ")
+                ),
+                "Package-2",
+            ),
+        );
+    }
+
+    let future_native_packages = package_aliases_by_maturity(packages, "future_native_preview");
+    if !future_native_packages.is_empty() {
+        push_blocker_if_missing(
+            readiness,
+            AotReadinessBlocker::new(
+                "AOT0105",
+                "package",
+                format!(
+                    "registry packages with future_native_preview maturity are interpreter-first package previews until their native ABI is designed: {}",
+                    future_native_packages.join(", ")
+                ),
+                "Package-2",
+            ),
+        );
+    }
+
+    readiness.single_file_core_candidate = false;
+    readiness.recommended_next_steps.push(
+        "use package maturity to distinguish pure AX package AOT candidates from host/native ABI blockers"
+            .to_string(),
+    );
+}
+
 fn assess_aot_readiness_inner(
     source: Option<&SourceFile>,
     program: &AstProgram,
@@ -119,6 +180,42 @@ fn assess_aot_readiness_inner(
                 .to_string(),
         ],
     }
+}
+
+fn insert_feature(readiness: &mut AotReadiness, feature: &str) {
+    if readiness
+        .required_backend_features
+        .iter()
+        .any(|candidate| candidate == feature)
+    {
+        return;
+    }
+    readiness
+        .required_backend_features
+        .push(feature.to_string());
+    readiness.required_backend_features.sort();
+}
+
+fn push_blocker_if_missing(readiness: &mut AotReadiness, blocker: AotReadinessBlocker) {
+    if readiness
+        .blockers
+        .iter()
+        .any(|candidate| candidate.code == blocker.code)
+    {
+        return;
+    }
+    readiness.blockers.push(blocker);
+}
+
+fn package_aliases_by_maturity(
+    packages: &[RegistryPackageArtifact],
+    maturity: &str,
+) -> Vec<String> {
+    packages
+        .iter()
+        .filter(|package| package.maturity == maturity)
+        .map(|package| package.alias.clone())
+        .collect()
 }
 
 fn collect_aot_features(
