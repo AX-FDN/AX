@@ -8,6 +8,7 @@ impl<'a> LoweringContext<'a> {
                 "i32" => Ok(Type::I32),
                 "f32" => Ok(Type::F32),
                 "string" => Ok(Type::String),
+                "bytes" => Ok(Type::Bytes),
                 "string_list" => Ok(Type::StringList),
                 _ => {
                     if let Some(name) =

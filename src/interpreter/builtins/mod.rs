@@ -1,4 +1,5 @@
 mod argv;
+mod bytes;
 mod core;
 mod env;
 mod fs;
@@ -33,6 +34,12 @@ impl<'a> Interpreter<'a> {
             "string_replace" => self.call_string_replace_builtin(arguments, span),
             "string_trim" => self.call_string_trim_builtin(arguments, span),
             "string_split_lines" => self.call_string_split_lines_builtin(arguments, span),
+            "bytes_empty" => self.call_bytes_empty_builtin(arguments, span),
+            "bytes_from_string" => self.call_bytes_from_string_builtin(arguments, span),
+            "bytes_to_string_lossy" => self.call_bytes_to_string_lossy_builtin(arguments, span),
+            "bytes_to_hex" => self.call_bytes_to_hex_builtin(arguments, span),
+            "bytes_push" => self.call_bytes_push_builtin(arguments, span),
+            "bytes_get" => self.call_bytes_get_builtin(arguments, span),
             "string_list_new" => self.call_string_list_new_builtin(arguments, span),
             "string_list_push" => self.call_string_list_push_builtin(arguments, span),
             "string_list_join" => self.call_string_list_join_builtin(arguments, span),

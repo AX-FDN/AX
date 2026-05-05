@@ -5,6 +5,8 @@ use super::{Type, TypeChecker};
 
 #[path = "builtin/args_env.rs"]
 mod args_env;
+#[path = "builtin/bytes.rs"]
+mod bytes;
 #[path = "builtin/conversion.rs"]
 mod conversion;
 #[path = "builtin/fs.rs"]
@@ -44,6 +46,12 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             "string_replace" => self.check_string_replace_builtin(expr, arguments),
             "string_trim" => self.check_string_trim_builtin(expr, arguments),
             "string_split_lines" => self.check_string_split_lines_builtin(expr, arguments),
+            "bytes_empty" => self.check_bytes_empty_builtin(expr, arguments),
+            "bytes_from_string" => self.check_bytes_from_string_builtin(expr, arguments),
+            "bytes_to_string_lossy" => self.check_bytes_to_string_lossy_builtin(expr, arguments),
+            "bytes_to_hex" => self.check_bytes_to_hex_builtin(expr, arguments),
+            "bytes_push" => self.check_bytes_push_builtin(expr, arguments),
+            "bytes_get" => self.check_bytes_get_builtin(expr, arguments),
             "string_list_new" => self.check_string_list_new_builtin(expr, arguments),
             "string_list_push" => self.check_string_list_push_builtin(expr, arguments),
             "string_list_join" => self.check_string_list_join_builtin(expr, arguments),

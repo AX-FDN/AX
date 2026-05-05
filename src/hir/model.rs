@@ -92,6 +92,7 @@ pub enum Type {
     I32,
     F32,
     String,
+    Bytes,
     StringList,
     Slice { element: Box<Type> },
     Array { element: Box<Type>, length: usize },

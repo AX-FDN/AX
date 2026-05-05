@@ -1,0 +1,33 @@
+module std.bytes;
+
+fn empty() -> bytes {
+    return bytes_empty();
+}
+
+fn from_string(text: string) -> bytes {
+    return bytes_from_string(text);
+}
+
+fn length(data: bytes) -> i32 {
+    return len(data);
+}
+
+fn get(data: bytes, index: i32) -> i32 {
+    return bytes_get(data, index);
+}
+
+fn push(data: bytes, value: i32) -> bytes {
+    return bytes_push(data, value);
+}
+
+fn to_string_lossy(data: bytes) -> string {
+    return bytes_to_string_lossy(data);
+}
+
+fn to_hex(data: bytes) -> string {
+    return bytes_to_hex(data);
+}
+
+fn is_empty(data: bytes) -> bool {
+    return len(data) == 0;
+}

@@ -60,20 +60,30 @@ pub fn assess_aot_readiness(program: &AstProgram, input: AotReadinessInput<'_>) 
             "Build-1/Build-2",
         ));
     }
+    if features.contains("bytes_runtime") {
+        blockers.push(AotReadinessBlocker::new(
+            "AOT0303",
+            "runtime",
+            "bytes values need a native byte-buffer representation and runtime ABI before AOT can preserve check/run behavior",
+            "Build-2/Build-3",
+        ));
+    }
 
     let single_file_core_candidate = !input.has_local_path_packages
         && !features.iter().any(|feature| {
-            matches!(feature.as_str(), "string_runtime" | "string_list_runtime")
-                || (feature.starts_with("host_")
-                    && !matches!(
-                        feature.as_str(),
-                        "host_stdio"
-                            | "host_argv"
-                            | "host_env"
-                            | "host_fs_read"
-                            | "host_fs_write"
-                            | "host_process"
-                    ))
+            matches!(
+                feature.as_str(),
+                "bytes_runtime" | "string_runtime" | "string_list_runtime"
+            ) || (feature.starts_with("host_")
+                && !matches!(
+                    feature.as_str(),
+                    "host_stdio"
+                        | "host_argv"
+                        | "host_env"
+                        | "host_fs_read"
+                        | "host_fs_write"
+                        | "host_process"
+                ))
         });
 
     AotReadiness {
@@ -467,6 +477,9 @@ fn collect_type_ref_aot_features(ty: &ast::TypeRef, features: &mut BTreeSet<Stri
             "string" => {
                 features.insert("string_values".to_string());
             }
+            "bytes" => {
+                features.insert("bytes_runtime".to_string());
+            }
             "string_list" => {
                 features.insert("string_list_runtime".to_string());
             }
@@ -524,6 +537,9 @@ fn collect_call_aot_features(name: &str, features: &mut BTreeSet<String>) {
     }
     if name.starts_with("db_") || name.starts_with("std.db.") || name.starts_with("std.database.") {
         features.insert("host_db".to_string());
+    }
+    if name.starts_with("bytes_") || name.starts_with("std.bytes.") {
+        features.insert("bytes_runtime".to_string());
     }
     if name.starts_with("path_") || name.starts_with("std.path.") {
         features.insert("path_runtime".to_string());

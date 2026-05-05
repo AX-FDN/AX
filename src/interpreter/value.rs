@@ -6,6 +6,7 @@ pub(super) enum Value {
     F32(f32),
     Bool(bool),
     String(String),
+    Bytes(Vec<u8>),
     StringList(Vec<String>),
     Array(Vec<Value>),
     Slice(Vec<Value>),
@@ -34,6 +35,14 @@ impl Value {
             }
             Self::Bool(value) => value.to_string(),
             Self::String(value) => value.clone(),
+            Self::Bytes(values) => {
+                let values = values
+                    .iter()
+                    .map(|value| value.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                format!("bytes[{values}]")
+            }
             Self::StringList(values) => {
                 let values = values.join(", ");
                 format!("[{values}]")

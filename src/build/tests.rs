@@ -201,6 +201,36 @@ return 0;
 }
 
 #[test]
+fn aot_readiness_reports_bytes_runtime_blocker() {
+    let readiness = readiness_for(
+        "\
+fn main() -> i32 {
+let data: bytes = bytes_from_string(\"AX\");
+println(bytes_to_hex(data));
+return len(data);
+}
+",
+        AotReadinessInput {
+            is_project: false,
+            has_local_path_packages: false,
+            package_lock_status: None,
+        },
+    );
+
+    assert!(!readiness.single_file_core_candidate);
+    assert_eq!(blocker_codes(&readiness), vec!["AOT0001", "AOT0303"]);
+    assert!(
+        readiness
+            .required_backend_features
+            .contains(&"bytes_runtime".to_string())
+    );
+    assert_eq!(
+        readiness.blockers[1].ai.rule_id,
+        "aot_bytes_runtime_abi_pending"
+    );
+}
+
+#[test]
 fn aot_readiness_allows_filesystem_read_subset_without_host_runtime_blocker() {
     let readiness = readiness_for(
         "\

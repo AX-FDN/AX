@@ -6,6 +6,10 @@
       "metadata": "packages/auth_tools.json"
     },
     {
+      "name": "bytes_tools",
+      "metadata": "packages/bytes_tools.json"
+    },
+    {
       "name": "collection_tools",
       "metadata": "packages/collection_tools.json"
     },

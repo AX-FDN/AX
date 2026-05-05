@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "name": "bytes_tools",
+  "owner": "ax-core",
+  "license": "Apache-2.0",
+  "description": "Byte-buffer helpers over std.bytes for backend-oriented packages",
+  "versions": [
+    {
+      "version": "0.1.0",
+      "source": {
+        "kind": "git",
+        "url": "https://github.com/AX-FDN/AX-PKG.git",
+        "rev": "6cc5bd31a6271f524a295a44b49bce99ac9cb561",
+        "path": "packages/bytes_tools"
+      },
+      "checksum": "sha256:6d3f9236addfc7b9d1e93c5de086578cc8477f17d4c830b9c994a1f22acc6612",
+      "modules": [
+        "bytes_tools.core"
+      ]
+    }
+  ]
+}

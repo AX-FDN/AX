@@ -21,6 +21,7 @@ pub(super) fn rule_for_blocker(code: &str, category: &str) -> AotBlockerRule {
         "AOT0207" => RULE_STRUCT_WRITE_LOWERING_PENDING,
         "AOT0301" => RULE_HOST_RUNTIME_ABI_PENDING,
         "AOT0302" => RULE_STRING_RUNTIME_ABI_PENDING,
+        "AOT0303" => RULE_BYTES_RUNTIME_ABI_PENDING,
         "AOT1000" => RULE_LINKING_DISABLED,
         "AOT1001" => RULE_CLANG_MISSING,
         "AOT1002" => RULE_CLANG_LINK_FAILED,
@@ -139,6 +140,14 @@ const RULE_STRING_RUNTIME_ABI_PENDING: AotBlockerRule = AotBlockerRule {
     layer: "aot_readiness",
     summary: "string values need a native representation and ABI",
     repair_goal: "Keep string-using source valid for the interpreter and add a native string ABI before AOT parity.",
+    validation: VALIDATE_RUN_BUILD,
+};
+
+const RULE_BYTES_RUNTIME_ABI_PENDING: AotBlockerRule = AotBlockerRule {
+    rule_id: "aot_bytes_runtime_abi_pending",
+    layer: "aot_readiness",
+    summary: "bytes values need a native byte-buffer ABI",
+    repair_goal: "Keep byte-buffer source valid for the interpreter and add a native bytes ABI before AOT parity.",
     validation: VALIDATE_RUN_BUILD,
 };
 

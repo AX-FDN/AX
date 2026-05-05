@@ -704,6 +704,7 @@ fn type_contains_type_param(ty: &Type) -> bool {
         | Type::I32
         | Type::F32
         | Type::String
+        | Type::Bytes
         | Type::StringList
         | Type::Struct { .. }
         | Type::Enum { .. } => false,

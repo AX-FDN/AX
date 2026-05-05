@@ -9,13 +9,17 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
         }
 
         match &argument_types[0] {
-            Type::String | Type::StringList | Type::Array { .. } | Type::Slice { .. } => Type::I32,
+            Type::String
+            | Type::Bytes
+            | Type::StringList
+            | Type::Array { .. }
+            | Type::Slice { .. } => Type::I32,
             actual => {
                 self.diagnostics.push(
                     Diagnostic::new(
                         "S0022",
                         format!(
-                            "function `len` expects argument `value` to be `string`, `string_list`, array, or slice, found `{}`",
+                            "function `len` expects argument `value` to be `string`, `bytes`, `string_list`, array, or slice, found `{}`",
                             actual.describe()
                         ),
                         self.info.source,
@@ -23,10 +27,10 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     )
                     .with_kind(DiagnosticKind::LenBuiltinTypeMismatch)
                     .with_note(
-                        "`len` is the general traversal-length builtin for strings, string lists, fixed-size arrays, and slices",
+                        "`len` is the general traversal-length builtin for strings, bytes, string lists, fixed-size arrays, and slices",
                     )
                     .with_suggestion(
-                        "call `len` with a string, string list, array, or slice value like `len(values)`",
+                        "call `len` with a string, bytes, string list, array, or slice value like `len(values)`",
                     ),
                 );
                 Type::Error

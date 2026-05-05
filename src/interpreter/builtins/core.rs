@@ -41,6 +41,7 @@ impl<'a> Interpreter<'a> {
             .expect("len argument should exist");
         return match value {
                 Value::String(text) => Ok(Value::I32(text.chars().count() as i32)),
+                Value::Bytes(values) => Ok(Value::I32(values.len() as i32)),
                 Value::StringList(values) => Ok(Value::I32(values.len() as i32)),
                 Value::Array(elements) | Value::Slice(elements) => {
                     Ok(Value::I32(elements.len() as i32))
@@ -49,13 +50,13 @@ impl<'a> Interpreter<'a> {
                     .runtime_error(
                         "R0040",
                         format!(
-                            "function `len` requires a `string`, `string_list`, array, or slice argument, got `{}`",
+                            "function `len` requires a `string`, `bytes`, `string_list`, array, or slice argument, got `{}`",
                             other.display()
                         ),
                         span,
                     )
                     .with_suggestion(
-                        "call `len` with a string, string list, array, or slice value like `len(values)`",
+                        "call `len` with a string, bytes, string list, array, or slice value like `len(values)`",
                     )),
             };
     }

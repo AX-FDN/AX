@@ -36,6 +36,7 @@ pub(super) fn builtin_types() -> HashMap<String, Type> {
         ("i32", Type::I32),
         ("f32", Type::F32),
         ("string", Type::String),
+        ("bytes", Type::Bytes),
         ("string_list", Type::StringList),
     ]
     .into_iter()
@@ -75,6 +76,9 @@ pub(super) fn type_mismatch_suggestion(expected: &Type, actual: &Type) -> String
         Type::String => format!(
             "make the expression produce `string`, or change the declared type if `{}` is intended",
             actual.describe()
+        ),
+        Type::Bytes => format!(
+            "make the expression produce `bytes`, or build one with `bytes_empty()`, `bytes_from_string(...)`, or `bytes_push(...)`",
         ),
         Type::StringList => format!(
             "make the expression produce `string_list`, or build one with `string_list_new()` and `string_list_push(...)`",

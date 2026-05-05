@@ -409,7 +409,7 @@ pub(super) fn payload_equality_supported(
                     })
                 })
             }),
-        Type::StringList | Type::TypeParam { .. } => false,
+        Type::Bytes | Type::StringList | Type::TypeParam { .. } => false,
     }
 }
 
@@ -458,7 +458,7 @@ pub(super) fn llvm_type(
     enum_layouts: &BTreeMap<String, EnumLayout>,
 ) -> Option<String> {
     match ty {
-        Type::Bool | Type::I32 | Type::F32 | Type::String | Type::StringList => {
+        Type::Bool | Type::I32 | Type::F32 | Type::String | Type::Bytes | Type::StringList => {
             abi::primitive_llvm_type(ty).map(str::to_string)
         }
         Type::Array { element, length } => {
@@ -530,7 +530,7 @@ pub(super) fn llvm_alloc_layout(
         Type::Bool => Some((1, 1)),
         Type::I32 => Some((4, 4)),
         Type::F32 => Some((4, 4)),
-        Type::String | Type::StringList => Some((8, 8)),
+        Type::String | Type::Bytes | Type::StringList => Some((8, 8)),
         Type::Slice { element } => {
             llvm_alloc_layout(element, layouts, enum_layouts)?;
             Some((16, 8))
@@ -649,6 +649,7 @@ pub(super) fn ax_type_name(ty: &Type) -> String {
         Type::I32 => "i32".to_string(),
         Type::F32 => "f32".to_string(),
         Type::String => "string".to_string(),
+        Type::Bytes => "bytes".to_string(),
         Type::StringList => "string_list".to_string(),
         Type::Slice { element } => format!("[]{}", ax_type_name(element)),
         Type::Array { element, length } => format!("[{}; {}]", ax_type_name(element), length),
