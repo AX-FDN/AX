@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "name": "rate_limit_tools",
+  "owner": "ax-core",
+  "license": "Apache-2.0",
+  "description": "Rate-limit quota and window helpers",
+  "versions": [
+    {
+      "version": "0.1.0",
+      "source": {
+        "kind": "git",
+        "url": "https://github.com/AX-FDN/AX-PKG.git",
+        "rev": "c1fe99c45eec93e55753be718bf7fc852b257b26",
+        "path": "packages/rate_limit_tools"
+      },
+      "checksum": "sha256:f907cb54e6d76963de1e762d7c79fd7a9dc7b2043b9ef55e1f702bec4a70dd98",
+      "modules": [
+        "rate_limit_tools.window"
+      ]
+    }
+  ]
+}

@@ -122,7 +122,9 @@ import collection_tools.ints;
 import config_rules.validate;
 import database_tools.dsn;
 import encoding_tools.core;
+import feature_flag_tools.flags;
 import hash_tools.checksum;
+import health_tools.checks;
 import json_tools.encode;
 import jwt_tools.preview;
 import log_tools.core;
@@ -130,8 +132,10 @@ import markdown_tools.headings;
 import math_rules.core;
 import migration_tools.plan;
 import number_tools.core;
+import observability_tools.signals;
 import pagination_tools.core;
 import queue_tools.jobs;
+import rate_limit_tools.window;
 import report_tools.builder;
 import result_tools.summary;
 import retry_tools.policy;
@@ -169,6 +173,10 @@ fn main() -> i32 {
     let migration: migration_tools.plan.MigrationBatch = migration_tools.plan.batch("release-001", 2, 1);
     let field: schema_tools.describe.FieldSpec = schema_tools.describe.field("id", "i32", false, true);
     let table: schema_tools.describe.TableSummary = schema_tools.describe.table("users", 4, 1);
+    let metric: observability_tools.signals.MetricPoint = observability_tools.signals.duration_ms("request", 245);
+    let rate_limit: rate_limit_tools.window.RateLimit = rate_limit_tools.window.create(100, 83, 60);
+    let flag: feature_flag_tools.flags.FeatureFlag = feature_flag_tools.flags.flag("new-api", true, 50);
+    let health: health_tools.checks.HealthSummary = health_tools.checks.summary(3, 1);
     let log_line: string = log_tools.core.info("registry-smoke", "packages loaded");
     let auth_preview: string = auth_tools.headers.safe_header_preview("Authorization", "secret-token");
     let config_status: i32 = config_rules.validate.validate("host=localhost\nport=8080\n");
@@ -196,6 +204,10 @@ fn main() -> i32 {
     report = report_tools.builder.kv_string(report, "migration", migration_tools.plan.batch_status(migration));
     report = report_tools.builder.kv_string(report, "field", schema_tools.describe.field_label(field));
     report = report_tools.builder.kv_string(report, "schema", schema_tools.describe.table_health(table));
+    report = report_tools.builder.kv_string(report, "metric", observability_tools.signals.metric_line(metric));
+    report = report_tools.builder.kv_string(report, "rate-limit", rate_limit_tools.window.status(rate_limit));
+    report = report_tools.builder.kv_string(report, "flag", feature_flag_tools.flags.decision_label(flag, "user-1"));
+    report = report_tools.builder.kv_string(report, "health", health.status);
     report = report_tools.builder.kv_string(report, "log", log_line);
     report = report_tools.builder.kv_string(report, "auth", auth_preview);
     report = report_tools.builder.kv_string(report, "name", validation_tools.rules.message(name_status, "name"));
@@ -222,7 +234,9 @@ $packages = @(
     "config_rules",
     "database_tools",
     "encoding_tools",
+    "feature_flag_tools",
     "hash_tools",
+    "health_tools",
     "json_tools",
     "jwt_tools",
     "log_tools",
@@ -230,8 +244,10 @@ $packages = @(
     "math_rules",
     "migration_tools",
     "number_tools",
+    "observability_tools",
     "pagination_tools",
     "queue_tools",
+    "rate_limit_tools",
     "report_tools",
     "result_tools",
     "retry_tools",
@@ -256,7 +272,7 @@ if (-not (Test-Path $lockfilePath)) {
 
 $lockfile = Get-Content $lockfilePath -Raw -Encoding utf8 | ConvertFrom-Json
 Assert-Equal -Label "AX.lock schema_version" -Actual ([int] $lockfile.schema_version) -Expected 2
-Assert-Equal -Label "AX.lock dependency count" -Actual (@($lockfile.dependencies).Count) -Expected 25
+Assert-Equal -Label "AX.lock dependency count" -Actual (@($lockfile.dependencies).Count) -Expected 29
 
 & $axcBinary check $outputRoot
 Assert-Equal -Label "axc check exit code" -Actual $LASTEXITCODE -Expected 0
@@ -288,6 +304,10 @@ $expectedOutput = @(
     "migration: requires-review",
     "field: id:i32#",
     "schema: ok",
+    "metric: request=245ms",
+    "rate-limit: near-limit",
+    "flag: disabled",
+    "health: degraded",
     "log: [info] registry-smoke: packages loaded",
     "auth: Authorization: <redacted:12>",
     "name: name: ok"
@@ -305,4 +325,4 @@ for ($index = 0; $index -lt $expectedOutput.Count; $index += 1) {
     Assert-Equal -Label "run output[$index]" -Actual $actualOutput[$index] -Expected $expectedOutput[$index]
 }
 
-Write-Host "Package registry smoke passed. Verified 25 stable registry packages at $outputRoot"
+Write-Host "Package registry smoke passed. Verified 29 stable registry packages at $outputRoot"

@@ -61,7 +61,9 @@ registry/
     config_rules.json
     database_tools.json
     encoding_tools.json
+    feature_flag_tools.json
     hash_tools.json
+    health_tools.json
     http_tools.json
     json_tools.json
     jwt_tools.json
@@ -71,8 +73,10 @@ registry/
     migration_tools.json
     net_tools.json
     number_tools.json
+    observability_tools.json
     pagination_tools.json
     queue_tools.json
+    rate_limit_tools.json
     report_tools.json
     result_tools.json
     retry_tools.json

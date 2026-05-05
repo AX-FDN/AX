@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "name": "observability_tools",
+  "owner": "ax-core",
+  "license": "Apache-2.0",
+  "description": "Metric, span, and latency signal helpers",
+  "versions": [
+    {
+      "version": "0.1.0",
+      "source": {
+        "kind": "git",
+        "url": "https://github.com/AX-FDN/AX-PKG.git",
+        "rev": "c1fe99c45eec93e55753be718bf7fc852b257b26",
+        "path": "packages/observability_tools"
+      },
+      "checksum": "sha256:73b531b3fe953f3e4753ed9f3dfadb9eb5476e865f5ee71d3cc422e4436c03fe",
+      "modules": [
+        "observability_tools.signals"
+      ]
+    }
+  ]
+}

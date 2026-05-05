@@ -34,8 +34,16 @@
       "metadata": "packages/encoding_tools.json"
     },
     {
+      "name": "feature_flag_tools",
+      "metadata": "packages/feature_flag_tools.json"
+    },
+    {
       "name": "hash_tools",
       "metadata": "packages/hash_tools.json"
+    },
+    {
+      "name": "health_tools",
+      "metadata": "packages/health_tools.json"
     },
     {
       "name": "http_tools",
@@ -74,12 +82,20 @@
       "metadata": "packages/number_tools.json"
     },
     {
+      "name": "observability_tools",
+      "metadata": "packages/observability_tools.json"
+    },
+    {
       "name": "pagination_tools",
       "metadata": "packages/pagination_tools.json"
     },
     {
       "name": "queue_tools",
       "metadata": "packages/queue_tools.json"
+    },
+    {
+      "name": "rate_limit_tools",
+      "metadata": "packages/rate_limit_tools.json"
     },
     {
       "name": "report_tools",

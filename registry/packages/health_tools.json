@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "name": "health_tools",
+  "owner": "ax-core",
+  "license": "Apache-2.0",
+  "description": "Service readiness and dependency health helpers",
+  "versions": [
+    {
+      "version": "0.1.0",
+      "source": {
+        "kind": "git",
+        "url": "https://github.com/AX-FDN/AX-PKG.git",
+        "rev": "c1fe99c45eec93e55753be718bf7fc852b257b26",
+        "path": "packages/health_tools"
+      },
+      "checksum": "sha256:394315142200e2623117a518666083a25d7615ffeb1a90dbf88ca101fd7ad570",
+      "modules": [
+        "health_tools.checks"
+      ]
+    }
+  ]
+}
