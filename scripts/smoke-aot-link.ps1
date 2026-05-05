@@ -46,6 +46,11 @@ function Resolve-Clang {
         return [string] $command.Source
     }
 
+    $commonWindowsClang = "C:\Program Files\LLVM\bin\clang.exe"
+    if (Test-Path $commonWindowsClang) {
+        return $commonWindowsClang
+    }
+
     Write-Error "clang was not found. Install clang or set AX_LLVM_CLANG before running the AOT link smoke."
 }
 

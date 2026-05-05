@@ -175,6 +175,20 @@ now recognizes registry dependencies through AX.lock schema v2 and the local
 cache: missing lockfiles produce `PX0112`, and locked-but-not-cached packages
 produce `PX0116`.
 
+Package registry validation now has two smoke entry points:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke-package-registry.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke-package-registry-aot.ps1
+```
+
+The first smoke validates `pkg add -> pkg install -> check -> run` for the
+curated package catalog. The AOT smoke then feeds that generated registry-backed
+project into the LLVM AOT parity harness. It requires a link-capable native
+toolchain; on Windows, LLVM `clang.exe` alone may still fail if MSVC or MinGW
+link libraries such as `libcmt.lib`, `oldnames.lib`, or the MinGW CRT import
+libraries are not installed.
+
 Phase 0.2, download/install preview:
 
 ```powershell

@@ -327,6 +327,11 @@ function Resolve-Clang {
         return [string] $command.Source
     }
 
+    $commonWindowsClang = "C:\Program Files\LLVM\bin\clang.exe"
+    if (Test-Path $commonWindowsClang) {
+        return $commonWindowsClang
+    }
+
     Write-Error "clang was not found. Install clang or set AX_LLVM_CLANG before running the AOT parity smoke."
 }
 
@@ -487,6 +492,11 @@ foreach ($source in $SourcePath) {
     Assert-Equal -Label "$source aot_readiness.schema_version" -Actual ([int] $manifest.aot_readiness.schema_version) -Expected 3
     Assert-Equal -Label "$source user_code_valid" -Actual ([bool] $manifest.user_code_valid) -Expected $true
     Assert-Equal -Label "$source interpreter_supported" -Actual ([bool] $manifest.interpreter_supported) -Expected $true
+    if (-not ([bool] $manifest.aot_supported)) {
+        $blockers = Format-Blockers $manifest.aot_readiness.blockers
+        $notes = @($manifest.notes | ForEach-Object { [string] $_ }) -join "`n"
+        Write-Error "AOT parity build reported aot_supported=false for $source. Blockers:`n$blockers`nNotes:`n$notes"
+    }
     Assert-Equal -Label "$source aot_supported" -Actual ([bool] $manifest.aot_supported) -Expected $true
     Assert-Equal -Label "$source backend.kind" -Actual ([string] $manifest.backend.kind) -Expected "llvm-aot"
     Assert-Equal -Label "$source backend.status" -Actual ([string] $manifest.backend.status) -Expected "built"
