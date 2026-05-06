@@ -5,6 +5,26 @@ use super::super::abi;
 pub(super) fn write_string_list_helpers(module: &mut String) {
     writeln!(module, "; string list ABI: {}", abi::STRING_LIST_ABI_NAME)
         .expect("writing to string cannot fail");
+    writeln!(
+        module,
+        "; string list layout: header={} len_off={} cap_off={} data_off={} initial_cap={} data_bytes={}",
+        abi::STRING_LIST_HEADER_BYTES,
+        abi::STRING_LIST_LEN_OFFSET,
+        abi::STRING_LIST_CAPACITY_OFFSET,
+        abi::STRING_LIST_DATA_OFFSET,
+        abi::STRING_LIST_INITIAL_CAPACITY,
+        abi::STRING_LIST_DATA_BYTES
+    )
+    .expect("writing to string cannot fail");
+    writeln!(
+        module,
+        "define private void @{}(ptr %list) {{",
+        abi::STRING_LIST_RELEASE_HELPER
+    )
+    .expect("writing to string cannot fail");
+    writeln!(module, "entry:").expect("writing to string cannot fail");
+    writeln!(module, "  ret void").expect("writing to string cannot fail");
+    writeln!(module, "}}\n").expect("writing to string cannot fail");
     module.push_str(
         r#"define private ptr @ax_string_list_new() {
 entry:

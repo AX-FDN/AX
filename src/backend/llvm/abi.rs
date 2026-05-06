@@ -37,6 +37,9 @@ pub(super) const STRING_LIST_LEN_HELPER: &str = "ax_string_list_len";
 pub(super) const STRING_LIST_PUSH_HELPER: &str = "ax_string_list_push";
 pub(super) const STRING_LIST_GET_HELPER: &str = "ax_string_list_get";
 pub(super) const STRING_LIST_JOIN_HELPER: &str = "ax_string_list_join";
+pub(super) const STRING_RELEASE_HELPER: &str = "ax_string_release_owned";
+pub(super) const BYTES_RELEASE_HELPER: &str = "ax_bytes_release";
+pub(super) const STRING_LIST_RELEASE_HELPER: &str = "ax_string_list_release";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum NativeAbiKind {

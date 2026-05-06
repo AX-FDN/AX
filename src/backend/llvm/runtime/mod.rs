@@ -68,6 +68,7 @@ mod tests {
         assert!(
             module.contains("define private ptr @ax_string_list_join(ptr %list, ptr %separator)")
         );
+        assert!(module.contains("define private void @ax_string_list_release(ptr %list)"));
         assert!(module.contains("define private ptr @ax_i32_to_string(i32 %value)"));
         assert!(module.contains("define private ptr @ax_f32_to_string(float %value)"));
         assert!(module.contains("append_decimal:"));
@@ -81,6 +82,8 @@ mod tests {
         write_bytes_helpers(&mut module);
 
         assert!(module.contains("bytes ABI: ax.bytes.opaque_buffer_v0"));
+        assert!(module.contains("bytes layout: header=8 len_off=0 cap_off=4 data_off=8"));
+        assert!(module.contains("define private void @ax_bytes_release(ptr %bytes)"));
         assert!(module.contains("define private ptr @ax_bytes_empty()"));
         assert!(module.contains("define private ptr @ax_bytes_from_string(ptr %text)"));
         assert!(module.contains("define private i32 @ax_bytes_len(ptr %bytes)"));

@@ -15,6 +15,11 @@ pub(super) fn write_bytes_helpers(module: &mut String) {
         abi::BYTES_INITIAL_CAPACITY
     )
     .expect("writing to string cannot fail");
+    writeln!(module, "define private void @{}(ptr %bytes) {{", abi::BYTES_RELEASE_HELPER)
+        .expect("writing to string cannot fail");
+    writeln!(module, "entry:").expect("writing to string cannot fail");
+    writeln!(module, "  ret void").expect("writing to string cannot fail");
+    writeln!(module, "}}\n").expect("writing to string cannot fail");
     module.push_str(
         r#"define private ptr @ax_bytes_empty() {
 entry:

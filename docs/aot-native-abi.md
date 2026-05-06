@@ -51,6 +51,10 @@ ABI v1 should introduce one explicit memory policy:
 
 - Runtime-created strings, byte buffers, lists, payload boxes, and host handles
   are runtime-owned values.
+- Borrowed values may be read by a helper but must not be released by that
+  helper.
+- Process-lifetime values are allowed only for literals, compiler-owned
+  constants, compatibility helpers, and current v0 parity fixtures.
 - Runtime-owned values must have either a matching release helper or a documented
   arena/process-lifetime rule.
 - Backend standard-library APIs must state whether the caller owns, borrows, or
@@ -69,6 +73,31 @@ runtime-owned object
 
 GC is not required for 1.0. Reference counting is not required for 1.0. A clear
 release/runtime-owned rule is required.
+
+### Ownership Terms
+
+| Term | Meaning | Current examples |
+| --- | --- | --- |
+| runtime-owned | The runtime allocated the value and owns the release policy. | `bytes`, `string_list`, future socket/TLS/DB/task handles. |
+| borrowed | The helper can read the value but cannot release it. | string literals, function arguments, slice views. |
+| process-lifetime | The value intentionally lives until process exit. | current string/bytes/list v0 compatibility helpers and constants. |
+
+### Release Helpers
+
+ABI v1 reserves release helper names even while the current v0 executable subset
+continues to use process-lifetime allocation:
+
+| Runtime value | Release helper | Current behavior |
+| --- | --- | --- |
+| owned string | `ax_string_release_owned` | reserved; string helpers still use process-lifetime allocation. |
+| owned bytes | `ax_bytes_release` | emitted as a private no-op helper until the allocator policy is enabled. |
+| owned string list | `ax_string_list_release` | emitted as a private no-op helper until nested value ownership is frozen. |
+
+The no-op release helpers are intentional ABI anchors. They let lowering,
+runtime helpers, package linking, and future host handles agree on names before
+automatic lifetime insertion is implemented. A future allocator pass may replace
+the no-op bodies with real `free` or runtime-owned release logic without changing
+the ABI names.
 
 ## Host Result And Error ABI
 
