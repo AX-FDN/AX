@@ -55,6 +55,7 @@ AI-native diagnostics and repair guidance preserved
 | 1.0 roadmap | `docs/release-1.0-backend-systems.md` is the active long-range roadmap. |
 | Backend profile | `docs/backend-profile-v1.md` defines the draft native-build target. |
 | Backend profile inventory | `docs/backend-profile-v1-inventory.md` maps current AOT parity to 1.0 candidates and gaps. |
+| Backend profile promotion | `docs/backend-profile-v1-promotion.md` marks capabilities as candidate, profile-blocked, or future. |
 | Standard library | `std.bytes`, `std.encoding`, `std.json`, `std.hash`, and `std.http` now provide package-facing foundations. |
 | Platform | Windows has the fullest workflow. Linux has core support. macOS is not yet a committed support tier. |
 

@@ -4,6 +4,10 @@ This inventory turns the Backend Profile v1 roadmap into an executable checklist
 The source of truth for the current native parity set is
 `scripts/smoke-aot-parity.ps1`.
 
+Promotion decisions live in
+[`backend-profile-v1-promotion.md`](./backend-profile-v1-promotion.md). Keep
+this inventory focused on evidence; use the promotion table for status.
+
 Current fixed baseline:
 
 - default AOT parity cases: `123`

@@ -14,6 +14,10 @@ The executable inventory for this profile lives in
 [`backend-profile-v1-inventory.md`](./backend-profile-v1-inventory.md). That
 file maps the current AOT parity set to profile candidates and gaps.
 
+The promotion gate for profile membership lives in
+[`backend-profile-v1-promotion.md`](./backend-profile-v1-promotion.md). That
+file marks each capability as `candidate`, `profile-blocked`, or `future`.
+
 ## Platform Target
 
 - Windows: first-tier development workflow.
