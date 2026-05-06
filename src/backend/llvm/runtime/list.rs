@@ -1,4 +1,10 @@
+use std::fmt::Write;
+
+use super::super::abi;
+
 pub(super) fn write_string_list_helpers(module: &mut String) {
+    writeln!(module, "; string list ABI: {}", abi::STRING_LIST_ABI_NAME)
+        .expect("writing to string cannot fail");
     module.push_str(
         r#"define private ptr @ax_string_list_new() {
 entry:

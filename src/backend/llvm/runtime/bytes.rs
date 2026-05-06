@@ -5,6 +5,16 @@ use super::super::abi;
 pub(super) fn write_bytes_helpers(module: &mut String) {
     writeln!(module, "; bytes ABI: {}", abi::bytes_abi_name())
         .expect("writing to string cannot fail");
+    writeln!(
+        module,
+        "; bytes layout: header={} len_off={} cap_off={} data_off={} initial_cap={}",
+        abi::BYTES_HEADER_BYTES,
+        abi::BYTES_LENGTH_OFFSET,
+        abi::BYTES_CAPACITY_OFFSET,
+        abi::BYTES_DATA_OFFSET,
+        abi::BYTES_INITIAL_CAPACITY
+    )
+    .expect("writing to string cannot fail");
     module.push_str(
         r#"define private ptr @ax_bytes_empty() {
 entry:
