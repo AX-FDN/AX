@@ -1,6 +1,7 @@
 mod bytes;
 mod core;
 mod fs;
+mod host;
 mod list;
 mod path;
 mod process;
@@ -28,6 +29,7 @@ pub(super) fn write_bytes_helpers(module: &mut String) {
 }
 
 pub(super) fn write_host_helpers(module: &mut String) {
+    host::write_host_handle_abi(module);
     fs::write_fs_helpers(module);
     path::write_path_helpers(module);
     process::write_process_helpers(module);
@@ -92,5 +94,21 @@ mod tests {
         assert!(module.contains("define private ptr @ax_bytes_to_string_lossy(ptr %bytes)"));
         assert!(module.contains("define private ptr @ax_bytes_to_hex(ptr %bytes)"));
         assert!(module.contains("define private i8 @ax_bytes_hex_digit(i32 %value)"));
+    }
+
+    #[test]
+    fn runtime_prelude_exposes_host_handle_abi() {
+        let mut module = String::new();
+        write_host_helpers(&mut module);
+
+        assert!(module.contains("host handle ABI: ax.host.handle_v0"));
+        assert!(module.contains("host handle type: ptr runtime-owned opaque handle"));
+        assert!(module.contains("define private void @ax_tcp_socket_release(ptr %socket)"));
+        assert!(module.contains("define private void @ax_tls_stream_release(ptr %stream)"));
+        assert!(module.contains("define private void @ax_http_client_release(ptr %client)"));
+        assert!(module.contains("define private void @ax_http_server_release(ptr %server)"));
+        assert!(module.contains("define private void @ax_db_connection_release(ptr %connection)"));
+        assert!(module.contains("define private void @ax_async_task_release(ptr %task)"));
+        assert!(module.contains("define private void @ax_timer_release(ptr %timer)"));
     }
 }

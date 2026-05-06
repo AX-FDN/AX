@@ -40,6 +40,15 @@ pub(super) const STRING_LIST_JOIN_HELPER: &str = "ax_string_list_join";
 pub(super) const STRING_RELEASE_HELPER: &str = "ax_string_release_owned";
 pub(super) const BYTES_RELEASE_HELPER: &str = "ax_bytes_release";
 pub(super) const STRING_LIST_RELEASE_HELPER: &str = "ax_string_list_release";
+pub(super) const HOST_HANDLE_ABI_NAME: &str = "ax.host.handle_v0";
+pub(super) const HOST_HANDLE_LLVM_TYPE: &str = "ptr";
+pub(super) const TCP_SOCKET_RELEASE_HELPER: &str = "ax_tcp_socket_release";
+pub(super) const TLS_STREAM_RELEASE_HELPER: &str = "ax_tls_stream_release";
+pub(super) const HTTP_CLIENT_RELEASE_HELPER: &str = "ax_http_client_release";
+pub(super) const HTTP_SERVER_RELEASE_HELPER: &str = "ax_http_server_release";
+pub(super) const DB_CONNECTION_RELEASE_HELPER: &str = "ax_db_connection_release";
+pub(super) const ASYNC_TASK_RELEASE_HELPER: &str = "ax_async_task_release";
+pub(super) const TIMER_RELEASE_HELPER: &str = "ax_timer_release";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum NativeAbiKind {

@@ -125,16 +125,27 @@ Backend systems work needs handles. ABI v1 reserves these handle families:
 
 | Handle | Intended owner | Release rule |
 | --- | --- | --- |
-| file handle | runtime | explicit close helper |
-| tcp socket | runtime | explicit close helper |
-| tls stream | runtime | explicit close helper |
-| http client/server | runtime | explicit close/shutdown helper |
-| db connection | runtime | explicit close helper |
-| async task | runtime/event loop | join/cancel/drop helper |
-| timer | runtime/event loop | cancel/drop helper |
+| file handle | runtime | helper-local close for current fs primitives |
+| tcp socket | runtime | `ax_tcp_socket_release` |
+| tls stream | runtime | `ax_tls_stream_release` |
+| http client | runtime | `ax_http_client_release` |
+| http server | runtime | `ax_http_server_release` |
+| db connection | runtime | `ax_db_connection_release` |
+| async task | runtime/event loop | `ax_async_task_release`, with join/cancel still future |
+| timer | runtime/event loop | `ax_timer_release` |
 
 Do not expose raw OS handles as stable AX values in 1.0. Keep them behind
 runtime-owned handles so Windows and Linux can share the same language contract.
+
+Current host handle status:
+
+- The LLVM runtime prelude emits `ax.host.handle_v0` comments and private no-op
+  release helpers for tcp, tls, http, db, async task, and timer handle families.
+- These helpers are ABI anchors only. They do not mean native TCP/TLS/HTTP/DB or
+  async lowering is implemented.
+- `AOT0301/runtime_abi` remains the correct blocker for valid host/network
+  source until handle creation, error mapping, timeout behavior, and release
+  semantics are implemented.
 
 ## Backend Standard Library ABI Targets
 
