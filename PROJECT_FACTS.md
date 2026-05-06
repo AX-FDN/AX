@@ -51,7 +51,7 @@ AI-native diagnostics and repair guidance preserved
 | Package maturity | Packages are classified as `stable_pure_ax`, `host_boundary_preview`, or `future_native_preview`. |
 | Package native smoke | `scripts/smoke-package-registry-native-parity.ps1` verifies stable pure-AX registry packages through run-vs-exe parity, including `json_tools` plus `generic_tools` generic/method coverage. |
 | Bytes ABI readiness | `scripts/smoke-bytes-runtime.ps1` verifies interpreter bytes behavior; `scripts/smoke-bytes-native-parity.ps1` verifies `std.bytes` run-vs-exe parity. |
-| Host/network ABI readiness | `scripts/smoke-host-network-runtime.ps1` verifies local TCP-backed `std.http`/`std.net` behavior and the `AOT0301/runtime_abi` blocker. |
+| Host/network ABI readiness | `scripts/smoke-host-network-runtime.ps1` verifies local TCP-backed `std.http`/`std.net` behavior, host handle/error/release ABI anchors, and the `AOT0301/runtime_abi` blocker. |
 | 1.0 roadmap | `docs/release-1.0-backend-systems.md` is the active long-range roadmap. |
 | Backend profile | `docs/backend-profile-v1.md` defines the draft native-build target. |
 | Backend profile inventory | `docs/backend-profile-v1-inventory.md` maps current AOT parity to 1.0 candidates and gaps. |

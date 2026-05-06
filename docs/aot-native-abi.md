@@ -162,6 +162,8 @@ Current host handle status:
 
 - The LLVM runtime prelude emits `ax.host.handle_v0` comments and private no-op
   release helpers for tcp, tls, http, db, async task, and timer handle families.
+- `scripts/smoke-host-network-runtime.ps1` checks those LLVM IR anchors together
+  with `ax.host.error_v0` and the `AOT0301/runtime_abi` blocker.
 - These helpers are ABI anchors only. They do not mean native TCP/TLS/HTTP/DB or
   async lowering is implemented.
 - `AOT0301/runtime_abi` remains the correct blocker for valid host/network

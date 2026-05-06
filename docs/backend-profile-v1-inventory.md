@@ -84,7 +84,8 @@ linked native executable with `axc run`. This is the current direct proof that
 fixture. It runs local TCP-backed `std.http` and `std.net` interpreter behavior,
 then requires `axc build` to report `host_http`, `host_net`, and
 `AOT0301/runtime_abi` instead of treating valid host/network code as a source
-repair target.
+repair target. It also inspects the generated LLVM IR for the reserved
+`ax.host.handle_v0`, `ax.host.error_v0`, and host release helper ABI anchors.
 
 ## Backend Profile v1 Gaps
 
@@ -98,7 +99,7 @@ These gaps block promotion from "candidate" to "Backend Profile v1 stable".
 | Cross-package monomorphization | Generic package APIs need concrete native instances. | Registry-backed `generic_tools` generic function/struct/method parity exists; broaden Result/Option-style generic cases. |
 | Method/impl ABI freeze | Backend code will use methods heavily. | Local and registry package method parity exists; freeze symbol/ABI rules and keep coverage stable. |
 | Trait ABI boundary | Traits exist but full dispatch is not frozen. | static dispatch subset documented; dynamic dispatch remains out of profile unless implemented. |
-| HTTP/TLS runtime ABI | Backend language needs real network IO. | HTTP/TCP host-boundary readiness fixture exists; next proof is runtime-owned handles and TLS policy. |
+| HTTP/TLS runtime ABI | Backend language needs real network IO. | HTTP/TCP host-boundary readiness fixture exists and checks host handle/error/release ABI anchors; next proof is runtime-owned handle behavior and TLS policy. |
 | PostgreSQL runtime ABI | DB is a 1.0 backend target. | `std.db` PostgreSQL smoke with interpreter and AOT readiness first, parity later. |
 | Async runtime model | Backend services need structured IO. | either `async fn/await` or explicit `std.async` API frozen with readiness blockers. |
 | Linux executable parity | 1.0 target includes Linux server workflow. | Ubuntu CI runs Backend Profile v1 parity with clang installed. |
@@ -118,7 +119,7 @@ If any item is missing, the capability stays preview.
 
 Next executable checks to add:
 
-1. runtime-owned handle layout/release fixture for HTTP/TLS/DB/async handles.
+1. runtime-owned handle behavior fixture for HTTP/TLS/DB/async handles.
 2. broader registry generic Result/Option-style package fixture.
 3. bytes helper release/layout follow-up tests if native parity regresses.
 

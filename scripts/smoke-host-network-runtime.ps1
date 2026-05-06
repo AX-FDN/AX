@@ -82,6 +82,18 @@ function Assert-Equal {
     }
 }
 
+function Assert-TextContains {
+    param(
+        [string] $Label,
+        [string] $Text,
+        [string] $Expected
+    )
+
+    if (-not $Text.Contains($Expected)) {
+        Write-Error "$Label expected to contain '$Expected'."
+    }
+}
+
 function Join-ProcessArguments {
     param([string[]] $Arguments)
 
@@ -276,6 +288,50 @@ fn main() -> i32 {
     Assert-Equal -Label "AOT0301 ai action" -Actual ([string] $hostBlocker.ai.ai_action) -Expected "explain_unsupported"
     Assert-Equal -Label "AOT0301 safe_to_edit" -Actual ([bool] $hostBlocker.ai.safe_to_edit) -Expected $false
     Assert-Equal -Label "AOT0301 rule id" -Actual ([string] $hostBlocker.ai.rule_id) -Expected "aot_host_runtime_abi_pending"
+
+    $anchorRoot = Join-Path $outputRoot "host-abi-anchor"
+    New-Item -ItemType Directory -Force -Path (Join-Path $anchorRoot "src") | Out-Null
+    Write-Utf8NoBom -Path (Join-Path $anchorRoot "AX.toml") -Text @'
+manifest_version = 1
+
+[package]
+name = "host_abi_anchor"
+entry = "src/main.ax"
+'@
+    Write-Utf8NoBom -Path (Join-Path $anchorRoot "src\main.ax") -Text @'
+fn main() -> i32 {
+    return 0;
+}
+'@
+
+    $anchorBuildOutput = Join-Path $anchorRoot "build"
+    $anchorBuild = Invoke-Process -FilePath $axcBinary -Arguments @("build", $anchorRoot, "--emit", "ir", "--no-link", "--out-dir", $anchorBuildOutput)
+    Assert-Equal -Label "host ABI anchor build exit code" -Actual ([int] $anchorBuild.ExitCode) -Expected 0
+    $anchorManifestPath = Join-Path $anchorBuildOutput "build-manifest.json"
+    if (-not (Test-Path $anchorManifestPath)) {
+        Write-Error "host ABI anchor build manifest was not produced at $anchorManifestPath"
+    }
+    $anchorManifest = Get-Content $anchorManifestPath -Raw -Encoding utf8 | ConvertFrom-Json
+    $llvmIrArtifact = [string] $anchorManifest.artifacts.llvm_ir
+    if ([string]::IsNullOrWhiteSpace($llvmIrArtifact)) {
+        Write-Error "host ABI anchor expected artifacts.llvm_ir."
+    }
+    $llvmIrPath = Join-Path $anchorBuildOutput $llvmIrArtifact
+    if (-not (Test-Path $llvmIrPath)) {
+        Write-Error "host ABI anchor LLVM IR artifact is missing: $llvmIrPath"
+    }
+    $llvmIr = Get-Content $llvmIrPath -Raw -Encoding utf8
+    Assert-TextContains -Label "host LLVM IR" -Text $llvmIr -Expected "; host handle ABI: ax.host.handle_v0"
+    Assert-TextContains -Label "host LLVM IR" -Text $llvmIr -Expected "; host error ABI: ax.host.error_v0"
+    Assert-TextContains -Label "host LLVM IR" -Text $llvmIr -Expected "define private { i32, ptr } @ax_host_error_ok()"
+    Assert-TextContains -Label "host LLVM IR" -Text $llvmIr -Expected "define private { i32, ptr } @ax_host_error_new(i32 %code, ptr %message)"
+    Assert-TextContains -Label "host LLVM IR" -Text $llvmIr -Expected "define private void @ax_tcp_socket_release(ptr %socket)"
+    Assert-TextContains -Label "host LLVM IR" -Text $llvmIr -Expected "define private void @ax_tls_stream_release(ptr %stream)"
+    Assert-TextContains -Label "host LLVM IR" -Text $llvmIr -Expected "define private void @ax_http_client_release(ptr %client)"
+    Assert-TextContains -Label "host LLVM IR" -Text $llvmIr -Expected "define private void @ax_http_server_release(ptr %server)"
+    Assert-TextContains -Label "host LLVM IR" -Text $llvmIr -Expected "define private void @ax_db_connection_release(ptr %connection)"
+    Assert-TextContains -Label "host LLVM IR" -Text $llvmIr -Expected "define private void @ax_async_task_release(ptr %task)"
+    Assert-TextContains -Label "host LLVM IR" -Text $llvmIr -Expected "define private void @ax_timer_release(ptr %timer)"
 
     Write-Host "Host network runtime smoke passed at $outputRoot"
 } finally {

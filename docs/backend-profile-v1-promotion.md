@@ -39,8 +39,8 @@ Promotion status terms:
 | pure std helpers (`text`, `json`, `hash`, `encoding`) | profile-blocked | registry and project smokes; bytes/encoding/hash runtime smokes; `json_tools` native parity | package-backed native parity breadth | expand stable registry package parity beyond JSON/generic helpers |
 | `std.bytes` | profile-blocked | bytes runtime/native parity smoke; encoding smoke | ownership/release policy | bytes release/layout follow-up tests |
 | `std.fs`, `std.path`, `std.env`, `std.process` | candidate | default AOT parity and runtime helpers | ABI v1 ownership notes | keep in host std candidate list |
-| `std.net` | profile-blocked | interpreter host-network smoke and `AOT0301` | runtime-owned socket handle ABI implementation | native handle creation/release/error smoke |
-| `std.http` | profile-blocked | interpreter host-network smoke and `AOT0301` | TCP/TLS handle ABI, request/response ownership | native HTTP readiness fixture after socket ABI |
+| `std.net` | profile-blocked | interpreter host-network smoke, host ABI anchors, and `AOT0301` | runtime-owned socket handle behavior | native handle creation/release/error smoke |
+| `std.http` | profile-blocked | interpreter host-network smoke, host ABI anchors, and `AOT0301` | TCP/TLS handle behavior, request/response ownership | native HTTP readiness fixture after socket ABI |
 | `std.tls` | profile-blocked | ABI placeholder only | TLS policy and stream handle ABI | TLS design doc plus readiness blocker |
 | `std.db` PostgreSQL | profile-blocked | package/demo direction only | DB connection handle ABI and row/result model | `std.db` readiness smoke with `AOT0301`/DB-specific feature |
 | `std.async` | profile-blocked | ABI placeholder only | async model not frozen | choose `async fn/await` or explicit runtime API |
@@ -68,7 +68,7 @@ Promotion status terms:
 
 ## Current Promotion Priorities
 
-1. Runtime-owned socket handle creation/release/error smoke.
+1. Runtime-owned socket handle behavior smoke.
 2. Broader registry generic Result/Option-style package fixture.
 3. Backend Profile v1 stable pattern subset documentation.
 4. Linux Backend Profile parity CI.
