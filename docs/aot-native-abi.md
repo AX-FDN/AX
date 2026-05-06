@@ -133,12 +133,23 @@ Reserved helpers:
 | --- | --- |
 | `ax_host_error_ok()` | Create `{ 0, null }`. |
 | `ax_host_error_new(code, message)` | Create a host error record with a stable code and message. |
+| `ax_host_error_is_ok(error)` | Test whether a host error record represents success. |
+| `ax_host_error_message_or_default(error)` | Extract a host error message, using a stable runtime default when the message pointer is null. |
 
 Recoverable standard-library APIs should map this native host error record into
 AX `Result<T, string>` or an equivalent std result type. Unrecoverable runtime
 failures may still use structured runtime diagnostics. Unsupported native host
 features must stay as AOT readiness blockers such as `AOT0301`; they are not
 source repairs.
+
+Current LLVM AOT status:
+
+- The runtime prelude emits the host error constructor helpers and the query
+  helpers above.
+- The AOT emitter has a shared `Result<T, string>` construction path for host
+  error records, so future `std.net`, `std.http`, `std.tls`, `std.db`, and
+  async APIs can map recoverable native failures through one backend path.
+- This is an ABI bridge, not a claim that native HTTP/TLS/DB are implemented.
 
 ## Resource Handles
 

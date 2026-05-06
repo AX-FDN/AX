@@ -118,6 +118,13 @@ mod tests {
                 "define private { i32, ptr } @ax_host_error_new(i32 %code, ptr %message)"
             )
         );
+        assert!(module.contains("define private i1 @ax_host_error_is_ok({ i32, ptr } %error)"));
+        assert!(
+            module.contains(
+                "define private ptr @ax_host_error_message_or_default({ i32, ptr } %error)"
+            )
+        );
+        assert!(module.contains("@.ax_host_error_unknown"));
         assert!(module.contains("define private ptr @ax_host_handle_new(i32 %kind, ptr %native)"));
         assert!(module.contains("define private i32 @ax_host_handle_kind(ptr %handle)"));
         assert!(module.contains("define private void @ax_tcp_socket_release(ptr %socket)"));

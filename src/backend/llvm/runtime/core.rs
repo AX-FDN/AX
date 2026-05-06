@@ -160,6 +160,11 @@ pub(super) fn write_builtin_globals(module: &mut String) {
         "@.ax_rt_process_failed",
         "R0125: failed to run process command\n",
     );
+    write_text_global(
+        module,
+        abi::HOST_ERROR_DEFAULT_MESSAGE,
+        "host operation failed",
+    );
     writeln!(
         module,
         "@.ax_path_dot = private unnamed_addr constant [2 x i8] c\".\\00\""

@@ -89,6 +89,54 @@ fn write_host_error_helpers(module: &mut String) {
     writeln!(module, "  ret {} %with_message", abi::HOST_ERROR_LLVM_TYPE)
         .expect("writing to string cannot fail");
     writeln!(module, "}}\n").expect("writing to string cannot fail");
+
+    writeln!(
+        module,
+        "define private i1 @{}({} %error) {{",
+        abi::HOST_ERROR_IS_OK_HELPER,
+        abi::HOST_ERROR_LLVM_TYPE
+    )
+    .expect("writing to string cannot fail");
+    writeln!(module, "entry:").expect("writing to string cannot fail");
+    writeln!(
+        module,
+        "  %code = extractvalue {} %error, 0",
+        abi::HOST_ERROR_LLVM_TYPE
+    )
+    .expect("writing to string cannot fail");
+    writeln!(
+        module,
+        "  %ok = icmp eq i32 %code, {}",
+        abi::HOST_ERROR_OK_CODE
+    )
+    .expect("writing to string cannot fail");
+    writeln!(module, "  ret i1 %ok").expect("writing to string cannot fail");
+    writeln!(module, "}}\n").expect("writing to string cannot fail");
+
+    writeln!(
+        module,
+        "define private ptr @{}({} %error) {{",
+        abi::HOST_ERROR_MESSAGE_HELPER,
+        abi::HOST_ERROR_LLVM_TYPE
+    )
+    .expect("writing to string cannot fail");
+    writeln!(module, "entry:").expect("writing to string cannot fail");
+    writeln!(
+        module,
+        "  %message = extractvalue {} %error, 1",
+        abi::HOST_ERROR_LLVM_TYPE
+    )
+    .expect("writing to string cannot fail");
+    writeln!(module, "  %missing = icmp eq ptr %message, null")
+        .expect("writing to string cannot fail");
+    writeln!(
+        module,
+        "  %selected = select i1 %missing, ptr {}, ptr %message",
+        abi::HOST_ERROR_DEFAULT_MESSAGE
+    )
+    .expect("writing to string cannot fail");
+    writeln!(module, "  ret ptr %selected").expect("writing to string cannot fail");
+    writeln!(module, "}}\n").expect("writing to string cannot fail");
 }
 
 fn write_host_handle_helpers(module: &mut String) {

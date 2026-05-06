@@ -239,6 +239,117 @@ impl<'a> FunctionEmitter<'a> {
         })
     }
 
+    pub(super) fn emit_host_result_from_error(
+        &mut self,
+        ok_payload: String,
+        host_error: String,
+        result_ax_ty: &Type,
+        out: &mut String,
+    ) -> Result<LlvmValue, String> {
+        let (success_ax_ty, error_ax_ty) = self.result_success_error_types(result_ax_ty)?;
+        if error_ax_ty != Type::String {
+            return Err(format!(
+                "host error mapping requires Result<T, string>, found {}",
+                ax_type_name(result_ax_ty)
+            ));
+        }
+        let success_ty =
+            llvm_type(&success_ax_ty, self.layouts, self.enum_layouts).ok_or_else(|| {
+                format!(
+                    "host Result success type {} is outside LLVM AOT v0",
+                    ax_type_name(&success_ax_ty)
+                )
+            })?;
+
+        let result_ty =
+            llvm_type(result_ax_ty, self.layouts, self.enum_layouts).ok_or_else(|| {
+                format!(
+                    "host Result type {} is outside LLVM AOT v0",
+                    ax_type_name(result_ax_ty)
+                )
+            })?;
+        let result_slot = self.next_temp();
+        let ok_label = self.next_label("host_result_ok");
+        let err_label = self.next_label("host_result_err");
+        let done_label = self.next_label("host_result_done");
+        let is_ok = self.next_temp();
+
+        writeln!(out, "  {result_slot} = alloca {result_ty}")
+            .expect("writing to string cannot fail");
+        writeln!(
+            out,
+            "  {is_ok} = call i1 @{}({} {host_error})",
+            abi::HOST_ERROR_IS_OK_HELPER,
+            abi::HOST_ERROR_LLVM_TYPE
+        )
+        .expect("writing to string cannot fail");
+        writeln!(
+            out,
+            "  br i1 {is_ok}, label %{ok_label}, label %{err_label}"
+        )
+        .expect("writing to string cannot fail");
+
+        writeln!(out, "{ok_label}:").expect("writing to string cannot fail");
+        let ok_value = self.emit_enum_variant_value(
+            enum_base_name(result_ax_ty),
+            "Ok",
+            Some(LlvmValue {
+                ty: success_ty,
+                repr: ok_payload,
+                ax_ty: Some(success_ax_ty),
+            }),
+            Some(result_ax_ty),
+            out,
+        )?;
+        ensure_same_type(&result_ty, &ok_value.ty)?;
+        writeln!(
+            out,
+            "  store {} {}, ptr {result_slot}",
+            ok_value.ty, ok_value.repr
+        )
+        .expect("writing to string cannot fail");
+        writeln!(out, "  br label %{done_label}").expect("writing to string cannot fail");
+
+        writeln!(out, "{err_label}:").expect("writing to string cannot fail");
+        let message = self.next_temp();
+        writeln!(
+            out,
+            "  {message} = call ptr @{}({} {host_error})",
+            abi::HOST_ERROR_MESSAGE_HELPER,
+            abi::HOST_ERROR_LLVM_TYPE
+        )
+        .expect("writing to string cannot fail");
+        let err_value = self.emit_enum_variant_value(
+            enum_base_name(result_ax_ty),
+            "Err",
+            Some(LlvmValue {
+                ty: abi::STRING_LLVM_TYPE.to_string(),
+                repr: message,
+                ax_ty: Some(Type::String),
+            }),
+            Some(result_ax_ty),
+            out,
+        )?;
+        ensure_same_type(&result_ty, &err_value.ty)?;
+        writeln!(
+            out,
+            "  store {} {}, ptr {result_slot}",
+            err_value.ty, err_value.repr
+        )
+        .expect("writing to string cannot fail");
+        writeln!(out, "  br label %{done_label}").expect("writing to string cannot fail");
+
+        writeln!(out, "{done_label}:").expect("writing to string cannot fail");
+        let loaded = self.next_temp();
+        writeln!(out, "  {loaded} = load {result_ty}, ptr {result_slot}")
+            .expect("writing to string cannot fail");
+        Ok(LlvmValue {
+            ty: result_ty,
+            repr: loaded,
+            ax_ty: Some(result_ax_ty.clone()),
+        })
+    }
+
     pub(super) fn emit_try(&mut self, inner: &Expr, out: &mut String) -> Result<LlvmValue, String> {
         let result_value = self.emit_expr(inner, out)?;
         let Some(result_ax_ty @ Type::EnumInstance { .. }) = result_value.ax_ty.clone() else {

@@ -326,6 +326,8 @@ fn main() -> i32 {
     Assert-TextContains -Label "host LLVM IR" -Text $llvmIr -Expected "; host error ABI: ax.host.error_v0"
     Assert-TextContains -Label "host LLVM IR" -Text $llvmIr -Expected "define private { i32, ptr } @ax_host_error_ok()"
     Assert-TextContains -Label "host LLVM IR" -Text $llvmIr -Expected "define private { i32, ptr } @ax_host_error_new(i32 %code, ptr %message)"
+    Assert-TextContains -Label "host LLVM IR" -Text $llvmIr -Expected "define private i1 @ax_host_error_is_ok({ i32, ptr } %error)"
+    Assert-TextContains -Label "host LLVM IR" -Text $llvmIr -Expected "define private ptr @ax_host_error_message_or_default({ i32, ptr } %error)"
     Assert-TextContains -Label "host LLVM IR" -Text $llvmIr -Expected "define private ptr @ax_host_handle_new(i32 %kind, ptr %native)"
     Assert-TextContains -Label "host LLVM IR" -Text $llvmIr -Expected "define private i32 @ax_host_handle_kind(ptr %handle)"
     Assert-TextContains -Label "host LLVM IR" -Text $llvmIr -Expected "define private void @ax_tcp_socket_release(ptr %socket)"

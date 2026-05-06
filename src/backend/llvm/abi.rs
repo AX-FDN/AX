@@ -55,6 +55,7 @@ pub(super) const TIMER_HANDLE_KIND: i32 = 7;
 pub(super) const HOST_ERROR_ABI_NAME: &str = "ax.host.error_v0";
 pub(super) const HOST_ERROR_LLVM_TYPE: &str = "{ i32, ptr }";
 pub(super) const HOST_ERROR_OK_CODE: i32 = 0;
+pub(super) const HOST_ERROR_DEFAULT_MESSAGE: &str = "@.ax_host_error_unknown";
 pub(super) const HOST_HANDLE_NEW_HELPER: &str = "ax_host_handle_new";
 pub(super) const HOST_HANDLE_KIND_HELPER: &str = "ax_host_handle_kind";
 pub(super) const TCP_SOCKET_RELEASE_HELPER: &str = "ax_tcp_socket_release";
@@ -66,6 +67,8 @@ pub(super) const ASYNC_TASK_RELEASE_HELPER: &str = "ax_async_task_release";
 pub(super) const TIMER_RELEASE_HELPER: &str = "ax_timer_release";
 pub(super) const HOST_ERROR_OK_HELPER: &str = "ax_host_error_ok";
 pub(super) const HOST_ERROR_NEW_HELPER: &str = "ax_host_error_new";
+pub(super) const HOST_ERROR_IS_OK_HELPER: &str = "ax_host_error_is_ok";
+pub(super) const HOST_ERROR_MESSAGE_HELPER: &str = "ax_host_error_message_or_default";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum NativeAbiKind {

@@ -25,6 +25,9 @@ impl<'a> FunctionEmitter<'a> {
         if function == "env_get" {
             return self.emit_env_get(arguments, out);
         }
+        if function == "std.env.try_get" {
+            return self.emit_env_try_get(arguments, expected_return_ax_ty, out);
+        }
         if function == "process_cwd" {
             return self.emit_process_cwd(arguments, out);
         }
@@ -778,6 +781,107 @@ impl<'a> FunctionEmitter<'a> {
             repr: value,
             ax_ty: Some(Type::String),
         })
+    }
+
+    fn emit_env_try_get(
+        &mut self,
+        arguments: &[Expr],
+        expected_return_ax_ty: Option<&Type>,
+        out: &mut String,
+    ) -> Result<LlvmValue, String> {
+        if arguments.len() != 1 {
+            return Err(format!(
+                "call to `std.env.try_get` has {} argument(s), but LLVM AOT expected 1",
+                arguments.len()
+            ));
+        }
+        let result_ax_ty = expected_return_ax_ty
+            .cloned()
+            .or_else(|| {
+                self.signatures
+                    .get("std.env.try_get")
+                    .map(|signature| signature.return_ax_type.clone())
+            })
+            .ok_or_else(|| {
+                "`std.env.try_get` needs `Result<string, string>` return type metadata in LLVM AOT v0"
+                    .to_string()
+            })?;
+        let (success_ax_ty, error_ax_ty) = self.result_success_error_types(&result_ax_ty)?;
+        if success_ax_ty != Type::String || error_ax_ty != Type::String {
+            return Err(format!(
+                "`std.env.try_get` lowers to Result<string, string>, found {}",
+                ax_type_name(&result_ax_ty)
+            ));
+        }
+
+        let name = self.emit_expr(&arguments[0], out)?;
+        ensure_string_argument("std.env.try_get", "name", &name)?;
+        let value = self.next_temp();
+        writeln!(out, "  {value} = call ptr @getenv(ptr {})", name.repr)
+            .expect("writing to string cannot fail");
+        let missing = self.next_temp();
+        writeln!(out, "  {missing} = icmp eq ptr {value}, null")
+            .expect("writing to string cannot fail");
+        let host_error_slot = self.next_temp();
+        let ok_label = self.next_label("env_try_get_ok");
+        let fail_label = self.next_label("env_try_get_err");
+        let done_label = self.next_label("env_try_get_done");
+        writeln!(
+            out,
+            "  {host_error_slot} = alloca {}",
+            abi::HOST_ERROR_LLVM_TYPE
+        )
+        .expect("writing to string cannot fail");
+        writeln!(
+            out,
+            "  br i1 {missing}, label %{fail_label}, label %{ok_label}"
+        )
+        .expect("writing to string cannot fail");
+
+        writeln!(out, "{ok_label}:").expect("writing to string cannot fail");
+        let ok_error = self.next_temp();
+        writeln!(
+            out,
+            "  {ok_error} = call {} @{}()",
+            abi::HOST_ERROR_LLVM_TYPE,
+            abi::HOST_ERROR_OK_HELPER
+        )
+        .expect("writing to string cannot fail");
+        writeln!(
+            out,
+            "  store {} {ok_error}, ptr {host_error_slot}",
+            abi::HOST_ERROR_LLVM_TYPE
+        )
+        .expect("writing to string cannot fail");
+        writeln!(out, "  br label %{done_label}").expect("writing to string cannot fail");
+
+        writeln!(out, "{fail_label}:").expect("writing to string cannot fail");
+        let failed_error = self.next_temp();
+        writeln!(
+            out,
+            "  {failed_error} = call {} @{}(i32 1, ptr {})",
+            abi::HOST_ERROR_LLVM_TYPE,
+            abi::HOST_ERROR_NEW_HELPER,
+            abi::HOST_ERROR_DEFAULT_MESSAGE
+        )
+        .expect("writing to string cannot fail");
+        writeln!(
+            out,
+            "  store {} {failed_error}, ptr {host_error_slot}",
+            abi::HOST_ERROR_LLVM_TYPE
+        )
+        .expect("writing to string cannot fail");
+        writeln!(out, "  br label %{done_label}").expect("writing to string cannot fail");
+
+        writeln!(out, "{done_label}:").expect("writing to string cannot fail");
+        let host_error = self.next_temp();
+        writeln!(
+            out,
+            "  {host_error} = load {}, ptr {host_error_slot}",
+            abi::HOST_ERROR_LLVM_TYPE
+        )
+        .expect("writing to string cannot fail");
+        self.emit_host_result_from_error(value, host_error, &result_ax_ty, out)
     }
 
     fn emit_process_cwd(

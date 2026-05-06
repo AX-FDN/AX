@@ -1,9 +1,21 @@
 use super::render_program;
 use crate::frontend::analyze;
 use crate::source::SourceFile;
+use std::path::PathBuf;
 
 fn render(source_text: &str) -> String {
     let source = SourceFile::anonymous(source_text);
+    let output = analyze(&source);
+    assert!(
+        output.diagnostics.is_empty(),
+        "source should analyze before LLVM IR rendering: {:?}",
+        output.diagnostics
+    );
+    render_program(output.mir.as_ref().expect("MIR should exist")).expect("LLVM IR should render")
+}
+
+fn render_segments(segments: Vec<(PathBuf, String)>) -> String {
+    let source = SourceFile::from_segments("src/main.ax", segments);
     let output = analyze(&source);
     assert!(
         output.diagnostics.is_empty(),
@@ -437,6 +449,50 @@ return 1;
     assert!(rendered.contains("icmp ne ptr"));
     assert!(rendered.contains("icmp eq ptr"));
     assert!(rendered.contains("call void @ax_runtime_error(ptr @.ax_rt_env_missing)"));
+}
+
+#[test]
+fn renders_std_env_try_get_as_host_error_result_v0() {
+    let rendered = render_segments(vec![
+        (
+            PathBuf::from("std/result.ax"),
+            include_str!("../../../../std/result.ax").to_string(),
+        ),
+        (
+            PathBuf::from("std/env.ax"),
+            include_str!("../../../../std/env.ax").to_string(),
+        ),
+        (
+            PathBuf::from("src/main.ax"),
+            "\
+import std.env;
+import std.result;
+
+fn main() -> i32 {
+let value: std.result.Result<string, string> = std.env.try_get(\"PATH\");
+return match (value) {
+    std.result.Result.Ok(text) => string_len(text),
+    std.result.Result.Err(message) => string_len(message),
+};
+}
+"
+            .to_string(),
+        ),
+    ]);
+
+    assert!(rendered.contains("%ax_enum_std_result_Result_string__string_ = type { i32, ptr }"));
+    assert!(rendered.contains("call { i32, ptr } @ax_host_error_ok()"));
+    assert!(
+        rendered
+            .contains("call { i32, ptr } @ax_host_error_new(i32 1, ptr @.ax_host_error_unknown)")
+    );
+    assert!(rendered.contains("call i1 @ax_host_error_is_ok({ i32, ptr }"));
+    assert!(rendered.contains("call ptr @ax_host_error_message_or_default({ i32, ptr }"));
+    assert!(rendered.contains("define private i1 @ax_host_error_is_ok({ i32, ptr } %error)"));
+    assert!(
+        rendered
+            .contains("define private ptr @ax_host_error_message_or_default({ i32, ptr } %error)")
+    );
 }
 
 #[test]
