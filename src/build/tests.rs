@@ -199,6 +199,19 @@ return 0;
             .required_backend_features
             .contains(&"host_net".to_string())
     );
+    let host_blocker = readiness
+        .blockers
+        .iter()
+        .find(|blocker| blocker.code == "AOT0301")
+        .expect("host runtime blocker should be present");
+    assert!(host_blocker.message.contains("runtime-owned handle ABI"));
+    assert!(host_blocker.ai.summary.contains("runtime-owned handle ABI"));
+    assert!(
+        host_blocker
+            .ai
+            .repair_goal
+            .contains("handle creation, release, timeout, and error mapping")
+    );
 }
 
 #[test]

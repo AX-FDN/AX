@@ -126,7 +126,7 @@ fn assess_aot_readiness_inner(
         blockers.push(AotReadinessBlocker::new(
             "AOT0301",
             "runtime",
-            "host boundary builtins need a native runtime ABI before AOT can preserve check/run behavior",
+            "host boundary builtins need runtime-owned handle ABI coverage before AOT can preserve check/run behavior",
             "Build-2/Build-3",
         ));
     }
