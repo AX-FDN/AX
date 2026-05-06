@@ -43,6 +43,12 @@ impl<'a> FunctionEmitter<'a> {
         if function == "std.process.try_status" {
             return self.emit_process_try_status(arguments, expected_return_ax_ty, out);
         }
+        if function == "std.process.try_run_in" {
+            return self.emit_process_try_run_in(arguments, expected_return_ax_ty, out);
+        }
+        if function == "std.process.try_status_in" {
+            return self.emit_process_try_status_in(arguments, expected_return_ax_ty, out);
+        }
         if function == "process_cwd" {
             return self.emit_process_cwd(arguments, out);
         }
@@ -1303,6 +1309,384 @@ impl<'a> FunctionEmitter<'a> {
             repr: status,
             ax_ty: Some(Type::I32),
         })
+    }
+
+    fn emit_process_try_run_in(
+        &mut self,
+        arguments: &[Expr],
+        expected_return_ax_ty: Option<&Type>,
+        out: &mut String,
+    ) -> Result<LlvmValue, String> {
+        if arguments.len() != 2 {
+            return Err(format!(
+                "call to `std.process.try_run_in` has {} argument(s), but LLVM AOT expected 2",
+                arguments.len()
+            ));
+        }
+        let result_ax_ty = expected_return_ax_ty
+            .cloned()
+            .or_else(|| {
+                self.signatures
+                    .get("std.process.try_run_in")
+                    .map(|signature| signature.return_ax_type.clone())
+            })
+            .ok_or_else(|| {
+                "`std.process.try_run_in` needs `Result<i32, string>` return type metadata in LLVM AOT v0"
+                    .to_string()
+            })?;
+        let (success_ax_ty, error_ax_ty) = self.result_success_error_types(&result_ax_ty)?;
+        if success_ax_ty != Type::I32 || error_ax_ty != Type::String {
+            return Err(format!(
+                "`std.process.try_run_in` lowers to Result<i32, string>, found {}",
+                ax_type_name(&result_ax_ty)
+            ));
+        }
+
+        let working_dir = self.emit_expr(&arguments[0], out)?;
+        ensure_string_argument("std.process.try_run_in", "working_dir", &working_dir)?;
+        let command = self.emit_expr(&arguments[1], out)?;
+        ensure_string_argument("std.process.try_run_in", "command", &command)?;
+        let is_dir = self.next_temp();
+        writeln!(
+            out,
+            "  {is_dir} = call i1 @ax_fs_is_dir(ptr {})",
+            working_dir.repr
+        )
+        .expect("writing to string cannot fail");
+        let host_error_slot = self.next_temp();
+        let value_slot = self.next_temp();
+        let check_command_label = self.next_label("process_try_run_in_check_command");
+        let missing_dir_label = self.next_label("process_try_run_in_missing_dir");
+        let empty_command_label = self.next_label("process_try_run_in_empty_command");
+        let ok_label = self.next_label("process_try_run_in_ok");
+        let done_label = self.next_label("process_try_run_in_done");
+        writeln!(
+            out,
+            "  {host_error_slot} = alloca {}",
+            abi::HOST_ERROR_LLVM_TYPE
+        )
+        .expect("writing to string cannot fail");
+        writeln!(out, "  {value_slot} = alloca i32").expect("writing to string cannot fail");
+        writeln!(
+            out,
+            "  br i1 {is_dir}, label %{check_command_label}, label %{missing_dir_label}"
+        )
+        .expect("writing to string cannot fail");
+
+        writeln!(out, "{check_command_label}:").expect("writing to string cannot fail");
+        let length = self.next_temp();
+        writeln!(
+            out,
+            "  {length} = call i32 @ax_string_len(ptr {})",
+            command.repr
+        )
+        .expect("writing to string cannot fail");
+        let empty = self.next_temp();
+        writeln!(out, "  {empty} = icmp eq i32 {length}, 0")
+            .expect("writing to string cannot fail");
+        writeln!(
+            out,
+            "  br i1 {empty}, label %{empty_command_label}, label %{ok_label}"
+        )
+        .expect("writing to string cannot fail");
+
+        writeln!(out, "{ok_label}:").expect("writing to string cannot fail");
+        let status = self.next_temp();
+        writeln!(
+            out,
+            "  {status} = call i32 @ax_process_run_in(ptr {}, ptr {})",
+            working_dir.repr, command.repr
+        )
+        .expect("writing to string cannot fail");
+        writeln!(out, "  store i32 {status}, ptr {value_slot}")
+            .expect("writing to string cannot fail");
+        let ok_error = self.next_temp();
+        writeln!(
+            out,
+            "  {ok_error} = call {} @{}()",
+            abi::HOST_ERROR_LLVM_TYPE,
+            abi::HOST_ERROR_OK_HELPER
+        )
+        .expect("writing to string cannot fail");
+        writeln!(
+            out,
+            "  store {} {ok_error}, ptr {host_error_slot}",
+            abi::HOST_ERROR_LLVM_TYPE
+        )
+        .expect("writing to string cannot fail");
+        writeln!(out, "  br label %{done_label}").expect("writing to string cannot fail");
+
+        writeln!(out, "{missing_dir_label}:").expect("writing to string cannot fail");
+        let missing_dir_prefix =
+            self.string_literal_symbol("working directory does not exist: ")?;
+        let missing_dir_message =
+            self.emit_string_concat(&missing_dir_prefix, &working_dir.repr, out);
+        self.emit_i32_host_error_result_branch_value(
+            missing_dir_message,
+            &host_error_slot,
+            &value_slot,
+            &done_label,
+            out,
+        );
+
+        writeln!(out, "{empty_command_label}:").expect("writing to string cannot fail");
+        let empty_command_message = self.string_literal_symbol("command must not be empty")?;
+        self.emit_i32_host_error_result_branch_value(
+            empty_command_message,
+            &host_error_slot,
+            &value_slot,
+            &done_label,
+            out,
+        );
+
+        writeln!(out, "{done_label}:").expect("writing to string cannot fail");
+        let value = self.next_temp();
+        writeln!(out, "  {value} = load i32, ptr {value_slot}")
+            .expect("writing to string cannot fail");
+        let host_error = self.next_temp();
+        writeln!(
+            out,
+            "  {host_error} = load {}, ptr {host_error_slot}",
+            abi::HOST_ERROR_LLVM_TYPE
+        )
+        .expect("writing to string cannot fail");
+        self.emit_host_result_from_error(value, host_error, &result_ax_ty, out)
+    }
+
+    fn emit_i32_host_error_result_branch_value(
+        &mut self,
+        message: String,
+        host_error_slot: &str,
+        value_slot: &str,
+        done_label: &str,
+        out: &mut String,
+    ) {
+        writeln!(out, "  store i32 0, ptr {value_slot}").expect("writing to string cannot fail");
+        let failed_error = self.next_temp();
+        writeln!(
+            out,
+            "  {failed_error} = call {} @{}(i32 1, ptr {})",
+            abi::HOST_ERROR_LLVM_TYPE,
+            abi::HOST_ERROR_NEW_HELPER,
+            message
+        )
+        .expect("writing to string cannot fail");
+        writeln!(
+            out,
+            "  store {} {failed_error}, ptr {host_error_slot}",
+            abi::HOST_ERROR_LLVM_TYPE
+        )
+        .expect("writing to string cannot fail");
+        writeln!(out, "  br label %{done_label}").expect("writing to string cannot fail");
+    }
+
+    fn emit_process_try_status_in(
+        &mut self,
+        arguments: &[Expr],
+        expected_return_ax_ty: Option<&Type>,
+        out: &mut String,
+    ) -> Result<LlvmValue, String> {
+        if arguments.len() != 2 {
+            return Err(format!(
+                "call to `std.process.try_status_in` has {} argument(s), but LLVM AOT expected 2",
+                arguments.len()
+            ));
+        }
+        let result_ax_ty = expected_return_ax_ty
+            .cloned()
+            .or_else(|| {
+                self.signatures
+                    .get("std.process.try_status_in")
+                    .map(|signature| signature.return_ax_type.clone())
+            })
+            .ok_or_else(|| {
+                "`std.process.try_status_in` needs `Result<ProcessStatus, string>` return type metadata in LLVM AOT v0"
+                    .to_string()
+            })?;
+        let (success_ax_ty, error_ax_ty) = self.result_success_error_types(&result_ax_ty)?;
+        if error_ax_ty != Type::String {
+            return Err(format!(
+                "`std.process.try_status_in` lowers to Result<ProcessStatus, string>, found {}",
+                ax_type_name(&result_ax_ty)
+            ));
+        }
+        let Type::Struct {
+            name: status_struct,
+        } = &success_ax_ty
+        else {
+            return Err(format!(
+                "`std.process.try_status_in` lowers to Result<ProcessStatus, string>, found {}",
+                ax_type_name(&result_ax_ty)
+            ));
+        };
+        if status_struct != "std.process.ProcessStatus" {
+            return Err(format!(
+                "`std.process.try_status_in` lowers to Result<std.process.ProcessStatus, string>, found {}",
+                ax_type_name(&result_ax_ty)
+            ));
+        }
+        let status_layout = self.struct_layout_for_type(&success_ax_ty)?.clone();
+
+        let working_dir = self.emit_expr(&arguments[0], out)?;
+        ensure_string_argument("std.process.try_status_in", "working_dir", &working_dir)?;
+        let command = self.emit_expr(&arguments[1], out)?;
+        ensure_string_argument("std.process.try_status_in", "command", &command)?;
+        let is_dir = self.next_temp();
+        writeln!(
+            out,
+            "  {is_dir} = call i1 @ax_fs_is_dir(ptr {})",
+            working_dir.repr
+        )
+        .expect("writing to string cannot fail");
+        let host_error_slot = self.next_temp();
+        let value_slot = self.next_temp();
+        let check_command_label = self.next_label("process_try_status_in_check_command");
+        let missing_dir_label = self.next_label("process_try_status_in_missing_dir");
+        let empty_command_label = self.next_label("process_try_status_in_empty_command");
+        let ok_label = self.next_label("process_try_status_in_ok");
+        let done_label = self.next_label("process_try_status_in_done");
+        writeln!(
+            out,
+            "  {host_error_slot} = alloca {}",
+            abi::HOST_ERROR_LLVM_TYPE
+        )
+        .expect("writing to string cannot fail");
+        writeln!(out, "  {value_slot} = alloca {}", status_layout.ty)
+            .expect("writing to string cannot fail");
+        writeln!(
+            out,
+            "  br i1 {is_dir}, label %{check_command_label}, label %{missing_dir_label}"
+        )
+        .expect("writing to string cannot fail");
+
+        writeln!(out, "{check_command_label}:").expect("writing to string cannot fail");
+        let length = self.next_temp();
+        writeln!(
+            out,
+            "  {length} = call i32 @ax_string_len(ptr {})",
+            command.repr
+        )
+        .expect("writing to string cannot fail");
+        let empty = self.next_temp();
+        writeln!(out, "  {empty} = icmp eq i32 {length}, 0")
+            .expect("writing to string cannot fail");
+        writeln!(
+            out,
+            "  br i1 {empty}, label %{empty_command_label}, label %{ok_label}"
+        )
+        .expect("writing to string cannot fail");
+
+        writeln!(out, "{ok_label}:").expect("writing to string cannot fail");
+        let code = self.next_temp();
+        writeln!(
+            out,
+            "  {code} = call i32 @ax_process_run_in(ptr {}, ptr {})",
+            working_dir.repr, command.repr
+        )
+        .expect("writing to string cannot fail");
+        let success = self.next_temp();
+        writeln!(out, "  {success} = icmp eq i32 {code}, 0")
+            .expect("writing to string cannot fail");
+        let status_value = self.emit_process_status_value(&status_layout, &code, &success, out)?;
+        writeln!(
+            out,
+            "  store {} {status_value}, ptr {value_slot}",
+            status_layout.ty
+        )
+        .expect("writing to string cannot fail");
+        let ok_error = self.next_temp();
+        writeln!(
+            out,
+            "  {ok_error} = call {} @{}()",
+            abi::HOST_ERROR_LLVM_TYPE,
+            abi::HOST_ERROR_OK_HELPER
+        )
+        .expect("writing to string cannot fail");
+        writeln!(
+            out,
+            "  store {} {ok_error}, ptr {host_error_slot}",
+            abi::HOST_ERROR_LLVM_TYPE
+        )
+        .expect("writing to string cannot fail");
+        writeln!(out, "  br label %{done_label}").expect("writing to string cannot fail");
+
+        writeln!(out, "{missing_dir_label}:").expect("writing to string cannot fail");
+        let missing_dir_prefix =
+            self.string_literal_symbol("working directory does not exist: ")?;
+        let missing_dir_message =
+            self.emit_string_concat(&missing_dir_prefix, &working_dir.repr, out);
+        self.emit_status_host_error_result_branch_value(
+            &status_layout,
+            missing_dir_message,
+            &host_error_slot,
+            &value_slot,
+            &done_label,
+            out,
+        );
+
+        writeln!(out, "{empty_command_label}:").expect("writing to string cannot fail");
+        let empty_command_message = self.string_literal_symbol("command must not be empty")?;
+        self.emit_status_host_error_result_branch_value(
+            &status_layout,
+            empty_command_message,
+            &host_error_slot,
+            &value_slot,
+            &done_label,
+            out,
+        );
+
+        writeln!(out, "{done_label}:").expect("writing to string cannot fail");
+        let value = self.next_temp();
+        writeln!(
+            out,
+            "  {value} = load {}, ptr {value_slot}",
+            status_layout.ty
+        )
+        .expect("writing to string cannot fail");
+        let host_error = self.next_temp();
+        writeln!(
+            out,
+            "  {host_error} = load {}, ptr {host_error_slot}",
+            abi::HOST_ERROR_LLVM_TYPE
+        )
+        .expect("writing to string cannot fail");
+        self.emit_host_result_from_error(value, host_error, &result_ax_ty, out)
+    }
+
+    fn emit_status_host_error_result_branch_value(
+        &mut self,
+        layout: &StructLayout,
+        message: String,
+        host_error_slot: &str,
+        value_slot: &str,
+        done_label: &str,
+        out: &mut String,
+    ) {
+        let fallback_status = self
+            .emit_process_status_value(layout, "0", "false", out)
+            .expect("ProcessStatus fallback should lower");
+        writeln!(
+            out,
+            "  store {} {fallback_status}, ptr {value_slot}",
+            layout.ty
+        )
+        .expect("writing to string cannot fail");
+        let failed_error = self.next_temp();
+        writeln!(
+            out,
+            "  {failed_error} = call {} @{}(i32 1, ptr {})",
+            abi::HOST_ERROR_LLVM_TYPE,
+            abi::HOST_ERROR_NEW_HELPER,
+            message
+        )
+        .expect("writing to string cannot fail");
+        writeln!(
+            out,
+            "  store {} {failed_error}, ptr {host_error_slot}",
+            abi::HOST_ERROR_LLVM_TYPE
+        )
+        .expect("writing to string cannot fail");
+        writeln!(out, "  br label %{done_label}").expect("writing to string cannot fail");
     }
 
     fn emit_process_capture_in(

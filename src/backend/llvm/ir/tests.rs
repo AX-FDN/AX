@@ -630,6 +630,56 @@ return match (code) {
 }
 
 #[test]
+fn renders_std_process_try_run_in_and_status_in_as_host_error_results_v0() {
+    let rendered = render_segments(vec![
+        (
+            PathBuf::from("std/result.ax"),
+            include_str!("../../../../std/result.ax").to_string(),
+        ),
+        (
+            PathBuf::from("std/process.ax"),
+            include_str!("../../../../std/process.ax").to_string(),
+        ),
+        (
+            PathBuf::from("src/main.ax"),
+            "\
+import std.process;
+import std.result;
+
+fn main() -> i32 {
+let code: std.result.Result<i32, string> = std.process.try_run_in(\".\", \"exit 0\");
+let status: std.result.Result<std.process.ProcessStatus, string> = std.process.try_status_in(\".\", \"exit 0\");
+return match (code) {
+    std.result.Result.Ok(value) => value,
+    std.result.Result.Err(message) => string_len(message),
+} + match (status) {
+    std.result.Result.Ok(found) => found.code,
+    std.result.Result.Err(message) => string_len(message),
+};
+}
+"
+            .to_string(),
+        ),
+    ]);
+
+    assert!(rendered.contains("%ax_struct_std_process_ProcessStatus = type { i32, i1 }"));
+    assert!(rendered.contains("%ax_enum_std_result_Result_i32__string_ = type { i32, ptr }"));
+    assert!(rendered.contains(
+        "%ax_enum_std_result_Result_std_process_ProcessStatus__string_ = type { i32, ptr }"
+    ));
+    assert!(rendered.contains("call i1 @ax_fs_is_dir(ptr"));
+    assert!(rendered.contains("call i32 @ax_string_len(ptr"));
+    assert!(rendered.contains("call i32 @ax_process_run_in(ptr"));
+    assert!(rendered.contains("c\"working directory does not exist: \\00\""));
+    assert!(rendered.contains("c\"command must not be empty\\00\""));
+    assert!(rendered.contains("call ptr @ax_string_concat(ptr"));
+    assert!(rendered.contains("call { i32, ptr } @ax_host_error_ok()"));
+    assert!(rendered.contains("call { i32, ptr } @ax_host_error_new(i32 1, ptr"));
+    assert!(rendered.contains("call i1 @ax_host_error_is_ok({ i32, ptr }"));
+    assert!(rendered.contains("call ptr @ax_host_error_message_or_default({ i32, ptr }"));
+}
+
+#[test]
 fn renders_process_builtins_from_native_process_abi_v0() {
     let rendered = render(
         "\
