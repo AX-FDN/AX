@@ -105,6 +105,7 @@ mod tests {
 
         assert!(module.contains("host handle ABI: ax.host.handle_v0"));
         assert!(module.contains("host handle type: ptr runtime-owned opaque handle"));
+        assert!(module.contains("host handle layout: header=16 kind_off=0 native_off=8"));
         assert!(module.contains("host error ABI: ax.host.error_v0"));
         assert!(
             module.contains(
@@ -117,7 +118,10 @@ mod tests {
                 "define private { i32, ptr } @ax_host_error_new(i32 %code, ptr %message)"
             )
         );
+        assert!(module.contains("define private ptr @ax_host_handle_new(i32 %kind, ptr %native)"));
+        assert!(module.contains("define private i32 @ax_host_handle_kind(ptr %handle)"));
         assert!(module.contains("define private void @ax_tcp_socket_release(ptr %socket)"));
+        assert!(module.contains("call void @free(ptr %socket)"));
         assert!(module.contains("define private void @ax_tls_stream_release(ptr %stream)"));
         assert!(module.contains("define private void @ax_http_client_release(ptr %client)"));
         assert!(module.contains("define private void @ax_http_server_release(ptr %server)"));

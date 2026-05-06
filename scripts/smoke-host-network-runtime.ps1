@@ -322,10 +322,14 @@ fn main() -> i32 {
     }
     $llvmIr = Get-Content $llvmIrPath -Raw -Encoding utf8
     Assert-TextContains -Label "host LLVM IR" -Text $llvmIr -Expected "; host handle ABI: ax.host.handle_v0"
+    Assert-TextContains -Label "host LLVM IR" -Text $llvmIr -Expected "; host handle layout: header=16 kind_off=0 native_off=8"
     Assert-TextContains -Label "host LLVM IR" -Text $llvmIr -Expected "; host error ABI: ax.host.error_v0"
     Assert-TextContains -Label "host LLVM IR" -Text $llvmIr -Expected "define private { i32, ptr } @ax_host_error_ok()"
     Assert-TextContains -Label "host LLVM IR" -Text $llvmIr -Expected "define private { i32, ptr } @ax_host_error_new(i32 %code, ptr %message)"
+    Assert-TextContains -Label "host LLVM IR" -Text $llvmIr -Expected "define private ptr @ax_host_handle_new(i32 %kind, ptr %native)"
+    Assert-TextContains -Label "host LLVM IR" -Text $llvmIr -Expected "define private i32 @ax_host_handle_kind(ptr %handle)"
     Assert-TextContains -Label "host LLVM IR" -Text $llvmIr -Expected "define private void @ax_tcp_socket_release(ptr %socket)"
+    Assert-TextContains -Label "host LLVM IR" -Text $llvmIr -Expected "call void @free(ptr %socket)"
     Assert-TextContains -Label "host LLVM IR" -Text $llvmIr -Expected "define private void @ax_tls_stream_release(ptr %stream)"
     Assert-TextContains -Label "host LLVM IR" -Text $llvmIr -Expected "define private void @ax_http_client_release(ptr %client)"
     Assert-TextContains -Label "host LLVM IR" -Text $llvmIr -Expected "define private void @ax_http_server_release(ptr %server)"

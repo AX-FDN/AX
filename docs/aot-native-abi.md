@@ -158,10 +158,36 @@ Backend systems work needs handles. ABI v1 reserves these handle families:
 Do not expose raw OS handles as stable AX values in 1.0. Keep them behind
 runtime-owned handles so Windows and Linux can share the same language contract.
 
+Native host handle ABI v0 is:
+
+```text
+ax.host.handle_v0 = ptr to runtime-owned handle header
+header = { i32 kind, 4 bytes padding, ptr native }
+kind 1 = tcp socket
+kind 2 = TLS stream
+kind 3 = HTTP client
+kind 4 = HTTP server
+kind 5 = DB connection
+kind 6 = async task
+kind 7 = timer
+```
+
+Reserved helpers:
+
+| Helper | Purpose |
+| --- | --- |
+| `ax_host_handle_new(kind, native)` | Allocate a runtime-owned handle header. |
+| `ax_host_handle_kind(handle)` | Read the handle family discriminator. |
+| `ax_*_release(handle)` | Release the runtime-owned handle wrapper for the corresponding family. |
+
 Current host handle status:
 
 - The LLVM runtime prelude emits `ax.host.handle_v0` comments and private no-op
   release helpers for tcp, tls, http, db, async task, and timer handle families.
+- The LLVM runtime prelude now emits `ax_host_handle_new` and
+  `ax_host_handle_kind` as the minimal runtime-owned handle header helpers.
+- Release helpers release the runtime-owned wrapper. They do not yet close real
+  OS sockets, TLS streams, DB connections, or tasks.
 - `scripts/smoke-host-network-runtime.ps1` checks those LLVM IR anchors together
   with `ax.host.error_v0` and the `AOT0301/runtime_abi` blocker.
 - These helpers are ABI anchors only. They do not mean native TCP/TLS/HTTP/DB or

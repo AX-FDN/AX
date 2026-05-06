@@ -204,6 +204,7 @@ pub(super) fn write_external_declarations(module: &mut String) {
     writeln!(module, "declare i64 @strlen(ptr)").expect("writing to string cannot fail");
     writeln!(module, "declare ptr @getenv(ptr)").expect("writing to string cannot fail");
     writeln!(module, "declare ptr @malloc(i64)").expect("writing to string cannot fail");
+    writeln!(module, "declare void @free(ptr)").expect("writing to string cannot fail");
     writeln!(module, "declare ptr @memcpy(ptr, ptr, i64)").expect("writing to string cannot fail");
     writeln!(module, "declare i32 @system(ptr)").expect("writing to string cannot fail");
     writeln!(module, "declare i32 @snprintf(ptr, i64, ptr, ...)")
