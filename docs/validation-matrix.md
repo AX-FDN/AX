@@ -95,8 +95,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke-bytes-runtim
 ```
 
 This smoke does not require clang. It verifies interpreter byte-buffer behavior
-and the `AOT0303`/`runtime_abi` blocker contract while native bytes lowering is
-still pending.
+and the `bytes_runtime` readiness feature while requiring LLVM IR generation to
+stay available for the current native bytes helper path.
 
 Host/network ABI readiness changes should run:
 

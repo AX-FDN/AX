@@ -153,9 +153,11 @@ $features = @($manifest.aot_readiness.required_backend_features | ForEach-Object
 if (-not $features.Contains("bytes_runtime")) {
     Write-Error "AOT readiness did not report bytes_runtime for std.encoding."
 }
-$blockerCodes = @($manifest.aot_readiness.blockers | ForEach-Object { [string] $_.code })
-if (-not $blockerCodes.Contains("AOT0303")) {
-    Write-Error "AOT readiness did not report AOT0303 for std.encoding bytes runtime ABI."
+if (-not $manifest.artifacts.llvm_ir) {
+    Write-Error "AOT IR artifact was not produced for std.encoding bytes runtime smoke."
+}
+if (@($manifest.aot_readiness.blockers | Where-Object { [string] $_.code -eq "AOT0303" }).Count -ne 0) {
+    Write-Error "AOT readiness still reported AOT0303 after std.encoding bytes lowering landed."
 }
 
 Write-Host "Encoding runtime smoke passed at $outputRoot"

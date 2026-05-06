@@ -132,8 +132,8 @@ Packages and `std.*` must not confuse source validity with backend maturity.
 Correct examples:
 
 ```text
-valid AX source + unsupported native bytes ABI
-  -> bytes_runtime / AOT0303
+valid AX source + bytes runtime usage
+  -> bytes_runtime and IR/native parity proof when the current lowering path supports it
 
 valid AX source + host HTTP call
   -> host_http / AOT0301
