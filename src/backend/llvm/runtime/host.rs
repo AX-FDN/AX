@@ -11,7 +11,17 @@ pub(super) fn write_host_handle_abi(module: &mut String) {
         abi::HOST_HANDLE_LLVM_TYPE
     )
     .expect("writing to string cannot fail");
+    writeln!(module, "; host error ABI: {}", abi::HOST_ERROR_ABI_NAME)
+        .expect("writing to string cannot fail");
+    writeln!(
+        module,
+        "; host error type: {} where code={} means ok and message is null",
+        abi::HOST_ERROR_LLVM_TYPE,
+        abi::HOST_ERROR_OK_CODE
+    )
+    .expect("writing to string cannot fail");
 
+    write_host_error_helpers(module);
     write_noop_release_helper(module, abi::TCP_SOCKET_RELEASE_HELPER, "socket");
     write_noop_release_helper(module, abi::TLS_STREAM_RELEASE_HELPER, "stream");
     write_noop_release_helper(module, abi::HTTP_CLIENT_RELEASE_HELPER, "client");
@@ -19,6 +29,65 @@ pub(super) fn write_host_handle_abi(module: &mut String) {
     write_noop_release_helper(module, abi::DB_CONNECTION_RELEASE_HELPER, "connection");
     write_noop_release_helper(module, abi::ASYNC_TASK_RELEASE_HELPER, "task");
     write_noop_release_helper(module, abi::TIMER_RELEASE_HELPER, "timer");
+}
+
+fn write_host_error_helpers(module: &mut String) {
+    writeln!(
+        module,
+        "define private {} @{}() {{",
+        abi::HOST_ERROR_LLVM_TYPE,
+        abi::HOST_ERROR_OK_HELPER
+    )
+    .expect("writing to string cannot fail");
+    writeln!(module, "entry:").expect("writing to string cannot fail");
+    writeln!(
+        module,
+        "  %with_code = insertvalue {} undef, i32 {}, 0",
+        abi::HOST_ERROR_LLVM_TYPE,
+        abi::HOST_ERROR_OK_CODE
+    )
+    .expect("writing to string cannot fail");
+    writeln!(
+        module,
+        "  %with_message = insertvalue {} %with_code, ptr null, 1",
+        abi::HOST_ERROR_LLVM_TYPE
+    )
+    .expect("writing to string cannot fail");
+    writeln!(
+        module,
+        "  ret {} %with_message",
+        abi::HOST_ERROR_LLVM_TYPE
+    )
+    .expect("writing to string cannot fail");
+    writeln!(module, "}}\n").expect("writing to string cannot fail");
+
+    writeln!(
+        module,
+        "define private {} @{}(i32 %code, ptr %message) {{",
+        abi::HOST_ERROR_LLVM_TYPE,
+        abi::HOST_ERROR_NEW_HELPER
+    )
+    .expect("writing to string cannot fail");
+    writeln!(module, "entry:").expect("writing to string cannot fail");
+    writeln!(
+        module,
+        "  %with_code = insertvalue {} undef, i32 %code, 0",
+        abi::HOST_ERROR_LLVM_TYPE
+    )
+    .expect("writing to string cannot fail");
+    writeln!(
+        module,
+        "  %with_message = insertvalue {} %with_code, ptr %message, 1",
+        abi::HOST_ERROR_LLVM_TYPE
+    )
+    .expect("writing to string cannot fail");
+    writeln!(
+        module,
+        "  ret {} %with_message",
+        abi::HOST_ERROR_LLVM_TYPE
+    )
+    .expect("writing to string cannot fail");
+    writeln!(module, "}}\n").expect("writing to string cannot fail");
 }
 
 fn write_noop_release_helper(module: &mut String, helper: &str, parameter: &str) {

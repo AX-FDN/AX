@@ -210,7 +210,7 @@ return 0;
         host_blocker
             .ai
             .repair_goal
-            .contains("handle creation, release, timeout, and error mapping")
+            .contains("handle creation, release, timeout, and host error-to-Result mapping")
     );
 }
 

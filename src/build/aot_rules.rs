@@ -149,7 +149,7 @@ const RULE_HOST_RUNTIME_ABI_PENDING: AotBlockerRule = AotBlockerRule {
     rule_id: "aot_host_runtime_abi_pending",
     layer: "runtime_abi",
     summary: "host boundary builtins need runtime-owned handle ABI coverage",
-    repair_goal: "Treat the source as valid when check/run pass; add native handle creation, release, timeout, and error mapping before native build can preserve host behavior.",
+    repair_goal: "Treat the source as valid when check/run pass; add native handle creation, release, timeout, and host error-to-Result mapping before native build can preserve host behavior.",
     validation: VALIDATE_RUN_BUILD,
 };
 

@@ -119,6 +119,27 @@ Native host errors should preserve:
 - AI action: edit source, explain backend limit, install/configure toolchain,
   retry validation, or report compiler bug
 
+Native host error ABI v0 is:
+
+```text
+ax.host.error_v0 = { i32 code, ptr message }
+code == 0 means ok
+message is a NUL-terminated UTF-8 string or null when no message is present
+```
+
+Reserved helpers:
+
+| Helper | Purpose |
+| --- | --- |
+| `ax_host_error_ok()` | Create `{ 0, null }`. |
+| `ax_host_error_new(code, message)` | Create a host error record with a stable code and message. |
+
+Recoverable standard-library APIs should map this native host error record into
+AX `Result<T, string>` or an equivalent std result type. Unrecoverable runtime
+failures may still use structured runtime diagnostics. Unsupported native host
+features must stay as AOT readiness blockers such as `AOT0301`; they are not
+source repairs.
+
 ## Resource Handles
 
 Backend systems work needs handles. ABI v1 reserves these handle families:
