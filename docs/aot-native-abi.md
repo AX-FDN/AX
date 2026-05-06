@@ -32,7 +32,7 @@ the code through the existing backend entry points.
 | `i32` | `i32` | Stable for current AOT subset. |
 | `f32` | `float` | Stable for current AOT subset. |
 | `string` | pointer to UTF-8 bytes with NUL terminator | Preview; ownership rules below. |
-| `bytes` | runtime byte buffer handle or `{ ptr, len, capacity }` | Target for ABI v1; not frozen; currently guarded by `AOT0303`. |
+| `bytes` | runtime-owned opaque byte-buffer handle | Native lowering target for ABI v1; the LLVM runtime helpers are in place and the remaining work is linker/toolchain parity. |
 | fixed array `[T; N]` | LLVM array value `[N x T]` | Stable inside current AOT subset. |
 | slice `[T]` | `{ ptr, i32 len }` | Preview; cross-package ownership not frozen. |
 | `string_list` | runtime-owned list handle | Preview; must stay runtime-owned. |
@@ -126,11 +126,10 @@ Current `std.bytes` status:
 
 - `axc run` supports `bytes_empty`, `bytes_from_string`, `bytes_push`,
   `bytes_get`, `bytes_to_hex`, `bytes_to_string_lossy`, and `len(bytes)`.
-- `axc build` must report `bytes_runtime` and `AOT0303` until the native
-  byte-buffer representation is implemented.
-- `AOT0303` belongs to the `runtime_abi` AI layer and is not a safe source-edit
-  request.
-- `scripts/smoke-bytes-runtime.ps1` is the fixture that locks this contract.
+- `axc build` reports `bytes_runtime` while the byte-buffer ABI is in the AOT
+  runtime path; current work focuses on executable linking and parity.
+- `scripts/smoke-bytes-runtime.ps1` is the fixture that locks the runtime and
+  build boundary for this contract.
 
 Current host/network status:
 

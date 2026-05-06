@@ -202,7 +202,7 @@ return 0;
 }
 
 #[test]
-fn aot_readiness_reports_bytes_runtime_blocker() {
+fn aot_readiness_reports_bytes_runtime_feature() {
     let readiness = readiness_for(
         "\
 fn main() -> i32 {
@@ -219,15 +219,11 @@ return len(data);
     );
 
     assert!(!readiness.single_file_core_candidate);
-    assert_eq!(blocker_codes(&readiness), vec!["AOT0001", "AOT0303"]);
+    assert_eq!(blocker_codes(&readiness), vec!["AOT0001"]);
     assert!(
         readiness
             .required_backend_features
             .contains(&"bytes_runtime".to_string())
-    );
-    assert_eq!(
-        readiness.blockers[1].ai.rule_id,
-        "aot_bytes_runtime_abi_pending"
     );
 }
 

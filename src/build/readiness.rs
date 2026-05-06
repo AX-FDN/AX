@@ -138,15 +138,6 @@ fn assess_aot_readiness_inner(
             "Build-1/Build-2",
         ));
     }
-    if features.contains("bytes_runtime") {
-        blockers.push(AotReadinessBlocker::new(
-            "AOT0303",
-            "runtime",
-            "bytes values need a native byte-buffer representation and runtime ABI before AOT can preserve check/run behavior",
-            "Build-2/Build-3",
-        ));
-    }
-
     let single_file_core_candidate = !input.has_local_path_packages
         && !features.iter().any(|feature| {
             matches!(

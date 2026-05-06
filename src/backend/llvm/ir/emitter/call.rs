@@ -73,6 +73,27 @@ impl<'a> FunctionEmitter<'a> {
         if function == "string_len" || function == "len" {
             return self.emit_string_len(function, arguments, out);
         }
+        if function == "std.bytes.empty" {
+            return self.emit_bytes_empty(arguments, out);
+        }
+        if function == "std.bytes.from_string" {
+            return self.emit_bytes_from_string(arguments, out);
+        }
+        if function == "std.bytes.to_string_lossy" {
+            return self.emit_bytes_to_string_lossy(arguments, out);
+        }
+        if function == "std.bytes.to_hex" {
+            return self.emit_bytes_to_hex(arguments, out);
+        }
+        if function == "std.bytes.push" {
+            return self.emit_bytes_push(arguments, out);
+        }
+        if function == "std.bytes.get" {
+            return self.emit_bytes_get(arguments, out);
+        }
+        if function == "std.bytes.length" || function == "std.bytes.len" {
+            return self.emit_string_len("len", arguments, out);
+        }
         if function == "bytes_empty" {
             return self.emit_bytes_empty(arguments, out);
         }

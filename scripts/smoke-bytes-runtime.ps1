@@ -207,19 +207,21 @@ $manifest = Get-Content $manifestPath -Raw -Encoding utf8 | ConvertFrom-Json
 Assert-Equal -Label "manifest schema_version" -Actual ([int] $manifest.schema_version) -Expected 10
 Assert-Equal -Label "aot readiness schema_version" -Actual ([int] $manifest.aot_readiness.schema_version) -Expected 3
 Assert-Equal -Label "bytes fixture aot_supported" -Actual ([bool] $manifest.aot_supported) -Expected $false
+Assert-Equal -Label "backend status" -Actual ([string] $manifest.backend.status) -Expected "ir_generated"
+if (-not $manifest.artifacts.llvm_ir) {
+    Write-Error "AOT IR artifact was not produced for bytes runtime smoke."
+}
 
 $features = @($manifest.aot_readiness.required_backend_features | ForEach-Object { [string] $_ })
 if (-not $features.Contains("bytes_runtime")) {
     Write-Error "AOT readiness did not report bytes_runtime for std.bytes."
 }
-$bytesBlocker = @($manifest.aot_readiness.blockers | Where-Object { [string] $_.code -eq "AOT0303" }) | Select-Object -First 1
-if ($null -eq $bytesBlocker) {
-    Write-Error "AOT readiness did not report AOT0303 for bytes runtime ABI."
-}
-Assert-Equal -Label "AOT0303 category" -Actual ([string] $bytesBlocker.category) -Expected "runtime"
-Assert-Equal -Label "AOT0303 ai layer" -Actual ([string] $bytesBlocker.ai.layer) -Expected "runtime_abi"
-Assert-Equal -Label "AOT0303 ai action" -Actual ([string] $bytesBlocker.ai.ai_action) -Expected "explain_unsupported"
-Assert-Equal -Label "AOT0303 safe_to_edit" -Actual ([bool] $bytesBlocker.ai.safe_to_edit) -Expected $false
-Assert-Equal -Label "AOT0303 rule id" -Actual ([string] $bytesBlocker.ai.rule_id) -Expected "aot_bytes_runtime_abi_pending"
 
+if (@($manifest.aot_readiness.blockers | Where-Object { [string] $_.code -eq "AOT0303" }).Count -ne 0) {
+    Write-Error "AOT readiness still reported AOT0303 after bytes runtime helpers landed."
+}
+
+if (@($manifest.aot_readiness.blockers | Where-Object { [string] $_.code -eq "AOT1001" }).Count -ne 0) {
+    Write-Error "IR-only bytes smoke should not require AOT1001."
+}
 Write-Host "Bytes runtime smoke passed at $outputRoot"
