@@ -371,6 +371,20 @@ pub(super) fn ensure_string_list_argument(
     }
 }
 
+pub(super) fn ensure_bytes_argument(
+    function: &str,
+    name: &str,
+    value: &LlvmValue,
+) -> Result<(), String> {
+    if value.ty == abi::BYTES_LLVM_TYPE && matches!(value.ax_ty.as_ref(), Some(Type::Bytes)) {
+        Ok(())
+    } else {
+        Err(format!(
+            "`{function}` argument `{name}` must be `bytes` in LLVM AOT v0"
+        ))
+    }
+}
+
 pub(super) fn is_enum_value(value: &LlvmValue) -> bool {
     matches!(
         value.ax_ty.as_ref(),

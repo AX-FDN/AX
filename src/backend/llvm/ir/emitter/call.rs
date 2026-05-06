@@ -73,6 +73,24 @@ impl<'a> FunctionEmitter<'a> {
         if function == "string_len" || function == "len" {
             return self.emit_string_len(function, arguments, out);
         }
+        if function == "bytes_empty" {
+            return self.emit_bytes_empty(arguments, out);
+        }
+        if function == "bytes_from_string" {
+            return self.emit_bytes_from_string(arguments, out);
+        }
+        if function == "bytes_to_string_lossy" {
+            return self.emit_bytes_to_string_lossy(arguments, out);
+        }
+        if function == "bytes_to_hex" {
+            return self.emit_bytes_to_hex(arguments, out);
+        }
+        if function == "bytes_push" {
+            return self.emit_bytes_push(arguments, out);
+        }
+        if function == "bytes_get" {
+            return self.emit_bytes_get(arguments, out);
+        }
         if matches!(
             function,
             "string_contains" | "string_starts_with" | "string_ends_with"
@@ -284,6 +302,17 @@ impl<'a> FunctionEmitter<'a> {
                     ax_ty: Some(Type::I32),
                 });
             }
+            if matches!(value.ax_ty.as_ref(), Some(Type::Bytes)) {
+                ensure_bytes_argument(function, "data", &value)?;
+                let temp = self.next_temp();
+                writeln!(out, "  {temp} = call i32 @ax_bytes_len(ptr {})", value.repr)
+                    .expect("writing to string cannot fail");
+                return Ok(LlvmValue {
+                    ty: "i32".to_string(),
+                    repr: temp,
+                    ax_ty: Some(Type::I32),
+                });
+            }
             if matches!(value.ax_ty.as_ref(), Some(Type::StringList)) {
                 ensure_string_list_argument(function, "items", &value)?;
                 let temp = self.next_temp();
@@ -420,6 +449,166 @@ impl<'a> FunctionEmitter<'a> {
             ty: "ptr".to_string(),
             repr: joined,
             ax_ty: Some(Type::String),
+        })
+    }
+
+    fn emit_bytes_empty(
+        &mut self,
+        arguments: &[Expr],
+        out: &mut String,
+    ) -> Result<LlvmValue, String> {
+        if !arguments.is_empty() {
+            return Err(format!(
+                "call to `bytes_empty` has {} argument(s), but LLVM AOT expected 0",
+                arguments.len()
+            ));
+        }
+        let bytes = self.next_temp();
+        writeln!(out, "  {bytes} = call ptr @ax_bytes_empty()")
+            .expect("writing to string cannot fail");
+        Ok(LlvmValue {
+            ty: "ptr".to_string(),
+            repr: bytes,
+            ax_ty: Some(Type::Bytes),
+        })
+    }
+
+    fn emit_bytes_from_string(
+        &mut self,
+        arguments: &[Expr],
+        out: &mut String,
+    ) -> Result<LlvmValue, String> {
+        if arguments.len() != 1 {
+            return Err(format!(
+                "call to `bytes_from_string` has {} argument(s), but LLVM AOT expected 1",
+                arguments.len()
+            ));
+        }
+        let text = self.emit_expr(&arguments[0], out)?;
+        ensure_string_argument("bytes_from_string", "text", &text)?;
+        let bytes = self.next_temp();
+        writeln!(
+            out,
+            "  {bytes} = call ptr @ax_bytes_from_string(ptr {})",
+            text.repr
+        )
+        .expect("writing to string cannot fail");
+        Ok(LlvmValue {
+            ty: "ptr".to_string(),
+            repr: bytes,
+            ax_ty: Some(Type::Bytes),
+        })
+    }
+
+    fn emit_bytes_to_string_lossy(
+        &mut self,
+        arguments: &[Expr],
+        out: &mut String,
+    ) -> Result<LlvmValue, String> {
+        if arguments.len() != 1 {
+            return Err(format!(
+                "call to `bytes_to_string_lossy` has {} argument(s), but LLVM AOT expected 1",
+                arguments.len()
+            ));
+        }
+        let bytes = self.emit_expr(&arguments[0], out)?;
+        ensure_bytes_argument("bytes_to_string_lossy", "data", &bytes)?;
+        let text = self.next_temp();
+        writeln!(
+            out,
+            "  {text} = call ptr @ax_bytes_to_string_lossy(ptr {})",
+            bytes.repr
+        )
+        .expect("writing to string cannot fail");
+        Ok(LlvmValue {
+            ty: "ptr".to_string(),
+            repr: text,
+            ax_ty: Some(Type::String),
+        })
+    }
+
+    fn emit_bytes_to_hex(
+        &mut self,
+        arguments: &[Expr],
+        out: &mut String,
+    ) -> Result<LlvmValue, String> {
+        if arguments.len() != 1 {
+            return Err(format!(
+                "call to `bytes_to_hex` has {} argument(s), but LLVM AOT expected 1",
+                arguments.len()
+            ));
+        }
+        let bytes = self.emit_expr(&arguments[0], out)?;
+        ensure_bytes_argument("bytes_to_hex", "data", &bytes)?;
+        let text = self.next_temp();
+        writeln!(
+            out,
+            "  {text} = call ptr @ax_bytes_to_hex(ptr {})",
+            bytes.repr
+        )
+        .expect("writing to string cannot fail");
+        Ok(LlvmValue {
+            ty: "ptr".to_string(),
+            repr: text,
+            ax_ty: Some(Type::String),
+        })
+    }
+
+    fn emit_bytes_push(
+        &mut self,
+        arguments: &[Expr],
+        out: &mut String,
+    ) -> Result<LlvmValue, String> {
+        if arguments.len() != 2 {
+            return Err(format!(
+                "call to `bytes_push` has {} argument(s), but LLVM AOT expected 2",
+                arguments.len()
+            ));
+        }
+        let bytes = self.emit_expr(&arguments[0], out)?;
+        ensure_bytes_argument("bytes_push", "data", &bytes)?;
+        let value = self.emit_expr(&arguments[1], out)?;
+        ensure_same_type("i32", &value.ty)?;
+        let pushed = self.next_temp();
+        writeln!(
+            out,
+            "  {pushed} = call ptr @ax_bytes_push(ptr {}, i32 {})",
+            bytes.repr, value.repr
+        )
+        .expect("writing to string cannot fail");
+        Ok(LlvmValue {
+            ty: "ptr".to_string(),
+            repr: pushed,
+            ax_ty: Some(Type::Bytes),
+        })
+    }
+
+    fn emit_bytes_get(
+        &mut self,
+        arguments: &[Expr],
+        out: &mut String,
+    ) -> Result<LlvmValue, String> {
+        if arguments.len() != 2 {
+            return Err(format!(
+                "call to `bytes_get` has {} argument(s), but LLVM AOT expected 2",
+                arguments.len()
+            ));
+        }
+        let bytes = self.emit_expr(&arguments[0], out)?;
+        ensure_bytes_argument("bytes_get", "data", &bytes)?;
+        let index = self.emit_expr(&arguments[1], out)?;
+        ensure_same_type("i32", &index.ty)?;
+        let value = self.next_temp();
+        writeln!(
+            out,
+            "  {value} = call i32 @ax_bytes_get(ptr {}, i32 {})",
+            bytes.repr, index.repr
+        )
+        .expect("writing to string cannot fail");
+        Ok(LlvmValue {
+            ty: "i32".to_string(),
+            repr: value,
+            ax_ty: Some(Type::I32),
         })
     }
 

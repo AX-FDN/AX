@@ -367,6 +367,7 @@ fn render_program_with_diagnostics(
     writeln!(module).expect("writing to string cannot fail");
     runtime::write_runtime_error_helper(&mut module);
     runtime::write_string_helpers(&mut module);
+    runtime::write_bytes_helpers(&mut module);
     runtime::write_host_helpers(&mut module);
 
     for item in &program.items {

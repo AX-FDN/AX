@@ -1,3 +1,4 @@
+mod bytes;
 mod core;
 mod fs;
 mod list;
@@ -20,6 +21,10 @@ pub(super) fn write_runtime_error_helper(module: &mut String) {
 pub(super) fn write_string_helpers(module: &mut String) {
     string::write_string_helpers(module);
     list::write_string_list_helpers(module);
+}
+
+pub(super) fn write_bytes_helpers(module: &mut String) {
+    bytes::write_bytes_helpers(module);
 }
 
 pub(super) fn write_host_helpers(module: &mut String) {
@@ -66,5 +71,23 @@ mod tests {
         assert!(module.contains("define private ptr @ax_i32_to_string(i32 %value)"));
         assert!(module.contains("define private ptr @ax_f32_to_string(float %value)"));
         assert!(module.contains("append_decimal:"));
+    }
+
+    #[test]
+    fn runtime_prelude_exposes_bytes_abi() {
+        let mut module = String::new();
+        write_builtin_globals(&mut module);
+        write_external_declarations(&mut module);
+        write_bytes_helpers(&mut module);
+
+        assert!(module.contains("bytes ABI: ax.bytes.opaque_buffer_v0"));
+        assert!(module.contains("define private ptr @ax_bytes_empty()"));
+        assert!(module.contains("define private ptr @ax_bytes_from_string(ptr %text)"));
+        assert!(module.contains("define private i32 @ax_bytes_len(ptr %bytes)"));
+        assert!(module.contains("define private i32 @ax_bytes_get(ptr %bytes, i32 %index)"));
+        assert!(module.contains("define private ptr @ax_bytes_push(ptr %bytes, i32 %value)"));
+        assert!(module.contains("define private ptr @ax_bytes_to_string_lossy(ptr %bytes)"));
+        assert!(module.contains("define private ptr @ax_bytes_to_hex(ptr %bytes)"));
+        assert!(module.contains("define private i8 @ax_bytes_hex_digit(i32 %value)"));
     }
 }
