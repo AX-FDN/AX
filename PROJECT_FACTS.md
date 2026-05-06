@@ -46,7 +46,7 @@ AI-native diagnostics and repair guidance preserved
 | Context | `overview / boundaries / topology / flow / symbol / impact / evidence` are compiler-produced views. |
 | Benchmarks | Repair benchmark export, run, score, compare, smoke, and deterministic replay assets are in-repo. |
 | Package system | Local path package v0, `AX.lock` v0, registry metadata, `axc pkg`, and checksum-backed package install preview exist. |
-| Package catalog | Registry catalog has `31` curated packages; stable pure-AX smoke covers `29` packages. |
+| Package catalog | Registry catalog has `32` curated packages; stable pure-AX smoke covers `30` packages. |
 | Package source | Preview package source lives in `https://github.com/AX-FDN/AX-PKG.git`. |
 | Package maturity | Packages are classified as `stable_pure_ax`, `host_boundary_preview`, or `future_native_preview`. |
 | Package native smoke | `scripts/smoke-package-registry-native-parity.ps1` verifies one `stable_pure_ax` registry package through run-vs-exe parity. |

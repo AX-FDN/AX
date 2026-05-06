@@ -54,8 +54,8 @@ Already present:
 
 Current fixed facts:
 
-- catalog: `31` curated packages
-- stable pure-AX smoke: `29` packages
+- catalog: `32` curated packages
+- stable pure-AX smoke: `30` packages
 - host-boundary preview packages: `http_tools`, `net_tools`
 - source repo: `https://github.com/AX-FDN/AX-PKG.git`
 

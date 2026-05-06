@@ -36,7 +36,7 @@ These are safe to say now:
 - AX context has `overview / boundaries / topology / flow / symbol / impact / evidence`.
 - AX has repair benchmark infrastructure and deterministic replay assets.
 - AX has local path package v0, `AX.lock`, registry metadata, `axc pkg`, and a checksum-backed package install preview.
-- AX has a curated package catalog with `31` packages and stable pure-AX smoke coverage for `29` packages.
+- AX has a curated package catalog with `32` packages and stable pure-AX smoke coverage for `30` packages.
 - Package source currently lives in `https://github.com/AX-FDN/AX-PKG.git`.
 - `std.bytes`, `std.encoding`, `std.json`, `std.hash`, and `std.http` provide current package-facing foundations.
 

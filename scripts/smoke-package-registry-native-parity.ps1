@@ -180,16 +180,20 @@ name = "registry_stable_pure_ax_native_parity"
 entry = "src/main.ax"
 
 [dependencies]
+generic_tools = { registry = "ax", version = "0.1.0" }
 json_tools = { registry = "ax", version = "0.1.0" }
 '@
 
 $sourceText = @'
+import generic_tools.box;
 import json_tools.encode;
 
 fn main() -> i32 {
+    let boxed: generic_tools.box.Box<i32> = generic_tools.box.wrap(9);
+    let score: i32 = generic_tools.box.unwrap(boxed);
     let value: string = json_tools.encode.object3(
         json_tools.encode.field_string("service", "ax-pkg"),
-        json_tools.encode.field_i32("score", 9),
+        json_tools.encode.field_i32("score", score),
         json_tools.encode.field_bool("native", true)
     );
     println(value);
@@ -236,8 +240,10 @@ Assert-Equal -Label "aot_supported" -Actual ([bool] $manifest.aot_supported) -Ex
 Assert-Equal -Label "backend status" -Actual ([string] $manifest.backend.status) -Expected "built"
 
 $registryPackages = @($manifest.registry_packages)
-Assert-Equal -Label "registry package count" -Actual $registryPackages.Count -Expected 1
-Assert-Equal -Label "registry package maturity" -Actual ([string] $registryPackages[0].maturity) -Expected "stable_pure_ax"
+Assert-Equal -Label "registry package count" -Actual $registryPackages.Count -Expected 2
+foreach ($package in $registryPackages) {
+    Assert-Equal -Label "registry package maturity $($package.package)" -Actual ([string] $package.maturity) -Expected "stable_pure_ax"
+}
 
 $executableArtifact = [string] $manifest.artifacts.executable
 if ([string]::IsNullOrWhiteSpace($executableArtifact)) {
@@ -254,4 +260,4 @@ Assert-Equal -Label "native exit code" -Actual ([int] $executable.ExitCode) -Exp
 Assert-Equal -Label "native stdout" -Actual (Normalize-Text $executable.Stdout) -Expected (Normalize-Text $interpreter.Stdout)
 Assert-Equal -Label "native stderr" -Actual (Normalize-Text $executable.Stderr) -Expected (Normalize-Text $interpreter.Stderr)
 
-Write-Host "Package registry native parity smoke passed for stable_pure_ax json_tools at $outputRoot"
+Write-Host "Package registry native parity smoke passed for stable_pure_ax json_tools + generic_tools at $outputRoot"

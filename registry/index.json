@@ -38,6 +38,10 @@
       "metadata": "packages/feature_flag_tools.json"
     },
     {
+      "name": "generic_tools",
+      "metadata": "packages/generic_tools.json"
+    },
+    {
       "name": "hash_tools",
       "metadata": "packages/hash_tools.json"
     },

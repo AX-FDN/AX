@@ -54,7 +54,7 @@ project understanding, and validation part of the same language system.
 | Build contract | `build-manifest.json` schema version `10`; `aot_readiness.schema_version = 3`. |
 | Diagnostics | Text, `--json`, and `--json --ai` outputs exist. |
 | Context | `overview / boundaries / topology / flow / symbol / impact / evidence` are compiler-produced views. |
-| Packages | Curated registry preview with `31` packages; stable pure-AX smoke covers `29` packages. |
+| Packages | Curated registry preview with `32` packages; stable pure-AX smoke covers `30` packages. |
 | Package source | Preview packages live in [AX-FDN/AX-PKG](https://github.com/AX-FDN/AX-PKG.git). |
 | Std foundations | `std.bytes`, `std.encoding`, `std.json`, `std.hash`, and `std.http` are package-facing foundations. |
 
@@ -113,8 +113,8 @@ AX now has an early but usable package preview:
 
 Current registry facts:
 
-- Registry catalog: `31` curated packages.
-- Stable pure-AX smoke coverage: `29` packages.
+- Registry catalog: `32` curated packages.
+- Stable pure-AX smoke coverage: `30` packages.
 - Host-boundary preview packages: `http_tools` and `net_tools`.
 - Package source monorepo: `https://github.com/AX-FDN/AX-PKG.git`.
 - Validation entries: [`scripts/smoke-package-registry.ps1`](./scripts/smoke-package-registry.ps1),

@@ -83,7 +83,7 @@ Current fixed facts:
 
 Current fixed facts:
 
-- registry catalog: `31` curated packages
+- registry catalog: `32` curated packages
 - stable pure-AX package smoke: `29` packages
 - host-boundary preview packages: `http_tools`, `net_tools`
 - package source repository: `https://github.com/AX-FDN/AX-PKG.git`

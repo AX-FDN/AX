@@ -123,6 +123,7 @@ import config_rules.validate;
 import database_tools.dsn;
 import encoding_tools.core;
 import feature_flag_tools.flags;
+import generic_tools.box;
 import hash_tools.checksum;
 import health_tools.checks;
 import json_tools.encode;
@@ -177,6 +178,8 @@ fn main() -> i32 {
     let rate_limit: rate_limit_tools.window.RateLimit = rate_limit_tools.window.create(100, 83, 60);
     let flag: feature_flag_tools.flags.FeatureFlag = feature_flag_tools.flags.flag("new-api", true, 50);
     let health: health_tools.checks.HealthSummary = health_tools.checks.summary(3, 1);
+    let boxed_score: generic_tools.box.Box<i32> = generic_tools.box.wrap(score);
+    let generic_score: i32 = generic_tools.box.unwrap(boxed_score);
     let log_line: string = log_tools.core.info("registry-smoke", "packages loaded");
     let auth_preview: string = auth_tools.headers.safe_header_preview("Authorization", "secret-token");
     let config_status: i32 = config_rules.validate.validate("host=localhost\nport=8080\n");
@@ -208,6 +211,7 @@ fn main() -> i32 {
     report = report_tools.builder.kv_string(report, "rate-limit", rate_limit_tools.window.status(rate_limit));
     report = report_tools.builder.kv_string(report, "flag", feature_flag_tools.flags.decision_label(flag, "user-1"));
     report = report_tools.builder.kv_string(report, "health", health.status);
+    report = report_tools.builder.kv_i32(report, "generic-score", generic_score);
     report = report_tools.builder.kv_string(report, "log", log_line);
     report = report_tools.builder.kv_string(report, "auth", auth_preview);
     report = report_tools.builder.kv_string(report, "name", validation_tools.rules.message(name_status, "name"));
@@ -248,6 +252,7 @@ $packages = @(
     "database_tools",
     "encoding_tools",
     "feature_flag_tools",
+    "generic_tools",
     "hash_tools",
     "health_tools",
     "json_tools",
@@ -285,7 +290,7 @@ if (-not (Test-Path $lockfilePath)) {
 
 $lockfile = Get-Content $lockfilePath -Raw -Encoding utf8 | ConvertFrom-Json
 Assert-Equal -Label "AX.lock schema_version" -Actual ([int] $lockfile.schema_version) -Expected 2
-Assert-Equal -Label "AX.lock dependency count" -Actual (@($lockfile.dependencies).Count) -Expected 29
+Assert-Equal -Label "AX.lock dependency count" -Actual (@($lockfile.dependencies).Count) -Expected 30
 
 & $axcBinary check $outputRoot
 Assert-Equal -Label "axc check exit code" -Actual $LASTEXITCODE -Expected 0
@@ -321,6 +326,7 @@ $expectedOutput = @(
     "rate-limit: near-limit",
     "flag: disabled",
     "health: degraded",
+    "generic-score: 9",
     "log: [info] registry-smoke: packages loaded",
     "auth: Authorization: <redacted:12>",
     "name: name: ok"
@@ -338,4 +344,4 @@ for ($index = 0; $index -lt $expectedOutput.Count; $index += 1) {
     Assert-Equal -Label "run output[$index]" -Actual $actualOutput[$index] -Expected $expectedOutput[$index]
 }
 
-Write-Host "Package registry smoke passed. Verified 29 stable registry packages at $outputRoot"
+Write-Host "Package registry smoke passed. Verified 30 stable registry packages at $outputRoot"

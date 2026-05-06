@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "name": "generic_tools",
+  "owner": "ax-core",
+  "license": "Apache-2.0",
+  "description": "Generic box helpers for package-backed AOT validation",
+  "maturity": "stable_pure_ax",
+  "versions": [
+    {
+      "version": "0.1.0",
+      "source": {
+        "kind": "git",
+        "url": "https://github.com/AX-FDN/AX-PKG.git",
+        "rev": "0d76b50e57b9474b6332c8d4cda3360465480479",
+        "path": "packages/generic_tools"
+      },
+      "checksum": "sha256:04a97635d4c249fd235b93a657a1101c76cc122aa9d4195a2d7eaf963093bc5c",
+      "modules": [
+        "generic_tools.box"
+      ]
+    }
+  ]
+}
