@@ -28,6 +28,9 @@ impl<'a> FunctionEmitter<'a> {
         if function == "std.env.try_get" {
             return self.emit_env_try_get(arguments, expected_return_ax_ty, out);
         }
+        if function == "std.fs.try_read_to_string" {
+            return self.emit_fs_try_read_to_string(arguments, expected_return_ax_ty, out);
+        }
         if function == "process_cwd" {
             return self.emit_process_cwd(arguments, out);
         }
@@ -856,13 +859,16 @@ impl<'a> FunctionEmitter<'a> {
         writeln!(out, "  br label %{done_label}").expect("writing to string cannot fail");
 
         writeln!(out, "{fail_label}:").expect("writing to string cannot fail");
+        let missing_message_prefix =
+            self.string_literal_symbol("missing environment variable: ")?;
+        let missing_message = self.emit_string_concat(&missing_message_prefix, &name.repr, out);
         let failed_error = self.next_temp();
         writeln!(
             out,
             "  {failed_error} = call {} @{}(i32 1, ptr {})",
             abi::HOST_ERROR_LLVM_TYPE,
             abi::HOST_ERROR_NEW_HELPER,
-            abi::HOST_ERROR_DEFAULT_MESSAGE
+            missing_message
         )
         .expect("writing to string cannot fail");
         writeln!(
@@ -1103,6 +1109,126 @@ impl<'a> FunctionEmitter<'a> {
             repr: text,
             ax_ty: Some(Type::String),
         })
+    }
+
+    fn emit_fs_try_read_to_string(
+        &mut self,
+        arguments: &[Expr],
+        expected_return_ax_ty: Option<&Type>,
+        out: &mut String,
+    ) -> Result<LlvmValue, String> {
+        if arguments.len() != 1 {
+            return Err(format!(
+                "call to `std.fs.try_read_to_string` has {} argument(s), but LLVM AOT expected 1",
+                arguments.len()
+            ));
+        }
+        let result_ax_ty = expected_return_ax_ty
+            .cloned()
+            .or_else(|| {
+                self.signatures
+                    .get("std.fs.try_read_to_string")
+                    .map(|signature| signature.return_ax_type.clone())
+            })
+            .ok_or_else(|| {
+                "`std.fs.try_read_to_string` needs `Result<string, string>` return type metadata in LLVM AOT v0"
+                    .to_string()
+            })?;
+        let (success_ax_ty, error_ax_ty) = self.result_success_error_types(&result_ax_ty)?;
+        if success_ax_ty != Type::String || error_ax_ty != Type::String {
+            return Err(format!(
+                "`std.fs.try_read_to_string` lowers to Result<string, string>, found {}",
+                ax_type_name(&result_ax_ty)
+            ));
+        }
+
+        let path = self.emit_expr(&arguments[0], out)?;
+        ensure_string_argument("std.fs.try_read_to_string", "path", &path)?;
+        let is_file = self.next_temp();
+        writeln!(
+            out,
+            "  {is_file} = call i1 @ax_fs_is_file(ptr {})",
+            path.repr
+        )
+        .expect("writing to string cannot fail");
+        let host_error_slot = self.next_temp();
+        let value_slot = self.next_temp();
+        let ok_label = self.next_label("fs_try_read_ok");
+        let fail_label = self.next_label("fs_try_read_err");
+        let done_label = self.next_label("fs_try_read_done");
+        writeln!(
+            out,
+            "  {host_error_slot} = alloca {}",
+            abi::HOST_ERROR_LLVM_TYPE
+        )
+        .expect("writing to string cannot fail");
+        writeln!(out, "  {value_slot} = alloca ptr").expect("writing to string cannot fail");
+        writeln!(
+            out,
+            "  br i1 {is_file}, label %{ok_label}, label %{fail_label}"
+        )
+        .expect("writing to string cannot fail");
+
+        writeln!(out, "{ok_label}:").expect("writing to string cannot fail");
+        let text = self.next_temp();
+        writeln!(
+            out,
+            "  {text} = call ptr @ax_fs_read_to_string(ptr {})",
+            path.repr
+        )
+        .expect("writing to string cannot fail");
+        writeln!(out, "  store ptr {text}, ptr {value_slot}")
+            .expect("writing to string cannot fail");
+        let ok_error = self.next_temp();
+        writeln!(
+            out,
+            "  {ok_error} = call {} @{}()",
+            abi::HOST_ERROR_LLVM_TYPE,
+            abi::HOST_ERROR_OK_HELPER
+        )
+        .expect("writing to string cannot fail");
+        writeln!(
+            out,
+            "  store {} {ok_error}, ptr {host_error_slot}",
+            abi::HOST_ERROR_LLVM_TYPE
+        )
+        .expect("writing to string cannot fail");
+        writeln!(out, "  br label %{done_label}").expect("writing to string cannot fail");
+
+        writeln!(out, "{fail_label}:").expect("writing to string cannot fail");
+        let missing_message_prefix =
+            self.string_literal_symbol("readable file does not exist: ")?;
+        let missing_message = self.emit_string_concat(&missing_message_prefix, &path.repr, out);
+        writeln!(out, "  store ptr null, ptr {value_slot}").expect("writing to string cannot fail");
+        let failed_error = self.next_temp();
+        writeln!(
+            out,
+            "  {failed_error} = call {} @{}(i32 1, ptr {})",
+            abi::HOST_ERROR_LLVM_TYPE,
+            abi::HOST_ERROR_NEW_HELPER,
+            missing_message
+        )
+        .expect("writing to string cannot fail");
+        writeln!(
+            out,
+            "  store {} {failed_error}, ptr {host_error_slot}",
+            abi::HOST_ERROR_LLVM_TYPE
+        )
+        .expect("writing to string cannot fail");
+        writeln!(out, "  br label %{done_label}").expect("writing to string cannot fail");
+
+        writeln!(out, "{done_label}:").expect("writing to string cannot fail");
+        let value = self.next_temp();
+        writeln!(out, "  {value} = load ptr, ptr {value_slot}")
+            .expect("writing to string cannot fail");
+        let host_error = self.next_temp();
+        writeln!(
+            out,
+            "  {host_error} = load {}, ptr {host_error_slot}",
+            abi::HOST_ERROR_LLVM_TYPE
+        )
+        .expect("writing to string cannot fail");
+        self.emit_host_result_from_error(value, host_error, &result_ax_ty, out)
     }
 
     fn emit_fs_read_dir(

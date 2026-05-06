@@ -482,10 +482,9 @@ return match (value) {
 
     assert!(rendered.contains("%ax_enum_std_result_Result_string__string_ = type { i32, ptr }"));
     assert!(rendered.contains("call { i32, ptr } @ax_host_error_ok()"));
-    assert!(
-        rendered
-            .contains("call { i32, ptr } @ax_host_error_new(i32 1, ptr @.ax_host_error_unknown)")
-    );
+    assert!(rendered.contains("c\"missing environment variable: \\00\""));
+    assert!(rendered.contains("call ptr @ax_string_concat(ptr"));
+    assert!(rendered.contains("call { i32, ptr } @ax_host_error_new(i32 1, ptr %"));
     assert!(rendered.contains("call i1 @ax_host_error_is_ok({ i32, ptr }"));
     assert!(rendered.contains("call ptr @ax_host_error_message_or_default({ i32, ptr }"));
     assert!(rendered.contains("define private i1 @ax_host_error_is_ok({ i32, ptr } %error)"));
@@ -493,6 +492,46 @@ return match (value) {
         rendered
             .contains("define private ptr @ax_host_error_message_or_default({ i32, ptr } %error)")
     );
+}
+
+#[test]
+fn renders_std_fs_try_read_to_string_as_host_error_result_v0() {
+    let rendered = render_segments(vec![
+        (
+            PathBuf::from("std/result.ax"),
+            include_str!("../../../../std/result.ax").to_string(),
+        ),
+        (
+            PathBuf::from("std/fs.ax"),
+            include_str!("../../../../std/fs.ax").to_string(),
+        ),
+        (
+            PathBuf::from("src/main.ax"),
+            "\
+import std.fs;
+import std.result;
+
+fn main() -> i32 {
+let value: std.result.Result<string, string> = std.fs.try_read_to_string(\"README.md\");
+return match (value) {
+    std.result.Result.Ok(text) => string_len(text),
+    std.result.Result.Err(message) => string_len(message),
+};
+}
+"
+            .to_string(),
+        ),
+    ]);
+
+    assert!(rendered.contains("%ax_enum_std_result_Result_string__string_ = type { i32, ptr }"));
+    assert!(rendered.contains("call i1 @ax_fs_is_file(ptr"));
+    assert!(rendered.contains("call ptr @ax_fs_read_to_string(ptr"));
+    assert!(rendered.contains("c\"readable file does not exist: \\00\""));
+    assert!(rendered.contains("call ptr @ax_string_concat(ptr"));
+    assert!(rendered.contains("call { i32, ptr } @ax_host_error_ok()"));
+    assert!(rendered.contains("call { i32, ptr } @ax_host_error_new(i32 1, ptr %"));
+    assert!(rendered.contains("call i1 @ax_host_error_is_ok({ i32, ptr }"));
+    assert!(rendered.contains("call ptr @ax_host_error_message_or_default({ i32, ptr }"));
 }
 
 #[test]
