@@ -57,10 +57,12 @@ It verifies:
 This smoke is an IR/readiness check. It does not require clang or native
 executable linking.
 
-`scripts/smoke-package-registry-native-parity.ps1` is the first package-backed
-native parity smoke. It installs `json_tools` from the curated registry, runs
-`axc check`, compares `axc run` with the linked native executable, and requires
-the registry package manifest entry to stay `stable_pure_ax`.
+`scripts/smoke-package-registry-native-parity.ps1` is the package-backed native
+parity smoke for stable pure-AX registry packages. It installs `json_tools` and
+`generic_tools` from the curated registry, runs `axc check`, compares `axc run`
+with the linked native executable, requires registry package manifest entries
+to stay `stable_pure_ax`, and checks the generic/function/method backend
+features reported by AOT readiness.
 
 `scripts/smoke-aot-package-generics.ps1` verifies local path packages that
 export generic structs/functions and non-generic methods/impls. It requires
@@ -89,9 +91,9 @@ These gaps block promotion from "candidate" to "Backend Profile v1 stable".
 | --- | --- | --- |
 | Native Runtime ABI v1 ownership | Backend services need predictable string/bytes/handle lifetime. | ABI doc plus runtime helper tests for release/ownership behavior. |
 | `bytes` native ABI | HTTP/TLS/DB need binary-safe data. | Runtime helper path exists; next proof is executable linking and parity on the byte-buffer route. |
-| Registry package native parity | 1.0 packages must participate in native build, not only readiness. | First `stable_pure_ax` package fixture exists; expand to more packages and cross-package cases. |
-| Cross-package monomorphization | Generic package APIs need concrete native instances. | Local path generic package smoke exists; add registry-backed generic package parity next. |
-| Method/impl ABI freeze | Backend code will use methods heavily. | Local package method parity exists; freeze symbol/ABI rules and add registry-backed coverage next. |
+| Registry package native parity | 1.0 packages must participate in native build, not only readiness. | `json_tools` plus `generic_tools` stable registry native parity exists; expand breadth and cross-package cases. |
+| Cross-package monomorphization | Generic package APIs need concrete native instances. | Registry-backed `generic_tools` generic function/struct/method parity exists; broaden Result/Option-style generic cases. |
+| Method/impl ABI freeze | Backend code will use methods heavily. | Local and registry package method parity exists; freeze symbol/ABI rules and keep coverage stable. |
 | Trait ABI boundary | Traits exist but full dispatch is not frozen. | static dispatch subset documented; dynamic dispatch remains out of profile unless implemented. |
 | HTTP/TLS runtime ABI | Backend language needs real network IO. | HTTP/TCP host-boundary readiness fixture exists; next proof is runtime-owned handles and TLS policy. |
 | PostgreSQL runtime ABI | DB is a 1.0 backend target. | `std.db` PostgreSQL smoke with interpreter and AOT readiness first, parity later. |
@@ -113,8 +115,8 @@ If any item is missing, the capability stays preview.
 
 Next executable checks to add:
 
-1. registry-backed generic/method helper fixture.
-2. native byte-buffer layout and parity fixture.
-3. runtime-owned handle layout/release fixture for HTTP/TLS/DB/async handles.
+1. native byte-buffer layout and parity fixture.
+2. runtime-owned handle layout/release fixture for HTTP/TLS/DB/async handles.
+3. broader registry generic Result/Option-style package fixture.
 
 These should be added before implementing production HTTP/TLS/DB/async APIs.

@@ -49,7 +49,7 @@ AI-native diagnostics and repair guidance preserved
 | Package catalog | Registry catalog has `32` curated packages; stable pure-AX smoke covers `30` packages. |
 | Package source | Preview package source lives in `https://github.com/AX-FDN/AX-PKG.git`. |
 | Package maturity | Packages are classified as `stable_pure_ax`, `host_boundary_preview`, or `future_native_preview`. |
-| Package native smoke | `scripts/smoke-package-registry-native-parity.ps1` verifies one `stable_pure_ax` registry package through run-vs-exe parity. |
+| Package native smoke | `scripts/smoke-package-registry-native-parity.ps1` verifies stable pure-AX registry packages through run-vs-exe parity, including `json_tools` plus `generic_tools` generic/method coverage. |
 | Bytes ABI readiness | `scripts/smoke-bytes-runtime.ps1` verifies interpreter bytes behavior and the AOT runtime path for `std.bytes` while linking/parity continue to mature. |
 | Host/network ABI readiness | `scripts/smoke-host-network-runtime.ps1` verifies local TCP-backed `std.http`/`std.net` behavior and the `AOT0301/runtime_abi` blocker. |
 | 1.0 roadmap | `docs/release-1.0-backend-systems.md` is the active long-range roadmap. |

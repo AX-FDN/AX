@@ -115,6 +115,8 @@ Current registry facts:
 
 - Registry catalog: `32` curated packages.
 - Stable pure-AX smoke coverage: `30` packages.
+- Package native parity covers stable pure-AX registry packages through
+  `json_tools` plus `generic_tools` generic/method coverage.
 - Host-boundary preview packages: `http_tools` and `net_tools`.
 - Package source monorepo: `https://github.com/AX-FDN/AX-PKG.git`.
 - Validation entries: [`scripts/smoke-package-registry.ps1`](./scripts/smoke-package-registry.ps1),

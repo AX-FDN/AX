@@ -15,8 +15,12 @@ pub(super) fn write_bytes_helpers(module: &mut String) {
         abi::BYTES_INITIAL_CAPACITY
     )
     .expect("writing to string cannot fail");
-    writeln!(module, "define private void @{}(ptr %bytes) {{", abi::BYTES_RELEASE_HELPER)
-        .expect("writing to string cannot fail");
+    writeln!(
+        module,
+        "define private void @{}(ptr %bytes) {{",
+        abi::BYTES_RELEASE_HELPER
+    )
+    .expect("writing to string cannot fail");
     writeln!(module, "entry:").expect("writing to string cannot fail");
     writeln!(module, "  ret void").expect("writing to string cannot fail");
     writeln!(module, "}}\n").expect("writing to string cannot fail");
@@ -164,15 +168,15 @@ entry:
   br i1 %is_small, label %digit, label %alpha
 
 digit:
-  %ascii = add i32 %value, 48
-  %byte = trunc i32 %ascii to i8
-  ret i8 %byte
+  %digit_ascii = add i32 %value, 48
+  %digit_byte = trunc i32 %digit_ascii to i8
+  ret i8 %digit_byte
 
 alpha:
   %adjusted = sub i32 %value, 10
-  %ascii = add i32 %adjusted, 97
-  %byte = trunc i32 %ascii to i8
-  ret i8 %byte
+  %alpha_ascii = add i32 %adjusted, 97
+  %alpha_byte = trunc i32 %alpha_ascii to i8
+  ret i8 %alpha_byte
 }
 
 "#,

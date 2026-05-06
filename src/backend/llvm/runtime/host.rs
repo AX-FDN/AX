@@ -53,12 +53,8 @@ fn write_host_error_helpers(module: &mut String) {
         abi::HOST_ERROR_LLVM_TYPE
     )
     .expect("writing to string cannot fail");
-    writeln!(
-        module,
-        "  ret {} %with_message",
-        abi::HOST_ERROR_LLVM_TYPE
-    )
-    .expect("writing to string cannot fail");
+    writeln!(module, "  ret {} %with_message", abi::HOST_ERROR_LLVM_TYPE)
+        .expect("writing to string cannot fail");
     writeln!(module, "}}\n").expect("writing to string cannot fail");
 
     writeln!(
@@ -81,12 +77,8 @@ fn write_host_error_helpers(module: &mut String) {
         abi::HOST_ERROR_LLVM_TYPE
     )
     .expect("writing to string cannot fail");
-    writeln!(
-        module,
-        "  ret {} %with_message",
-        abi::HOST_ERROR_LLVM_TYPE
-    )
-    .expect("writing to string cannot fail");
+    writeln!(module, "  ret {} %with_message", abi::HOST_ERROR_LLVM_TYPE)
+        .expect("writing to string cannot fail");
     writeln!(module, "}}\n").expect("writing to string cannot fail");
 }
 

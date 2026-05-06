@@ -164,6 +164,18 @@ function Normalize-Text {
     return $Text.Replace("`r`n", "`n")
 }
 
+function Assert-Contains {
+    param(
+        [string] $Label,
+        [string[]] $Values,
+        [string] $Expected
+    )
+
+    if (-not $Values.Contains($Expected)) {
+        Write-Error "$Label expected to contain '$Expected' but found: $($Values -join ', ')"
+    }
+}
+
 $outputRoot = Resolve-RepoPath -Path $OutputDir
 $registryRoot = Resolve-RepoPath -Path $Registry
 
@@ -190,7 +202,9 @@ import json_tools.encode;
 
 fn main() -> i32 {
     let boxed: generic_tools.box.Box<i32> = generic_tools.box.wrap(9);
-    let score: i32 = generic_tools.box.unwrap(boxed);
+    let direct: i32 = boxed.get();
+    let roundtrip: i32 = generic_tools.box.unwrap(boxed);
+    let score: i32 = direct + roundtrip;
     let value: string = json_tools.encode.object3(
         json_tools.encode.field_string("service", "ax-pkg"),
         json_tools.encode.field_i32("score", score),
@@ -245,6 +259,19 @@ foreach ($package in $registryPackages) {
     Assert-Equal -Label "registry package maturity $($package.package)" -Actual ([string] $package.maturity) -Expected "stable_pure_ax"
 }
 
+$features = @($manifest.aot_readiness.required_backend_features | ForEach-Object { [string] $_ })
+foreach ($feature in @(
+    "registry_packages",
+    "registry_package_stable_pure_ax",
+    "generic_functions",
+    "generic_impls",
+    "generic_structs",
+    "generic_type_instances",
+    "impl_methods"
+)) {
+    Assert-Contains -Label "required_backend_features" -Values $features -Expected $feature
+}
+
 $executableArtifact = [string] $manifest.artifacts.executable
 if ([string]::IsNullOrWhiteSpace($executableArtifact)) {
     Write-Error "build manifest did not include artifacts.executable"
@@ -260,4 +287,4 @@ Assert-Equal -Label "native exit code" -Actual ([int] $executable.ExitCode) -Exp
 Assert-Equal -Label "native stdout" -Actual (Normalize-Text $executable.Stdout) -Expected (Normalize-Text $interpreter.Stdout)
 Assert-Equal -Label "native stderr" -Actual (Normalize-Text $executable.Stderr) -Expected (Normalize-Text $interpreter.Stderr)
 
-Write-Host "Package registry native parity smoke passed for stable_pure_ax json_tools + generic_tools at $outputRoot"
+Write-Host "Package registry native parity smoke passed for stable_pure_ax json_tools + generic_tools generic/method coverage at $outputRoot"

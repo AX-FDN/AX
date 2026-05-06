@@ -94,6 +94,8 @@ mod tests {
         assert!(module.contains("define private ptr @ax_bytes_to_string_lossy(ptr %bytes)"));
         assert!(module.contains("define private ptr @ax_bytes_to_hex(ptr %bytes)"));
         assert!(module.contains("define private i8 @ax_bytes_hex_digit(i32 %value)"));
+        assert!(module.contains("%digit_ascii = add i32 %value, 48"));
+        assert!(module.contains("%alpha_ascii = add i32 %adjusted, 97"));
     }
 
     #[test]
@@ -105,12 +107,16 @@ mod tests {
         assert!(module.contains("host handle type: ptr runtime-owned opaque handle"));
         assert!(module.contains("host error ABI: ax.host.error_v0"));
         assert!(
-            module.contains("host error type: { i32, ptr } where code=0 means ok and message is null")
+            module.contains(
+                "host error type: { i32, ptr } where code=0 means ok and message is null"
+            )
         );
         assert!(module.contains("define private { i32, ptr } @ax_host_error_ok()"));
-        assert!(module.contains(
-            "define private { i32, ptr } @ax_host_error_new(i32 %code, ptr %message)"
-        ));
+        assert!(
+            module.contains(
+                "define private { i32, ptr } @ax_host_error_new(i32 %code, ptr %message)"
+            )
+        );
         assert!(module.contains("define private void @ax_tcp_socket_release(ptr %socket)"));
         assert!(module.contains("define private void @ax_tls_stream_release(ptr %stream)"));
         assert!(module.contains("define private void @ax_http_client_release(ptr %client)"));

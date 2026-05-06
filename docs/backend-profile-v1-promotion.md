@@ -30,13 +30,13 @@ Promotion status terms:
 | Result/Option and `?` | profile-blocked | default AOT parity | broader monomorphization | registry-backed generic Result/Option fixture |
 | match pattern subset | candidate | default AOT parity | profile freeze | document stable pattern subset |
 | full trait dispatch | future | static subset parity only | dispatch ABI not frozen | keep out of Backend Profile v1 unless dispatch ABI lands |
-| full generic impl/method ABI | profile-blocked | local package generic/method smoke | cross-package monomorphization | registry-backed generic/method parity |
+| full generic impl/method ABI | profile-blocked | local and registry package generic/method smokes | ABI freeze and broader monomorphization | Result/Option-style registry generic fixture |
 
 ## Standard Library
 
 | Capability | Status | Current proof | Main blocker | Next proof |
 | --- | --- | --- | --- | --- |
-| pure std helpers (`text`, `json`, `hash`, `encoding`) | profile-blocked | registry and project smokes; bytes/encoding/hash runtime smokes | package-backed native parity breadth | expand stable registry package parity beyond `json_tools` |
+| pure std helpers (`text`, `json`, `hash`, `encoding`) | profile-blocked | registry and project smokes; bytes/encoding/hash runtime smokes; `json_tools` native parity | package-backed native parity breadth | expand stable registry package parity beyond JSON/generic helpers |
 | `std.bytes` | profile-blocked | bytes runtime smoke; encoding smoke | linked executable parity | bytes native parity fixture |
 | `std.fs`, `std.path`, `std.env`, `std.process` | candidate | default AOT parity and runtime helpers | ABI v1 ownership notes | keep in host std candidate list |
 | `std.net` | profile-blocked | interpreter host-network smoke and `AOT0301` | runtime-owned socket handle ABI implementation | native handle creation/release/error smoke |
@@ -52,7 +52,7 @@ Promotion status terms:
 | --- | --- | --- | --- | --- |
 | local path packages | candidate | default parity and local package smokes | native package ABI freeze | keep in profile candidate list |
 | registry metadata/install | profile-blocked | package registry smoke | 0.2 preview stability | snapshot `pkg` output and error codes |
-| stable pure-AX registry native parity | profile-blocked | `json_tools` registry native parity | breadth and generics | add registry-backed generic/method package parity |
+| stable pure-AX registry native parity | profile-blocked | `json_tools` plus `generic_tools` registry native parity | package breadth and cross-package cases | expand stable registry native parity beyond JSON/generic helpers |
 | host-boundary packages | profile-blocked | `AOT0104` maturity smoke | host handle ABI implementation | keep `AOT0104` until native handles exist |
 | future-native packages | future | `AOT0105` maturity smoke | native ABI not designed | do not promote into Backend Profile v1 |
 | native binary packages | future | non-goal | trust/install/linking model | keep out of 1.0 |
@@ -68,9 +68,9 @@ Promotion status terms:
 
 ## Current Promotion Priorities
 
-1. Registry-backed generic/method package native parity.
-2. Native bytes executable parity.
-3. Runtime-owned socket handle creation/release/error smoke.
+1. Native bytes executable parity.
+2. Runtime-owned socket handle creation/release/error smoke.
+3. Broader registry generic Result/Option-style package fixture.
 4. Backend Profile v1 stable pattern subset documentation.
 5. Linux Backend Profile parity CI.
 
