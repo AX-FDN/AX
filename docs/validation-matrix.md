@@ -92,11 +92,14 @@ Bytes ABI/readiness changes should run:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke-bytes-runtime.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke-bytes-native-parity.ps1
 ```
 
-This smoke does not require clang. It verifies interpreter byte-buffer behavior
-and the `bytes_runtime` readiness feature while requiring LLVM IR generation to
-stay available for the current native bytes helper path.
+The runtime smoke does not require clang. It verifies interpreter byte-buffer
+behavior and the `bytes_runtime` readiness feature while requiring LLVM IR
+generation to stay available for the current native bytes helper path. The
+native parity smoke requires clang and compares `axc run` with the linked
+native executable for the same `std.bytes` source.
 
 Host/network ABI readiness changes should run:
 

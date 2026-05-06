@@ -24,7 +24,7 @@ Promotion status terms:
 | `i32`, `bool`, `f32` | candidate | default AOT parity | profile freeze | include in Backend Profile v1 baseline |
 | control flow and loops | candidate | default AOT parity | profile freeze | include in Backend Profile v1 baseline |
 | strings | profile-blocked | parity exists for string runtime helpers | ownership/release policy | owned string release strategy or explicit process-lifetime carveout |
-| bytes | profile-blocked | `std.bytes` IR path and runtime smoke | executable byte-buffer parity | native bytes run-vs-exe smoke |
+| bytes | profile-blocked | `std.bytes` runtime and native parity smokes | ownership/release policy | bytes release/layout follow-up tests |
 | arrays and slices | profile-blocked | default AOT parity | cross-package ownership and slice lifetime | slice ABI note plus package-backed slice fixture |
 | structs/enums/payload enums | candidate | default AOT parity | payload allocation/release policy | payload ownership note plus parity coverage retained |
 | Result/Option and `?` | profile-blocked | default AOT parity | broader monomorphization | registry-backed generic Result/Option fixture |
@@ -37,7 +37,7 @@ Promotion status terms:
 | Capability | Status | Current proof | Main blocker | Next proof |
 | --- | --- | --- | --- | --- |
 | pure std helpers (`text`, `json`, `hash`, `encoding`) | profile-blocked | registry and project smokes; bytes/encoding/hash runtime smokes; `json_tools` native parity | package-backed native parity breadth | expand stable registry package parity beyond JSON/generic helpers |
-| `std.bytes` | profile-blocked | bytes runtime smoke; encoding smoke | linked executable parity | bytes native parity fixture |
+| `std.bytes` | profile-blocked | bytes runtime/native parity smoke; encoding smoke | ownership/release policy | bytes release/layout follow-up tests |
 | `std.fs`, `std.path`, `std.env`, `std.process` | candidate | default AOT parity and runtime helpers | ABI v1 ownership notes | keep in host std candidate list |
 | `std.net` | profile-blocked | interpreter host-network smoke and `AOT0301` | runtime-owned socket handle ABI implementation | native handle creation/release/error smoke |
 | `std.http` | profile-blocked | interpreter host-network smoke and `AOT0301` | TCP/TLS handle ABI, request/response ownership | native HTTP readiness fixture after socket ABI |
@@ -68,10 +68,10 @@ Promotion status terms:
 
 ## Current Promotion Priorities
 
-1. Native bytes executable parity.
-2. Runtime-owned socket handle creation/release/error smoke.
-3. Broader registry generic Result/Option-style package fixture.
-4. Backend Profile v1 stable pattern subset documentation.
-5. Linux Backend Profile parity CI.
+1. Runtime-owned socket handle creation/release/error smoke.
+2. Broader registry generic Result/Option-style package fixture.
+3. Backend Profile v1 stable pattern subset documentation.
+4. Linux Backend Profile parity CI.
+5. Bytes release/layout follow-up tests.
 
 These priorities deliberately come before production HTTP/TLS/DB/async APIs.

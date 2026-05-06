@@ -72,10 +72,13 @@ output with the native executable.
 ## Runtime ABI Readiness
 
 `scripts/smoke-bytes-runtime.ps1` is the current `std.bytes` ABI fixture. It
-proves interpreter behavior for byte buffers and requires `axc build` to report
-`bytes_runtime` while the AOT runtime path for byte buffers is exercised. This
-keeps valid byte-buffer source from being misreported as a user-code error
-while executable linking and parity continue to mature.
+proves interpreter behavior for byte buffers and keeps `bytes_runtime`
+readiness visible while the byte-buffer AOT path matures.
+
+`scripts/smoke-bytes-native-parity.ps1` is the native bytes parity smoke. It
+keeps the same `std.bytes` source, enables AOT linking, and compares the
+linked native executable with `axc run`. This is the current direct proof that
+`std.bytes` can move from readiness to executable parity.
 
 `scripts/smoke-host-network-runtime.ps1` is the current host handle boundary
 fixture. It runs local TCP-backed `std.http` and `std.net` interpreter behavior,
@@ -90,7 +93,7 @@ These gaps block promotion from "candidate" to "Backend Profile v1 stable".
 | Gap | Why it matters | Required next proof |
 | --- | --- | --- |
 | Native Runtime ABI v1 ownership | Backend services need predictable string/bytes/handle lifetime. | ABI doc plus runtime helper tests for release/ownership behavior. |
-| `bytes` native ABI | HTTP/TLS/DB need binary-safe data. | Runtime helper path exists; next proof is executable linking and parity on the byte-buffer route. |
+| `bytes` native ABI | HTTP/TLS/DB need binary-safe data. | Runtime helper path exists; native bytes parity smoke now exercises executable linking and parity on the byte-buffer route. |
 | Registry package native parity | 1.0 packages must participate in native build, not only readiness. | `json_tools` plus `generic_tools` stable registry native parity exists; expand breadth and cross-package cases. |
 | Cross-package monomorphization | Generic package APIs need concrete native instances. | Registry-backed `generic_tools` generic function/struct/method parity exists; broaden Result/Option-style generic cases. |
 | Method/impl ABI freeze | Backend code will use methods heavily. | Local and registry package method parity exists; freeze symbol/ABI rules and keep coverage stable. |
@@ -115,8 +118,8 @@ If any item is missing, the capability stays preview.
 
 Next executable checks to add:
 
-1. native byte-buffer layout and parity fixture.
-2. runtime-owned handle layout/release fixture for HTTP/TLS/DB/async handles.
-3. broader registry generic Result/Option-style package fixture.
+1. runtime-owned handle layout/release fixture for HTTP/TLS/DB/async handles.
+2. broader registry generic Result/Option-style package fixture.
+3. bytes helper release/layout follow-up tests if native parity regresses.
 
 These should be added before implementing production HTTP/TLS/DB/async APIs.
