@@ -3,7 +3,7 @@
 
 # AX
 
-### 面向 AI 时代的原生编程语言与工具链
+### 为 Codex、Claude Code、Cursor 等 Coding Agent 设计的 AI-native 语言
 
 [![License](https://img.shields.io/github/license/AX-FDN/AX)](./LICENSE)
 [![Version](https://img.shields.io/badge/version-0.1%20Alpha-2563eb)](./docs/release-0.1-alpha.md)
@@ -12,9 +12,9 @@
 
 </div>
 
-AX 是一门正在走向成熟后端系统开发的 **AI-native programming language**。
+AX 是一门正在走向成熟后端系统开发的 **AI-native programming language**，它的第一类使用者就是 Codex、Claude Code、Cursor 这类 Coding Agent，以及和这些 agent 协作的人类开发者。
 
-它不是只写给人看的语法，也不是一个只会“把脚本跑起来”的解释器。AX 从一开始就把语言、解释器、编译器、结构化诊断、AI 上下文、AOT 后端、验证脚本、benchmark 和包生态放进同一套工具链里，目标是让人和 Coding Agent 都能更稳定地写代码、理解项目、修复错误、验证修改。
+它不是只写给人看的语法，也不是一个只会“把脚本跑起来”的解释器。AX 从一开始就把语言、解释器、编译器、结构化诊断、AI 上下文、AOT 后端、验证脚本、benchmark 和包生态放进同一套工具链里，目标是让 Codex、Claude Code、Cursor 等 Coding Agent 在真实项目中更稳定地生成代码、理解项目、修复错误、验证修改，同时也让人类开发者更容易看懂 agent 为什么这么改。
 
 一句话说：
 
@@ -35,7 +35,7 @@ AX 现在还不是 1.0，也不是要立刻宣称替代 Go、Rust、MoonBit、Py
 
 ## 为什么 AX 是 AI-native
 
-很多语言是先为人设计，再让 AI 去适应。AX 的思路反过来：语言和工具链从一开始就把 AI 当成重要使用者。
+很多语言是先为人设计，再让 AI 去适应。AX 的思路反过来：语言和工具链从一开始就把 **Coding Agent** 当成重要使用者。这里说的 Coding Agent 不是一个抽象概念，而是 Codex、Claude Code、Cursor、以及未来类似的自动编程助手：它们会读源码、改源码、跑命令、看报错、继续迭代，直到项目通过验证。
 
 AI 写代码最怕的不是“语法不会”，而是这几件事：
 
@@ -43,6 +43,14 @@ AI 写代码最怕的不是“语法不会”，而是这几件事：
 - 项目一大，AI 不知道哪些文件重要、函数怎么流动、修改哪里风险最大。
 - 修完以后只靠猜，不知道该跑 `check`、`run`、`build`、package smoke，还是 benchmark。
 - 后端不支持某个合法语法时，AI 可能误以为用户代码错了，然后乱改业务逻辑。
+
+所以 AX 的设计目标不是“让模型背会一套新语法”，而是让 Coding Agent 在工作流里拿到更明确的机器可读信号：
+
+- 这个错误是哪一层报的。
+- 这个错误该不该改用户源码。
+- 如果要改，修复目标是什么。
+- 如果不能改，是 AOT 后端、runtime ABI、包成熟度还是工具链问题。
+- 改完以后应该跑哪些命令验证。
 
 AX 把这些问题做成编译器的一等输出：
 
@@ -64,6 +72,17 @@ AI 读结构化错误
   -> 根据新结果继续收敛
 ```
 
+换成真实 Coding Agent 工作流，就是：
+
+| Agent 正在做什么 | AX 应该给它什么 |
+| --- | --- |
+| Codex / Claude Code / Cursor 生成第一版代码 | 清晰语法、稳定 formatter、可预测的 semantic error。 |
+| Agent 看见 `axc check` 失败 | `--json --ai` 给出错误层级、rule id、repair goal、fixit 和 safe-to-edit 信号。 |
+| Agent 不知道项目怎么改 | `axc context` 给出项目 overview、模块边界、调用流、符号、影响范围和证据。 |
+| Agent 改完想验证 | `axc check / run / build / pkg` 和 smoke 脚本提供固定验证入口。 |
+| Agent 遇到 AOT 不支持 | `build-manifest.json` 和 `aot_readiness.blockers` 告诉它不要乱改业务逻辑，而是解释后端限制或补后端。 |
+| Agent 要证明修复真的变好 | repair benchmark、snapshot、run-vs-exe parity 给出可重复证据。 |
+
 这就是 AX 和普通小语言项目最大的区别。
 
 ## 现在 AX 做到哪里了
@@ -80,6 +99,7 @@ AI 读结构化错误
 | AOT readiness | `aot_readiness.schema_version` 是 `3`。 |
 | 诊断 | 文本输出、`--json`、`--json --ai` 都已存在。 |
 | 上下文 | `overview / boundaries / topology / flow / symbol / impact / evidence` 已由编译器输出。 |
+| Agent 接口 | diagnostics、context、build manifest、AOT readiness、repair benchmark 都按 Coding Agent 可消费的方向设计。 |
 | 包系统 | local path package v0、`AX.lock` v0、registry metadata、`axc pkg`、checksum-backed install preview 已存在。 |
 | 包目录 | registry catalog 有 `32` 个 curated packages，stable pure-AX smoke 覆盖 `30` 个包。 |
 | 标准库基础 | `std.bytes`、`std.encoding`、`std.json`、`std.hash`、`std.http` 已作为包和后端路线的基础。 |
@@ -426,7 +446,8 @@ AX 可以自信介绍自己，但要讲事实。
 
 ```text
 AX 是一个可信的 AI-native language toolchain preview：
-解释器稳定，LLVM AOT v0 已具备可执行子集，结构化诊断/context/repair/benchmark 是一等能力，
+它明确面向 Codex、Claude Code、Cursor 等 Coding Agent；
+解释器稳定，LLVM AOT v0 已具备可执行子集，结构化诊断/context/manifest/repair/benchmark 是一等能力，
 包生态和后端 profile 正在进入收口阶段。
 ```
 

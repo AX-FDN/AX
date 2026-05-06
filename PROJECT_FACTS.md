@@ -6,9 +6,10 @@ and synchronized with `README.md`, `docs/public-claims.md`, and
 
 ## One-Line Positioning
 
-AX is an AI-native language toolchain: a stable interpreter path, an LLVM AOT v0
-compiler path, structured diagnostics, AI-readable context, repair benchmarks,
-and a curated package preview in one repository.
+AX is an AI-native language toolchain for coding agents such as Codex, Claude
+Code, Cursor, and the humans collaborating with them: a stable interpreter path,
+an LLVM AOT v0 compiler path, structured diagnostics, AI-readable context,
+repair benchmarks, and a curated package preview in one repository.
 
 Current public version boundary:
 

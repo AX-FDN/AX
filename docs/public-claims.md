@@ -8,16 +8,16 @@ confident without overstating maturity.
 Use this:
 
 ```text
-AX is an AI-native language toolchain with a stable interpreter path, an LLVM
-AOT v0 native compiler path, structured diagnostics, AI-readable context, repair
-benchmarks, and an early curated package ecosystem.
+AX is an AI-native language toolchain for coding agents such as Codex, Claude
+Code, Cursor, and the humans collaborating with them. It combines a stable
+interpreter path, an LLVM AOT v0 native compiler path, structured diagnostics,
+AI-readable context, repair benchmarks, and an early curated package ecosystem.
 ```
 
 Chinese version:
 
 ```text
-AX 是一套 AI-native 语言工具链：解释器稳定执行，LLVM AOT v0 持续扩展，
-结构化诊断、AI 上下文、修复 benchmark 和 curated package preview 都是一等能力。
+AX 是一门面向 Codex、Claude Code、Cursor 等 Coding Agent，以及和这些 agent 协作的人类开发者的 AI-native 语言工具链：解释器稳定执行，LLVM AOT v0 具备可执行子集，结构化诊断、AI 上下文、修复 benchmark 和 curated package preview 都是一等能力。
 ```
 
 ## Safe Claims
@@ -25,6 +25,9 @@ AX 是一套 AI-native 语言工具链：解释器稳定执行，LLVM AOT v0 持
 These are safe to say now:
 
 - AX has `axc check / run / fmt / build / context / pkg`.
+- AX is designed for coding-agent workflows such as Codex, Claude Code, Cursor,
+  and similar tools that read source, edit source, run commands, inspect
+  diagnostics, and iterate.
 - AX has a shared frontend for checking, interpretation, and AOT build artifacts.
 - `axc run` is the stable semantic reference for the current language mainline.
 - `axc build` has LLVM AOT v0 and can generate native executables for the supported subset when clang/linking is available.
