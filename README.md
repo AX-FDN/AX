@@ -3,7 +3,9 @@
 
 # AX
 
-### 为 Codex、Claude Code、Cursor 等 Coding Agent 设计的 AI-native 语言
+### AI 时代的语言
+
+#### 为 Codex、Claude Code、Cursor 等 Coding Agent 设计的 AI-native 语言
 
 [![License](https://img.shields.io/github/license/AX-FDN/AX)](./LICENSE)
 [![Version](https://img.shields.io/badge/version-0.1%20Alpha-2563eb)](./docs/release-0.1-alpha.md)
@@ -12,14 +14,18 @@
 
 </div>
 
-AX 是一门正在走向成熟后端系统开发的 **AI-native programming language**，它的第一类使用者就是 Codex、Claude Code、Cursor 这类 Coding Agent，以及和这些 agent 协作的人类开发者。
+AX 是一门面向 AI 时代的编程语言，也是一套围绕 Coding Agent 工作流设计的语言工具链。
 
-它不是只写给人看的语法，也不是一个只会“把脚本跑起来”的解释器。AX 从一开始就把语言、解释器、编译器、结构化诊断、AI 上下文、AOT 后端、验证脚本、benchmark 和包生态放进同一套工具链里，目标是让 Codex、Claude Code、Cursor 等 Coding Agent 在真实项目中更稳定地生成代码、理解项目、修复错误、验证修改，同时也让人类开发者更容易看懂 agent 为什么这么改。
+它的第一类使用场景很明确：让 Codex、Claude Code、Cursor 这类 Coding Agent，以及和这些 agent 协作的人类开发者，更稳定地生成代码、理解项目、修复错误、验证修改。
+
+在 AI 参与写代码的时代，语言不能只回答“这段代码能不能运行”。它还应该回答更多问题：哪里错了，属于哪一层，能不能自动修，修完该跑什么验证，如果后端暂时不支持，AI 应不应该改用户源码。AX 正是围绕这些问题设计的。
+
+所以 AX 不只是语法，也不只是解释器。它把语言前端、解释器、AOT 编译器、结构化诊断、AI 上下文、build manifest、repair benchmark、包生态和验证脚本放在同一条工具链里，让 agent 看到的不再是一堆零散输出，而是一套可以继续推理、修改和验证的工程协议。
 
 一句话说：
 
 ```text
-AX 要做的是 AI 时代的后端系统语言：
+AX 要做的是 AI 时代的语言：
 同一份源码，解释器能跑，AOT 能编，错误能分层，AI 能知道该怎么修。
 ```
 
@@ -31,13 +37,15 @@ interpreter-stable + LLVM AOT v0 executable-capable subset
 0.2 Package Preview in progress
 ```
 
-AX 现在还不是 1.0，也不是要立刻宣称替代 Go、Rust、MoonBit、Python 或 TypeScript。但它已经不是玩具语言：它已经具备共享前端、稳定解释执行、LLVM AOT 可执行子集、结构化 AI 诊断、项目上下文协议、repair benchmark、包预览和一批标准库基础模块。
+AX 当前处在 `0.1 Alpha / Developer Preview` 阶段，正在从“可验证的语言工具链”走向成熟后端系统语言。它还不是 1.0，也不会在这个阶段宣称替代 Go、Rust、MoonBit、Python 或 TypeScript；但它已经具备共享前端、稳定解释执行、LLVM AOT 可执行子集、结构化 AI 诊断、项目上下文协议、repair benchmark、包预览和一批标准库基础模块。
 
 ## 为什么 AX 是 AI-native
 
-很多语言是先为人设计，再让 AI 去适应。AX 的思路反过来：语言和工具链从一开始就把 **Coding Agent** 当成重要使用者。这里说的 Coding Agent 不是一个抽象概念，而是 Codex、Claude Code、Cursor、以及未来类似的自动编程助手：它们会读源码、改源码、跑命令、看报错、继续迭代，直到项目通过验证。
+很多语言是先为人设计，再让 AI 去适应。AX 的思路是：人当然要能读、能写、能维护，但 Coding Agent 也必须是一等使用者。
 
-AI 写代码最怕的不是“语法不会”，而是这几件事：
+这里说的 Coding Agent 不是抽象概念，而是 Codex、Claude Code、Cursor，以及未来类似的自动编程助手。它们会读源码、改源码、跑命令、看报错、继续迭代，直到项目通过验证。AX 想服务的，就是这种真实工作流。
+
+在这种工作流里，AI 最怕的不是“语法不会”，而是这几件事：
 
 - 错误信息太散，分不清是语法错、类型错、运行时错、后端不支持，还是工具链缺失。
 - 项目一大，AI 不知道哪些文件重要、函数怎么流动、修改哪里风险最大。
@@ -52,7 +60,7 @@ AI 写代码最怕的不是“语法不会”，而是这几件事：
 - 如果不能改，是 AOT 后端、runtime ABI、包成熟度还是工具链问题。
 - 改完以后应该跑哪些命令验证。
 
-AX 把这些问题做成编译器的一等输出：
+AX 把这些问题做成编译器的一等输出。对人来说，它是更清楚的错误解释；对 agent 来说，它是下一步行动的判断依据：
 
 | 能力 | AX 怎么做 |
 | --- | --- |
@@ -87,6 +95,8 @@ AI 读结构化错误
 
 ## 现在 AX 做到哪里了
 
+如果只想快速判断 AX 现在是不是“已经有东西了”，可以先看这一张表。它不是未来愿景，而是当前仓库已经落地、正在验证的能力边界。
+
 | 模块 | 当前状态 |
 | --- | --- |
 | CLI | `axc check / run / fmt / build / context / pkg` 已在主线。 |
@@ -105,7 +115,9 @@ AI 读结构化错误
 | 标准库基础 | `std.bytes`、`std.encoding`、`std.json`、`std.hash`、`std.http` 已作为包和后端路线的基础。 |
 | 1.0 路线 | `docs/release-1.0-backend-systems.md` 已把目标收成 Backend Systems Language。 |
 
-更直白地说：AX 当前已经有“语言工具链雏形”，正在从 Alpha 走向后端系统语言。现在最重要的事不是随机堆功能，而是把包系统、语言规格、runtime ABI、AOT 后端、标准库、async/IO、IDE/LSP 逐步收成可靠工程能力。
+所以，AX 当前不是一份停在概念阶段的语言草案。它已经有能运行的解释器、能生成可执行文件的 AOT 子集、能被 agent 消费的诊断和上下文、能验证修复的 benchmark，以及正在成形的 package preview。
+
+接下来最重要的事不是随机堆功能，而是把这些已经存在的能力继续收稳：包系统要进入真实协作，语言规格要冻结，runtime ABI 要清楚，AOT 后端要走向 Backend Profile v1，标准库、async/IO、IDE/LSP 再沿着这条主线推进。
 
 ## 解释器和编译器是同一门语言
 
