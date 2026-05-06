@@ -3,281 +3,461 @@
 
 # AX
 
-### AI-native language toolchain
+### 面向 AI 时代的原生编程语言与工具链
 
 [![License](https://img.shields.io/github/license/AX-FDN/AX)](./LICENSE)
-[![Status](https://img.shields.io/badge/status-0.1%20Alpha-0ea5e9)](./docs/release-0.1-alpha.md)
-[![AOT](https://img.shields.io/badge/LLVM%20AOT-v0-2563eb)](./docs/llvm-aot.md)
-[![Packages](https://img.shields.io/badge/packages-preview-16a34a)](./docs/package-registry-v0.md)
+[![Version](https://img.shields.io/badge/version-0.1%20Alpha-2563eb)](./docs/release-0.1-alpha.md)
+[![AOT](https://img.shields.io/badge/LLVM%20AOT-v0%20executable--capable-0ea5e9)](./docs/llvm-aot.md)
+[![Packages](https://img.shields.io/badge/package%20preview-curated-16a34a)](./docs/package-registry-v0.md)
 
 </div>
 
-AX is an AI-native language toolchain. It combines a language frontend, stable
-interpreter execution, LLVM AOT v0, structured diagnostics, AI-readable context,
-repair benchmark evidence, and a curated package preview.
+AX 是一门正在走向成熟后端系统开发的 **AI-native programming language**。
 
-Current public boundary:
+它不是只写给人看的语法，也不是一个只会“把脚本跑起来”的解释器。AX 从一开始就把语言、解释器、编译器、结构化诊断、AI 上下文、AOT 后端、验证脚本、benchmark 和包生态放进同一套工具链里，目标是让人和 Coding Agent 都能更稳定地写代码、理解项目、修复错误、验证修改。
+
+一句话说：
+
+```text
+AX 要做的是 AI 时代的后端系统语言：
+同一份源码，解释器能跑，AOT 能编，错误能分层，AI 能知道该怎么修。
+```
+
+当前公开边界是：
 
 ```text
 AX 0.1 Alpha / Developer Preview
-interpreter-stable + LLVM AOT v0 executable-capable subset + 0.2 Package Preview in progress
+interpreter-stable + LLVM AOT v0 executable-capable subset
+0.2 Package Preview in progress
 ```
 
-AX is not a mature production language yet. The honest claim is stronger than
-that: AX already has a coherent toolchain shape, and the project is now focused
-on making every capability verifiable, layered, and usable by humans and coding
-agents.
+AX 现在还不是 1.0，也不是要立刻宣称替代 Go、Rust、MoonBit、Python 或 TypeScript。但它已经不是玩具语言：它已经具备共享前端、稳定解释执行、LLVM AOT 可执行子集、结构化 AI 诊断、项目上下文协议、repair benchmark、包预览和一批标准库基础模块。
 
-## Why AX Exists
+## 为什么 AX 是 AI-native
 
-AX is designed around a simple idea:
+很多语言是先为人设计，再让 AI 去适应。AX 的思路反过来：语言和工具链从一开始就把 AI 当成重要使用者。
 
-```text
-source code
-  -> compiler understands the layer
-  -> diagnostics explain the failure
-  -> AI knows whether to edit source, explain a backend gap, verify a package, or fix tooling
-  -> tests/smokes/parity prove the result
-```
+AI 写代码最怕的不是“语法不会”，而是这几件事：
 
-The goal is not only to run code. The goal is to make code generation, repair,
-project understanding, and validation part of the same language system.
+- 错误信息太散，分不清是语法错、类型错、运行时错、后端不支持，还是工具链缺失。
+- 项目一大，AI 不知道哪些文件重要、函数怎么流动、修改哪里风险最大。
+- 修完以后只靠猜，不知道该跑 `check`、`run`、`build`、package smoke，还是 benchmark。
+- 后端不支持某个合法语法时，AI 可能误以为用户代码错了，然后乱改业务逻辑。
 
-## Current Snapshot
+AX 把这些问题做成编译器的一等输出：
 
-| Area | Current status |
+| 能力 | AX 怎么做 |
 | --- | --- |
-| Interpreter | `axc run` is the stable semantic reference for the current language mainline. |
-| Compiler/AOT | LLVM AOT v0 can emit IR and native executables for the supported subset when clang/linking is available. |
-| AOT parity | Default run-vs-exe parity covers `123` cases, including `26` project cases. |
-| Projects | All `26` repository `AX.toml` project examples are listed in default AOT parity. |
-| Build contract | `build-manifest.json` schema version `10`; `aot_readiness.schema_version = 3`. |
-| Diagnostics | Text, `--json`, and `--json --ai` outputs exist. |
-| Context | `overview / boundaries / topology / flow / symbol / impact / evidence` are compiler-produced views. |
-| Packages | Curated registry preview with `32` packages; stable pure-AX smoke covers `30` packages. |
-| Package source | Preview packages live in [AX-FDN/AX-PKG](https://github.com/AX-FDN/AX-PKG.git). |
-| Std foundations | `std.bytes`, `std.encoding`, `std.json`, `std.hash`, and `std.http` are package-facing foundations. |
+| 分层错误 | lexer / parser / semantic / interpreter / AOT readiness / runtime ABI / LLVM lowering / toolchain link / package registry 都应该有清楚层级。 |
+| 结构化诊断 | `axc check --json --ai` 可以给出 rule id、repair goal、fixit、上下文片段和验证建议。 |
+| AI 上下文 | `axc context` 输出 overview、boundaries、topology、flow、symbol、impact、evidence 等视图。 |
+| 双路径验证 | `axc run` 是解释器语义参考，`axc build` 把支持子集编到 native exe，再做 run-vs-exe parity。 |
+| benchmark 证据 | repair benchmark、snapshot、smoke 和 deterministic replay 用来证明修复能力，而不是只靠口号。 |
 
-## Interpreter And Compiler Together
-
-AX has two execution paths, but not two languages:
-
-| Path | Command | Role |
-| --- | --- | --- |
-| Interpreter | `axc run <file-or-project>` | Stable semantic execution and reference behavior. |
-| AOT compiler | `axc build <file-or-project>` | Emits build artifacts, LLVM IR, and native executable output for the supported subset. |
-
-Both paths share the same lexer, parser, semantic layer, HIR, and MIR pipeline.
-New language work should keep this invariant: checking, interpretation, build
-artifacts, context, and AOT should all describe the same source-language fact.
-
-## AOT Status
-
-Safe description:
+AX 的目标不是“AI 看报错猜一下怎么改”，而是：
 
 ```text
-LLVM AOT v0 is executable-capable for a growing native subset.
-It is not just an IR demo.
-It is not yet a mature native backend.
+AI 读结构化错误
+  -> 判断是源码问题、后端能力缺口、包问题还是工具链问题
+  -> 修改源码或解释限制
+  -> 跑 check / run / build / pkg / benchmark
+  -> 根据新结果继续收敛
 ```
 
-AOT validation compares:
+这就是 AX 和普通小语言项目最大的区别。
 
-```text
-axc check
-axc run
-axc build --json
-native executable
-exit code / stdout / stderr
-```
+## 现在 AX 做到哪里了
 
-Current AOT covers a broad core subset: arithmetic, control flow, strings in the
-current runtime subset, f32 core operations, arrays, slices, structs, enums,
-match features, Result/Option cases, project-backed examples, local path package
-cases, and selected host runtime boundaries such as argv/env/fs/path/process.
-
-Unsupported features must be reported as AOT readiness blockers, lowering
-diagnostics, runtime ABI blockers, toolchain issues, or linker issues. They
-should not be disguised as user source errors.
-
-## Package Ecosystem Preview
-
-AX now has an early but usable package preview:
-
-- registry metadata lives in this compiler repository under [`registry/`](./registry/)
-- package source lives in [AX-PKG](https://github.com/AX-FDN/AX-PKG.git)
-- packages are source-only
-- metadata pins git URL, revision, path, modules, and checksum
-- `axc pkg search/info/check/tree/add/install/hash` exists in the preview slice
-- registry install can materialize real pinned packages into the local AX cache
-
-Current registry facts:
-
-- Registry catalog: `32` curated packages.
-- Stable pure-AX smoke coverage: `30` packages.
-- Package native parity covers stable pure-AX registry packages through
-  `json_tools` plus `generic_tools` generic/method coverage.
-- Host-boundary preview packages: `http_tools` and `net_tools`.
-- Package source monorepo: `https://github.com/AX-FDN/AX-PKG.git`.
-- Validation entries: [`scripts/smoke-package-registry.ps1`](./scripts/smoke-package-registry.ps1),
-  [`scripts/smoke-package-registry-aot.ps1`](./scripts/smoke-package-registry-aot.ps1),
-  and [`scripts/smoke-package-registry-native-parity.ps1`](./scripts/smoke-package-registry-native-parity.ps1).
-
-Package families include API helpers, auth previews, bytes/encoding/hash tools,
-JSON/text/url helpers, cache/retry/pagination, queue/migration/schema workflow,
-observability, rate limits, health checks, and host-boundary HTTP/TCP previews.
-
-Important boundaries:
-
-- `jwt_tools` does not sign tokens.
-- `hash_tools` and `std.hash` are not cryptographic.
-- `database_tools` is not a native database driver.
-- `http_tools` and `net_tools` are interpreter-first host-boundary experiments.
-- Production TLS, crypto, real DB drivers, and mature network runtime ABI are future work.
-
-## Standard Library Foundation
-
-The standard library is in preview, but it now carries real package-facing
-foundation work:
-
-| Module | Current role |
+| 模块 | 当前状态 |
 | --- | --- |
-| `std.bytes` | Interpreter-stable byte buffers. |
-| `std.encoding` | Hex/base64 helpers over bytes. |
-| `std.json` | Deterministic JSON string construction. |
-| `std.hash` | Deterministic non-cryptographic checksums and cache labels. |
-| `std.http` | Pure HTTP request/status/header helpers plus host-boundary `get`. |
+| CLI | `axc check / run / fmt / build / context / pkg` 已在主线。 |
+| 前端 | lexer、parser、semantic、HIR、MIR 由解释器、构建、上下文、AOT 共享。 |
+| 解释器 | `axc run` 是当前语言主线的稳定语义参考。 |
+| AOT 编译器 | LLVM AOT v0 已能为支持子集生成 IR，并在 clang/linker 可用时生成 native executable。 |
+| AOT parity | 默认 run-vs-exe parity 覆盖 `123` 个 case，其中包含 `26` 个 `AX.toml` project case。 |
+| Project mode | 仓库内 `26` 个 `AX.toml` project examples 已全部进入默认 AOT parity 清单。 |
+| Build manifest | `build-manifest.json` schema version 是 `10`。 |
+| AOT readiness | `aot_readiness.schema_version` 是 `3`。 |
+| 诊断 | 文本输出、`--json`、`--json --ai` 都已存在。 |
+| 上下文 | `overview / boundaries / topology / flow / symbol / impact / evidence` 已由编译器输出。 |
+| 包系统 | local path package v0、`AX.lock` v0、registry metadata、`axc pkg`、checksum-backed install preview 已存在。 |
+| 包目录 | registry catalog 有 `32` 个 curated packages，stable pure-AX smoke 覆盖 `30` 个包。 |
+| 标准库基础 | `std.bytes`、`std.encoding`、`std.json`、`std.hash`、`std.http` 已作为包和后端路线的基础。 |
+| 1.0 路线 | `docs/release-1.0-backend-systems.md` 已把目标收成 Backend Systems Language。 |
 
-The important design rule is separation:
+更直白地说：AX 当前已经有“语言工具链雏形”，正在从 Alpha 走向后端系统语言。现在最重要的事不是随机堆功能，而是把包系统、语言规格、runtime ABI、AOT 后端、标准库、async/IO、IDE/LSP 逐步收成可靠工程能力。
+
+## 解释器和编译器是同一门语言
+
+很多新同学会问：`axc.exe` 到底是解释器还是编译器？
+
+答案是：**它是 AX 的工具链入口，里面同时包含解释器路径和编译器/AOT 路径。**
+
+```mermaid
+flowchart TD
+  A["AX source"] --> B["Lexer"]
+  B --> C["Parser"]
+  C --> D["Semantic"]
+  D --> E["HIR"]
+  E --> F["MIR"]
+  F --> G["Interpreter: axc run"]
+  F --> H["LLVM AOT: axc build"]
+  H --> I["LLVM IR"]
+  I --> J["clang/lld or system linker"]
+  J --> K["native executable"]
+```
+
+解释器和 AOT 不是两套语言。它们共享同一个前端：
+
+- `axc check`：只检查，不执行。
+- `axc run`：走解释器，直接执行 AX 程序，是当前语义参考。
+- `axc build`：走构建/AOT 路径，导出 HIR/MIR/LLVM IR/manifest，并在支持时生成 exe。
+- `axc context`：基于同一套前端和项目分析，给 AI 输出架构上下文。
+- `axc pkg`：管理 curated registry/package preview。
+
+这意味着后续加语法时，正确路径不是“解释器加一套，编译器再猜一套”，而是：
 
 ```text
-pure helpers
-  -> should stay usable without claiming native host runtime support
-
-host/runtime calls
-  -> must report explicit readiness blockers until native ABI support exists
+语法设计
+  -> parser 支持
+  -> semantic 明确类型和规则
+  -> HIR/MIR lowering
+  -> interpreter 执行
+  -> AOT readiness 给出支持或 blocker
+  -> AOT lowering 逐步补 native
+  -> tests / snapshots / parity 验证
 ```
 
-## Quick Commands
+这种共享前端是 AX 能长期长大的基础。
 
-Build the compiler:
+## AOT 后端现在是什么水平
+
+AX 的 AOT 当前是：
+
+```text
+LLVM AOT v0 executable-capable subset
+```
+
+这句话很重要，它的意思是：
+
+- 不是只有 IR 展示。AX 已经能在支持子集上生成 native executable。
+- 不是成熟 native backend。它还在按能力包扩张，不能说已经达到 Go/Rust 这种成熟度。
+- 它已经能通过 run-vs-exe parity 证明解释器和 native 输出一致。
+- 它的失败会尽量进入 `aot_readiness.blockers`、lowering diagnostic、runtime ABI blocker 或 toolchain/link blocker，而不是伪装成用户源码错误。
+
+当前 AOT parity 的事实：
+
+```text
+default parity cases: 123
+project parity cases: 26
+repo AX.toml project examples listed: 26 / 26
+```
+
+AOT 当前已经覆盖不少核心能力：基础类型、函数、控制流、数组、slice、struct、enum、payload enum、match、Result/Option 风格、部分泛型实例、字符串 runtime、路径/文件/环境/进程相关 host Result lowering 的一批入口，以及 package/project-backed parity 的基础切片。
+
+最近后端还在往 Backend Profile v1 收：
+
+- `scripts/smoke-backend-profile-v1.ps1` 已作为后端画像代表 smoke。
+- host/network runtime smoke 已验证本地 TCP-backed `std.http` / `std.net` 行为和 `AOT0301/runtime_abi` blocker。
+- AOT 对部分 host Result API 已经有 lowering 入口，例如 `std.env.try_get`、`std.fs.try_read_to_string`、`std.fs.try_read_dir`、`std.process.try_run` 等。
+
+长期目标不是“能编几个 demo”，而是：
+
+```text
+Backend Profile v1 内的程序：
+axc check 通过
+axc run 通过
+axc build --emit exe 通过
+native exe 与解释器输出 parity 一致
+```
+
+## build 会产出什么
+
+AX 的 `build` 不只是“吐一个 exe”。成熟编译器要给用户交付物，也要给 AI 和 CI 证据。
+
+典型构建产物会围绕这些内容：
+
+```text
+build/<target>/
+  source.ax
+  program.hir.json
+  program.mir.json
+  generated/main.ll
+  bin/<target>.exe
+  build-manifest.json
+```
+
+可以这样理解：
+
+| 产物 | 用途 |
+| --- | --- |
+| `source.ax` | 构建时使用的源码证据。 |
+| `program.hir.json` | 高级中间表示，方便看前端降级结果。 |
+| `program.mir.json` | 中级中间表示，方便看控制流和后端输入。 |
+| `generated/main.ll` | LLVM IR，方便调试 AOT lowering。 |
+| `bin/<target>.exe` | 用户真正运行的 native executable。 |
+| `build-manifest.json` | 构建合同，记录 emit、artifacts、readiness、blockers、schema 等信息。 |
+
+常用命令：
 
 ```powershell
-.\scripts\cargo-gnu.ps1 build --quiet
+axc build examples/aot_return.ax --emit ir
+axc build examples/aot_return.ax --emit exe
+axc build examples/aot_return.ax --emit all
+axc build examples/aot_return.ax --no-link
 ```
 
-Check and run an AX file:
+`build-manifest.json` 是 AX 非常重要的设计点。它让 AI 和 CI 能判断失败来自哪里：
+
+- 用户源码不合法
+- AOT 子集暂不支持
+- runtime ABI 还没冻结
+- clang/linker 缺失
+- package maturity 阻塞
+- 编译器内部错误
+
+这就是“错误分层让 AI 自己判断该不该改源码”的基础。
+
+## 包生态：0.2 Package Preview
+
+AX 已经开始做包生态，但路线是谨慎而可验证的。
+
+当前包源仓库是：
+
+```text
+https://github.com/AX-FDN/AX-PKG.git
+```
+
+AX 主仓库维护 curated registry metadata，AX-PKG 存放包源码。用户使用包时，`axc pkg` 根据主仓库里的 registry metadata 找到包的位置、revision、path、checksum，然后安装到本地缓存并参与 check/run/build。
+
+当前包系统能力：
+
+```text
+axc pkg search
+axc pkg info
+axc pkg check
+axc pkg tree
+axc pkg add
+axc pkg install
+axc pkg hash
+```
+
+包成熟度分三类：
+
+| Maturity | 含义 |
+| --- | --- |
+| `stable_pure_ax` | 纯 AX 包，不依赖 host/native 边界，是当前最适合进入 smoke 和 AOT parity 的包。 |
+| `host_boundary_preview` | 包语义需要文件、网络、进程、环境等 host 能力，解释器可先行，AOT 需要 runtime ABI 支撑。 |
+| `future_native_preview` | 未来需要更完整 native runtime、FFI、TLS、DB、crypto 等能力，当前主要用于规划和接口设计。 |
+
+当前 registry catalog 有 `32` 个 curated packages，stable pure-AX smoke 覆盖 `30` 个包。这个阶段不做 npm/crates.io 式公开上传服务器，不做账号系统，不安装任意 native binary，也不执行任意安装脚本。AX 先选择 curated PR 模式，让生态从可审查、可校验、可复现开始。
+
+更多看：
+
+- [docs/package-registry-v0.md](./docs/package-registry-v0.md)
+- [CONTRIBUTING.md](./CONTRIBUTING.md)
+
+## 标准库当前边界
+
+AX 的 `std.*` 已经不是空壳，但仍处在基础建设阶段。
+
+当前面向包和后端路线的基础包括：
+
+| 模块 | 当前定位 |
+| --- | --- |
+| `std.bytes` | byte buffer 基础，支撑 encoding、HTTP、TLS、DB 的后续 ABI。 |
+| `std.encoding` | hex/base64 等编码辅助。 |
+| `std.json` | 当前是确定性的 JSON 构造/字符串辅助，后续要走向 encode/decode v1。 |
+| `std.hash` | 确定性非加密 checksum helper，不等于安全 crypto。 |
+| `std.http` | pure request/status/header helper，加上 host-boundary preview。 |
+| `std.fs` / `std.env` / `std.process` / `std.path` | host 能力基础，正在和 Result/error/runtime ABI 对齐。 |
+
+需要说清楚：AX 后面会做 HTTP/TLS/DB/async，但这些不能靠解释器“偷跑”。真正成熟之前，要先把 runtime ABI v1、host handle、bytes/string ownership、Result error mapping、native linking 和 AOT readiness blocker 做清楚。
+
+## 新手快速开始
+
+先构建或准备 `axc`，然后写一个 AX 文件：
+
+```ax
+fn main() -> i32 {
+    println("hello AX")
+    return 0
+}
+```
+
+检查：
 
 ```powershell
-D:\CargoTarget\AX\debug\axc.exe check examples\aot_return.ax
-D:\CargoTarget\AX\debug\axc.exe run examples\aot_return.ax
+axc check examples/aot_return.ax
 ```
 
-Build IR or an executable:
+运行解释器：
 
 ```powershell
-D:\CargoTarget\AX\debug\axc.exe build examples\aot_return.ax --emit ir --no-link
-D:\CargoTarget\AX\debug\axc.exe build examples\aot_return.ax --emit exe
+axc run examples/aot_return.ax
 ```
 
-Use package registry preview:
+构建 AOT IR：
 
 ```powershell
-D:\CargoTarget\AX\debug\axc.exe pkg search text --registry registry
-D:\CargoTarget\AX\debug\axc.exe pkg info http_tools --registry registry
-D:\CargoTarget\AX\debug\axc.exe pkg check --registry registry
+axc build examples/aot_return.ax --emit ir
 ```
 
-Run focused smokes:
+如果本机有 clang/linker，构建 native executable：
 
 ```powershell
-.\scripts\smoke-http-helpers.ps1
-.\scripts\smoke-json-runtime.ps1
-.\scripts\smoke-hash-runtime.ps1
-.\scripts\smoke-package-registry.ps1
+axc build examples/aot_return.ax --emit exe
 ```
 
-Run the core build test slice:
+查看 AI 友好的诊断：
+
+```powershell
+axc check examples/bad_case.ax --json --ai
+```
+
+查看项目上下文：
+
+```powershell
+axc context examples/project_package_math --view overview
+axc context examples/project_package_math --view topology
+axc context examples/project_package_math --view flow
+```
+
+查看包：
+
+```powershell
+axc pkg search
+axc pkg info json_tools
+axc pkg tree
+```
+
+## 本地验证
+
+Windows 下仓库推荐通过 `scripts/cargo-gnu.ps1` 走统一 cargo 入口：
 
 ```powershell
 .\scripts\cargo-gnu.ps1 fmt --check
-.\scripts\cargo-gnu.ps1 test --lib build::
 .\scripts\cargo-gnu.ps1 test --lib backend::llvm
+.\scripts\cargo-gnu.ps1 test --lib build::
+.\scripts\cargo-gnu.ps1 build --quiet
 ```
 
-## Current Direction
+AOT 代表 smoke：
 
-AX is currently converging around two release lines:
+```powershell
+.\scripts\smoke-backend-profile-v1.ps1
+.\scripts\smoke-aot-link.ps1
+.\scripts\smoke-aot-parity.ps1
+.\scripts\smoke-aot-runtime-errors.ps1
+```
+
+包系统 smoke：
+
+```powershell
+.\scripts\smoke-package-registry.ps1
+.\scripts\smoke-package-registry-aot.ps1
+.\scripts\smoke-package-registry-native-parity.ps1
+```
+
+不是每次改 README 都需要跑全量测试；但改后端、包系统、diagnostics、manifest、AOT readiness 时，要按变更范围跑对应 smoke。
+
+## 路线图
+
+AX 的路线已经收成一条主线：
 
 ```text
-0.1 Alpha:
-  keep interpreter stable
-  keep LLVM AOT v0 honest and executable-capable
-  keep diagnostics/context/repair benchmark as first-class compiler surfaces
-
-0.2 Package Preview:
-  strengthen curated registry
-  strengthen AX-PKG source packages
-  strengthen checksum-backed installs
-  make package-backed check/run/build/AOT readiness increasingly reliable
-
-1.0 Backend Systems Language:
-  Windows + Linux
-  default reliable AOT for Backend Profile v1
-  runtime ABI before production HTTP/TLS/DB/async
-  keep AI-native diagnostics and repair guidance as a core differentiator
+0.1 Alpha
+  -> 0.2 Package Preview
+  -> Language Spec Freeze
+  -> Native Runtime ABI v1
+  -> Reliable AOT Backend Profile v1
+  -> Backend Standard Library v1
+  -> Async/IO Runtime v1
+  -> Package/Registry Stability
+  -> LSP/VSCode
+  -> 1.0 Backend Systems Language
 ```
 
-New work should strengthen one of these loops:
+### 0.1 Alpha
 
-- shared frontend -> interpreter/build/context
-- diagnostics -> AI repair contract
-- run -> AOT executable parity
-- std foundation -> curated package ecosystem
-- package install -> lock/check/run/build validation
+证明 AX 的基本形态成立：
 
-## Documentation Map
+- 同一前端
+- 解释器稳定
+- AOT v0 可生成 exe
+- 错误可分层
+- AI 可读 diagnostics/context
+- benchmark/parity 能验证
 
-| Need | Document |
+### 0.2 Package Preview
+
+把包系统从“能用”收成可协作地基：
+
+- curated registry metadata
+- AX-PKG source package monorepo
+- checksum-backed install
+- `AX.lock`
+- package maturity
+- package-backed check/run/build/AOT readiness
+- stable pure-AX package smoke
+
+### 1.0 Backend Systems Language
+
+目标是 Windows + Linux 上默认可靠的后端系统语言：
+
+- Backend Profile v1 内默认可靠 AOT
+- runtime ABI v1
+- JSON / HTTP / TLS / TCP / PostgreSQL / async 的明确路线
+- 结构化错误和 AI repair contract 不丢
+- VSCode/LSP 基础能力
+- 一个真实后端 demo 能 check/run/build
+
+详细路线看：
+
+- [docs/release-0.1-alpha.md](./docs/release-0.1-alpha.md)
+- [docs/release-1.0-backend-systems.md](./docs/release-1.0-backend-systems.md)
+- [docs/backend-profile-v1.md](./docs/backend-profile-v1.md)
+
+## 现在不要夸大的地方
+
+AX 可以自信介绍自己，但要讲事实。
+
+可以说：
+
+```text
+AX 是一个可信的 AI-native language toolchain preview：
+解释器稳定，LLVM AOT v0 已具备可执行子集，结构化诊断/context/repair/benchmark 是一等能力，
+包生态和后端 profile 正在进入收口阶段。
+```
+
+不要说：
+
+- AX 已经是 production-ready 1.0。
+- AX 已经有成熟 native backend。
+- AX 已经有完整 public package registry。
+- AX 已经有生产级 HTTP/TLS/DB/async/crypto/IDE。
+- AX 已经可以替代 Go/Rust/MoonBit。
+
+这不是自弱，而是保持可信。AX 真正强的地方，是它把语言、编译器、解释器、AOT、AI 反馈、包生态和验证证据放在同一个方向上推进。
+
+## 文档入口
+
+| 想了解 | 看这里 |
 | --- | --- |
-| Current facts | [`PROJECT_FACTS.md`](./PROJECT_FACTS.md) |
-| Public wording boundary | [`docs/public-claims.md`](./docs/public-claims.md) |
-| 0.1 Alpha release scope | [`docs/release-0.1-alpha.md`](./docs/release-0.1-alpha.md) |
-| 0.2 Package Preview | [`docs/release-0.2-package-preview.md`](./docs/release-0.2-package-preview.md) |
-| 1.0 Backend Systems roadmap | [`docs/release-1.0-backend-systems.md`](./docs/release-1.0-backend-systems.md) |
-| Backend Profile v1 draft | [`docs/backend-profile-v1.md`](./docs/backend-profile-v1.md) |
-| Backend Profile v1 inventory | [`docs/backend-profile-v1-inventory.md`](./docs/backend-profile-v1-inventory.md) |
-| Language specification skeleton | [`docs/language-spec.md`](./docs/language-spec.md) |
-| Error model skeleton | [`docs/error-model.md`](./docs/error-model.md) |
-| Package preview contract | [`docs/package-registry-v0.md`](./docs/package-registry-v0.md) |
-| Package maturity | [`docs/package-maturity.md`](./docs/package-maturity.md) |
-| AOT details | [`docs/llvm-aot.md`](./docs/llvm-aot.md) |
-| Native ABI notes | [`docs/aot-native-abi.md`](./docs/aot-native-abi.md) |
-| Validation matrix | [`docs/validation-matrix.md`](./docs/validation-matrix.md) |
-| Feature matrix | [`docs/feature-matrix.md`](./docs/feature-matrix.md) |
-| Architecture overview | [`docs/architecture.md`](./docs/architecture.md) |
-| Contribution guide | [`CONTRIBUTING.md`](./CONTRIBUTING.md) |
-| Package source repo | [AX-PKG](https://github.com/AX-FDN/AX-PKG.git) |
-
-## What Not To Claim Yet
-
-AX should not currently claim:
-
-- production-ready 1.0 status
-- mature native backend parity with Go/Rust/MoonBit
-- complete standard library
-- complete public package registry
-- production-grade HTTP/TLS/crypto/database/async/FFI support
-- universal AI repair superiority over other languages
-
-The confident claim is:
-
-```text
-AX is a real AI-native language toolchain preview with a stable interpreter,
-an executable-capable LLVM AOT v0 subset, structured diagnostics/context,
-repair benchmark evidence, and a growing curated package ecosystem.
-```
+| 当前事实锚点 | [PROJECT_FACTS.md](./PROJECT_FACTS.md) |
+| 对外说法边界 | [docs/public-claims.md](./docs/public-claims.md) |
+| 0.1 Alpha 发布边界 | [docs/release-0.1-alpha.md](./docs/release-0.1-alpha.md) |
+| 1.0 后端系统语言路线 | [docs/release-1.0-backend-systems.md](./docs/release-1.0-backend-systems.md) |
+| AOT 后端 | [docs/llvm-aot.md](./docs/llvm-aot.md) |
+| Native ABI | [docs/aot-native-abi.md](./docs/aot-native-abi.md) |
+| Backend Profile v1 | [docs/backend-profile-v1.md](./docs/backend-profile-v1.md) |
+| 语言能力矩阵 | [docs/feature-matrix.md](./docs/feature-matrix.md) |
+| 语言支持状态 | [docs/language-support-status.md](./docs/language-support-status.md) |
+| 包注册表设计 | [docs/package-registry-v0.md](./docs/package-registry-v0.md) |
+| 贡献指南 | [CONTRIBUTING.md](./CONTRIBUTING.md) |
+| 验证矩阵 | [docs/validation-matrix.md](./docs/validation-matrix.md) |
+| repair benchmark | [docs/repair-benchmark.md](./docs/repair-benchmark.md) |
 
 ## License
 
-AX is licensed under [Apache-2.0](./LICENSE).
+AX is released under the [Apache-2.0 license](./LICENSE).
