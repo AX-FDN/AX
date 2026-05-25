@@ -39,6 +39,33 @@ interpreter-stable + LLVM AOT v0 executable-capable subset
 
 AX 当前处在 `0.1 Alpha / Developer Preview` 阶段，正在从“可验证的语言工具链”走向成熟后端系统语言。它还不是 1.0，也不会在这个阶段宣称替代 Go、Rust、MoonBit、Python 或 TypeScript；但它已经具备共享前端、稳定解释执行、LLVM AOT 可执行子集、结构化 AI 诊断、项目上下文协议、repair benchmark、包预览和一批标准库基础模块。
 
+## Benchmark 证据快照
+
+AX 现在有几套仓库内 benchmark。它们的定位是：证明 AX 的诊断、AI repair contract、context bundle、adapter 契约和评分脚本能在同一条链路里稳定复跑。它们不是第三方权威 benchmark，也不是跨语言、跨模型的公开排行榜。
+
+| Benchmark | 测什么 | 当前规模 | 当前可复现结果 | 复现脚本 |
+| --- | --- | --- | --- | --- |
+| Repair smoke | 从坏例子导出 `cold/base/ai` bundle，调用 replay adapter，再用 `axc check/run` 评分。 | full manifest `43` case；smoke manifest `13` case。 | `ai` replay smoke：`13/13` passed。 | [`smoke-repair-benchmark.ps1`](./scripts/smoke-repair-benchmark.ps1) |
+| Diagnostics cost | 对同一批 check 型坏例子比较 `check`、`check --json`、`check --json --ai` 的本地开销。 | smoke 中 `11` 个 check case，三种 mode。 | schema/summary smoke 已通过；具体毫秒数只代表本机本次运行。 | [`smoke-benchmark-diagnostics.ps1`](./scripts/smoke-benchmark-diagnostics.ps1) |
+| Feedback compare | 比较基础 JSON diagnostics 和 AI-enhanced diagnostics 对修复结果的差异。 | smoke `13` case，deterministic replay。 | `base 7/13 -> ai 13/13`，提升 `+6` case / `+46.15pp`。 | [`smoke-compare-repair-feedback.ps1`](./scripts/smoke-compare-repair-feedback.ps1) |
+| Mode ladder | 比较 `cold -> base -> ai` 三档输入给 repair 链路带来的增量。 | smoke `13` case，deterministic replay。 | `cold 5/13 -> base 7/13 -> ai 13/13`；`cold -> ai` 提升 `+8` case / `+61.54pp`。 | [`smoke-compare-repair-modes.ps1`](./scripts/smoke-compare-repair-modes.ps1) |
+
+复现时统一使用：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\<smoke-script>.ps1
+```
+
+对外表述时，最准确的说法是：
+
+| 可以说 | 不应该说 |
+| --- | --- |
+| AX 有一条仓库内可复现的 repair evidence loop。 | AX 已经拿到了权威 benchmark 成绩。 |
+| `--json --ai` 在当前 AX 自有 case 和 deterministic replay 下能提供可测的修复增量。 | AX 已经证明比 Rust、Go、Python、TypeScript 更适合 AI 写代码。 |
+| diagnostics、context、repair bundle、score/compare 已经进入同一套机器可消费协议。 | 当前结果等价于 live-model、跨语言、第三方可审计的公开 benchmark。 |
+
+完整说明见 [`docs/repair-benchmark.md`](./docs/repair-benchmark.md)、[`docs/diagnostics-benchmark-schema.md`](./docs/diagnostics-benchmark-schema.md) 和 [`docs/benchmark-showcase.md`](./docs/benchmark-showcase.md)。
+
 ## 为什么 AX 是 AI-native
 
 很多语言是先为人设计，再让 AI 去适应。AX 的思路是：人当然要能读、能写、能维护，但 Coding Agent 也必须是一等使用者。

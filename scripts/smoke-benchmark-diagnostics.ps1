@@ -70,6 +70,17 @@ if (-not (Test-Path $manifestPath)) {
     Write-Error "Diagnostics smoke manifest not found: $manifestPath"
 }
 
+$manifest = Get-Content $manifestPath -Raw -Encoding utf8 | ConvertFrom-Json
+$expectedCaseCount = @(
+    $manifest.cases | Where-Object {
+        $diagnosticCommand = [string] $_.diagnostic_command
+        [string]::IsNullOrWhiteSpace($diagnosticCommand) -or
+            $diagnosticCommand.ToLowerInvariant() -eq "check"
+    }
+).Count
+$expectedModeCount = 3
+$expectedTimingRows = $expectedCaseCount * $expectedModeCount
+
 Remove-RepoDirectoryIfExists -Path $OutputDir
 
 & $benchmarkScript -ManifestPath $manifestPath -Iterations $Iterations -OutputDir $outputDir | Out-Null
@@ -83,10 +94,10 @@ $summary = Get-Content $summaryPath -Raw -Encoding utf8 | ConvertFrom-Json
 
 Assert-Equal -Label "schema_version" -Actual ([int] $summary.schema_version) -Expected 1
 Assert-Equal -Label "iterations" -Actual ([int] $summary.iterations) -Expected $Iterations
-Assert-Equal -Label "total_cases" -Actual ([int] $summary.total_cases) -Expected 10
+Assert-Equal -Label "total_cases" -Actual ([int] $summary.total_cases) -Expected $expectedCaseCount
 Assert-StringArray -Label "mode_order" -Actual @($summary.mode_order) -Expected @("text", "json", "json_ai")
-Assert-Equal -Label "per_case_timings count" -Actual (@($summary.per_case_timings).Count) -Expected 30
-Assert-Equal -Label "mode_summary count" -Actual (@($summary.mode_summary).Count) -Expected 3
+Assert-Equal -Label "per_case_timings count" -Actual (@($summary.per_case_timings).Count) -Expected $expectedTimingRows
+Assert-Equal -Label "mode_summary count" -Actual (@($summary.mode_summary).Count) -Expected $expectedModeCount
 Assert-Equal -Label "pairwise_overhead count" -Actual (@($summary.pairwise_overhead).Count) -Expected 3
 
 $textMode = @($summary.mode_summary | Where-Object { [string] $_.mode -eq "text" })
@@ -96,9 +107,9 @@ $jsonAiMode = @($summary.mode_summary | Where-Object { [string] $_.mode -eq "jso
 Assert-Equal -Label "text mode rows" -Actual $textMode.Count -Expected 1
 Assert-Equal -Label "json mode rows" -Actual $jsonMode.Count -Expected 1
 Assert-Equal -Label "json_ai mode rows" -Actual $jsonAiMode.Count -Expected 1
-Assert-Equal -Label "text mode files" -Actual ([int] $textMode[0].files) -Expected 10
-Assert-Equal -Label "json mode files" -Actual ([int] $jsonMode[0].files) -Expected 10
-Assert-Equal -Label "json_ai mode files" -Actual ([int] $jsonAiMode[0].files) -Expected 10
+Assert-Equal -Label "text mode files" -Actual ([int] $textMode[0].files) -Expected $expectedCaseCount
+Assert-Equal -Label "json mode files" -Actual ([int] $jsonMode[0].files) -Expected $expectedCaseCount
+Assert-Equal -Label "json_ai mode files" -Actual ([int] $jsonAiMode[0].files) -Expected $expectedCaseCount
 
 $textToJson = @($summary.pairwise_overhead | Where-Object { [string] $_.from_mode -eq "text" -and [string] $_.to_mode -eq "json" })
 $jsonToJsonAi = @($summary.pairwise_overhead | Where-Object { [string] $_.from_mode -eq "json" -and [string] $_.to_mode -eq "json_ai" })
